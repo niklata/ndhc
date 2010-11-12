@@ -1,7 +1,7 @@
 /* ifchd.c - interface change daemon
- * Time-stamp: <2010-11-12 12:04:25 njk>
+ * Time-stamp: <2010-11-12 14:27:47 njk>
  *
- * (C) 2004 Nicholas J. Kain <njk@aerifal.cx>
+ * (C) 2004-2010 Nicholas J. Kain <njkain at gmail dot com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,7 +16,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
  */
 
 #include <unistd.h>
@@ -654,7 +653,7 @@ static void dispatch_work(void)
             idle_time[i] = time(NULL);
             memset(buf, '\0', sizeof(buf));
 
-dispatch_work_read_again:
+read_again:
             ret = (int) read(sks[i], buf, MAX_BUF / 2 - 1);
 
             /* Check to see if peer closed socket */
@@ -666,7 +665,7 @@ dispatch_work_read_again:
 
             if (ret == -1) {
                 if (errno == EINTR)
-                    goto dispatch_work_read_again;
+                    goto read_again;
                 log_line("dispatch_work: read returned %s.\n", strerror(errno));
                 close(sks[i]);
                 new_sk(i, -1);
@@ -747,7 +746,7 @@ int main(int argc, char** argv) {
                 printf(
 "ifchd %s, if change daemon.  Licensed under GNU GPL.\n", IFCHD_VERSION);
                 printf(
-"Copyright (C) 2004 Nicholas J. Kain\n"
+"Copyright (C) 2004-2010 Nicholas J. Kain\n"
 "Usage: ifchd [OPTIONS]\n"
 "  -d, --detach                detach from TTY and daemonize\n"
 "  -n, --nodetach              stay attached to TTY\n"
@@ -772,7 +771,7 @@ int main(int argc, char** argv) {
                 printf(
 "ifchd %s, if change daemon.  Licensed under GNU GPL.\n", IFCHD_VERSION);
                 printf(
-"Copyright (C) 2004 Nicholas J. Kain\n"
+"Copyright (C) 2004-2010 Nicholas J. Kain\n"
 "This is free software; see the source for copying conditions.  There is NO\n"
 "WARRANTY; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
                 exit(EXIT_FAILURE);

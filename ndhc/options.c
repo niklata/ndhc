@@ -1,9 +1,9 @@
-/* 
- * options.c -- DHCP server option packet tools 
+/*
+ * options.c -- DHCP server option packet tools
  * Rewrite by Russ Dill <Russ.Dill@asu.edu> July 2001
- * Fixes and hardening: Nicholas Kain <njk@-n0xZpam-.kain.us>
+ * Fixes and hardening: Nicholas J. Kain <njkain at gmail dot com>
  */
- 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,47 +16,47 @@
 
 /* supported options are easily added here */
 struct dhcp_option options[] = {
-	/* name[10]	flags					code */
-	{"subnet",	OPTION_IP | OPTION_REQ,			0x01},
-	{"timezone",	OPTION_S32,				0x02},
-	{"router",	OPTION_IP | OPTION_LIST | OPTION_REQ,	0x03},
-	{"timesvr",	OPTION_IP | OPTION_LIST,		0x04},
-	{"namesvr",	OPTION_IP | OPTION_LIST,		0x05},
-	{"dns",		OPTION_IP | OPTION_LIST | OPTION_REQ,	0x06},
-	{"logsvr",	OPTION_IP | OPTION_LIST,		0x07},
-	{"cookiesvr",	OPTION_IP | OPTION_LIST,		0x08},
-	{"lprsvr",	OPTION_IP | OPTION_LIST,		0x09},
-	{"hostname",	OPTION_STRING | OPTION_REQ,		0x0c},
-	{"bootsize",	OPTION_U16,				0x0d},
-	{"domain",	OPTION_STRING | OPTION_REQ,		0x0f},
-	{"swapsvr",	OPTION_IP,				0x10},
-	{"rootpath",	OPTION_STRING,				0x11},
-	{"ipttl",	OPTION_U8,				0x17},
-	{"mtu",		OPTION_U16,				0x1a},
-	{"broadcast",	OPTION_IP | OPTION_REQ,			0x1c},
-	{"ntpsrv",	OPTION_IP | OPTION_LIST,		0x2a},
-	{"wins",	OPTION_IP | OPTION_LIST,		0x2c},
-	{"requestip",	OPTION_IP,				0x32},
-	{"lease",	OPTION_U32,				0x33},
-	{"dhcptype",	OPTION_U8,				0x35},
-	{"serverid",	OPTION_IP,				0x36},
-	{"message",	OPTION_STRING,				0x38},
-	{"tftp",	OPTION_STRING,				0x42},
-	{"bootfile",	OPTION_STRING,				0x43},
-	{"",		0x00,				0x00}
+    /* name[10]     flags                                   code */
+    {"subnet"   ,   OPTION_IP | OPTION_REQ,                 0x01},
+    {"timezone" ,   OPTION_S32,                             0x02},
+    {"router"   ,   OPTION_IP | OPTION_LIST | OPTION_REQ,   0x03},
+    {"timesvr"  ,   OPTION_IP | OPTION_LIST,                0x04},
+    {"namesvr"  ,   OPTION_IP | OPTION_LIST,                0x05},
+    {"dns"      ,   OPTION_IP | OPTION_LIST | OPTION_REQ,   0x06},
+    {"logsvr"   ,   OPTION_IP | OPTION_LIST,                0x07},
+    {"cookiesvr",   OPTION_IP | OPTION_LIST,                0x08},
+    {"lprsvr"   ,   OPTION_IP | OPTION_LIST,                0x09},
+    {"hostname" ,   OPTION_STRING | OPTION_REQ,             0x0c},
+    {"bootsize" ,   OPTION_U16,                             0x0d},
+    {"domain"   ,   OPTION_STRING | OPTION_REQ,             0x0f},
+    {"swapsvr"  ,   OPTION_IP,                              0x10},
+    {"rootpath" ,   OPTION_STRING,                          0x11},
+    {"ipttl"    ,   OPTION_U8,                              0x17},
+    {"mtu"      ,   OPTION_U16,                             0x1a},
+    {"broadcast",   OPTION_IP | OPTION_REQ,                 0x1c},
+    {"ntpsrv"   ,   OPTION_IP | OPTION_LIST,                0x2a},
+    {"wins"     ,   OPTION_IP | OPTION_LIST,                0x2c},
+    {"requestip",   OPTION_IP,                              0x32},
+    {"lease"    ,   OPTION_U32,                             0x33},
+    {"dhcptype" ,   OPTION_U8,                              0x35},
+    {"serverid" ,   OPTION_IP,                              0x36},
+    {"message"  ,   OPTION_STRING,                          0x38},
+    {"tftp"     ,   OPTION_STRING,                          0x42},
+    {"bootfile" ,   OPTION_STRING,                          0x43},
+    {""         ,   0x00,                                   0x00}
 };
 
 /* Lengths of the different option types */
 int option_lengths[] = {
-	[OPTION_IP] =		4,
-	[OPTION_IP_PAIR] =	8,
-	[OPTION_BOOLEAN] =	1,
-	[OPTION_STRING] =	1,
-	[OPTION_U8] =		1,
-	[OPTION_U16] =		2,
-	[OPTION_S16] =		2,
-	[OPTION_U32] =		4,
-	[OPTION_S32] =		4
+	[OPTION_IP] =       4,
+	[OPTION_IP_PAIR] =  8,
+	[OPTION_BOOLEAN] =  1,
+	[OPTION_STRING] =   1,
+	[OPTION_U8] =       1,
+	[OPTION_U16] =      2,
+	[OPTION_S16] =      2,
+	[OPTION_U32] =      4,
+	[OPTION_S32] =      4
 };
 
 
@@ -66,7 +66,7 @@ unsigned char *get_option(struct dhcpMessage *packet, int code)
 	int i = 0, length = 308;
 	unsigned char *optionptr;
 	int over = 0, done = 0, curr = OPTION_FIELD;
-	
+
 	optionptr = packet->options;
 	while (!done) {
 		if (i >= length) {
@@ -79,7 +79,7 @@ unsigned char *get_option(struct dhcpMessage *packet, int code)
 				return NULL;
 			}
 			return optionptr + i + 2;
-		}			
+		}
 		switch (optionptr[i + OPT_CODE]) {
 			case DHCP_PADDING:
 				i++;
@@ -114,7 +114,7 @@ unsigned char *get_option(struct dhcpMessage *packet, int code)
 
 
 /* return the position of the 'end' option */
-int end_option(unsigned char *optionptr) 
+int end_option(unsigned char *optionptr)
 {
 	int i = 0;
 
@@ -133,11 +133,11 @@ int end_option(unsigned char *optionptr)
 int add_option_string(unsigned char *optionptr, unsigned char *string)
 {
 	int end = end_option(optionptr);
-	
+
 	/* end position + string length + option code/length + end option */
 	if (end + string[OPT_LEN] + 2 + 1 >= 308) {
 		log_error("Option 0x%02x did not fit into the packet!",
-				string[OPT_CODE]);
+				  string[OPT_CODE]);
 		return 0;
 	}
 	log_line("adding option 0x%02x", string[OPT_CODE]);
@@ -147,16 +147,16 @@ int add_option_string(unsigned char *optionptr, unsigned char *string)
 }
 
 int add_simple_option(unsigned char *optionptr, unsigned char code,
-		uint32_t data)
+					  uint32_t data)
 {
 	int i, length = 0;
 	unsigned char option[2 + 4];
-	
+
 	for (i = 0; options[i].code; i++)
 		if (options[i].code == code) {
 			length = option_lengths[options[i].flags & TYPE_MASK];
 		}
-		
+
 	option[OPT_CODE] = code;
 	option[OPT_LEN] = (unsigned char)length;
 
@@ -189,7 +189,7 @@ struct option_set *find_option(struct option_set *opt_list, char code)
 
 /* add an option to the opt_list */
 void attach_option(struct option_set **opt_list, struct dhcp_option *option,
-		char *buffer, int length)
+				   char *buffer, int length)
 {
 	struct option_set *existing, *new, **curr;
 
@@ -199,29 +199,29 @@ void attach_option(struct option_set **opt_list, struct dhcp_option *option,
 				 option->name);
 		if (option->flags & OPTION_LIST) {
 			if (existing->data[OPT_LEN] + length <= 255) {
-				existing->data = realloc(existing->data, 
-						existing->data[OPT_LEN] + length + 2);
+				existing->data = realloc(existing->data,
+										 existing->data[OPT_LEN] + length + 2);
 				memcpy(existing->data + existing->data[OPT_LEN] + 2, buffer,
-						length);
+					   length);
 				existing->data[OPT_LEN] += length;
 			} /* else, ignore the data; we could put this in a second option
 				 in the future */
 		} /* else, ignore the new data */
 	} else {
 		log_line("Attaching option %s to list", option->name);
-		
+
 		/* make a new option */
 		new = xmalloc(sizeof(struct option_set));
 		new->data = xmalloc(length + 2);
 		new->data[OPT_CODE] = option->code;
 		new->data[OPT_LEN] = length;
 		memcpy(new->data + 2, buffer, length);
-		
+
 		curr = opt_list;
 		while (*curr && (*curr)->data[OPT_CODE] < option->code)
 			curr = &(*curr)->next;
-			
+
 		new->next = *curr;
-		*curr = new;		
+		*curr = new;
 	}
 }

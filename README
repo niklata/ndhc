@@ -10,10 +10,7 @@ C99-compliant C compiler (for C99 struct subobject init)
 
 CMake (tested: 2.8)
 
-Tested with glibc 2.2.x and 2.3.x.  dietlibc is not compatible.  I have not yet
-tested uclibc.
-
-I may bother to port to other operating systems, but don't count on it.
+Tested with glibc.  dietlibc is not compatible.  I have not tested uclibc.
 
 INTRODUCTION
 ------------

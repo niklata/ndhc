@@ -1,7 +1,7 @@
 /* linux.c - ifchd Linux-specific functions
- * Time-stamp: <2010-11-12 08:45:42 njk>
+ * Time-stamp: <2010-11-12 14:29:32 njk>
  *
- * (C) 2004 Nicholas J. Kain <njk@aerifal.cx>
+ * (C) 2004-2010 Nicholas J. Kain <njkain at gmail dot com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,7 +16,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
  */
 
 #include <unistd.h>
@@ -59,7 +58,7 @@ void initialize_if_data(void)
 {
     int i;
     for (i = 0; i < SOCK_QUEUE; i++) {
-	clear_if_data(i);
+        clear_if_data(i);
     }
 }
 
@@ -67,7 +66,7 @@ void initialize_if_data(void)
 void add_permitted_if(char *s)
 {
     if (!s)
-	return;
+        return;
     add_to_strlist(&okif, s);
 }
 
@@ -78,15 +77,15 @@ static int is_permitted(char *name)
 
     /* If empty, permit all. */
     if (!okif)
-	return 1;
+        return 1;
 
     if (!name || strlen(name) == 0)
-	return 0;
+        return 0;
     p = okif;
     while (p) {
-	if (strcmp(name, p->str) == 0)
-	    return 1;
-	p = p->next;
+        if (strcmp(name, p->str) == 0)
+            return 1;
+        p = p->next;
     }
     log_line("attempt to modify interface %s denied\n", name);
     return 0;
@@ -101,24 +100,24 @@ int authorized_peer(int sk, pid_t pid, uid_t uid, gid_t gid)
 
     /* No credentials to verify. */
     if ( !(pid || uid || gid) )
-	return 1;
+        return 1;
 
     /* Verify that peer has authorized uid/gid/pid. */
     cl = sizeof(struct ucred);
     if (getsockopt(sk, SOL_SOCKET, SO_PEERCRED, &cr, &cl) != -1) {
-	if ((pid == 0 || cr.pid == pid) ||
-		(uid == 0 || cr.uid == uid) ||
-		(gid == 0 || cr.gid == gid))
-	    ret = 1;
+        if ((pid == 0 || cr.pid == pid) ||
+            (uid == 0 || cr.uid == uid) ||
+            (gid == 0 || cr.gid == gid))
+            ret = 1;
     } else
-	log_line("getsockopt returned an error: %s\n", strerror(errno));
+        log_line("getsockopt returned an error: %s\n", strerror(errno));
     return ret;
 }
 
 void perform_interface(int idx, char *str)
 {
     if (!str)
-	return;
+        return;
 
     /* Update interface name. */
     memset(ifnam[idx], '\0', IFNAMSIZ);
@@ -131,32 +130,32 @@ static int set_if_flag(int idx, short flag)
     struct ifreq ifrt;
 
     if (!is_permitted(ifnam[idx]))
-	goto out0;
+        goto out0;
 
     fd = socket(PF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
-	log_line("%s: (set_if_flag) failed to open interface socket: %s\n",
-		ifnam[idx], strerror(errno));
-	goto out0;
+        log_line("%s: (set_if_flag) failed to open interface socket: %s\n",
+		 ifnam[idx], strerror(errno));
+        goto out0;
     }
 
     strlcpy(ifrt.ifr_name, ifnam[idx], IFNAMSIZ);
     if (ioctl(fd, SIOCGIFFLAGS, &ifrt) < 0) {
-	log_line("%s: unknown interface: %s\n", ifnam[idx], strerror(errno));
-	goto out1;
+        log_line("%s: unknown interface: %s\n", ifnam[idx], strerror(errno));
+        goto out1;
     }
     strlcpy(ifrt.ifr_name, ifnam[idx], IFNAMSIZ);
     ifrt.ifr_flags |= flag;
     if (ioctl(fd, SIOCSIFFLAGS, &ifrt) < 0) {
-	log_line("%s: failed to set interface flags: %s\n",
-		ifnam[idx], strerror(errno));
-	goto out1;
+        log_line("%s: failed to set interface flags: %s\n",
+		 ifnam[idx], strerror(errno));
+        goto out1;
     }
     ret = 0;
 
-out1:
+  out1:
     close(fd);
-out0:
+  out0:
     return ret;
 }
 
@@ -169,13 +168,13 @@ void perform_ip(int idx, char *str)
     struct sockaddr_in sin;
 
     if (!str)
-	return;
+        return;
     if (!is_permitted(ifnam[idx]))
-	return;
+        return;
     if (!inet_aton(str, &ipaddr))
-	return;
+        return;
     if (set_if_flag(idx, (IFF_UP | IFF_RUNNING)))
-	return;
+        return;
 
     strlcpy(ifrt.ifr_name, ifnam[idx], IFNAMSIZ);
     memset(&sin, 0, sizeof(struct sockaddr));
@@ -185,13 +184,13 @@ void perform_ip(int idx, char *str)
 
     fd = socket(PF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
-	log_line("%s: (perform_ip) failed to open interface socket: %s\n",
-		ifnam[idx], strerror(errno));
-	return;
+        log_line("%s: (perform_ip) failed to open interface socket: %s\n",
+		 ifnam[idx], strerror(errno));
+        return;
     }
     if (ioctl(fd, SIOCSIFADDR, &ifrt) < 0)
-	log_line("%s: failed to configure IP: %s\n",
-		ifnam[idx], strerror(errno));
+        log_line("%s: failed to configure IP: %s\n",
+		 ifnam[idx], strerror(errno));
     close(fd);
 }
 
@@ -204,11 +203,11 @@ void perform_subnet(int idx, char *str)
     struct sockaddr_in sin;
 
     if (!str)
-	return;
+        return;
     if (!is_permitted(ifnam[idx]))
-	return;
+        return;
     if (!inet_aton(str, &subnet))
-	return;
+        return;
 
     strlcpy(ifrt.ifr_name, ifnam[idx], IFNAMSIZ);
     memset(&sin, 0, sizeof(struct sockaddr));
@@ -218,15 +217,15 @@ void perform_subnet(int idx, char *str)
 
     fd = socket(PF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
-	log_line("%s: (perform_ip) failed to open interface socket: %s\n",
-		ifnam[idx], strerror(errno));
-	return;
+        log_line("%s: (perform_ip) failed to open interface socket: %s\n",
+		 ifnam[idx], strerror(errno));
+        return;
     }
     if (ioctl(fd, SIOCSIFNETMASK, &ifrt) < 0) {
-	sin.sin_addr.s_addr = 0xffffffff;
-	if (ioctl(fd, SIOCSIFNETMASK, &ifrt) < 0)
-	    log_line("%s: failed to configure subnet: %s\n",
-		    ifnam[idx], strerror(errno));
+        sin.sin_addr.s_addr = 0xffffffff;
+        if (ioctl(fd, SIOCSIFNETMASK, &ifrt) < 0)
+            log_line("%s: failed to configure subnet: %s\n",
+		     ifnam[idx], strerror(errno));
     }
     close(fd);
 }
@@ -241,11 +240,11 @@ void perform_router(int idx, char *str)
     int fd;
 
     if (!str)
-	return;
+        return;
     if (!is_permitted(ifnam[idx]))
-	return;
+        return;
     if (!inet_aton(str, &router))
-	return;
+        return;
 
     memset(&rt, 0, sizeof(struct rtentry));
     dest = (struct sockaddr_in *) &rt.rt_dst;
@@ -265,12 +264,12 @@ void perform_router(int idx, char *str)
 
     fd = socket(PF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
-	log_line("%s: (perform_router) failed to open interface socket: %s\n",
-		ifnam[idx], strerror(errno));
-	return;
+        log_line("%s: (perform_router) failed to open interface socket: %s\n",
+		 ifnam[idx], strerror(errno));
+        return;
     }
     if (ioctl(fd, SIOCADDRT, &rt))
-	log_line("%s: failed to set route: %s\n", ifnam[idx], strerror(errno));
+        log_line("%s: failed to set route: %s\n", ifnam[idx], strerror(errno));
     close(fd);
 }
 
@@ -281,9 +280,9 @@ void perform_mtu(int idx, char *str)
     struct ifreq ifrt;
 
     if (!str)
-	return;
+        return;
     if (!is_permitted(ifnam[idx]))
-	return;
+        return;
 
     mtu = strtol(str, NULL, 10);
     ifrt.ifr_mtu = mtu;
@@ -291,13 +290,13 @@ void perform_mtu(int idx, char *str)
 
     fd = socket(PF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
-	log_line("%s: (perform_mtu) failed to open interface socket: %s\n",
-		ifnam[idx], strerror(errno));
-	return;
+        log_line("%s: (perform_mtu) failed to open interface socket: %s\n",
+		 ifnam[idx], strerror(errno));
+        return;
     }
     if (ioctl(fd, SIOCSIFMTU, &ifrt) < 0)
-	log_line("%s: failed to set MTU (%d): %s\n", ifnam[idx], mtu,
-		strerror(errno));
+        log_line("%s: failed to set MTU (%d): %s\n", ifnam[idx], mtu,
+		 strerror(errno));
     close(fd);
 }
 
@@ -309,11 +308,11 @@ void perform_broadcast(int idx, char *str)
     struct sockaddr_in sin;
 
     if (!str)
-	return;
+        return;
     if (!is_permitted(ifnam[idx]))
-	return;
+        return;
     if (!inet_aton(str, &broadcast))
-	return;
+        return;
 
     strlcpy(ifrt.ifr_name, ifnam[idx], IFNAMSIZ);
     memset(&sin, 0, sizeof(struct sockaddr));
@@ -323,11 +322,11 @@ void perform_broadcast(int idx, char *str)
 
     fd = socket(PF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
-	log_line("%s: (perform_broadcast) failed to open interface socket: %s\n", ifnam[idx], strerror(errno));
-	return;
+        log_line("%s: (perform_broadcast) failed to open interface socket: %s\n", ifnam[idx], strerror(errno));
+        return;
     }
     if (ioctl(fd, SIOCSIFBRDADDR, &ifrt) < 0)
-	log_line("%s: failed to set broadcast: %s\n",
-		ifnam[idx], strerror(errno));
+        log_line("%s: failed to set broadcast: %s\n",
+		 ifnam[idx], strerror(errno));
     close(fd);
 }

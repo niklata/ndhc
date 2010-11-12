@@ -1,7 +1,7 @@
 /* linux.h - ifchd Linux-specific functions include
- * Time-stamp: <2010-11-12 09:03:29 njk>
- *  
- * (C) 2004 Nicholas J. Kain <njk@aerifal.cx>
+ * Time-stamp: <2010-11-12 14:31:33 njk>
+ *
+ * (C) 2004-2010 Nicholas J. Kain <njkain at gmail dot com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,11 +16,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- * 
  */
 
 #ifndef NJK_IFCHD_LINUX_H_
-#define NJK_IFCHD_LINUX_H_ 1
+#define NJK_IFCHD_LINUX_H_
 void clear_if_data(int idx);
 void initialize_if_data(void);
 void add_permitted_if(char *s);
