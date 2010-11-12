@@ -1,0 +1,56 @@
+.TH NDHC 8 2004-02-25 Linux "Linux Administrator's Manual"
+.SH NAME
+ndhc \- secure DHCP client
+.SH SYNOPSIS
+.B ndhc
+.RI [ OPTION ]...
+.SH DESCRIPTION
+The ndhc client negotiates a lease with the DHCP server and
+informs ifchd of the change when it is obtained or lost.
+.SH OPTIONS
+.TP
+.BI \-c\  CLIENTID ,\ \-\-clientid= CLIENTID
+Send the client identifier
+.IR CLIENTID .
+.TP
+.BR -f ,\  \-\-foreground
+Do not fork after obtaining a lease.
+.TP
+.BI \-H\  HOSTNAME ,\ \-\-hostname= HOSTNAME
+Send the client hostname
+.IR HOSTNAME .
+.TP
+.BI \-h\  HOSTNAME
+Alias for -H
+.IR HOSTNAME .
+.TP
+.BI \-i\  INTERFACE ,\ \-\-interface= INTERFACE
+Configure
+.IR INTERFACE .
+.TP
+.BR -n ,\  \-\-now
+Exit with failure if a lease cannot be obtained.
+.TP
+.BR -q ,\  \-\-quit
+Exit after obtaining a lease.
+.TP
+.BI \-r\  ADDRESS ,\ \-\-request= ADDRESS
+Request IP address
+.IR ADDRESS .
+.TP
+.BR -v ,\  \-\-version
+Display version.
+.SH NOTES
+.B ndhc
+responds to the following signals:
+.TP
+.B SIGUSR1
+This signal causes
+.B ndhc
+to renew the current lease or, if it does not have one, obtain a
+new lease.
+.TP
+.B SIGUSR2
+This signal caused
+.B ndhc
+to release the current lease.
