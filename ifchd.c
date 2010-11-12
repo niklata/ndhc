@@ -1,5 +1,5 @@
 /* ifchd.c - interface change daemon
- * Time-stamp: <2010-11-12 04:10:07 njk>
+ * Time-stamp: <2010-11-12 04:28:47 njk>
  *
  * (C) 2004 Nicholas J. Kain <njk@aerifal.cx>
  *
@@ -134,6 +134,24 @@ static void die_nulstr(strlist_t *p)
 	suicide("FATAL - NULL string in strlist\n", NULL, EXIT_FAILURE);
 }
 
+static void safe_write(int fd, const char *buf, int len)
+{
+    ssize_t r;
+  retry:
+    r = write(fd, buf, len);
+    if (r != len) {
+	if (r == -1) {
+	    if (errno == EINTR)
+		goto retry;
+	    else
+		suicide("write returned error\n", NULL, EXIT_FAILURE);
+	} else {
+	    len -= r;
+	    goto retry;
+	}
+    }
+}
+
 /* Writes out each element in a strlist as an argument to a keyword in
  * a file. */
 static void write_resolve_list(const char *keyword, strlist_t *list)
@@ -149,9 +167,9 @@ static void write_resolve_list(const char *keyword, strlist_t *list)
 	buf = p->str;
 	len = strlen(buf);
 	if (len) {
-	    write(resolv_conf_fd, keyword, strlen(keyword));
-	    write(resolv_conf_fd, buf, strlen(buf));
-	    write(resolv_conf_fd, "\n", 1);
+	    safe_write(resolv_conf_fd, keyword, strlen(keyword));
+	    safe_write(resolv_conf_fd, buf, strlen(buf));
+	    safe_write(resolv_conf_fd, "\n", 1);
 	}
 	p = p->next;
     }
@@ -160,6 +178,7 @@ static void write_resolve_list(const char *keyword, strlist_t *list)
 /* Writes a new resolv.conf based on the information we have received. */
 static void write_resolve_conf(int idx)
 {
+    int r;
     off_t off;
 
     if (resolv_conf_fd == -1)
@@ -175,8 +194,21 @@ static void write_resolve_conf(int idx)
 		strerror(errno));
 	return;
     }
-    ftruncate(resolv_conf_fd, off);
-    fsync(resolv_conf_fd);
+  retry:
+    r = ftruncate(resolv_conf_fd, off);
+    if (r == -1) {
+	if (errno == EINTR)
+	    goto retry;
+	log_line("write_resolve_conf: ftruncate returned error: %s\n",
+		 strerror(errno));
+	return;
+    }
+    r = fsync(resolv_conf_fd);
+    if (r == -1) {
+	log_line("write_resolve_conf: fsync returned error: %s\n",
+		 strerror(errno));
+	return;
+    }
 }
 
 /* Decomposes a ' '-delimited flat character array onto a strlist, then
