@@ -8,7 +8,7 @@ set(NDHC_SRCS
   packet.c
   script.c
   clientpacket.c
-  dhcpc.c
+  ndhc.c
   )
 
 add_executable(ndhc ${NDHC_SRCS})
