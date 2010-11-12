@@ -180,41 +180,83 @@ int send_release(unsigned long server, unsigned long ciaddr)
  * -2 for those that aren't */
 int get_raw_packet(struct dhcpMessage *payload, int fd)
 {
-	int bytes;
 	struct udp_dhcp_packet packet;
 	uint32_t source, dest;
 	uint16_t check;
 
+	ssize_t len = 0;
+	const ssize_t wanted = sizeof(struct iphdr) + sizeof(struct udphdr);
+
 	memset(&packet, 0, sizeof(struct udp_dhcp_packet));
-	bytes = read(fd, &packet, sizeof(struct udp_dhcp_packet));
-	if (bytes < 0) {
-		log_line("couldn't read on raw listening socket -- ignoring");
-		usleep(500000); /* possible down interface, looping condition */
-		return -1;
+	while (len < wanted) {
+		ssize_t r = read(fd, &packet + len,
+				 sizeof(struct udp_dhcp_packet) - len);
+		if (r == 0)
+			break;
+		if (r == -1) {
+			if (errno == EINTR)
+				continue;
+			if (errno == EAGAIN || errno == EWOULDBLOCK) {
+				log_line("EAGAIN or EWOULDBLOCK hit");
+				break;
+			}
+			log_line("couldn't read on raw listening socket -- ignoring");
+			usleep(500000); /* possible down interface, looping condition */
+			return -1;
+		}
+		len += r;
 	}
-	
-	if (bytes < (int) (sizeof(struct iphdr) + sizeof(struct udphdr))) {
-		log_line("message too short, ignoring");
+
+	if (len == 0) {
+		usleep(50000);
+		return -2;
+	}
+
+	log_line("len: %d wanted: %d", len, wanted);
+	if (len < wanted) {
+		log_line("Message too short to contain IP + UDP headers, ignoring");
+		sleep(1);
 		return -2;
 	}
 	
-	if (bytes < ntohs(packet.ip.tot_len)) {
+	if (len < ntohs(packet.ip.tot_len)) {
 		log_line("Truncated packet");
 		return -2;
 	}
 	
 	/* ignore any extra garbage bytes */
-	bytes = ntohs(packet.ip.tot_len);
+	len = ntohs(packet.ip.tot_len);
 	
 	/* Make sure its the right packet for us, and that it passes
 	 * sanity checks */
-	if (packet.ip.protocol != IPPROTO_UDP
-			|| packet.ip.version != IPVERSION
-			|| packet.ip.ihl != sizeof(packet.ip) >> 2
-			|| packet.udp.dest != htons(CLIENT_PORT)
-			|| bytes > (int)sizeof(struct udp_dhcp_packet)
-			|| ntohs(packet.udp.len) != (short)(bytes - sizeof(packet.ip))) {
-	    	log_line("unrelated/bogus packet");
+	if (packet.ip.protocol != IPPROTO_UDP) {
+	    	log_line("IP header is not UDP");
+		sleep(1);
+	    	return -2;
+	}
+	if (packet.ip.version != IPVERSION) {
+	    	log_line("IP version is not IPv4");
+		sleep(1);
+	    	return -2;
+	}
+	if (packet.ip.ihl != sizeof(packet.ip) >> 2) {
+	    	log_line("IP header length incorrect");
+		sleep(1);
+	    	return -2;
+	}
+	if (packet.udp.dest != htons(CLIENT_PORT)) {
+	    	log_line("UDP destination port incorrect");
+		sleep(1);
+	    	return -2;
+	}
+	if (len > (int)sizeof(struct udp_dhcp_packet)) {
+	    	log_line("Data longer than that of a IP+UDP+DHCP message");
+		sleep(1);
+	    	return -2;
+	}
+	if (ntohs(packet.udp.len) != (short)(len - sizeof(packet.ip))) {
+	    	log_line("UDP header length incorrect");
+		sleep(1);
 	    	return -2;
 	}
 
@@ -237,20 +279,20 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
 	packet.ip.saddr = source;
 	packet.ip.daddr = dest;
 	packet.ip.tot_len = packet.udp.len; /* cheat on the psuedo-header */
-	if (check && check != checksum(&packet, bytes)) {
+	if (check && check != checksum(&packet, len)) {
 		log_error("packet with bad UDP checksum received, ignoring");
 		return -2;
 	}
 	
 	memcpy(payload, &(packet.data),
-			bytes - (sizeof(packet.ip) + sizeof(packet.udp)));
+			len - (sizeof(packet.ip) + sizeof(packet.udp)));
 	
 	if (ntohl(payload->cookie) != DHCP_MAGIC) {
 		log_error("received bogus message (bad magic) -- ignoring");
 		return -2;
 	}
 	log_line("oooooh!!! got some!");
-	return bytes - (sizeof(packet.ip) + sizeof(packet.udp));
+	return len - (sizeof(packet.ip) + sizeof(packet.udp));
 	
 }
 

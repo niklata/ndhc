@@ -92,9 +92,11 @@ USAGE
         # cd /var/lib/ndhc
         # mkdir dev
         # mknod dev/urandom c 1 9
+        # mknod dev/null c 1 3
         # chown -R root.root dev
         # chmod a+rx dev
         # chmod a+r dev/urandom
+        # chmod a+rw dev/null
 
         d) (optional) If you wish for logging to properly work, you
            will need to properly configure your logging daemon so that it
