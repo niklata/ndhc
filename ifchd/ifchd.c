@@ -1,5 +1,5 @@
 /* ifchd.c - interface change daemon
- * Time-stamp: <2010-11-12 09:02:54 njk>
+ * Time-stamp: <2010-11-12 12:04:25 njk>
  *
  * (C) 2004 Nicholas J. Kain <njk@aerifal.cx>
  *
@@ -878,7 +878,7 @@ int main(int argc, char** argv) {
             exit(EXIT_FAILURE);
         }
 
-    if (!file_exists(pidfile, "w")) {
+    if (file_exists(pidfile, "w") == -1) {
         log_line("FATAL - cannot open pidfile for write!");
         exit(EXIT_FAILURE);
     }

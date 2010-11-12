@@ -8,6 +8,8 @@ Linux kernel (tested: 2.4, 2.6)
 C99-compliant C compiler (for C99 struct subobject init)
         * any modern GCC should be sufficient
 
+CMake (tested: 2.8)
+
 Tested with glibc 2.2.x and 2.3.x.  dietlibc is not compatible.  I have not yet
 tested uclibc.
 
@@ -57,10 +59,14 @@ USAGE
 -----
 
 1) Compile and install ifchd and ndhc.
-    a) Build ifchd with "make"
-    b) Enter ndhc directory and build ndhc with "make"
-    c) Install the ifchd and ndhc executables in a normal place.  I would
-       suggest /usr/sbin or /usr/local/sbin.
+    a) Create a build directory:
+       mkdir build && cd build
+    b) Create the makefiles:
+       cmake ..
+    c) Build ifchd and ndhc:
+       make
+    d) Install the ifchd/ifchd and ndhc/ndhc executables in a normal place.  I
+       would suggest /usr/sbin or /usr/local/sbin.
 
 2) Time to create the jail in which ifchd and ndhc will run.
     a) Become root and create new group "ifchd".
@@ -72,8 +78,8 @@ USAGE
     b) Create new users "ifchd" and "dhcp".  The primary group of these
        users should be "ifchd".
 
-        # useradd -d /var/lib/ndhc -g ifchd ifchd
-        # useradd -d /var/lib/ndhc -g ifchd dhcp
+        # useradd -d /var/lib/ndhc -s /sbin/nologin -g ifchd ifchd
+        # useradd -d /var/lib/ndhc -s /sbin/nologin -g ifchd dhcp
 
     b) Create the jail directory and set its ownership properly.
 
@@ -105,9 +111,9 @@ USAGE
 #!/bin/sh
 case "$1" in
         start)
-                ifchd -i eth0 -p /var/run/ifchd.pid -u ifchd -g ifchd -U dhcp -G ifchd \
-                        -c /var/lib/ndhc &> /dev/null
-                ndhc -b -i eth0 -u dhcp -C /var/lib/ndhc &> /dev/null
+                ifchd -i wan0 -p /var/run/ifchd.pid -u ifchd -g ifchd -U dhcp \
+                      -G ifchd -c /var/lib/ndhc &> /dev/null
+                ndhc -b -i wan0 -u dhcp -C /var/lib/ndhc &> /dev/null
                 ;;
         stop)
                 killall ndhc ifchd
