@@ -31,7 +31,7 @@ address that the server offers.
 note on ndhc's random seed
 ---------------------------
 
-ndhc will seed its random number generator (used for generating xid's)
+ndhc will seed its random number generator (used for generating xids)
 by reading /dev/urandom. If you have a lot of embedded systems on the same
 network, with no entropy, you can either seed /dev/urandom by a method of
 your own, or doing the following on startup:
@@ -50,5 +50,5 @@ ndhc also responds to SIGUSR1 and SIGUSR2. SIGUSR1 will force a renew state,
 and SIGUSR2 will force a release of the current lease, and cause ndhc to
 go into an inactive state (until it is killed, or receives a SIGUSR1). You do
 not need to sleep between sending signals, as signals received are processed
-sequencially in the order they are received.
+sequentially in the order they are received.
 
