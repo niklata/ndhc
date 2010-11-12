@@ -53,6 +53,8 @@
 #include "malloc.h"
 
 #define VERSION "1.0"
+#define NUMPACKETS 3 /* number of packets to send before delay */
+#define RETRY_DELAY 30 /* time in seconds to delay after sending NUMPACKETS */
 
 static unsigned long requested_ip, server_addr, timeout;
 static unsigned long lease, t1, t2, xid, start;
@@ -197,14 +199,14 @@ static void handle_timeout(void)
     /* timeout dropped to zero */
     switch (state) {
         case INIT_SELECTING:
-            if (packet_num < 3) {
+            if (packet_num < NUMPACKETS) {
                 if (packet_num == 0)
                     xid = random_xid();
 
                 /* send discover packet */
                 send_discover(xid, requested_ip); /* broadcast */
 
-                timeout = now + ((packet_num == 2) ? 4 : 2);
+                timeout = now + ((packet_num == NUMPACKETS - 1) ? 4 : 2);
                 packet_num++;
             } else {
                 if (client_config.background_if_no_lease) {
@@ -216,12 +218,12 @@ static void handle_timeout(void)
                 }
                 /* wait to try again */
                 packet_num = 0;
-                timeout = now + 60;
+                timeout = now + RETRY_DELAY;
             }
             break;
         case RENEW_REQUESTED:
         case REQUESTING:
-            if (packet_num < 3) {
+            if (packet_num < NUMPACKETS) {
                 /* send request packet */
                 if (state == RENEW_REQUESTED)
                     /* unicast */
@@ -229,7 +231,7 @@ static void handle_timeout(void)
                 else
                     /* broadcast */
                     send_selecting(xid, server_addr, requested_ip);
-                timeout = now + ((packet_num == 2) ? 10 : 2);
+                timeout = now + ((packet_num == NUMPACKETS - 1) ? 10 : 2);
                 packet_num++;
             } else {
                 /* timed out, go back to init state */
