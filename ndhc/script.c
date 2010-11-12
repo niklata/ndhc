@@ -78,6 +78,9 @@ static void fill_options(char *dest, unsigned char *option,
                 *(dest++) = '/';
                 option += 4;
                 optlen = 4;
+                dest += sprintip(dest, maxlen - (dest - odest), "", option);
+                optlen = option_lengths[type];
+                break;
             case OPTION_IP: /* Works regardless of host byte order. */
                 dest += sprintip(dest, maxlen - (dest - odest), "", option);
                 break;
@@ -117,7 +120,9 @@ static void fill_options(char *dest, unsigned char *option,
         }
         option += optlen;
         len -= optlen;
-        if (len <= 0) break;
+        if (len <= 0)
+            break;
+        *(dest++) = ':';
     }
 }
 
