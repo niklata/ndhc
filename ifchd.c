@@ -1,5 +1,5 @@
 /* ifchd.c - interface change daemon
- * Time-stamp: <2004-06-14 njk>
+ * Time-stamp: <2010-11-12 04:10:07 njk>
  *
  * (C) 2004 Nicholas J. Kain <njk@aerifal.cx>
  *
@@ -881,7 +881,7 @@ int main(int argc, char** argv) {
      */
     if (strncmp(resolv_conf_d, "", MAX_PATH_LENGTH)) {
 	umask(022);
-	resolv_conf_fd = open(resolv_conf_d, O_RDWR | O_CREAT);
+	resolv_conf_fd = open(resolv_conf_d, O_RDWR | O_CREAT, 644);
 	umask(077);
 	if (resolv_conf_fd == -1) {
 	    suicide("FATAL - unable to open resolv.conf\n",
