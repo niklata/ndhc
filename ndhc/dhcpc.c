@@ -52,6 +52,8 @@
 #include "rootcap.h"
 #include "nstrl.h"
 
+#define VERSION "1.0"
+
 static unsigned long requested_ip, server_addr, timeout;
 static unsigned long lease, t1, t2, xid, start;
 static int state, packet_num, fd, listen_mode;
@@ -142,11 +144,11 @@ static void perform_renew(void)
 /* perform a release */
 static void perform_release(void)
 {
-	char buf[16];
+	char buf[32];
 	struct in_addr temp_addr;
 
-	buf[16] = '\0';
-	
+	memset(buf, '\0', sizeof buf);
+
 	/* send release packet */
 	if (state == BOUND || state == RENEWING || state == REBINDING) {
 		temp_addr.s_addr = server_addr;
@@ -543,7 +545,7 @@ int main(int argc, char **argv)
 			strlcpy(chroot_dir, optarg, len);
 			break;
 		case 'v':
-			printf("ndhc, version %s\n\n", VERSION);
+			printf("ndhc, version " VERSION "\n\n");
 			exit(EXIT_SUCCESS);
 			break;
 		default:
@@ -551,7 +553,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	log_line(LOG_INFO, "ndhc client (v%s) started.\n", VERSION);
+	log_line(LOG_INFO, "ndhc client " VERSION " started.\n");
 
 	if (read_interface(client_config.interface, &client_config.ifindex, 
 			   NULL, client_config.arp) < 0)

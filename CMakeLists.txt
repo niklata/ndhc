@@ -1,0 +1,25 @@
+project (ifchd)
+
+cmake_minimum_required (VERSION 2.6)
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s -std=gnu99 -pedantic -Wall -lcap -DHAVE_CLEARENV -DLINUX")
+set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -s -std=gnu99 -pedantic -Wall -lcap -DHAVE_CLEARENV -DLINUX")
+
+#include_directories("${PROJECT_SOURCE_DIR}/ncmlib")
+#add_subdirectory(ncmlib)
+
+set(IFCHD_SRCS
+  ifchd.c
+  linux.c
+  strlist.c
+  signals.c
+  pidfile.c
+  chroot.c
+  nstrl.c
+  log.c
+  )
+
+add_executable(ifchd ${IFCHD_SRCS})
+#target_link_libraries(ifchd ncmlib)
+
+add_subdirectory(ndhc)

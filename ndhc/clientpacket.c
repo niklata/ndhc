@@ -69,8 +69,8 @@ static void init_packet(struct dhcpMessage *packet, char type)
 	struct vendor  {
 		char vendor;
 		char length;
-		char str[sizeof("ndhc "VERSION)];
-	} vendor_id = { DHCP_VENDOR,  sizeof("ndhc "VERSION) - 1, "ndhc "VERSION};
+		char str[sizeof("ndhc")];
+	} vendor_id = { DHCP_VENDOR,  sizeof("ndhc") - 1, "ndhc"};
 	
 	init_header(packet, type);
 	memcpy(packet->chaddr, client_config.arp, 6);
