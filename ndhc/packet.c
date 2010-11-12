@@ -51,15 +51,15 @@ int get_packet(struct dhcpMessage *packet, int fd)
 	memset(packet, 0, sizeof(struct dhcpMessage));
 	bytes = read(fd, packet, sizeof(struct dhcpMessage));
 	if (bytes < 0) {
-		debug(LOG_INFO, "couldn't read on listening socket, ignoring\n");
+		log_line("couldn't read on listening socket, ignoring");
 		return -1;
 	}
 
 	if (ntohl(packet->cookie) != DHCP_MAGIC) {
-		log_line(LOG_ERR, "received bogus message, ignoring.\n");
+		log_error("received bogus message, ignoring.");
 		return -2;
 	}
-	debug(LOG_INFO, "Received a packet\n");
+	log_line("Received a packet");
 	
 	if (packet->op == BOOTREQUEST
 			&& (vendor = get_option(packet, DHCP_VENDOR)))
@@ -69,7 +69,7 @@ int get_packet(struct dhcpMessage *packet, int fd)
 					&& !strncmp((char *)vendor, broken_vendors[i],
 						vendor[OPT_LEN - 2]))
 			{
-			    	debug(LOG_INFO, "broken client (%s), forcing broadcast\n",
+			    	log_line("broken client (%s), forcing broadcast",
 			    		broken_vendors[i]);
 			    	packet->flags |= htons(BROADCAST_FLAG);
 			}
@@ -118,7 +118,7 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
 	struct udp_dhcp_packet packet;
 
 	if ((fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP))) < 0) {
-		debug(LOG_ERR, "socket call failed: %s\n", strerror(errno));
+		log_error("socket call failed: %s", strerror(errno));
 		goto out;
 	}
 	
@@ -131,7 +131,7 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
 	dest.sll_halen = 6;
 	memcpy(dest.sll_addr, dest_arp, 6);
 	if (bind(fd, (struct sockaddr *)&dest, sizeof(struct sockaddr_ll)) < 0) {
-		debug(LOG_ERR, "bind call failed: %s\n", strerror(errno));
+		log_error("bind call failed: %s", strerror(errno));
 		goto out_fd;
 	}
 
@@ -155,8 +155,8 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
 	result = sendto(fd, &packet, sizeof(struct udp_dhcp_packet), 0,
 			(struct sockaddr *)&dest, sizeof dest);
 	if (result <= 0) {
-		debug(LOG_ERR, "write on socket failed: %s\n",
-				strerror(errno));
+		log_error("write on socket failed: %s",
+			  strerror(errno));
 	}
 out_fd:
 	close(fd);

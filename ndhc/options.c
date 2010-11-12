@@ -70,12 +70,12 @@ unsigned char *get_option(struct dhcpMessage *packet, int code)
 	optionptr = packet->options;
 	while (!done) {
 		if (i >= length) {
-			log_line(LOG_WARNING, "bogus packet, option fields too long.\n");
+			log_warning("bogus packet, option fields too long.");
 			return NULL;
 		}
 		if (optionptr[i + OPT_CODE] == code) {
 			if (i + 1 + optionptr[i + OPT_LEN] >= length) {
-				log_line(LOG_WARNING, "bogus packet, option fields too long.\n");
+				log_warning("bogus packet, option fields too long.");
 				return NULL;
 			}
 			return optionptr + i + 2;
@@ -86,8 +86,7 @@ unsigned char *get_option(struct dhcpMessage *packet, int code)
 				break;
 			case DHCP_OPTION_OVER:
 				if (i + 1 + optionptr[i + OPT_LEN] >= length) {
-					log_line(LOG_WARNING,
-							"bogus packet, option fields too long.\n");
+					log_warning("bogus packet, option fields too long.");
 					return NULL;
 				}
 				over = optionptr[i + 3];
@@ -137,11 +136,11 @@ int add_option_string(unsigned char *optionptr, unsigned char *string)
 	
 	/* end position + string length + option code/length + end option */
 	if (end + string[OPT_LEN] + 2 + 1 >= 308) {
-		log_line(LOG_ERR, "Option 0x%02x did not fit into the packet!\n",
+		log_error("Option 0x%02x did not fit into the packet!",
 				string[OPT_CODE]);
 		return 0;
 	}
-	debug(LOG_INFO, "adding option 0x%02x\n", string[OPT_CODE]);
+	log_line("adding option 0x%02x", string[OPT_CODE]);
 	memcpy(optionptr + end, string, string[OPT_LEN] + 2);
 	optionptr[end + string[OPT_LEN] + 2] = DHCP_END;
 	return string[OPT_LEN] + 2;
@@ -162,7 +161,7 @@ int add_simple_option(unsigned char *optionptr, unsigned char code,
 	option[OPT_LEN] = (unsigned char)length;
 
 	if (!length) {
-		debug(LOG_ERR, "Could not add option 0x%02x\n", code);
+		log_error("Could not add option 0x%02x", code);
 		return 0;
 	} else if (length == 1) {
 		uint8_t t = (uint8_t)data;
@@ -196,8 +195,8 @@ void attach_option(struct option_set **opt_list, struct dhcp_option *option,
 
 	/* add it to an existing option */
 	if ((existing = find_option(*opt_list, option->code))) {
-		debug(LOG_INFO, "Attaching option %s to existing member of list\n",
-				option->name);
+		log_line("Attaching option %s to existing member of list",
+				 option->name);
 		if (option->flags & OPTION_LIST) {
 			if (existing->data[OPT_LEN] + length <= 255) {
 				existing->data = realloc(existing->data, 
@@ -209,7 +208,7 @@ void attach_option(struct option_set **opt_list, struct dhcp_option *option,
 				 in the future */
 		} /* else, ignore the new data */
 	} else {
-		debug(LOG_INFO, "Attaching option %s to list\n", option->name);
+		log_line("Attaching option %s to list", option->name);
 		
 		/* make a new option */
 		new = malloc(sizeof(struct option_set));

@@ -181,11 +181,11 @@ usually requiring calls to the catch-all ioctl(), and will almost certainly
 require platform-dependent code.
 
 Some standard C libraries include a native implementation of strlcpy() and
-strlcat().  Such defines may conflict with my implementations in
-nstrl.c/nstrl.h.  It is up to the user whether the standard C library
-implementations should be used.  Note that some machines implement strlcpy()
-and strlcat() with nonstandard semantics (notably Solaris).  On these systems,
-using the system-provided implementations may lead to security problems.  Such
-problems are the fault of the vendor.  If you are unsure whether your system is
-correct or not, I suggest using the implementation that I provide.
+strlcat().  Such defines may conflict with my implementations in strl.c/strl.h.
+It is up to the user whether the standard C library implementations should be
+used.  Note that some machines implement strlcpy() and strlcat() with
+nonstandard semantics (notably Solaris).  On these systems, using the
+system-provided implementations may lead to security problems.  Such problems
+are the fault of the vendor.  If you are unsure whether your system is correct
+or not, I suggest using the implementation that I provide.
 

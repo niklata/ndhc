@@ -123,7 +123,7 @@ static int open_ifch(void) {
 	ret = connect(sockfd, (struct sockaddr *)&address, sizeof(address));
 
 	if (ret == -1) {
-		log_line(LOG_ERR, "unable to connect to ifchd!\n");
+		log_error("unable to connect to ifchd!");
 		exit(EXIT_FAILURE);
 	}
 
@@ -139,14 +139,14 @@ sockwrite_again:
 	if (ret == -1) {
 		if (errno == EAGAIN)
 			goto sockwrite_again;
-		log_line(LOG_ERR, "error while writing to unix socket!\n");
+		log_error("error while writing to unix socket!");
 		exit(EXIT_FAILURE);
 	}
 	if (ret < 0) ret = 0;
 	if ((unsigned int)ret < strlen(buf)) {
-		log_line(LOG_ERR, "incomplete write!\n");
+		log_error("incomplete write!");
 	}
-	debug(LOG_INFO, "writing: %s\n", (char *)buf);
+	log_line("writing: %s", (char *)buf);
 }			
 
 static void deconfig_if(void)
@@ -251,7 +251,7 @@ void run_script(struct dhcpMessage *packet, int mode)
 			default:
 				break;
 		}
-		log_line(LOG_ERR, "invalid script mode: %d\n", mode);
+		log_error("invalid script mode: %d", mode);
 		exit(EXIT_FAILURE);
 	}
 }

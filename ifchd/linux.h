@@ -1,5 +1,5 @@
 /* linux.h - ifchd Linux-specific functions include
- * Time-stamp: <2004-06-13 njk>
+ * Time-stamp: <2010-11-12 04:59:01 njk>
  *  
  * (C) 2004 Nicholas J. Kain <njk@aerifal.cx>
  *
@@ -31,6 +31,6 @@ void perform_subnet(int idx, char *str);
 void perform_router(int idx, char *str);
 void perform_mtu(int idx, char *str);
 void perform_broadcast(int idx, char *str);
-void drop_root(uid_t uid, gid_t gid, char *captxt);
+void set_cap(uid_t uid, gid_t gid, char *captxt);
 #endif
 

@@ -37,7 +37,7 @@
 #include <netpacket/packet.h>
 #include <net/ethernet.h>
 #include "log.h"
-#include "nstrl.h"
+#include "strl.h"
 
 int read_interface(char *interface, int *ifindex, uint32_t *addr,
 		unsigned char *arp)
@@ -48,39 +48,39 @@ int read_interface(char *interface, int *ifindex, uint32_t *addr,
 
 	memset(&ifr, 0, sizeof(struct ifreq));
 	if((fd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) == -1) {
-		log_line(LOG_ERR, "socket failed!: %s\n", strerror(errno));
+		log_error("socket failed!: %s", strerror(errno));
 		goto out;
 	}
 
 	ifr.ifr_addr.sa_family = AF_INET;
 	strlcpy(ifr.ifr_name, interface, IFNAMSIZ);
 
-	if (addr) { 
+	if (addr) {
 		if (ioctl(fd, SIOCGIFADDR, &ifr)) {
-			log_line(LOG_ERR, "Couldn't get IP for %s.\n", strerror(errno));
+			log_error("Couldn't get IP for %s.", strerror(errno));
 			goto out_fd;
 		}
 		our_ip = (struct sockaddr_in *) &ifr.ifr_addr;
 		*addr = our_ip->sin_addr.s_addr;
-		debug(LOG_INFO, "%s (our ip) = %s\n", ifr.ifr_name,
-				inet_ntoa(our_ip->sin_addr));
+		log_line("%s (our ip) = %s", ifr.ifr_name,
+				 inet_ntoa(our_ip->sin_addr));
 	}
 
 	if (ioctl(fd, SIOCGIFINDEX, &ifr)) {
-		log_line(LOG_ERR, "SIOCGIFINDEX failed!: %s\n", strerror(errno));
+		log_error("SIOCGIFINDEX failed!: %s", strerror(errno));
 		goto out_fd;
 	}
 
-	debug(LOG_INFO, "adapter index %d\n", ifr.ifr_ifindex);
+	log_line("adapter index %d", ifr.ifr_ifindex);
 	*ifindex = ifr.ifr_ifindex;
 
 	if (ioctl(fd, SIOCGIFHWADDR, &ifr)) {
-		log_line(LOG_ERR, "Couldn't get MAC for %s\n", strerror(errno));
+		log_error("Couldn't get MAC for %s", strerror(errno));
 		goto out_fd;
 	}
 
 	memcpy(arp, ifr.ifr_hwaddr.sa_data, 6);
-	debug(LOG_INFO, "adapter hardware address %02x:%02x:%02x:%02x:%02x:%02x\n",
+	log_line("adapter hardware address %02x:%02x:%02x:%02x:%02x:%02x",
 			arp[0], arp[1], arp[2], arp[3], arp[4], arp[5]);
 	ret = 0;
 out_fd:
@@ -96,9 +96,9 @@ int listen_socket(unsigned int ip, int port, char *inf)
 	struct sockaddr_in addr;
 	int n = 1;
 
-	debug(LOG_INFO, "Opening listen socket on 0x%08x:%d %s\n", ip, port, inf);
+	log_line("Opening listen socket on 0x%08x:%d %s", ip, port, inf);
 	if ((fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
-		debug(LOG_ERR, "socket call failed: %s\n", strerror(errno));
+		log_error("socket call failed: %s", strerror(errno));
 		goto out;
 	}
 	
@@ -132,9 +132,9 @@ int raw_socket(int ifindex)
 	int fd;
 	struct sockaddr_ll sock;
 
-	debug(LOG_INFO, "Opening raw socket on ifindex %d\n", ifindex);
+	log_line("Opening raw socket on ifindex %d", ifindex);
 	if ((fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP))) < 0) {
-		debug(LOG_ERR, "socket call failed: %s\n", strerror(errno));
+		log_error("socket call failed: %s", strerror(errno));
 		goto out;
 	}
 	
@@ -142,7 +142,7 @@ int raw_socket(int ifindex)
 	sock.sll_protocol = htons(ETH_P_IP);
 	sock.sll_ifindex = ifindex;
 	if (bind(fd, (struct sockaddr *) &sock, sizeof(sock)) < 0) {
-		debug(LOG_ERR, "bind call failed: %s\n", strerror(errno));
+		log_error("bind call failed: %s", strerror(errno));
 		goto out_fd;
 	}
 

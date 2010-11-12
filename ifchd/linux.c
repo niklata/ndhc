@@ -1,5 +1,5 @@
 /* linux.c - ifchd Linux-specific functions
- * Time-stamp: <2004-06-14 njk>
+ * Time-stamp: <2010-11-12 05:14:52 njk>
  *
  * (C) 2004 Nicholas J. Kain <njk@aerifal.cx>
  *
@@ -44,7 +44,7 @@
 #include "log.h"
 #include "strlist.h"
 #include "ifproto.h"
-#include "nstrl.h"
+#include "strl.h"
 
 /* Symbolic name of the interface associated with a connection. */
 static char ifnam[SOCK_QUEUE][IFNAMSIZ];
@@ -70,7 +70,7 @@ void add_permitted_if(char *s)
 {
     if (!s)
 	return;
-    add_to_strlist(s, &okif);
+    add_to_strlist(&okif, s);
 }
 
 /* Checks if changes are permitted to a given interface.  1 == allowed */
@@ -334,7 +334,7 @@ void perform_broadcast(int idx, char *str)
     close(fd);
 }
 
-static void set_cap(uid_t uid, gid_t gid, char *captxt)
+void set_cap(uid_t uid, gid_t gid, char *captxt)
 {
     cap_t caps;
 
@@ -371,24 +371,3 @@ static void set_cap(uid_t uid, gid_t gid, char *captxt)
 
     cap_free(caps);
 }
-
-void drop_root(uid_t uid, gid_t gid, char *captxt)
-{
-    if (!captxt) {
-        log_line("FATAL - drop_root: captxt == NULL\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (uid == 0 || gid == 0) {
-        log_line("FATAL - drop_root: attempt to drop root to root?\n");
-        exit(EXIT_FAILURE);
-    }
-
-    set_cap(uid, gid, captxt);
-
-    if (setregid(gid, gid) == -1 || setreuid(uid, uid) == -1) {
-        log_line("FATAL - drop_root: failed to drop root!\n");
-        exit(EXIT_FAILURE);
-    }
-}
-

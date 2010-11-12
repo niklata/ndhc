@@ -49,8 +49,9 @@
 #include "script.h"
 #include "socket.h"
 #include "log.h"
+#include "chroot.h"
 #include "rootcap.h"
-#include "nstrl.h"
+#include "strl.h"
 
 #define VERSION "1.0"
 
@@ -104,8 +105,8 @@ static void show_usage(void)
 /* just a little helper */
 static void change_mode(int new_mode)
 {
-	debug(LOG_INFO, "entering %s listen mode",
-		new_mode ? (new_mode == 1 ? "kernel" : "raw") : "none");
+	log_line("entering %s listen mode",
+			 new_mode ? (new_mode == 1 ? "kernel" : "raw") : "none");
 	close(fd);
 	fd = -1;
 	listen_mode = new_mode;
@@ -114,7 +115,7 @@ static void change_mode(int new_mode)
 /* perform a renew */
 static void perform_renew(void)
 {
-	log_line(LOG_INFO, "Performing a DHCP renew...\n");
+	log_line("Performing a DHCP renew...");
 	switch (state) {
 		case BOUND:
 			change_mode(LISTEN_KERNEL);
@@ -154,12 +155,12 @@ static void perform_release(void)
 		temp_addr.s_addr = server_addr;
 		snprintf(buf, sizeof buf, "%s", inet_ntoa(temp_addr));
 		temp_addr.s_addr = requested_ip;
-		log_line(LOG_INFO, "Unicasting a release of %s to %s.\n", 
-				inet_ntoa(temp_addr), buf);
+		log_line("Unicasting a release of %s to %s.",
+				 inet_ntoa(temp_addr), buf);
 		send_release(server_addr, requested_ip); /* unicast */
 		run_script(NULL, SCRIPT_DECONFIG);
 	}
-	log_line(LOG_INFO, "Entering released state.\n");
+	log_line("Entering released state.");
 
 	change_mode(LISTEN_NONE);
 	state = RELEASED;
@@ -208,10 +209,10 @@ static void handle_timeout(void)
 				packet_num++;
 			} else {
 				if (client_config.background_if_no_lease) {
-					log_line(LOG_INFO, "No lease, going to background.\n");
+					log_line("No lease, going to background.");
 					background();
 				} else if (client_config.abort_if_no_lease) {
-					log_line(LOG_INFO, "No lease, failing.\n");
+					log_line("No lease, failing.");
 					exit(EXIT_FAILURE);
 				}
 				/* wait to try again */
@@ -245,7 +246,7 @@ static void handle_timeout(void)
 			/* Lease is starting to run out, time to enter renewing state */
 			state = RENEWING;
 			change_mode(LISTEN_KERNEL);
-			debug(LOG_INFO, "Entering renew state.\n");
+			log_line("Entering renew state.");
 			/* fall right through */
 		case RENEWING:
 			/* Either set a new T1, or enter REBINDING state */
@@ -253,7 +254,7 @@ static void handle_timeout(void)
 				/* timed out, enter rebinding state */
 				state = REBINDING;
 				timeout = now + (t2 - t1);
-				debug(LOG_INFO, "Entering rebinding state.\n");
+				log_line("Entering rebinding state.");
 			} else {
 				/* send a request packet */
 				send_renew(xid, server_addr, requested_ip); /* unicast */
@@ -267,7 +268,7 @@ static void handle_timeout(void)
 			if ((lease - t2) <= (lease / 14400 + 1)) {
 				/* timed out, enter init state */
 				state = INIT_SELECTING;
-				log_line(LOG_INFO, "Lease lost, entering init state.\n");
+				log_line("Lease lost, entering init state.");
 				run_script(NULL, SCRIPT_DECONFIG);
 				timeout = now;
 				packet_num = 0;
@@ -295,7 +296,7 @@ static void handle_packet(void)
 	struct in_addr temp_addr;
 	struct dhcpMessage packet;
 		
-	debug(LOG_INFO, "got a packet\n");
+	log_line("got a packet");
 
 	if (listen_mode == LISTEN_KERNEL)
 		len = get_packet(&packet, fd);
@@ -303,8 +304,8 @@ static void handle_packet(void)
 		len = get_raw_packet(&packet, fd);
 
 	if (len == -1 && errno != EINTR) {
-		debug(LOG_INFO, "error on read, %s, reopening socket.\n",
-				strerror(errno));
+		log_error("error on read, %s, reopening socket.",
+				  strerror(errno));
 		change_mode(listen_mode); /* just close and reopen */
 	}
 
@@ -312,13 +313,13 @@ static void handle_packet(void)
 		return;
 
 	if (packet.xid != xid) {
-		debug(LOG_INFO, "Ignoring XID %lx (our xid is %lx).\n",
-				(unsigned long) packet.xid, xid);
+		log_line("Ignoring XID %lx (our xid is %lx).",
+				 (unsigned long) packet.xid, xid);
 		return;
 	}
 
 	if ((message = get_option(&packet, DHCP_MESSAGE_TYPE)) == NULL) {
-		debug(LOG_ERR, "couldnt get option from packet -- ignoring\n");
+		log_line("couldnt get option from packet -- ignoring");
 		return;
 	}
 
@@ -336,7 +337,7 @@ static void handle_packet(void)
 					timeout = now;
 					packet_num = 0;
 				} else {
-					debug(LOG_ERR, "No server ID in message\n");
+					log_line("No server ID in message");
 				}
 			}
 			break;
@@ -346,8 +347,7 @@ static void handle_packet(void)
 		case REBINDING:
 			if (*message == DHCPACK) {
 				if (!(temp = get_option(&packet, DHCP_LEASE_TIME))) {
-					log_line(LOG_ERR,
-							"No lease time received, assuming 1h.\n");
+					log_line("No lease time received, assuming 1h.");
 					lease = 60 * 60;
 				} else {
 					memcpy(&lease, temp, 4);
@@ -360,9 +360,8 @@ static void handle_packet(void)
 				/* little fixed point for n * .875 */
 				t2 = (lease * 0x7) >> 3;
 				temp_addr.s_addr = packet.yiaddr;
-				log_line(LOG_INFO,
-						"Lease of %s obtained, lease time %ld.\n",
-						inet_ntoa(temp_addr), lease);
+				log_line("Lease of %s obtained, lease time %ld.",
+						 inet_ntoa(temp_addr), lease);
 				start = now;
 				timeout = t1 + start;
 				requested_ip = packet.yiaddr;
@@ -379,7 +378,7 @@ static void handle_packet(void)
 
 			} else if (*message == DHCPNAK) {
 				/* return to init state */
-				log_line(LOG_INFO, "Received DHCP NAK.\n");
+				log_line("Received DHCP NAK.");
 				run_script(&packet, SCRIPT_NAK);
 				if (state != REQUESTING)
 					run_script(NULL, SCRIPT_DECONFIG);
@@ -410,7 +409,7 @@ static int do_work(void)
 		if (pending_release)
 			perform_release();
 		if (pending_exit) {
-			log_line(LOG_INFO, "Received SIGTERM.  Exiting gracefully.\n");
+			log_line("Received SIGTERM.  Exiting gracefully.");
 			exit(EXIT_SUCCESS);
 		}
 
@@ -425,8 +424,8 @@ static int do_work(void)
 				fd = raw_socket(client_config.ifindex);
 
 			if (fd < 0) {
-				log_line(LOG_ERR, "FATAL: couldn't listen on socket: %s.\n",
-						strerror(errno));
+				log_error("FATAL: couldn't listen on socket: %s.",
+						  strerror(errno));
 				exit(EXIT_FAILURE);
 			}
 		}
@@ -439,19 +438,17 @@ static int do_work(void)
 		FD_ZERO(&rfds);
 		if (fd >= 0)
 			FD_SET(fd, &rfds);
-		debug(LOG_INFO, "Waiting on select...\n");
 		if (select(fd + 1, &rfds, NULL, NULL, &tv) == -1) {
 			switch (errno) {
 				case EBADF:
 					fd = -1;
 				default:
-					debug(LOG_ERR, "Error: \"%s\" on select!\n",
-							strerror(errno));
+					log_error("Error: \"%s\" on select!",
+							  strerror(errno));
 				case EINTR:  /* Signal received, go back to top. */
 					continue;
 			}
 		}
-		debug(LOG_INFO, "select suceeded\n");
 
 		if (listen_mode != LISTEN_NONE && FD_ISSET(fd, &rfds))
 			handle_packet();
@@ -553,7 +550,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	log_line(LOG_INFO, "ndhc client " VERSION " started.\n");
+	log_line("ndhc client " VERSION " started.");
 
 	if (read_interface(client_config.interface, &client_config.ifindex, 
 			   NULL, client_config.arp) < 0)
@@ -581,9 +578,10 @@ int main(int argc, char **argv)
 		printf("Failed to chroot(%s)!\n", chroot_dir);
 		exit(EXIT_FAILURE);
 	}
-	
-	drop_root(uid, gid,
+
+	set_cap(uid, gid,
 			"cap_net_bind_service,cap_net_broadcast,cap_net_raw=ep");
+	drop_root(uid, gid);
 	
 	state = INIT_SELECTING;
 	run_script(NULL, SCRIPT_DECONFIG);

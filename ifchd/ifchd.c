@@ -1,5 +1,5 @@
 /* ifchd.c - interface change daemon
- * Time-stamp: <2010-11-12 04:28:47 njk>
+ * Time-stamp: <2010-11-12 05:14:29 njk>
  *
  * (C) 2004 Nicholas J. Kain <njk@aerifal.cx>
  *
@@ -41,13 +41,14 @@
 #include <getopt.h>
 
 #include "defines.h"
+#include "malloc.h"
 #include "log.h"
 #include "chroot.h"
 #include "pidfile.h"
 #include "signals.h"
 #include "strlist.h"
 #include "ifproto.h"
-#include "nstrl.h"
+#include "strl.h"
 #include "linux.h"
 
 enum states {
@@ -117,21 +118,12 @@ static void fix_signals(void) {
     hook_signal(SIGTERM, sighandler, 0);
 }
 
-static void suicide(char *errmsg, const char *perrmsg, int status)
-{
-    if (errmsg)
-	log_line(errmsg);
-    if (!gflags_detach && perrmsg)
-	perror(perrmsg);
-    exit(status);
-}
-
 static void die_nulstr(strlist_t *p)
 {
     if (!p)
-	suicide("FATAL - NULL passed to die_nulstr\n", NULL, EXIT_FAILURE);
+	suicide("FATAL - NULL passed to die_nulstr");
     if (!p->str)
-	suicide("FATAL - NULL string in strlist\n", NULL, EXIT_FAILURE);
+	suicide("FATAL - NULL string in strlist");
 }
 
 static void safe_write(int fd, const char *buf, int len)
@@ -144,7 +136,7 @@ static void safe_write(int fd, const char *buf, int len)
 	    if (errno == EINTR)
 		goto retry;
 	    else
-		suicide("write returned error\n", NULL, EXIT_FAILURE);
+		suicide("write returned error");
 	} else {
 	    len -= r;
 	    goto retry;
@@ -230,7 +222,7 @@ static void parse_list(int idx, char *str, strlist_t **toplist,
 	    n[i] = *p;
 	if (*p == ' ')
 	    ++p;
-	add_to_strlist(n, &newn);
+	add_to_strlist(&newn, n);
     }
 
     if (newn) {
@@ -352,11 +344,7 @@ static int stream_onto_list(int i)
 		s = e + 1;
 		continue;
 	    }
-	    curl[i] = malloc(sizeof(strlist_t));
-
-	    if (curl[i] == NULL)
-		suicide("FATAL - malloc failed\n", "malloc",
-			EXIT_FAILURE);
+	    curl[i] = xmalloc(sizeof(strlist_t));
 
 	    if (head[i] == NULL) {
 		head[i] = curl[i];
@@ -367,11 +355,7 @@ static int stream_onto_list(int i)
 	    if (last[i] != NULL)
 		last[i]->next = curl[i];
 
-	    curl[i]->str = malloc(e - s + 1);
-
-	    if (curl[i]->str == NULL)
-		suicide("FATAL - malloc failed\n", "malloc",
-			EXIT_FAILURE);
+	    curl[i]->str = xmalloc(e - s + 1);
 
 	    strlcpy(curl[i]->str, ibuf[i] + s, e - s);
 	    last[i] = curl[i];
@@ -539,24 +523,20 @@ static int get_listen(void)
 
     lsock = socket(PF_UNIX, SOCK_STREAM, 0);
     if (lsock == -1)
-	suicide("FATAL - failed to create socket\n",
-		"dispatch_work - socket", EXIT_FAILURE);
+	suicide("dispatch_work - failed to create socket");
 
     fcntl(lsock, F_SETFL, O_NONBLOCK);
 
     (void) unlink(COMM_SOCKET_PATH);
     ret = bind(lsock, (struct sockaddr *) &lsock_addr, sizeof(lsock_addr));
     if (ret)
-	suicide("FATAL - failed to bind socket\n",
-		"dispatch_work - bind", EXIT_FAILURE);
+	suicide("dispatch_work - failed to bind socket");
     ret = chmod(COMM_SOCKET_PATH, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
     if (ret)
-	suicide("FATAL - failed to chmod socket\n",
-		"dispatch_work - chmod", EXIT_FAILURE);
+	suicide("dispatch_work - failed to chmod socket");
     ret = listen(lsock, SOCK_QUEUE);
     if (ret)
-	suicide("FATAL - failed to listen on socket\n",
-		"dispatch_work - listen", EXIT_FAILURE);
+	suicide("dispatch_work - failed to listen on socket");
 
     return lsock;
 }
@@ -652,8 +632,7 @@ static void dispatch_work(void)
 	    case -1:
 		if (pending_exit == 1)
 		    return;
-		suicide("FATAL - select returned an error!\n",
-			"dispatch_work - select", EXIT_FAILURE);
+		suicide("dispatch_work - select returned an error!");
 		break;
 	}
 
@@ -725,7 +704,9 @@ dispatch_work_read_again:
 }
 
 int main(int argc, char** argv) {
-    int c, t, uid = 0, gid = 0;
+    int c, t;
+    uid_t uid = 0;
+    gid_t gid = 0;
     char pidfile[MAX_PATH_LENGTH] = PID_FILE_DEFAULT;
     char chrootd[MAX_PATH_LENGTH] = "";
     char resolv_conf_d[MAX_PATH_LENGTH] = "";
@@ -832,8 +813,7 @@ int main(int argc, char** argv) {
 			uid = (int)pws->pw_uid;
 			if (!gid)
 			    gid = (int)pws->pw_gid;
-		    } else suicide("FATAL - Invalid uid specified.\n", NULL,
-			    EXIT_FAILURE);
+		    } else suicide("FATAL - Invalid uid specified.");
 		} else
 		    uid = t;
 		break;
@@ -844,8 +824,8 @@ int main(int argc, char** argv) {
 		    grp = getgrnam(optarg);
 		    if (grp) {
 			gid = (int)grp->gr_gid;
-		    } else suicide("FATAL - Invalid gid specified.\n", NULL,
-			    EXIT_FAILURE);
+		    } else
+			suicide("FATAL - Invalid gid specified.");
 		} else
 		    gid = t;
 		break;
@@ -858,8 +838,8 @@ int main(int argc, char** argv) {
 			peer_uid = (int)pws->pw_uid;
 			if (!peer_gid)
 			    peer_gid = (int)pws->pw_gid;
-		    } else suicide("FATAL - Invalid uid specified.\n", NULL,
-			    EXIT_FAILURE);
+		    } else
+			suicide("FATAL - Invalid uid specified.");
 		} else
 		    peer_uid = t;
 		break;
@@ -870,8 +850,8 @@ int main(int argc, char** argv) {
 		    grp = getgrnam(optarg);
 		    if (grp) {
 			peer_gid = (int)grp->gr_gid;
-		    } else suicide("FATAL - Invalid gid specified.\n", NULL,
-			    EXIT_FAILURE);
+		    } else
+			suicide("FATAL - Invalid gid specified.");
 		} else
 		    peer_gid = t;
 		break;
@@ -889,8 +869,7 @@ int main(int argc, char** argv) {
     }
 
     if (getuid())
-	suicide("FATAL - I need root for CAP_NET_ADMIN and chroot!\n",
-		NULL, EXIT_FAILURE);
+	suicide("FATAL - I need root for CAP_NET_ADMIN and chroot!");
 
     if (gflags_detach)
 	if (daemon(0,0)) {
@@ -916,18 +895,17 @@ int main(int argc, char** argv) {
 	resolv_conf_fd = open(resolv_conf_d, O_RDWR | O_CREAT, 644);
 	umask(077);
 	if (resolv_conf_fd == -1) {
-	    suicide("FATAL - unable to open resolv.conf\n",
-		    "main - open", EXIT_FAILURE);
+	    suicide("FATAL - unable to open resolv.conf");
 	}
     }
 
     if (!strncmp(chrootd, "", MAX_PATH_LENGTH))
-	suicide("FATAL - No chroot path specified.  Refusing to run.\n",
-		NULL, EXIT_FAILURE);
+	suicide("FATAL - No chroot path specified.  Refusing to run.");
 
     /* Note that failure cases are handled by called fns. */
     imprison(chrootd);
-    drop_root(uid, gid, "cap_net_admin=ep");
+    set_cap(uid, gid, "cap_net_admin=ep");
+    drop_root(uid, gid);
 
     /* Cover our tracks... */
     memset(chrootd, '\0', sizeof(chrootd));
