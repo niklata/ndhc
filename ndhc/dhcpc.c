@@ -50,6 +50,7 @@
 #include "chroot.h"
 #include "cap.h"
 #include "strl.h"
+#include "malloc.h"
 
 #define VERSION "1.0"
 
@@ -455,7 +456,7 @@ static int do_work(void)
 
 int main(int argc, char **argv)
 {
-	char *chroot_dir = NULL;
+	char chroot_dir[255];
 	int c, len;
 	struct passwd *pwd;
 	uid_t uid = 0;
@@ -489,11 +490,11 @@ int main(int argc, char **argv)
 			len = strlen(optarg) > 255 ? 255 : strlen(optarg);
 			if (client_config.clientid)
 				free(client_config.clientid);
-			client_config.clientid = malloc(len + 2);
+			client_config.clientid = xmalloc(len + 1);
 			client_config.clientid[OPT_CODE] = DHCP_CLIENT_ID;
 			client_config.clientid[OPT_LEN] = len;
-			client_config.clientid[OPT_DATA] = '\0';
-			strlcpy((char *)client_config.clientid + OPT_DATA, optarg, len);
+			strlcpy((char *)client_config.clientid + OPT_DATA, optarg,
+					len + 1 - (OPT_DATA - OPT_CODE));
 			break;
 		case 'f':
 			client_config.foreground = 1;
@@ -506,10 +507,11 @@ int main(int argc, char **argv)
 			len = strlen(optarg) > 255 ? 255 : strlen(optarg);
 			if (client_config.hostname)
 				free(client_config.hostname);
-			client_config.hostname = malloc(len + 2);
+			client_config.hostname = xmalloc(len + 1);
 			client_config.hostname[OPT_CODE] = DHCP_HOST_NAME;
 			client_config.hostname[OPT_LEN] = len;
-			strlcpy((char*)client_config.hostname + 2, optarg, len);
+			strlcpy((char*)client_config.hostname + OPT_DATA, optarg,
+					len + 1 - (OPT_DATA - OPT_CODE));
 			break;
 		case 'i':
 			client_config.interface =  optarg;
@@ -534,10 +536,7 @@ int main(int argc, char **argv)
 			}
 			break;
 		case 'C':
-			len = strlen(optarg) > 255 ? 255 : strlen(optarg);
-			chroot_dir = malloc(len + 2);
-			memset(chroot_dir, '\0', len + 2);
-			strlcpy(chroot_dir, optarg, len);
+			strlcpy(chroot_dir, optarg, sizeof chroot_dir);
 			break;
 		case 'v':
 			printf("ndhc, version " VERSION "\n\n");
@@ -555,7 +554,7 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 		
 	if (!client_config.clientid) {
-		client_config.clientid = malloc(6 + 3);
+		client_config.clientid = xmalloc(6 + 3);
 		client_config.clientid[OPT_CODE] = DHCP_CLIENT_ID;
 		client_config.clientid[OPT_LEN] = 7;
 		client_config.clientid[OPT_DATA] = 1;
