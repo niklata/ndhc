@@ -1,19 +1,17 @@
-ifchd, copyright (c) 2004 Nicholas Kain.  Licensed under GNU GPL.
+ifchd, copyright (c) 2004-2010 Nicholas Kain.  Licensed under GNU GPL.
 
 Requirements:
 
 Linux kernel (tested: 2.4, 2.6)
-	* libcap is required (available via ftp.kernel.org)
+        * libcap is required (available via ftp.kernel.org)
 
 C99-compliant C compiler (for C99 struct subobject init)
-	* any modern GCC should be sufficient
+        * any modern GCC should be sufficient
 
 Tested with glibc 2.2.x and 2.3.x.  dietlibc is not compatible.  I have not yet
 tested uclibc.
 
-I may bother to port to other operating systems, but don't count on it.  Other
-OSes lack the functionality of a [RSBAC|SELinux]+PaX enabled kernel, so I find
-them to be less useful for a highly secured system.
+I may bother to port to other operating systems, but don't count on it.
 
 INTRODUCTION
 ------------
@@ -58,7 +56,7 @@ Patches that provide support for new systems are welcome.
 USAGE
 -----
 
-1) Compile and install ifchd and ndhc. 
+1) Compile and install ifchd and ndhc.
     a) Build ifchd with "make"
     b) Enter ndhc directory and build ndhc with "make"
     c) Install the ifchd and ndhc executables in a normal place.  I would
@@ -67,36 +65,36 @@ USAGE
 2) Time to create the jail in which ifchd and ndhc will run.
     a) Become root and create new group "ifchd".
 
-	$ su -
-	# umask 077
-	# groupadd ifchd
-    
+        $ su -
+        # umask 077
+        # groupadd ifchd
+
     b) Create new users "ifchd" and "dhcp".  The primary group of these
        users should be "ifchd".
 
-	# useradd -d /var/lib/ndhc -g ifchd ifchd
-	# useradd -d /var/lib/ndhc -g ifchd dhcp
-       
+        # useradd -d /var/lib/ndhc -g ifchd ifchd
+        # useradd -d /var/lib/ndhc -g ifchd dhcp
+
     b) Create the jail directory and set its ownership properly.
 
-	# mkdir /var/lib/ndhc
-	# chown ifchd.ifchd /var/lib/ndhc
-	# chmod a+rx /var/lib/ndhc
-	
+        # mkdir /var/lib/ndhc
+        # chown ifchd.ifchd /var/lib/ndhc
+        # chmod a+rx /var/lib/ndhc
+
     c) Create a urandom device for ndhc to use within the jail.
 
-	# cd /var/lib/ndhc
-	# mkdir dev
-	# mknod dev/urandom c 1 9
-	# chown -R root.root dev
-	# chmod a+rx dev
-	# chmod a+r dev/urandom
+        # cd /var/lib/ndhc
+        # mkdir dev
+        # mknod dev/urandom c 1 9
+        # chown -R root.root dev
+        # chmod a+rx dev
+        # chmod a+r dev/urandom
 
-	d) (optional) If you wish for logging to properly work, you
-	   will need to properly configure your logging daemon so that it
-	   opens a domain socket in the proper location within the jail.
-	   Since this varies per-daemon, I cannot provide a general
-	   configuration.
+        d) (optional) If you wish for logging to properly work, you
+           will need to properly configure your logging daemon so that it
+           opens a domain socket in the proper location within the jail.
+           Since this varies per-daemon, I cannot provide a general
+           configuration.
 
 3)  At this point the jail is usable; ifchd and ndhc are ready to
     be used.  As an example of a sample configuration, here is my
@@ -106,14 +104,14 @@ USAGE
 
 #!/bin/sh
 case "$1" in
-	start)
-		ifchd -i eth0 -p /var/run/ifchd.pid -u ifchd -g ifchd -U dhcp -G ifchd \
-			-c /var/lib/ndhc &> /dev/null
-		ndhc -b -i eth0 -u dhcp -C /var/lib/ndhc &> /dev/null
-		;;
-	stop)
-		killall ndhc ifchd
-		;;
+        start)
+                ifchd -i eth0 -p /var/run/ifchd.pid -u ifchd -g ifchd -U dhcp -G ifchd \
+                        -c /var/lib/ndhc &> /dev/null
+                ndhc -b -i eth0 -u dhcp -C /var/lib/ndhc &> /dev/null
+                ;;
+        stop)
+                killall ndhc ifchd
+                ;;
 esac
 
 --END--
@@ -137,22 +135,6 @@ If you wish to enable these functions, use the --resolve (-r) and --hostname
 ifchd can be set such that it only allows clients to configure particular
 network interfaces.  The --interface (-i) argument does the trick, and may
 be used multiple times to allow multiple interfaces.
-
-RSBAC NOTES
------------
-
-I was personally unable to get ifchd to properly function with RSBAC_NET_DEV
-enabled.  Browsing the rsbac source, I was unable to figure out what I was
-doing incorrectly -- my RC definitions were as far as I could tell, correct.
-Therefore, my directions assume that you have disabled RSBAC_NET_DEV in your
-kernel configuration.
-
-The normal usage directions may be followed, but an additional step for rsbac
-is necessary.  Change to your secoff account and invoke rsbac_fd_menu on the
-ifchd and ndhc executables.  The AUTH capability for your ifchd and dhcp groups
-must be allowed on the corresponding executables, otherwise ifchd and ndhc will
-be unable to change to a non-root user and will refuse to run.
-
 
 GRSECURITY NOTES
 ----------------
@@ -188,4 +170,3 @@ nonstandard semantics (notably Solaris).  On these systems, using the
 system-provided implementations may lead to security problems.  Such problems
 are the fault of the vendor.  If you are unsure whether your system is correct
 or not, I suggest using the implementation that I provide.
-
