@@ -1,5 +1,5 @@
 /* linux.c - ifchd Linux-specific functions
- * Time-stamp: <2010-11-12 14:29:32 njk>
+ * Time-stamp: <2010-11-12 18:41:15 njk>
  *
  * (C) 2004-2010 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -37,7 +37,7 @@
 
 #include <errno.h>
 
-#include "defines.h"
+#include "ifchd-defines.h"
 #include "log.h"
 #include "strlist.h"
 #include "ifproto.h"

@@ -149,11 +149,21 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
     packet.ip.ttl = IPDEFTTL;
     packet.ip.check = checksum(&(packet.ip), sizeof(packet.ip));
 
-    result = sendto(fd, &packet, sizeof(struct udp_dhcp_packet), 0,
-		    (struct sockaddr *)&dest, sizeof dest);
-    if (result <= 0) {
-	log_error("write on socket failed: %s",
-		  strerror(errno));
+    int remain = sizeof(struct udp_dhcp_packet);
+    int sent = 0;
+    while (1) {
+	result = sendto(fd, &packet + sent, remain, 0,
+			(struct sockaddr *)&dest, sizeof dest);
+	if (result == -1) {
+	    if (errno == EINTR)
+		continue;
+	    log_error("raw_packet: sendto failed: %s", strerror(errno));
+	    break;
+	}
+	remain =- result;
+	sent += result;
+	if (remain == 0)
+	    break;
     }
   out_fd:
     close(fd);
@@ -190,7 +200,21 @@ int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
     if (connect(fd, (struct sockaddr *)&client, sizeof(struct sockaddr)) == -1)
 	goto out_fd;
 
-    result = write(fd, payload, sizeof(struct dhcpMessage));
+    int remain = sizeof(struct dhcpMessage);
+    int sent = 0;
+    while (1) {
+	result = write(fd, payload + sent, remain);
+	if (result == -1) {
+	    if (errno == EINTR)
+		continue;
+	    log_error("kernel_packet: write failed: %s", strerror(errno));
+	    break;
+	}
+	remain =- result;
+	sent += result;
+	if (remain == 0)
+	    break;
+    }
   out_fd:
     close(fd);
   out:

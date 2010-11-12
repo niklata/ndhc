@@ -39,6 +39,7 @@
 #include <pwd.h>
 #include <grp.h>
 
+#include "ndhc-defines.h"
 #include "dhcpd.h"
 #include "dhcpc.h"
 #include "options.h"
@@ -50,6 +51,7 @@
 #include "chroot.h"
 #include "cap.h"
 #include "strl.h"
+#include "pidfile.h"
 #include "malloc.h"
 
 #define VERSION "1.0"
@@ -456,7 +458,8 @@ static int do_work(void)
 
 int main(int argc, char **argv)
 {
-    char chroot_dir[255];
+    char pidfile[MAX_PATH_LENGTH] = "";
+    char chroot_dir[MAX_PATH_LENGTH] = PID_FILE_DEFAULT;
     int c, len;
     struct passwd *pwd;
     uid_t uid = 0;
@@ -465,6 +468,7 @@ int main(int argc, char **argv)
         {"clientid",    required_argument,  0, 'c'},
         {"foreground",  no_argument,        0, 'f'},
         {"background",  no_argument,        0, 'b'},
+        {"pidfile",     required_argument,  0, 'p'},
         {"hostname",    required_argument,  0, 'H'},
         {"hostname",    required_argument,      0, 'h'},
         {"interface",   required_argument,  0, 'i'},
@@ -481,7 +485,7 @@ int main(int argc, char **argv)
     /* get options */
     while (1) {
         int option_index = 0;
-        c = getopt_long(argc, argv, "c:fbH:h:i:np:qr:u:C:v", arg_options,
+        c = getopt_long(argc, argv, "c:fbp:H:h:i:np:qr:u:C:v", arg_options,
                         &option_index);
         if (c == -1) break;
 
@@ -501,6 +505,9 @@ int main(int argc, char **argv)
                 break;
             case 'b':
                 client_config.background_if_no_lease = 1;
+                break;
+            case 'p':
+                strlcpy(pidfile, optarg, MAX_PATH_LENGTH);
                 break;
             case 'h':
             case 'H':
@@ -548,6 +555,12 @@ int main(int argc, char **argv)
     }
 
     log_line("ndhc client " VERSION " started.");
+
+    if (file_exists(pidfile, "w") == -1) {
+        log_line("FATAL - cannot open pidfile for write!");
+        exit(EXIT_FAILURE);
+    }
+    write_pid(pidfile);
 
     if (read_interface(client_config.interface, &client_config.ifindex,
                        NULL, client_config.arp) < 0)

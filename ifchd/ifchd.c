@@ -1,5 +1,5 @@
 /* ifchd.c - interface change daemon
- * Time-stamp: <2010-11-12 17:22:34 njk>
+ * Time-stamp: <2010-11-12 18:40:54 njk>
  *
  * (C) 2004-2010 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -39,7 +39,7 @@
 #define _GNU_SOURCE
 #include <getopt.h>
 
-#include "defines.h"
+#include "ifchd-defines.h"
 #include "malloc.h"
 #include "log.h"
 #include "chroot.h"

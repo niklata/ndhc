@@ -144,21 +144,23 @@ static int open_ifch(void) {
     return sockfd;
 }
 
-static void sockwrite(int fd, const void *buf, size_t count)
+static void sockwrite(int fd, const char *buf, size_t count)
 {
     int ret;
-
-  sockwrite_again:
-    ret = write(fd, buf, count);
-    if (ret == -1) {
-        if (errno == EAGAIN)
-            goto sockwrite_again;
-        log_error("error while writing to unix socket!");
-        exit(EXIT_FAILURE);
-    }
-    if (ret < 0) ret = 0;
-    if ((unsigned int)ret < strlen(buf)) {
-        log_error("incomplete write!");
+    int remain = count;
+    int sent = 0;
+    while (1) {
+        ret = write(fd, buf + sent, remain);
+        if (ret == -1) {
+            if (errno == EINTR)
+                continue;
+            log_error("sockwrite: write failed: %s", strerror(errno));
+            break;
+        }
+        remain =- ret;
+        sent += ret;
+        if (remain == 0)
+            break;
     }
     log_line("writing: %s", (char *)buf);
 }
