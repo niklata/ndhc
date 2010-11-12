@@ -295,8 +295,6 @@ static void handle_packet(void)
     struct in_addr temp_addr;
     struct dhcpMessage packet;
 
-    log_line("got a packet");
-
     if (listen_mode == LISTEN_KERNEL)
         len = get_packet(&packet, fd);
     else

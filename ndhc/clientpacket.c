@@ -178,10 +178,10 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
     uint16_t check;
 
     ssize_t len = 0;
-    const ssize_t wanted = sizeof(struct iphdr) + sizeof(struct udphdr);
+    const ssize_t header_size = sizeof(struct iphdr) + sizeof(struct udphdr);
 
     memset(&packet, 0, sizeof(struct udp_dhcp_packet));
-    while (len < wanted) {
+    while (len < header_size) {
         ssize_t r = read(fd, &packet + len,
                          sizeof(struct udp_dhcp_packet) - len);
         if (r == 0)
@@ -205,8 +205,7 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
         return -2;
     }
 
-    log_line("len: %d wanted: %d", len, wanted);
-    if (len < wanted) {
+    if (len < header_size) {
         log_line("Message too short to contain IP + UDP headers, ignoring");
         sleep(1);
         return -2;
@@ -284,6 +283,6 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
         log_error("received bogus message (bad magic) -- ignoring");
         return -2;
     }
-    log_line("oooooh!!! got some!");
+    log_line("Received valid DHCP message.");
     return len - (sizeof(packet.ip) + sizeof(packet.udp));
 }

@@ -1,5 +1,5 @@
 /* ifchd.c - interface change daemon
- * Time-stamp: <2010-11-12 14:27:47 njk>
+ * Time-stamp: <2010-11-12 17:22:34 njk>
  *
  * (C) 2004-2010 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -357,7 +357,7 @@ static int stream_onto_list(int i)
 
             curl[i]->str = xmalloc(e - s + 1);
 
-            strlcpy(curl[i]->str, ibuf[i] + s, e - s);
+            strlcpy(curl[i]->str, ibuf[i] + s, e - s + 1);
             last[i] = curl[i];
             s = e + 1;
         }
@@ -377,6 +377,8 @@ static void execute_list(int i)
         die_nulstr(curl[i]);
 
         p = curl[i]->str;
+
+        log_line("execute_list - p = '%s'", p);
 
         switch (state[i]) {
             case STATE_NOTHING:
@@ -683,7 +685,7 @@ read_again:
             }
 
             /* Append new stream input avoiding overflow. */
-            strlcpy(ibuf[i] + index, buf, sizeof(ibuf[i]) - index - 1);
+            strlcpy(ibuf[i] + index, buf, sizeof(ibuf[i]) - index);
 
             /* Decompose ibuf contents onto strlist. */
             index = stream_onto_list(i);
