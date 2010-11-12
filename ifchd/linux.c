@@ -1,5 +1,5 @@
 /* linux.c - ifchd Linux-specific functions
- * Time-stamp: <2010-11-12 05:14:52 njk>
+ * Time-stamp: <2010-11-12 08:45:42 njk>
  *
  * (C) 2004 Nicholas J. Kain <njk@aerifal.cx>
  *
@@ -27,8 +27,6 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/types.h>
-#include <sys/capability.h>
-#include <sys/prctl.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -332,42 +330,4 @@ void perform_broadcast(int idx, char *str)
 	log_line("%s: failed to set broadcast: %s\n",
 		ifnam[idx], strerror(errno));
     close(fd);
-}
-
-void set_cap(uid_t uid, gid_t gid, char *captxt)
-{
-    cap_t caps;
-
-    if (!captxt) {
-	log_line("FATAL - set_cap: captxt == NULL\n");
-	exit(EXIT_FAILURE);
-    }
-
-    if (prctl(PR_SET_KEEPCAPS, 1)) {
-	log_line("FATAL - set_cap: prctl() failed\n");
-	exit(EXIT_FAILURE);
-    }
-
-    if (setgroups(0, NULL) == -1) {
-	log_line("FATAL - set_cap: setgroups() failed\n");
-	exit(EXIT_FAILURE);
-    }
-
-    if (setegid(gid) == -1 || seteuid(uid) == -1) {
-	log_line("FATAL - set_cap: seteuid() failed\n");
-	exit(EXIT_FAILURE);
-    }
-
-    caps = cap_from_text(captxt);
-    if (!caps) {
-	log_line("FATAL - set_cap: cap_from_text() failed\n");
-	exit(EXIT_FAILURE);
-    }
-
-    if (cap_set_proc(caps) == -1) {
-	log_line("FATAL - set_cap: cap_set_proc() failed\n");
-	exit(EXIT_FAILURE);
-    }
-
-    cap_free(caps);
 }

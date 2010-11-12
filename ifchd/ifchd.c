@@ -1,5 +1,5 @@
 /* ifchd.c - interface change daemon
- * Time-stamp: <2010-11-12 06:02:59 njk>
+ * Time-stamp: <2010-11-12 09:02:54 njk>
  *
  * (C) 2004 Nicholas J. Kain <njk@aerifal.cx>
  *
@@ -49,6 +49,7 @@
 #include "strlist.h"
 #include "ifproto.h"
 #include "strl.h"
+#include "cap.h"
 #include "linux.h"
 
 enum states {

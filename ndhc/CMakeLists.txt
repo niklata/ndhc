@@ -8,7 +8,6 @@ set(NDHC_SRCS
   packet.c
   script.c
   clientpacket.c
-  rootcap.c
   dhcpc.c
   )
 

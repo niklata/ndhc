@@ -36,8 +36,6 @@
 #include <sys/ioctl.h>
 #include <net/if.h>
 #include <errno.h>
-#include <sys/capability.h>
-#include <sys/prctl.h>
 #include <pwd.h>
 #include <grp.h>
 
@@ -50,7 +48,7 @@
 #include "socket.h"
 #include "log.h"
 #include "chroot.h"
-#include "rootcap.h"
+#include "cap.h"
 #include "strl.h"
 
 #define VERSION "1.0"
