@@ -179,11 +179,11 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
 
     ssize_t len = 0;
     const ssize_t header_size = sizeof(struct iphdr) + sizeof(struct udphdr);
+    const ssize_t packet_size = sizeof(struct udp_dhcp_packet);
 
-    memset(&packet, 0, sizeof(struct udp_dhcp_packet));
-    while (len < header_size) {
-        ssize_t r = read(fd, &packet + len,
-                         sizeof(struct udp_dhcp_packet) - len);
+    memset(&packet, 0, packet_size);
+    while (len < packet_size) {
+        ssize_t r = read(fd, &packet + len, packet_size - len);
         if (r == 0)
             break;
         if (r == -1) {
@@ -241,7 +241,7 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
         sleep(1);
         return -2;
     }
-    if (len > (int)sizeof(struct udp_dhcp_packet)) {
+    if (len > packet_size) {
         log_line("Data longer than that of a IP+UDP+DHCP message");
         sleep(1);
         return -2;
