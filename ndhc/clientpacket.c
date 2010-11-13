@@ -213,7 +213,7 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
     /* Make sure its the right packet for us, and that it passes
      * sanity checks */
     if (packet.ip.protocol != IPPROTO_UDP) {
-        log_line("IP header is not UDP");
+        log_line("IP header is not UDP: %d", packet.ip.protocol);
         sleep(1);
         return -2;
     }
@@ -228,12 +228,12 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
         return -2;
     }
     if (packet.udp.dest != htons(CLIENT_PORT)) {
-        log_line("UDP destination port incorrect");
+        log_line("UDP destination port incorrect: %d", ntohs(packet.udp.dest));
         sleep(1);
         return -2;
     }
     if (len > packet_size) {
-        log_line("Data longer than that of a IP+UDP+DHCP message");
+        log_line("Data longer than that of a IP+UDP+DHCP message: %d", len);
         sleep(1);
         return -2;
     }
