@@ -183,7 +183,7 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
 
     memset(&packet, 0, packet_size);
     while (len < packet_size) {
-        ssize_t r = read(fd, &packet + len, packet_size - len);
+        ssize_t r = read(fd, ((char *)&packet) + len, packet_size - len);
         if (r == 0)
             break;
         if (r == -1) {
