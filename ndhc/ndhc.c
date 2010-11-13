@@ -188,11 +188,12 @@ static void signal_handler(int sig)
 
 static void background(void)
 {
-    if (daemon(0, 0) == -1) {
+    static char called;
+    if (!called && daemon(0, 0) == -1) {
         perror("fork");
         exit(EXIT_SUCCESS);
     }
-    client_config.foreground = 1; /* Do not fork again. */
+    called = 1;  /* Do not fork again. */
 }
 
 static void handle_timeout(void)
