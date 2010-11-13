@@ -1,5 +1,5 @@
 /* io.c - light wrappers for POSIX i/o functions
- * Time-stamp: <2010-11-13 08:08:39 njk>
+ * Time-stamp: <2010-11-13 08:22:53 njk>
  *
  * (c) 2010 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
@@ -30,11 +30,29 @@
 #include <unistd.h>
 #include <errno.h>
 
-// returns -1 on error, >= 0 on success
+/* returns -1 on error, >= 0 and equal to # chars read on success */
+int safe_read(int fd, char *buf, int len)
+{
+    int r, s = 0;
+    while (s < len) {
+        r = read(fd, buf + s, len - s);
+        if (r == 0)
+            break;
+        if (r == -1) {
+            if (errno == EINTR)
+                continue;
+            else
+                return -1;
+        }
+        s += r;
+    }
+    return s;
+}
+
+/* returns -1 on error, >= 0 and equal to # chars written on success */
 int safe_write(int fd, const char *buf, int len)
 {
-    int r;
-    int s = 0;
+    int r, s = 0;
     while (s < len) {
         r = write(fd, buf + s, len - s);
         if (r == -1) {

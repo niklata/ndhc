@@ -1,5 +1,5 @@
 /* io.h - light wrappers for POSIX i/o functions
- * Time-stamp: <2010-11-13 08:07:43 njk>
+ * Time-stamp: <2010-11-13 08:22:48 njk>
  *
  * (c) 2010 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
@@ -30,6 +30,7 @@
 #ifndef NCM_IO_H_
 #define NCM_IO_H_
 
+int safe_read(int fd, char *buf, int len);
 int safe_write(int fd, const char *buf, int len);
 
 #endif /* NCM_IO_H_ */

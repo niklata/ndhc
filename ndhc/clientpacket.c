@@ -41,26 +41,31 @@
 #include "options.h"
 #include "dhcpc.h"
 #include "log.h"
+#include "io.h"
 
 /* Create a random xid */
 uint32_t random_xid(void)
 {
     static int initialized;
-    if (!initialized) {
-        int fd;
-        uint32_t seed;
+    if (initialized)
+        return rand();
 
-        fd = open("/dev/urandom", O_RDONLY);
-        if (fd == -1 || read(fd, &seed, sizeof seed) < 0) {
-                log_warning("Could not load seed from /dev/urandom: %s",
-                            strerror(errno));
-                seed = time(0);
+    uint32_t seed;
+    int fd = open("/dev/urandom", O_RDONLY);
+    if (fd != -1) {
+        int r = safe_read(fd, (char *)&seed, sizeof seed);
+        if (r == -1) {
+            log_warning("Could not read /dev/urandom: %s", strerror(errno));
+            close(fd);
+            seed = time(0);
         }
-        if (fd != -1)
-                close(fd);
-        srand(seed);
-        initialized++;
+    } else {
+        log_warning("Could not open /dev/urandom: %s",
+                    strerror(errno));
+        seed = time(0);
     }
+    srand(seed);
+    initialized = 1;
     return rand();
 }
 
@@ -178,24 +183,15 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
     struct udp_dhcp_packet packet;
     uint32_t source, dest;
     uint16_t check;
-
-    ssize_t len = 0;
-    const ssize_t header_size = sizeof(struct iphdr) + sizeof(struct udphdr);
-    const ssize_t packet_size = sizeof(struct udp_dhcp_packet);
+    const int header_size = sizeof(struct iphdr) + sizeof(struct udphdr);
+    const int packet_size = sizeof(struct udp_dhcp_packet);
 
     memset(&packet, 0, packet_size);
-    while (len < packet_size) {
-        ssize_t r = read(fd, ((char *)&packet) + len, packet_size - len);
-        if (r == 0)
-            break;
-        if (r == -1) {
-            if (errno == EINTR)
-                continue;
-            log_line("get_raw_packet: read error %s", strerror(errno));
-            usleep(500000); /* possible down interface, looping condition */
-            return -1;
-        }
-        len += r;
+    int len = safe_read(fd, (char *)&packet, packet_size);
+    if (len == -1) {
+        log_line("get_raw_packet: read error %s", strerror(errno));
+        usleep(500000); /* possible down interface, looping condition */
+        return -1;
     }
 
     if (len < header_size) {
