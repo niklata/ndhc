@@ -189,11 +189,7 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
         if (r == -1) {
             if (errno == EINTR)
                 continue;
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                log_line("EAGAIN or EWOULDBLOCK hit");
-                break;
-            }
-            log_line("couldn't read on raw listening socket -- ignoring");
+            log_line("get_raw_packet: read error %s", strerror(errno));
             usleep(500000); /* possible down interface, looping condition */
             return -1;
         }

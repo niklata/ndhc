@@ -314,8 +314,7 @@ static void handle_packet(void)
         len = get_raw_packet(&packet, fd);
 
     if (len == -1 && errno != EINTR) {
-        log_error("error on read, %s, reopening socket.",
-                  strerror(errno));
+        log_error("reopening socket.");
         change_mode(listen_mode); /* just close and reopen */
     }
 
