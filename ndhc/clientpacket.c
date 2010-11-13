@@ -200,11 +200,6 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
         len += r;
     }
 
-    if (len == 0) {
-        usleep(50000);
-        return -2;
-    }
-
     if (len < header_size) {
         log_line("Message too short to contain IP + UDP headers, ignoring");
         sleep(1);
