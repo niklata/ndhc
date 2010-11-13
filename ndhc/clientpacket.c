@@ -149,7 +149,6 @@ int send_selecting(uint32_t xid, uint32_t server, uint32_t requested)
 int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr)
 {
     struct dhcpMessage packet;
-    int ret = 0;
 
     init_packet(&packet, DHCPREQUEST);
     packet.xid = xid;
@@ -158,10 +157,10 @@ int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr)
     add_requests(&packet);
     log_line("Sending renew...");
     if (server)
-        ret = kernel_packet(&packet, ciaddr, CLIENT_PORT, server, SERVER_PORT);
+        return kernel_packet(&packet, ciaddr, CLIENT_PORT,
+                             server, SERVER_PORT);
     else
-        ret = bcast_raw_packet(&packet);
-    return ret;
+        return bcast_raw_packet(&packet);
 }
 
 /* Unicasts a DHCP release message */
