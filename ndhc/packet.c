@@ -174,13 +174,13 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
 int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
 		  int source_port, uint32_t dest_ip, int dest_port)
 {
-    int n = 1, fd, result = -1;
+    int opt = 1, fd, result = -1;
     struct sockaddr_in client;
 
     if ((fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
 	goto out;
 
-    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char *) &n, sizeof(n)) == -1)
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt) == -1)
 	goto out_fd;
 
     memset(&client, 0, sizeof(client));

@@ -91,7 +91,7 @@ int listen_socket(unsigned int ip, int port, char *inf)
     struct ifreq interface;
     int fd;
     struct sockaddr_in addr;
-    int n = 1;
+    int opt = 1;
 
     log_line("Opening listen socket on 0x%08x:%d %s", ip, port, inf);
     if ((fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
@@ -99,19 +99,20 @@ int listen_socket(unsigned int ip, int port, char *inf)
         goto out;
     }
 
-    memset(&addr, 0, sizeof(addr));
+    memset(&addr, 0, sizeof addr);
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = ip;
 
-    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char *)&n, sizeof n) == -1)
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt) == -1)
         goto out_fd;
-    if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, (char *)&n, sizeof n) == -1)
+    if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &opt, sizeof opt) == -1)
         goto out_fd;
 
+    /* Restrict operations to the physical device @inf */
     strlcpy(interface.ifr_ifrn.ifrn_name, inf, IFNAMSIZ);
     if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE,
-                   (char *)&interface, sizeof interface) < 0)
+                   &interface, sizeof interface) < 0)
         goto out_fd;
 
     if (bind(fd, (struct sockaddr *)&addr, sizeof(struct sockaddr)) == -1)
@@ -129,6 +130,7 @@ int raw_socket(int ifindex)
     int fd;
     struct sockaddr_ll sock;
 
+    memset(&sock, 0, sizeof sock);
     log_line("Opening raw socket on ifindex %d", ifindex);
     if ((fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP))) < 0) {
         log_error("socket call failed: %s", strerror(errno));
@@ -138,7 +140,7 @@ int raw_socket(int ifindex)
     sock.sll_family = AF_PACKET;
     sock.sll_protocol = htons(ETH_P_IP);
     sock.sll_ifindex = ifindex;
-    if (bind(fd, (struct sockaddr *) &sock, sizeof(sock)) < 0) {
+    if (bind(fd, (struct sockaddr *)&sock, sizeof(sock)) < 0) {
         log_error("bind call failed: %s", strerror(errno));
         goto out_fd;
     }
