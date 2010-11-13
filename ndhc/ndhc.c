@@ -163,18 +163,14 @@ static void perform_renew(void)
 /* perform a release */
 static void perform_release(void)
 {
-    char buf[32];
-    struct in_addr temp_addr;
-
-    memset(buf, '\0', sizeof buf);
+    struct in_addr temp_saddr, temp_raddr;
 
     /* send release packet */
     if (state == BOUND || state == RENEWING || state == REBINDING) {
-        temp_addr.s_addr = server_addr;
-        snprintf(buf, sizeof buf, "%s", inet_ntoa(temp_addr));
-        temp_addr.s_addr = requested_ip;
+        temp_saddr.s_addr = server_addr;
+        temp_raddr.s_addr = requested_ip;
         log_line("Unicasting a release of %s to %s.",
-                 inet_ntoa(temp_addr), buf);
+                 inet_ntoa(temp_raddr), inet_ntoa(temp_saddr));
         send_release(server_addr, requested_ip); /* unicast */
         run_script(NULL, SCRIPT_DECONFIG);
     }
