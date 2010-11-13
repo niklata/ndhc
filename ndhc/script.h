@@ -1,5 +1,5 @@
-#ifndef _SCRIPT_H
-#define _SCRIPT_H
+#ifndef SCRIPT_H_
+#define SCRIPT_H_
 
 enum {
 	SCRIPT_DECONFIG = 0,

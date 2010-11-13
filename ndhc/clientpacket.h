@@ -1,5 +1,5 @@
-#ifndef _CLIENTPACKET_H
-#define _CLIENTPACKET_H
+#ifndef CLIENTPACKET_H_
+#define CLIENTPACKET_H_
 
 #include <stdint.h>
 

@@ -1,5 +1,5 @@
-#ifndef _DHCPC_H
-#define _DHCPC_H
+#ifndef DHCPC_H_
+#define DHCPC_H_
 
 enum {
 	INIT_SELECTING,
