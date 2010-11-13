@@ -182,7 +182,6 @@ static void deconfig_if(void)
     sockwrite(sockfd, buf, strlen(buf));
 
     close(sockfd);
-    exit(EXIT_SUCCESS);
 }
 
 static void translate_option(int sockfd, struct dhcpMessage *packet, int opt)
@@ -240,36 +239,26 @@ static void bound_if(struct dhcpMessage *packet)
     translate_option(sockfd, packet, 17);
 
     close(sockfd);
-    exit(EXIT_SUCCESS);
 }
 
 void run_script(struct dhcpMessage *packet, int mode)
 {
-    int pid;
-
-    pid = fork();
-    if (pid) {
-        waitpid(pid, NULL, 0);
-        return;
-    } else if (pid == 0) {
-        switch (mode) {
-            case SCRIPT_DECONFIG:
-                deconfig_if();
-                break;
-            case SCRIPT_BOUND:
-                bound_if(packet);
-                break;
-            case SCRIPT_RENEW:
-                bound_if(packet);
-                break;
-            case SCRIPT_NAK:
-                deconfig_if();
-                break;
-            default:
-                break;
-        }
-        log_error("invalid script mode: %d", mode);
-        exit(EXIT_FAILURE);
+    switch (mode) {
+        case SCRIPT_DECONFIG:
+            deconfig_if();
+            break;
+        case SCRIPT_BOUND:
+            bound_if(packet);
+            break;
+        case SCRIPT_RENEW:
+            bound_if(packet);
+            break;
+        case SCRIPT_NAK:
+            deconfig_if();
+            break;
+        default:
+            log_error("invalid script mode: %d", mode);
+            break;
     }
 }
 
