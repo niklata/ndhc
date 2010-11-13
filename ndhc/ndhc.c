@@ -58,6 +58,8 @@
 #define NUMPACKETS 3 /* number of packets to send before delay */
 #define RETRY_DELAY 30 /* time in seconds to delay after sending NUMPACKETS */
 
+static char pidfile[MAX_PATH_LENGTH] = PID_FILE_DEFAULT;
+
 static unsigned long requested_ip, server_addr, timeout;
 static unsigned long lease, t1, t2, xid, start;
 static int state, packet_num, fd, listen_mode;
@@ -194,6 +196,11 @@ static void background(void)
         exit(EXIT_SUCCESS);
     }
     called = 1;  /* Do not fork again. */
+    if (file_exists(pidfile, "w") == -1) {
+        log_line("FATAL - cannot open pidfile for write!");
+        exit(EXIT_FAILURE);
+    }
+    write_pid(pidfile);
 }
 
 static void handle_timeout(void)
@@ -460,7 +467,6 @@ static int do_work(void)
 
 int main(int argc, char **argv)
 {
-    char pidfile[MAX_PATH_LENGTH] = PID_FILE_DEFAULT;
     char chroot_dir[MAX_PATH_LENGTH] = "";
     int c, len;
     struct passwd *pwd;
@@ -557,12 +563,6 @@ int main(int argc, char **argv)
     }
 
     log_line("ndhc client " VERSION " started.");
-
-    if (file_exists(pidfile, "w") == -1) {
-        log_line("FATAL - cannot open pidfile for write!");
-        exit(EXIT_FAILURE);
-    }
-    write_pid(pidfile);
 
     if (read_interface(client_config.interface, &client_config.ifindex,
                        NULL, client_config.arp) < 0)
