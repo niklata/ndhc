@@ -1,5 +1,5 @@
 /* ifchd.c - interface change daemon
- * Time-stamp: <2010-11-12 18:40:54 njk>
+ * Time-stamp: <2010-11-13 08:07:54 njk>
  *
  * (C) 2004-2010 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -49,6 +49,7 @@
 #include "ifproto.h"
 #include "strl.h"
 #include "cap.h"
+#include "io.h"
 #include "linux.h"
 
 enum states {
@@ -126,22 +127,10 @@ static void die_nulstr(strlist_t *p)
         suicide("FATAL - NULL string in strlist");
 }
 
-static void safe_write(int fd, const char *buf, int len)
+static void writeordie(int fd, const char *buf, int len)
 {
-    ssize_t r;
-  retry:
-    r = write(fd, buf, len);
-    if (r != len) {
-        if (r == -1) {
-            if (errno == EINTR)
-                goto retry;
-            else
-                suicide("write returned error");
-        } else {
-            len -= r;
-            goto retry;
-        }
-    }
+    if (safe_write(fd, buf, len) == -1)
+        suicide("write returned error");
 }
 
 /* Writes out each element in a strlist as an argument to a keyword in
@@ -159,9 +148,9 @@ static void write_resolve_list(const char *keyword, strlist_t *list)
         buf = p->str;
         len = strlen(buf);
         if (len) {
-            safe_write(resolv_conf_fd, keyword, strlen(keyword));
-            safe_write(resolv_conf_fd, buf, strlen(buf));
-            safe_write(resolv_conf_fd, "\n", 1);
+            writeordie(resolv_conf_fd, keyword, strlen(keyword));
+            writeordie(resolv_conf_fd, buf, strlen(buf));
+            writeordie(resolv_conf_fd, "\n", 1);
         }
         p = p->next;
     }

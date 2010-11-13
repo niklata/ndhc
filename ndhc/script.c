@@ -38,6 +38,7 @@
 #include "packet.h"
 #include "options.h"
 #include "log.h"
+#include "io.h"
 #include "script.h"
 
 static int snprintip(char *dest, size_t size, unsigned char *ip)
@@ -152,21 +153,10 @@ static int open_ifch(void) {
 
 static void sockwrite(int fd, const char *buf, size_t count)
 {
-    int ret;
-    int sent = 0;
-    while (1) {
-        ret = write(fd, buf + sent, count - sent);
-        if (ret == -1) {
-            if (errno == EINTR)
-                continue;
-            log_error("sockwrite: write failed: %s", strerror(errno));
-            break;
-        }
-        sent += ret;
-        if (sent == count)
-            break;
-    }
-    log_line("writing: %s", buf);
+    if (safe_write(fd, buf, count) == -1)
+        log_error("sockwrite: write failed: %s", strerror(errno));
+    else
+        log_line("sent to ifchd: %s", buf);
 }
 
 static void deconfig_if(void)

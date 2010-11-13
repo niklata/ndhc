@@ -7,6 +7,7 @@ set(NCMLIB_SRCS
   strl.c
   log.c
   cap.c
+  io.c
   )
 
 add_library(ncmlib ${NCMLIB_SRCS})

@@ -10,6 +10,7 @@
 
 #include "packet.h"
 #include "log.h"
+#include "io.h"
 #include "dhcpd.h"
 #include "options.h"
 
@@ -199,20 +200,9 @@ int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
     if (connect(fd, (struct sockaddr *)&client, sizeof(struct sockaddr)) == -1)
 	goto out_fd;
 
-    int remain = sizeof(struct dhcpMessage);
-    int sent = 0;
-    while (1) {
-	result = write(fd, ((char *)payload) + sent, remain - sent);
-	if (result == -1) {
-	    if (errno == EINTR)
-		continue;
-	    log_error("kernel_packet: write failed: %s", strerror(errno));
-	    break;
-	}
-	sent += result;
-	if (remain == sent)
-	    break;
-    }
+    result = safe_write(fd, (const char *)payload, sizeof(struct dhcpMessage));
+    if (result == -1)
+	log_error("kernel_packet: write failed: %s", strerror(errno));
   out_fd:
     close(fd);
   out:
