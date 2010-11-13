@@ -12,7 +12,6 @@
 #include "dhcpd.h"
 #include "options.h"
 #include "leases.h"
-#include "malloc.h"
 
 /* supported options are easily added here */
 struct dhcp_option options[] = {
@@ -185,43 +184,3 @@ struct option_set *find_option(struct option_set *opt_list, char code)
 	if (opt_list && opt_list->data[OPT_CODE] == code) return opt_list;
 	else return NULL;
 }
-
-
-/* /\* add an option to the opt_list *\/ */
-/* void attach_option(struct option_set **opt_list, struct dhcp_option *option, */
-/* 				   char *buffer, int length) */
-/* { */
-/* 	struct option_set *existing, *new, **curr; */
-
-/* 	/\* add it to an existing option *\/ */
-/* 	if ((existing = find_option(*opt_list, option->code))) { */
-/* 		log_line("Attaching option %s to existing member of list", */
-/* 				 option->name); */
-/* 		if (option->flags & OPTION_LIST) { */
-/* 			if (existing->data[OPT_LEN] + length <= 255) { */
-/* 				existing->data = realloc(existing->data, */
-/* 										 existing->data[OPT_LEN] + length + 2); */
-/* 				memcpy(existing->data + existing->data[OPT_LEN] + 2, buffer, */
-/* 					   length); */
-/* 				existing->data[OPT_LEN] += length; */
-/* 			} /\* else, ignore the data; we could put this in a second option */
-/* 				 in the future *\/ */
-/* 		} /\* else, ignore the new data *\/ */
-/* 	} else { */
-/* 		log_line("Attaching option %s to list", option->name); */
-
-/* 		/\* make a new option *\/ */
-/* 		new = xmalloc(sizeof(struct option_set)); */
-/* 		new->data = xmalloc(length + 2); */
-/* 		new->data[OPT_CODE] = option->code; */
-/* 		new->data[OPT_LEN] = length; */
-/* 		memcpy(new->data + 2, buffer, length); */
-
-/* 		curr = opt_list; */
-/* 		while (*curr && (*curr)->data[OPT_CODE] < option->code) */
-/* 			curr = &(*curr)->next; */
-
-/* 		new->next = *curr; */
-/* 		*curr = new; */
-/* 	} */
-/* } */
