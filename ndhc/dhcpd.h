@@ -6,8 +6,6 @@
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 
-#include "leases.h"
-
 /************************************/
 /* Defaults _you_ may want to tweak */
 /************************************/

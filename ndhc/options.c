@@ -11,7 +11,6 @@
 #include "log.h"
 #include "dhcpd.h"
 #include "options.h"
-#include "leases.h"
 
 /* supported options are easily added here */
 struct dhcp_option options[] = {
