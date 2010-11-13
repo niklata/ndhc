@@ -152,7 +152,7 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
     int remain = sizeof(struct udp_dhcp_packet);
     int sent = 0;
     while (1) {
-	result = sendto(fd, &packet + sent, remain - sent, 0,
+	result = sendto(fd, ((char *)&packet) + sent, remain - sent, 0,
 			(struct sockaddr *)&dest, sizeof dest);
 	if (result == -1) {
 	    if (errno == EINTR)
@@ -202,7 +202,7 @@ int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
     int remain = sizeof(struct dhcpMessage);
     int sent = 0;
     while (1) {
-	result = write(fd, payload + sent, remain - sent);
+	result = write(fd, ((char *)payload) + sent, remain - sent);
 	if (result == -1) {
 	    if (errno == EINTR)
 		continue;
