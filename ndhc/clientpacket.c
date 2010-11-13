@@ -181,7 +181,6 @@ int send_release(uint32_t server, uint32_t ciaddr)
 int get_raw_packet(struct dhcpMessage *payload, int fd)
 {
     struct udp_dhcp_packet packet;
-    uint32_t source, dest;
     uint16_t check;
     const int header_size = sizeof(struct iphdr) + sizeof(struct udphdr);
     const int packet_size = sizeof(struct udp_dhcp_packet);
@@ -245,23 +244,18 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
     check = packet.ip.check;
     packet.ip.check = 0;
     if (check != checksum(&packet.ip, sizeof packet.ip)) {
-        log_line("bad IP header checksum, ignoring");
+        log_line("Bad IP header checksum, ignoring");
         return -1;
     }
 
     /* verify the UDP checksum by replacing the header with a psuedo header */
-    source = packet.ip.saddr;
-    dest = packet.ip.daddr;
+    memset(&packet.ip, 0, offsetof(struct iphdr, protocol));
+    /* preserved fields: protocol, check, saddr, daddr */
+    packet.ip.tot_len = packet.udp.len; /* cheat on the psuedo-header */
     check = packet.udp.check;
     packet.udp.check = 0;
-    memset(&packet.ip, 0, sizeof packet.ip);
-
-    packet.ip.protocol = IPPROTO_UDP;
-    packet.ip.saddr = source;
-    packet.ip.daddr = dest;
-    packet.ip.tot_len = packet.udp.len; /* cheat on the psuedo-header */
     if (check && check != checksum(&packet, len)) {
-        log_error("packet with bad UDP checksum received, ignoring");
+        log_error("Packet with bad UDP checksum received, ignoring");
         return -2;
     }
 
@@ -269,7 +263,7 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
            len - sizeof packet.ip - sizeof packet.udp);
 
     if (ntohl(payload->cookie) != DHCP_MAGIC) {
-        log_error("received bogus message (bad magic) -- ignoring");
+        log_error("Packet with bad magic number, ignoring");
         return -2;
     }
     log_line("Received valid DHCP message.");
