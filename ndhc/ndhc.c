@@ -122,6 +122,12 @@ static void change_listen_mode(int new_mode)
         fd = listen_socket(INADDR_ANY, CLIENT_PORT, client_config.interface);
     else if (new_mode == LISTEN_RAW)
         fd = raw_socket(client_config.ifindex);
+    else /* LISTEN_NONE */
+        return;
+    if (fd < 0) {
+        log_error("FATAL: couldn't listen on socket: %s.", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
 }
 
 /* perform a renew */
