@@ -102,6 +102,13 @@ static void add_requests(struct dhcpMessage *packet)
     packet->options[end + OPT_DATA + len] = DHCP_END;
 }
 
+/* Wrapper that broadcasts a raw dhcp packet on the bound interface. */
+static int bcast_raw_packet(struct dhcpMessage *packet)
+{
+    return raw_packet(packet, INADDR_ANY, CLIENT_PORT, INADDR_BROADCAST,
+                      SERVER_PORT, MAC_BCAST_ADDR, client_config.ifindex);
+}
+
 /* Broadcast a DHCP discover packet to the network, with an optionally
  * requested IP */
 int send_discover(uint32_t xid, uint32_t requested)
@@ -117,8 +124,7 @@ int send_discover(uint32_t xid, uint32_t requested)
     add_simple_option(packet.options, DHCP_MAX_SIZE, htons(576));
     add_requests(&packet);
     log_line("Sending discover...");
-    return raw_packet(&packet, INADDR_ANY, CLIENT_PORT, INADDR_BROADCAST,
-                      SERVER_PORT, MAC_BCAST_ADDR, client_config.ifindex);
+    return bcast_raw_packet(&packet);
 }
 
 /* Broadcasts a DHCP request message */
@@ -136,8 +142,7 @@ int send_selecting(uint32_t xid, uint32_t server, uint32_t requested)
     add_requests(&packet);
     addr.s_addr = requested;
     log_line("Sending select for %s...", inet_ntoa(addr));
-    return raw_packet(&packet, INADDR_ANY, CLIENT_PORT, INADDR_BROADCAST,
-                      SERVER_PORT, MAC_BCAST_ADDR, client_config.ifindex);
+    return bcast_raw_packet(&packet);
 }
 
 /* Unicasts or broadcasts a DHCP renew message */
@@ -155,8 +160,7 @@ int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr)
     if (server)
         ret = kernel_packet(&packet, ciaddr, CLIENT_PORT, server, SERVER_PORT);
     else
-        ret = raw_packet(&packet, INADDR_ANY, CLIENT_PORT, INADDR_BROADCAST,
-                         SERVER_PORT, MAC_BCAST_ADDR, client_config.ifindex);
+        ret = bcast_raw_packet(&packet);
     return ret;
 }
 
