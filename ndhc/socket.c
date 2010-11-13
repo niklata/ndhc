@@ -178,7 +178,7 @@ int raw_socket(int ifindex)
     log_line("Opening raw socket on ifindex %d", ifindex);
     if ((fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP))) < 0) {
         log_error("socket call failed: %s", strerror(errno));
-        goto out;
+        return -1;
     }
 
     if (SERVER_PORT == 67 && CLIENT_PORT == 68) {
@@ -194,12 +194,9 @@ int raw_socket(int ifindex)
     sock.sll_ifindex = ifindex;
     if (bind(fd, (struct sockaddr *)&sock, sizeof(sock)) < 0) {
         log_error("bind call failed: %s", strerror(errno));
-        goto out_fd;
+        close(fd);
+        return -1;
     }
 
     return fd;
-  out_fd:
-    close(fd);
-  out:
-    return -1;
 }
