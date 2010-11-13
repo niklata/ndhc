@@ -109,12 +109,12 @@ static int fill_options(char *dest, unsigned char *option,
             case OPTION_U32:
                 memcpy(&val_u32, option, 4);
                 dest += snprintf(dest, maxlen - (dest - odest),
-								 "%lu ", (unsigned long) ntohl(val_u32));
+								 "%u ", (uint32_t) ntohl(val_u32));
                 break;
             case OPTION_S32:
                 memcpy(&val_s32, option, 4);
                 dest += snprintf(dest, maxlen - (dest - odest),
-								 "%ld ", (long) ntohl(val_s32));
+								 "%d ", (int32_t) ntohl(val_s32));
                 break;
             case OPTION_STRING:
                 if ( (maxlen - (dest - odest)) < (unsigned)len)

@@ -20,6 +20,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
+#include <stdint.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <features.h>
@@ -42,12 +43,12 @@
 #include "log.h"
 
 /* Create a random xid */
-unsigned long random_xid(void)
+uint32_t random_xid(void)
 {
     static int initialized;
     if (!initialized) {
         int fd;
-        unsigned long seed;
+        uint32_t seed;
 
         fd = open("/dev/urandom", O_RDONLY);
         if (fd == -1 || read(fd, &seed, sizeof seed) < 0) {
@@ -98,7 +99,7 @@ static void add_requests(struct dhcpMessage *packet)
 
 /* Broadcast a DHCP discover packet to the network, with an optionally
  * requested IP */
-int send_discover(unsigned long xid, unsigned long requested)
+int send_discover(uint32_t xid, uint32_t requested)
 {
     struct dhcpMessage packet;
 
@@ -107,6 +108,8 @@ int send_discover(unsigned long xid, unsigned long requested)
     if (requested)
         add_simple_option(packet.options, DHCP_REQUESTED_IP, requested);
 
+    /* Request a RFC-specified max size to work around buggy servers. */
+    add_simple_option(packet.options, DHCP_MAX_SIZE, htons(576));
     add_requests(&packet);
     log_line("Sending discover...");
     return raw_packet(&packet, INADDR_ANY, CLIENT_PORT, INADDR_BROADCAST,
@@ -114,8 +117,7 @@ int send_discover(unsigned long xid, unsigned long requested)
 }
 
 /* Broadcasts a DHCP request message */
-int send_selecting(unsigned long xid, unsigned long server,
-                   unsigned long requested)
+int send_selecting(uint32_t xid, uint32_t server, uint32_t requested)
 {
     struct dhcpMessage packet;
     struct in_addr addr;
@@ -134,7 +136,7 @@ int send_selecting(unsigned long xid, unsigned long server,
 }
 
 /* Unicasts or broadcasts a DHCP renew message */
-int send_renew(unsigned long xid, unsigned long server, unsigned long ciaddr)
+int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr)
 {
     struct dhcpMessage packet;
     int ret = 0;
@@ -154,7 +156,7 @@ int send_renew(unsigned long xid, unsigned long server, unsigned long ciaddr)
 }
 
 /* Unicasts a DHCP release message */
-int send_release(unsigned long server, unsigned long ciaddr)
+int send_release(uint32_t server, uint32_t ciaddr)
 {
     struct dhcpMessage packet;
 

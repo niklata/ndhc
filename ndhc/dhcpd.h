@@ -2,6 +2,7 @@
 #ifndef _DHCPD_H
 #define _DHCPD_H
 
+#include <stdint.h>
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 
@@ -101,32 +102,31 @@ struct option_set {
 
 struct server_config_t {
 	uint32_t server;		/* Our IP, in network order */
-	uint32_t start;		/* Start address of leases, network order */
+	uint32_t start;			/* Start address of leases, network order */
 	uint32_t end;			/* End of leases, network order */
 	struct option_set *options;	/* List of DHCP options loaded from the config file */
 	char *interface;		/* The name of the interface to use */
 	int ifindex;			/* Index number of the interface to use */
 	unsigned char arp[6];		/* Our arp address */
-	unsigned long lease;		/* lease time in seconds (host order) */
-	unsigned long max_leases; 	/* maximum number of leases (including reserved address) */
+	uint32_t lease;			/* lease time in seconds (host order) */
+	uint32_t max_leases; 		/* maximum number of leases (including reserved address) */
 	char remaining; 		/* should the lease file be interpreted as lease time remaining, or
 			 		 * as the time the lease expires */
-	unsigned long auto_time; 	/* how long should udhcpd wait before writing a config file.
+	uint32_t auto_time; 		/* how long should udhcpd wait before writing a config file.
 					 * if this is zero, it will only write one on SIGUSR1 */
-	unsigned long decline_time; 	/* how long an address is reserved if a client returns a
+	uint32_t decline_time; 		/* how long an address is reserved if a client returns a
 				    	 * decline message */
-	unsigned long conflict_time; 	/* how long an arp conflict offender is leased for */
-	unsigned long offer_time; 	/* how long an offered address is reserved */
-	unsigned long min_lease; 	/* minimum lease a client can request*/
+	uint32_t conflict_time; 	/* how long an arp conflict offender is leased for */
+	uint32_t offer_time; 		/* how long an offered address is reserved */
+	uint32_t min_lease; 		/* minimum lease a client can request*/
 	char *lease_file;
 	char *notify_file;		/* What to run whenever leases are written */
 	uint32_t siaddr;		/* next server bootp option */
 	char *sname;			/* bootp server name */
 	char *boot_file;		/* bootp boot file option */
-};	
+};
 
 extern struct server_config_t server_config;
 extern struct dhcpOfferedAddr *leases;
-		
 
 #endif

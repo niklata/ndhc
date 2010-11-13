@@ -60,8 +60,8 @@
 
 static char pidfile[MAX_PATH_LENGTH] = PID_FILE_DEFAULT;
 
-static unsigned long requested_ip, server_addr, timeout;
-static unsigned long lease, t1, t2, xid, start;
+static uint32_t requested_ip, server_addr, timeout;
+static uint32_t lease, t1, t2, xid, start;
 static int state, packet_num, fd, listen_mode;
 static sig_atomic_t pending_exit, pending_renew, pending_release;
 
@@ -323,7 +323,7 @@ static void handle_packet(void)
 
     if (packet.xid != xid) {
         log_line("Ignoring XID %lx (our xid is %lx).",
-                 (unsigned long) packet.xid, xid);
+                 (uint32_t) packet.xid, xid);
         return;
     }
 

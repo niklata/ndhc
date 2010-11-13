@@ -12,7 +12,7 @@ struct dhcpOfferedAddr {
 extern unsigned char blank_chaddr[];
 
 void clear_lease(uint8_t *chaddr, uint32_t yiaddr);
-struct dhcpOfferedAddr *add_lease(uint8_t *chaddr, uint32_t yiaddr, unsigned long lease);
+struct dhcpOfferedAddr *add_lease(uint8_t *chaddr, uint32_t yiaddr, uint32_t lease);
 int lease_expired(struct dhcpOfferedAddr *lease);
 struct dhcpOfferedAddr *oldest_expired_lease(void);
 struct dhcpOfferedAddr *find_lease_by_chaddr(uint8_t *chaddr);
