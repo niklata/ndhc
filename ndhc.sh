@@ -55,10 +55,10 @@ ndhc_start()
 
 	# delay until carrier is up
 	ip link set "${IFACE}" up
-	ip link show "${IFACE}" | grep NO-CARRIER &> /dev/null
+	ip link show "${IFACE}" | grep NO-CARRIER >/dev/null 2>&1
 	while [ "$?" != "1" ]; do
 	    sleep 1
-	    ip link show "${IFACE}" | grep NO-CARRIER &> /dev/null
+	    ip link show "${IFACE}" | grep NO-CARRIER >/dev/null 2>&1
 	done
 
 	eval "${x}" "${args}" -r `cat /etc/firewall/tmp/OLDEXTIP` \
