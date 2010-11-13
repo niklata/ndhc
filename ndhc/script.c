@@ -54,7 +54,8 @@ static int sprintip(char *dest, size_t size, char *pre, unsigned char *ip)
 }
 
 /* Fill dest with the text of option 'option'. */
-static void fill_options(char *dest, unsigned char *option,
+/* Returns 0 if successful, -1 if nothing was filled in. */
+static int fill_options(char *dest, unsigned char *option,
 						 struct dhcp_option *type_p, unsigned int maxlen)
 {
     int type, optlen;
@@ -62,8 +63,11 @@ static void fill_options(char *dest, unsigned char *option,
     int16_t val_s16;
     uint32_t val_u32;
     int32_t val_s32;
-    int len = option[OPT_LEN - 2];
     char *odest;
+
+    if (!option)
+        return -1;
+    int len = option[OPT_LEN - 2];
 
     odest = dest;
 
@@ -113,10 +117,11 @@ static void fill_options(char *dest, unsigned char *option,
 								 "%ld ", (long) ntohl(val_s32));
                 break;
             case OPTION_STRING:
-                if ( (maxlen - (dest - odest)) < (unsigned)len) return;
+                if ( (maxlen - (dest - odest)) < (unsigned)len)
+                    return -1;
                 memcpy(dest, option, len);
                 dest[len] = '\0';
-                return;  /* Short circuit this case */
+                return 0;  /* Short circuit this case */
         }
         option += optlen;
         len -= optlen;
@@ -124,6 +129,7 @@ static void fill_options(char *dest, unsigned char *option,
             break;
         *(dest++) = ':';
     }
+    return 0;
 }
 
 static int open_ifch(void) {
@@ -147,22 +153,20 @@ static int open_ifch(void) {
 static void sockwrite(int fd, const char *buf, size_t count)
 {
     int ret;
-    int remain = count;
     int sent = 0;
     while (1) {
-        ret = write(fd, buf + sent, remain);
+        ret = write(fd, buf + sent, count - sent);
         if (ret == -1) {
             if (errno == EINTR)
                 continue;
             log_error("sockwrite: write failed: %s", strerror(errno));
             break;
         }
-        remain =- ret;
         sent += ret;
-        if (remain == 0)
+        if (sent == count)
             break;
     }
-    log_line("writing: %s", (char *)buf);
+    log_line("writing: %s", buf);
 }
 
 static void deconfig_if(void)
@@ -190,13 +194,15 @@ static void translate_option(int sockfd, struct dhcpMessage *packet, int opt)
     unsigned char *p;
     int i;
 
-    if (!packet) return;
+    if (!packet)
+        return;
 
     memset(buf, '\0', sizeof(buf));
     memset(buf2, '\0', sizeof(buf2));
 
     p = get_option(packet, options[opt].code);
-    fill_options(buf2, p, &options[opt], sizeof(buf2) - 1);
+    if (fill_options(buf2, p, &options[opt], sizeof(buf2) - 1) == -1)
+        return;
     snprintf(buf, sizeof buf, "%s:", buf2);
     for (i=0; i<256; i++) {
         if (buf[i] == '\0') break;

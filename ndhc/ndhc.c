@@ -1,6 +1,6 @@
-/* dhcpc.c
+/* ndhc.c
  *
- * ndhc DHCP client
+ * ndhc DHCP client, originally based on udhcpc
  *
  * Nicholas J. Kain <njkain at gmail dot com> 2004-2010
  * Russ Dill <Russ.Dill@asu.edu> July 2001
@@ -93,6 +93,7 @@ static void show_usage(void)
 "  -f, --foreground                Do not fork after getting lease\n"
 "  -b, --background                Fork to background if lease cannot be\n"
 "                                  immediately negotiated.\n"
+"  -p, --pidfile                   File to which the pid will be written\n"
 "  -i, --interface=INTERFACE       Interface to use (default: eth0)\n"
 "  -n, --now                       Exit with failure if lease cannot be\n"
 "                                  immediately negotiated.\n"
@@ -458,8 +459,8 @@ static int do_work(void)
 
 int main(int argc, char **argv)
 {
-    char pidfile[MAX_PATH_LENGTH] = "";
-    char chroot_dir[MAX_PATH_LENGTH] = PID_FILE_DEFAULT;
+    char pidfile[MAX_PATH_LENGTH] = PID_FILE_DEFAULT;
+    char chroot_dir[MAX_PATH_LENGTH] = "";
     int c, len;
     struct passwd *pwd;
     uid_t uid = 0;
@@ -507,7 +508,7 @@ int main(int argc, char **argv)
                 client_config.background_if_no_lease = 1;
                 break;
             case 'p':
-                strlcpy(pidfile, optarg, MAX_PATH_LENGTH);
+                strlcpy(pidfile, optarg, sizeof pidfile);
                 break;
             case 'h':
             case 'H':

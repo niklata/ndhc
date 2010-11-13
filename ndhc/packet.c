@@ -152,7 +152,7 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
     int remain = sizeof(struct udp_dhcp_packet);
     int sent = 0;
     while (1) {
-	result = sendto(fd, &packet + sent, remain, 0,
+	result = sendto(fd, &packet + sent, remain - sent, 0,
 			(struct sockaddr *)&dest, sizeof dest);
 	if (result == -1) {
 	    if (errno == EINTR)
@@ -160,9 +160,8 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
 	    log_error("raw_packet: sendto failed: %s", strerror(errno));
 	    break;
 	}
-	remain =- result;
 	sent += result;
-	if (remain == 0)
+	if (remain == sent)
 	    break;
     }
   out_fd:
@@ -203,16 +202,15 @@ int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
     int remain = sizeof(struct dhcpMessage);
     int sent = 0;
     while (1) {
-	result = write(fd, payload + sent, remain);
+	result = write(fd, payload + sent, remain - sent);
 	if (result == -1) {
 	    if (errno == EINTR)
 		continue;
 	    log_error("kernel_packet: write failed: %s", strerror(errno));
 	    break;
 	}
-	remain =- result;
 	sent += result;
-	if (remain == 0)
+	if (remain == sent)
 	    break;
     }
   out_fd:
