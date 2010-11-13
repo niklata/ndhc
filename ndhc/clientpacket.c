@@ -50,7 +50,7 @@ unsigned long random_xid(void)
         unsigned long seed;
 
         fd = open("/dev/urandom", O_RDONLY);
-        if (fd == -1 || read(fd, &seed, sizeof(seed)) < 0) {
+        if (fd == -1 || read(fd, &seed, sizeof seed) < 0) {
                 log_warning("Could not load seed from /dev/urandom: %s",
                             strerror(errno));
                 seed = time(0);
@@ -69,8 +69,8 @@ static void init_packet(struct dhcpMessage *packet, char type)
     struct vendor  {
         char vendor;
         char length;
-        char str[sizeof("ndhc")];
-    } vendor_id = { DHCP_VENDOR,  sizeof("ndhc") - 1, "ndhc"};
+        char str[sizeof "ndhc"];
+    } vendor_id = { DHCP_VENDOR,  sizeof "ndhc" - 1, "ndhc"};
 
     init_header(packet, type);
     memcpy(packet->chaddr, client_config.arp, 6);
@@ -222,7 +222,7 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
         sleep(1);
         return -2;
     }
-    if (packet.ip.ihl != sizeof(packet.ip) >> 2) {
+    if (packet.ip.ihl != sizeof packet.ip >> 2) {
         log_line("IP header length incorrect");
         sleep(1);
         return -2;
@@ -237,7 +237,7 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
         sleep(1);
         return -2;
     }
-    if (ntohs(packet.udp.len) != (short)(len - sizeof(packet.ip))) {
+    if (ntohs(packet.udp.len) != (short)(len - sizeof packet.ip)) {
         log_line("UDP header length incorrect");
         sleep(1);
         return -2;
@@ -246,7 +246,7 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
     /* check IP checksum */
     check = packet.ip.check;
     packet.ip.check = 0;
-    if (check != checksum(&(packet.ip), sizeof(packet.ip))) {
+    if (check != checksum(&packet.ip, sizeof packet.ip)) {
         log_line("bad IP header checksum, ignoring");
         return -1;
     }
@@ -256,7 +256,7 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
     dest = packet.ip.daddr;
     check = packet.udp.check;
     packet.udp.check = 0;
-    memset(&packet.ip, 0, sizeof(packet.ip));
+    memset(&packet.ip, 0, sizeof packet.ip);
 
     packet.ip.protocol = IPPROTO_UDP;
     packet.ip.saddr = source;
@@ -267,13 +267,13 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
         return -2;
     }
 
-    memcpy(payload, &(packet.data),
-           len - (sizeof(packet.ip) + sizeof(packet.udp)));
+    memcpy(payload, &packet.data,
+           len - sizeof packet.ip - sizeof packet.udp);
 
     if (ntohl(payload->cookie) != DHCP_MAGIC) {
         log_error("received bogus message (bad magic) -- ignoring");
         return -2;
     }
     log_line("Received valid DHCP message.");
-    return len - (sizeof(packet.ip) + sizeof(packet.udp));
+    return len - sizeof packet.ip - sizeof packet.udp;
 }
