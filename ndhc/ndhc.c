@@ -564,6 +564,14 @@ int main(int argc, char **argv)
 
     log_line("ndhc client " VERSION " started.");
 
+    if (client_config.foreground && !client_config.background_if_no_lease) {
+        if (file_exists(pidfile, "w") == -1) {
+            log_line("FATAL - cannot open pidfile for write!");
+            exit(EXIT_FAILURE);
+        }
+        write_pid(pidfile);
+    }
+
     if (read_interface(client_config.interface, &client_config.ifindex,
                        NULL, client_config.arp) < 0)
         exit(EXIT_FAILURE);
