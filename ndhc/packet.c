@@ -14,28 +14,6 @@
 #include "dhcpd.h"
 #include "options.h"
 
-void init_header(struct dhcpMessage *packet, char type)
-{
-    memset(packet, 0, sizeof(struct dhcpMessage));
-    switch (type) {
-        case DHCPDISCOVER:
-        case DHCPREQUEST:
-        case DHCPRELEASE:
-        case DHCPINFORM:
-	    packet->op = BOOTREQUEST;
-	    break;
-        case DHCPOFFER:
-        case DHCPACK:
-        case DHCPNAK:
-	    packet->op = BOOTREPLY;
-    }
-    packet->htype = ETH_10MB;
-    packet->hlen = ETH_10MB_LEN;
-    packet->cookie = htonl(DHCP_MAGIC);
-    packet->options[0] = DHCP_END;
-    add_simple_option(packet->options, DHCP_MESSAGE_TYPE, type);
-}
-
 /* read a packet from socket fd, return -1 on read error, -2 on packet error */
 int get_packet(struct dhcpMessage *packet, int fd)
 {
