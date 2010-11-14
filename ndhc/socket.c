@@ -89,6 +89,8 @@ int read_interface(char *interface, int *ifindex, uint32_t *addr, uint8_t *mac)
     return ret;
 }
 
+/* Returns fd of new listen socket bound to @ip:@port on interface @inf
+ * on success, or -1 on failure. */
 int listen_socket(unsigned int ip, int port, char *inf)
 {
     struct ifreq interface;
@@ -98,14 +100,9 @@ int listen_socket(unsigned int ip, int port, char *inf)
 
     log_line("Opening listen socket on 0x%08x:%d %s", ip, port, inf);
     if ((fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
-        log_error("socket call failed: %s", strerror(errno));
+        log_error("listen_socket: socket failed: %s", strerror(errno));
         goto out;
     }
-
-    memset(&addr, 0, sizeof addr);
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = ip;
 
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt) == -1)
         goto out_fd;
@@ -118,6 +115,10 @@ int listen_socket(unsigned int ip, int port, char *inf)
                    &interface, sizeof interface) < 0)
         goto out_fd;
 
+    memset(&addr, 0, sizeof addr);
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = ip;
     if (bind(fd, (struct sockaddr *)&addr, sizeof(struct sockaddr)) == -1)
         goto out_fd;
 
