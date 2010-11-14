@@ -19,8 +19,8 @@ int get_packet(struct dhcpMessage *packet, int fd)
 {
     int bytes;
 
-    memset(packet, 0, sizeof(struct dhcpMessage));
-    bytes = safe_read(fd, (char *)packet, sizeof(struct dhcpMessage));
+    memset(packet, 0, DHCP_SIZE);
+    bytes = safe_read(fd, (char *)packet, DHCP_SIZE);
     if (bytes == -1) {
 	log_line("Read on listen socket failed: %s", strerror(errno));
 	return -1;

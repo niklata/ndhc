@@ -72,7 +72,7 @@ uint32_t random_xid(void)
 /* Initializes dhcp packet header for a -client- packet. */
 static void init_header(struct dhcpMessage *packet, char type)
 {
-    memset(packet, 0, sizeof(struct dhcpMessage));
+    memset(packet, 0, DHCP_SIZE);
     packet->op = BOOTREQUEST; /* client */
     packet->htype = ETH_10MB;
     packet->hlen = ETH_10MB_LEN;
