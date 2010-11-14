@@ -5,13 +5,6 @@
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 
-/************************************/
-/* Defaults _you_ may want to tweak */
-/************************************/
-
-/* the period of time the client is allowed to use that address */
-#define LEASE_TIME      (60*60*24*10)	/* 10 days of seconds */
-
 /*****************************************************************/
 /* Do not modify below here unless you know what you are doing!! */
 /*****************************************************************/
@@ -42,11 +35,13 @@
 #define DHCP_IP_TTL             0x17
 #define DHCP_MTU                0x1a
 #define DHCP_BROADCAST          0x1c
+#define DHCP_NIS_DOMAIN         0x28
+#define DHCP_NIS_SERVER         0x29
 #define DHCP_NTP_SERVER         0x2a
 #define DHCP_WINS_SERVER        0x2c
 #define DHCP_REQUESTED_IP       0x32
 #define DHCP_LEASE_TIME         0x33
-#define DHCP_OPTION_OVER        0x34
+#define DHCP_OPTION_OVERLOAD    0x34
 #define DHCP_MESSAGE_TYPE       0x35
 #define DHCP_SERVER_ID          0x36
 #define DHCP_PARAM_REQ          0x37
@@ -56,7 +51,15 @@
 #define DHCP_T2                 0x3b
 #define DHCP_VENDOR             0x3c
 #define DHCP_CLIENT_ID          0x3d
-#define DHCP_END                0xFF
+#define DHCP_TFTP_SERVER_NAME   0x42
+#define DHCP_BOOT_FILE          0x43
+#define DHCP_USER_CLASS         0x4d
+#define DHCP_FQDN               0x51
+#define DHCP_DOMAIN_SEARCH      0x77
+#define DHCP_SIP_SERVERS        0x78
+#define DHCP_STATIC_ROUTES      0x79
+#define DHCP_WPAD               0xfc
+#define DHCP_END                0xff
 
 enum {
     BOOTREQUEST = 1,
