@@ -38,8 +38,9 @@
 #include "strl.h"
 #include "dhcpd.h" /* For SERVER_PORT and CLIENT_PORT */
 
-int read_interface(char *interface, int *ifindex, uint32_t *addr,
-                   unsigned char *arp)
+/* Given an interface name in @interface, return its index number,
+ * IPv4 address, and MAC in @ifindex, @addr (optional), and @mac.*/
+int read_interface(char *interface, int *ifindex, uint32_t *addr, uint8_t *mac)
 {
     int fd, ret = -1;
     struct ifreq ifr;
@@ -78,9 +79,9 @@ int read_interface(char *interface, int *ifindex, uint32_t *addr,
         goto out_fd;
     }
 
-    memcpy(arp, ifr.ifr_hwaddr.sa_data, 6);
+    memcpy(mac, ifr.ifr_hwaddr.sa_data, 6);
     log_line("adapter hardware address %02x:%02x:%02x:%02x:%02x:%02x",
-             arp[0], arp[1], arp[2], arp[3], arp[4], arp[5]);
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     ret = 0;
   out_fd:
     close(fd);
