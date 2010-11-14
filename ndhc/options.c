@@ -183,6 +183,7 @@ struct option_set *find_option(struct option_set *opt_list, char code)
 	while (opt_list && opt_list->data[OPT_CODE] < code)
 		opt_list = opt_list->next;
 
-	if (opt_list && opt_list->data[OPT_CODE] == code) return opt_list;
-	else return NULL;
+	if (opt_list && opt_list->data[OPT_CODE] == code)
+		return opt_list;
+	return NULL;
 }
