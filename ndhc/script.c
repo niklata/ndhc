@@ -43,13 +43,15 @@
 
 static int snprintip(char *dest, size_t size, unsigned char *ip)
 {
-    if (!dest) return -1;
+    if (!dest)
+        return -1;
     return snprintf(dest, size, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
 }
 
 static int sprintip(char *dest, size_t size, char *pre, unsigned char *ip)
 {
-    if (!dest) return -1;
+    if (!dest)
+        return -1;
     return snprintf(dest, size, "%s%d.%d.%d.%d",
 					pre, ip[0], ip[1], ip[2], ip[3]);
 }
