@@ -61,7 +61,7 @@ int option_lengths[] = {
 /* get an option with bounds checking (warning, not aligned). */
 unsigned char *get_option(struct dhcpMessage *packet, int code)
 {
-	int i = 0, length = 308;
+	int i = 0, length = DHCP_OPTIONS_BUFSIZE;
 	unsigned char *optionptr;
 	int over = 0, done = 0, curr = OPTION_FIELD;
 
@@ -116,13 +116,13 @@ int end_option(unsigned char *optionptr)
 {
 	int i = 0;
 
-	while (i < 308 && optionptr[i] != DHCP_END) {
+	while (i < DHCP_OPTIONS_BUFSIZE && optionptr[i] != DHCP_END) {
 		if (optionptr[i] == DHCP_PADDING)
 			++i;
 		else
 			i += optionptr[i + OPT_LEN] + 2;
 	}
-	return (i < 308 ? i : 308);
+	return (i < DHCP_OPTIONS_BUFSIZE ? i : DHCP_OPTIONS_BUFSIZE);
 }
 
 
@@ -133,7 +133,7 @@ int add_option_string(unsigned char *optionptr, unsigned char *string)
 	int end = end_option(optionptr);
 
 	/* end position + string length + option code/length + end option */
-	if (end + string[OPT_LEN] + 2 + 1 >= 308) {
+	if (end + string[OPT_LEN] + 2 + 1 >= DHCP_OPTIONS_BUFSIZE) {
 		log_error("Option 0x%02x did not fit into the packet!",
 				  string[OPT_CODE]);
 		return 0;
