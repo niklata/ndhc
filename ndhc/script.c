@@ -168,8 +168,7 @@ static void deconfig_if(void)
 
     sockfd = open_ifch();
 
-    snprintf(buf, sizeof buf, "interface:%s:",
-             client_config.interface);
+    snprintf(buf, sizeof buf, "interface:%s:", client_config.interface);
     sockwrite(sockfd, buf, strlen(buf));
 
     snprintf(buf, sizeof buf, "ip:0.0.0.0:");
@@ -191,11 +190,12 @@ static void translate_option(int sockfd, struct dhcpMessage *packet, int opt)
     memset(buf2, '\0', sizeof(buf2));
 
     p = get_option(packet, options[opt].code);
-    if (fill_options(buf2, p, &options[opt], sizeof(buf2) - 1) == -1)
+    if (fill_options(buf2, p, &options[opt], sizeof buf2 - 1) == -1)
         return;
     snprintf(buf, sizeof buf, "%s:", buf2);
-    for (i=0; i<256; i++) {
-        if (buf[i] == '\0') break;
+    for (i = 0; i < 256; i++) {
+        if (buf[i] == '\0')
+            break;
         if (buf[i] == '=') {
             buf[i] = ':';
             break;
