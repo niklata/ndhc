@@ -166,8 +166,6 @@ static void deconfig_if(void)
     int sockfd;
     char buf[256];
 
-    memset(buf, '\0', sizeof buf);
-
     sockfd = open_ifch();
 
     snprintf(buf, sizeof buf, "interface:%s:",
@@ -209,14 +207,11 @@ static void translate_option(int sockfd, struct dhcpMessage *packet, int opt)
 static void bound_if(struct dhcpMessage *packet)
 {
     int sockfd;
-    char buf[256], buf2[256];
+    char buf[256];
     char ip[32];
 
-    if (!packet) return;
-
-    memset(buf, '\0', sizeof(buf));
-    memset(ip, '\0', sizeof(ip));
-    memset(buf2, '\0', sizeof(buf2));
+    if (!packet)
+        return;
 
     sockfd = open_ifch();
 
