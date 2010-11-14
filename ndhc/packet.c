@@ -151,8 +151,9 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
 int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
 		  int source_port, uint32_t dest_ip, int dest_port)
 {
-    int opt = 1, fd, result = -1;
     struct sockaddr_in client;
+    int opt = 1, fd, result = -1;
+    unsigned int padding;
 
     if ((fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
 	goto out;
@@ -176,7 +177,8 @@ int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
     if (connect(fd, (struct sockaddr *)&client, sizeof(struct sockaddr)) == -1)
 	goto out_fd;
 
-    result = safe_write(fd, (const char *)payload, sizeof(struct dhcpMessage));
+    padding = DHCP_OPTIONS_BUFSIZE - 1 - end_option(payload->options);
+    result = safe_write(fd, (const char *)payload, DHCP_SIZE - padding);
     if (result == -1)
 	log_error("kernel_packet: write failed: %s", strerror(errno));
   out_fd:
