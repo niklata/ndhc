@@ -14,44 +14,24 @@
 #include "dhcpd.h"
 #include "options.h"
 
-/* read a packet from socket fd, return -1 on read error, -2 on packet error */
+/* Read a packet from socket fd, return -1 on read error, -2 on packet error */
 int get_packet(struct dhcpMessage *packet, int fd)
 {
     int bytes;
-    int i;
-    const char broken_vendors[][8] = {
-	"MSFT 98",
-	""
-    };
-    unsigned char *vendor;
 
     memset(packet, 0, sizeof(struct dhcpMessage));
     bytes = safe_read(fd, (char *)packet, sizeof(struct dhcpMessage));
     if (bytes == -1) {
-	log_line("read on listen socket failed: %s", strerror(errno));
+	log_line("Read on listen socket failed: %s", strerror(errno));
 	return -1;
     }
 
     if (ntohl(packet->cookie) != DHCP_MAGIC) {
-	log_error("received bogus message, ignoring.");
+	log_error("Packet with bad magic number, ignoring.");
 	return -2;
     }
     log_line("Received a packet");
 
-    if (packet->op == BOOTREQUEST
-	&& (vendor = get_option(packet, DHCP_VENDOR)))
-    {
-	for (i = 0; broken_vendors[i][0]; i++) {
-	    if (vendor[OPT_LEN - 2] == (unsigned char)strlen(broken_vendors[i])
-		&& !strncmp((char *)vendor, broken_vendors[i],
-			    vendor[OPT_LEN - 2]))
-	    {
-		log_line("broken client (%s), forcing broadcast",
-			 broken_vendors[i]);
-		packet->flags |= htons(BROADCAST_FLAG);
-	    }
-	}
-    }
     return bytes;
 }
 
