@@ -23,10 +23,26 @@ struct dhcpMessage {
     uint8_t options[308]; /* 312 - cookie */
 };
 
-struct udp_dhcp_packet {
+struct ip_udp_dhcp_packet {
     struct iphdr ip;
     struct udphdr udp;
     struct dhcpMessage data;
+};
+
+struct udp_dhcp_packet {
+    struct udphdr udp;
+    struct dhcpMessage data;
+};
+
+enum {
+	IP_UPD_DHCP_SIZE = sizeof(struct ip_udp_dhcp_packet),
+	UPD_DHCP_SIZE    = sizeof(struct udp_dhcp_packet),
+	DHCP_SIZE        = sizeof(struct dhcpMessage),
+};
+
+/* Let's see whether compiler understood us right */
+struct BUG_bad_sizeof_struct_ip_udp_dhcp_packet {
+	char c[IP_UPD_DHCP_SIZE == 576 ? 1 : -1];
 };
 
 int get_packet(struct dhcpMessage *packet, int fd);

@@ -195,10 +195,10 @@ int send_release(uint32_t server, uint32_t ciaddr)
  * -2 for those that aren't */
 int get_raw_packet(struct dhcpMessage *payload, int fd)
 {
-    struct udp_dhcp_packet packet;
+    struct ip_udp_dhcp_packet packet;
     uint16_t check;
     const int header_size = sizeof(struct iphdr) + sizeof(struct udphdr);
-    const int packet_size = sizeof(struct udp_dhcp_packet);
+    const int packet_size = sizeof(struct ip_udp_dhcp_packet);
 
     memset(&packet, 0, packet_size);
     int len = safe_read(fd, (char *)&packet, packet_size);

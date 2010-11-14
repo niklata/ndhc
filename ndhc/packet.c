@@ -35,11 +35,9 @@ int get_packet(struct dhcpMessage *packet, int fd)
     return bytes;
 }
 
+/* Compute Internet Checksum for @count bytes beginning at location @addr. */
 uint16_t checksum(void *addr, int count)
 {
-    /* Compute Internet Checksum for "count" bytes
-     *         beginning at location "addr".
-     */
     register int32_t sum = 0;
     uint16_t *source = (uint16_t *)addr;
 
@@ -53,7 +51,7 @@ uint16_t checksum(void *addr, int count)
 	/* Make sure that the left-over byte is added correctly both
 	 * with little and big endian hosts */
 	uint16_t tmp = 0;
-	*(unsigned char *) (&tmp) = * (unsigned char *) source;
+	*(uint8_t *)&tmp = *(uint8_t *)source;
 	sum += tmp;
     }
     /*  Fold 32-bit sum to 16 bits */
@@ -63,23 +61,43 @@ uint16_t checksum(void *addr, int count)
     return ~sum;
 }
 
+/* returns -1 on error, >= 0 and equal to # chars written on success */
+static int safe_sendto(int fd, const char *buf, int len, int flags,
+		       const struct sockaddr *dest_addr, socklen_t addrlen)
+{
+    int r, s = 0;
+    while (s < len) {
+        r = sendto(fd, buf + s, len - s, flags, dest_addr, addrlen);
+        if (r == -1) {
+            if (errno == EINTR)
+                continue;
+            else
+                return -1;
+        }
+        s += r;
+    }
+    return s;
+}
+
 /* Constuct a ip/udp header for a packet, and specify the source and dest
  * hardware address */
 int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
 	       int source_port, uint32_t dest_ip, int dest_port,
 	       unsigned char *dest_arp, int ifindex)
 {
-    int fd, result = -1;
     struct sockaddr_ll dest;
-    struct udp_dhcp_packet packet;
+    struct ip_udp_dhcp_packet packet;
+    int fd, r = -1;
+    unsigned int padding;
 
     if ((fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP))) < 0) {
-	log_error("socket call failed: %s", strerror(errno));
+	log_error("raw_packet: socket failed: %s", strerror(errno));
 	goto out;
     }
 
-    memset(&dest, 0, sizeof(dest));
-    memset(&packet, 0, sizeof(packet));
+    memset(&dest, 0, sizeof dest);
+    memset(&packet, 0, offsetof(struct ip_udp_dhcp_packet, data));
+    packet.data = *payload; /* struct copy */
 
     dest.sll_family = AF_PACKET;
     dest.sll_protocol = htons(ETH_P_IP);
@@ -87,46 +105,46 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
     dest.sll_halen = 6;
     memcpy(dest.sll_addr, dest_arp, 6);
     if (bind(fd, (struct sockaddr *)&dest, sizeof(struct sockaddr_ll)) < 0) {
-	log_error("bind call failed: %s", strerror(errno));
+	log_error("raw_packet: bind failed: %s", strerror(errno));
 	goto out_fd;
     }
+
+    /* We were sending full-sized DHCP packets (zero padded),
+     * but some badly configured servers were seen dropping them.
+     * Apparently they drop all DHCP packets >576 *ethernet* octets big,
+     * whereas they may only drop packets >576 *IP* octets big
+     * (which for typical Ethernet II means 590 octets: 6+6+2 + 576).
+     *
+     * In order to work with those buggy servers,
+     * we truncate packets after end option byte.
+     */
+    padding = DHCP_OPTIONS_BUFSIZE - 1 - end_option(packet.data.options);
 
     packet.ip.protocol = IPPROTO_UDP;
     packet.ip.saddr = source_ip;
     packet.ip.daddr = dest_ip;
     packet.udp.source = htons(source_port);
     packet.udp.dest = htons(dest_port);
-    /* cheat on the psuedo-header */
-    packet.udp.len = htons(sizeof(packet.udp) + sizeof(struct dhcpMessage));
+    /* size, excluding IP header: */
+    packet.udp.len = htons(UPD_DHCP_SIZE - padding);
+    /* for UDP checksumming, ip.len is set to UDP packet len */
     packet.ip.tot_len = packet.udp.len;
-    memcpy(&(packet.data), payload, sizeof(struct dhcpMessage));
-    packet.udp.check = checksum(&packet, sizeof(struct udp_dhcp_packet));
-
-    packet.ip.tot_len = htons(sizeof(struct udp_dhcp_packet));
-    packet.ip.ihl = sizeof(packet.ip) >> 2;
+    packet.udp.check = checksum(&packet, IP_UPD_DHCP_SIZE - padding);
+    /* but for sending, it is set to IP packet len */
+    packet.ip.tot_len = htons(IP_UPD_DHCP_SIZE - padding);
+    packet.ip.ihl = sizeof packet.ip >> 2;
     packet.ip.version = IPVERSION;
     packet.ip.ttl = IPDEFTTL;
-    packet.ip.check = checksum(&(packet.ip), sizeof(packet.ip));
+    packet.ip.check = checksum(&packet.ip, sizeof packet.ip);
 
-    int remain = sizeof(struct udp_dhcp_packet);
-    int sent = 0;
-    while (1) {
-	result = sendto(fd, ((char *)&packet) + sent, remain - sent, 0,
-			(struct sockaddr *)&dest, sizeof dest);
-	if (result == -1) {
-	    if (errno == EINTR)
-		continue;
-	    log_error("raw_packet: sendto failed: %s", strerror(errno));
-	    break;
-	}
-	sent += result;
-	if (remain == sent)
-	    break;
-    }
+    r = safe_sendto(fd, (const char *)&packet, IP_UPD_DHCP_SIZE - padding,
+		    0, (struct sockaddr *)&dest, sizeof dest);
+    if (r == -1)
+	log_error("raw_packet: sendto failed: %s", strerror(errno));
   out_fd:
     close(fd);
   out:
-    return result;
+    return r;
 }
 
 /* Let the kernel do all the work for packet generation */

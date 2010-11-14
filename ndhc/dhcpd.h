@@ -21,6 +21,7 @@
 #define CLIENT_PORT             68
 
 #define DHCP_MAGIC              0x63825363
+#define DHCP_OPTIONS_BUFSIZE    308
 
 /* DHCP option codes (partial list) */
 #define DHCP_PADDING            0x00
