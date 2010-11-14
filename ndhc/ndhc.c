@@ -211,19 +211,18 @@ static void background(void)
     write_pid(pidfile);
 }
 
+/* Handle select timeout dropping to zero */
 static void handle_timeout(void)
 {
     time_t now = time(0);
 
-    /* timeout dropped to zero */
     switch (state) {
         case INIT_SELECTING:
             if (packet_num < NUMPACKETS) {
                 if (packet_num == 0)
                     xid = random_xid();
-
-                /* send discover packet */
-                send_discover(xid, requested_ip); /* broadcast */
+                /* broadcast */
+                send_discover(xid, requested_ip);
 
                 timeout = now + ((packet_num == NUMPACKETS - 1) ? 4 : 2);
                 packet_num++;
@@ -347,6 +346,7 @@ static void handle_packet(void)
             /* Must be a DHCPOFFER to one of our xid's */
             if (*message == DHCPOFFER) {
                 if ((temp = get_option(&packet, DHCP_SERVER_ID))) {
+                    /* Memcpy to a temp buffer to force alignment */
                     memcpy(&server_addr, temp, 4);
                     xid = packet.xid;
                     requested_ip = packet.yiaddr;
@@ -369,8 +369,13 @@ static void handle_packet(void)
                     log_line("No lease time received, assuming 1h.");
                     lease = 60 * 60;
                 } else {
+                    /* Memcpy to a temp buffer to force alignment */
                     memcpy(&lease, temp, 4);
                     lease = ntohl(lease);
+                    /* Enforce upper and lower bounds on lease. */
+                    lease &= 0x0fffffff;
+                    if (lease < RETRY_DELAY)
+                        lease = RETRY_DELAY;
                 }
 
                 /* enter bound state */
