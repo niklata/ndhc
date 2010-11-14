@@ -116,17 +116,16 @@ uint8_t* get_option(struct dhcpMessage *packet, int code)
 }
 
 /* return the position of the 'end' option */
-int end_option(unsigned char *optionptr)
+int end_option(uint8_t *optionptr)
 {
 	int i = 0;
 
 	while (i < DHCP_OPTIONS_BUFSIZE && optionptr[i] != DHCP_END) {
-		if (optionptr[i] == DHCP_PADDING)
-			++i;
-		else
-			i += optionptr[i + OPT_LEN] + 2;
+		if (optionptr[i] != DHCP_PADDING)
+			i += optionptr[i + OPT_LEN] + OPT_DATA - 1;
+		i++;
 	}
-	return (i < DHCP_OPTIONS_BUFSIZE ? i : DHCP_OPTIONS_BUFSIZE);
+	return (i < DHCP_OPTIONS_BUFSIZE - 1 ? i : DHCP_OPTIONS_BUFSIZE - 1);
 }
 
 
