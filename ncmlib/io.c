@@ -1,5 +1,5 @@
 /* io.c - light wrappers for POSIX i/o functions
- * Time-stamp: <2010-11-13 08:22:53 njk>
+ * Time-stamp: <2010-11-15 19:45:39 njk>
  *
  * (c) 2010 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
@@ -28,6 +28,8 @@
  */
 
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <errno.h>
 
 /* returns -1 on error, >= 0 and equal to # chars read on success */
@@ -65,3 +67,22 @@ int safe_write(int fd, const char *buf, int len)
     }
     return s;
 }
+
+/* returns -1 on error, >= 0 and equal to # chars written on success */
+int safe_sendto(int fd, const char *buf, int len, int flags,
+                const struct sockaddr *dest_addr, socklen_t addrlen)
+{
+    int r, s = 0;
+    while (s < len) {
+        r = sendto(fd, buf + s, len - s, flags, dest_addr, addrlen);
+        if (r == -1) {
+            if (errno == EINTR)
+                continue;
+            else
+                return -1;
+        }
+        s += r;
+    }
+    return s;
+}
+

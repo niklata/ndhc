@@ -61,24 +61,6 @@ uint16_t checksum(void *addr, int count)
     return ~sum;
 }
 
-/* returns -1 on error, >= 0 and equal to # chars written on success */
-static int safe_sendto(int fd, const char *buf, int len, int flags,
-		       const struct sockaddr *dest_addr, socklen_t addrlen)
-{
-    int r, s = 0;
-    while (s < len) {
-        r = sendto(fd, buf + s, len - s, flags, dest_addr, addrlen);
-        if (r == -1) {
-            if (errno == EINTR)
-                continue;
-            else
-                return -1;
-        }
-        s += r;
-    }
-    return s;
-}
-
 /* Constuct a ip/udp header for a packet, and specify the source and dest
  * hardware address */
 int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,

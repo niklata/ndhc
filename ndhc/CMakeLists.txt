@@ -8,6 +8,7 @@ set(NDHC_SRCS
   packet.c
   script.c
   clientpacket.c
+  arpping.c
   ndhc.c
   )
 

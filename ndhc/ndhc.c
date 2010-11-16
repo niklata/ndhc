@@ -47,6 +47,7 @@
 #include "packet.h"
 #include "script.h"
 #include "socket.h"
+#include "arpping.h"
 #include "log.h"
 #include "chroot.h"
 #include "cap.h"
@@ -376,6 +377,21 @@ static void handle_packet(void)
                     lease &= 0x0fffffff;
                     if (lease < RETRY_DELAY)
                         lease = RETRY_DELAY;
+                }
+
+                if (!arpping(packet.yiaddr, NULL, 0, client_config.arp,
+                             client_config.interface)) {
+                    log_line("Offered address is in use: declining.");
+                    send_decline(xid, server_addr, packet.yiaddr);
+
+                    if (state != REQUESTING)
+                        run_script(NULL, SCRIPT_DECONFIG);
+                    state = INIT_SELECTING;
+                    requested_ip = 0;
+                    timeout = now;
+                    packet_num = 0;
+                    change_listen_mode(LISTEN_RAW);
+                    break;
                 }
 
                 /* enter bound state */

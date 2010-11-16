@@ -175,6 +175,30 @@ int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr)
         return bcast_raw_packet(&packet);
 }
 
+/* Broadcast a DHCP decline message */
+int send_decline(uint32_t xid, uint32_t server, uint32_t requested)
+{
+    struct dhcpMessage packet;
+
+    /* Fill in: op, htype, hlen, cookie, chaddr, random xid fields,
+     * client-id option (unless -C), message type option:
+     */
+    init_packet(&packet, DHCPDECLINE);
+
+    /* RFC 2131 says DHCPDECLINE's xid is randomly selected by client,
+     * but in case the server is buggy and wants DHCPDECLINE's xid
+     * to match the xid which started entire handshake,
+     * we use the same xid we used in initial DHCPDISCOVER:
+     */
+    packet.xid = xid;
+    /* DHCPDECLINE uses "requested ip", not ciaddr, to store offered IP */
+    add_simple_option(packet.options, DHCP_REQUESTED_IP, requested);
+    add_simple_option(packet.options, DHCP_SERVER_ID, server);
+
+    log_line("Sending decline...");
+    return bcast_raw_packet(&packet);
+}
+
 /* Unicasts a DHCP release message */
 int send_release(uint32_t server, uint32_t ciaddr)
 {

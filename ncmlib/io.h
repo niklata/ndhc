@@ -1,5 +1,5 @@
 /* io.h - light wrappers for POSIX i/o functions
- * Time-stamp: <2010-11-13 08:22:48 njk>
+ * Time-stamp: <2010-11-15 19:45:32 njk>
  *
  * (c) 2010 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
@@ -32,5 +32,7 @@
 
 int safe_read(int fd, char *buf, int len);
 int safe_write(int fd, const char *buf, int len);
+int safe_sendto(int fd, const char *buf, int len, int flags,
+                const struct sockaddr *dest_addr, socklen_t addrlen);
 
 #endif /* NCM_IO_H_ */
