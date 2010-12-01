@@ -26,7 +26,7 @@ only the minimum necessary set of privileges required to perform its duties.
 These powers include the ability to bind to a low port, the ability to open a
 raw socket, and the ability to communicate on broadcast channels.  ndhc holds
 no other powers and is restricted to a chroot that contains nothing more than a
-domain socket filesystem object and (at least on Linux) a urandom device node.
+domain socket filesystem object and a urandom device node.
 
 ifchd handles interface change requests.  It listens on a UNIX domain socket
 for such requests, and denies any client that does not match an authorized gid,
@@ -39,18 +39,6 @@ this functionality, but it does exist.
 Note that ndhc does not support the entire DHCP client protocol.  Only the
 minimum necessary featureset is implemented.  This behavior should be familiar
 to anyone who has used software that purports to be be secure.
-
-Many of the features that ndhc depends upon are not entirely standard and vary
-between UNIX systems.  It is likely that some effort will be required in order
-to port ndhc to new systems.  The ndhc daemon should be entirely portable aside
-from its use of Linux-style POSIX capabilities.
-
-ifchd is necessarily less portable, since it must use system-specific ioctls in
-order to configure network interfaces.  Additionally, ifchd uses extensions to
-the UNIX domain socket family to limit connections to user defined subsets of
-possible uids, gids, and pids.  These extensions are present in Linux and BSD,
-although both Linux and BSD have different interfaces for the functionality.
-Patches that provide support for new systems are welcome.
 
 USAGE
 -----
@@ -152,11 +140,7 @@ when it chroots.
 PORTING NOTES
 -------------
 
-Unportable functions are isolated to linux.c.  Any attempts to port ifchd to
-other platforms should isolate platform-dependent code to similarly named
-compilation units (eg: for FreeBSD, freebsd.[ch]).
-
-There are four major functions that ifchd depends upon that are not generally
+There are six major functions that ifchd depends upon that are not generally
 portable.  First, it uses the SO_PEERCRED flag of getsockopt() to discriminate
 authorized connections by uid, gid, and pid.  Similar functionality exists in
 at least the BSDs; however, it has a different API.  Second, ifchd takes
@@ -165,7 +149,8 @@ Capabilities are supposedly a POSIX feature, but in practice, they vary greatly
 from system to system.  Third and fourth, ifchd configures network interfaces
 and routes.  Interface and route configuration is entirely non-portable,
 usually requiring calls to the catch-all ioctl(), and will almost certainly
-require platform-dependent code.
+require platform-dependent code.  Fifth and sixth, both ifchd and ndhc use
+epoll() and signalfd(), which are Linux-specific.
 
 Some standard C libraries include a native implementation of strlcpy() and
 strlcat().  Such defines may conflict with my implementations in strl.c/strl.h.
