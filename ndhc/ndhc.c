@@ -34,6 +34,7 @@
 #include <time.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/epoll.h>
 #include <sys/signalfd.h>
 #include <net/if.h>
 #include <errno.h>
@@ -60,13 +61,14 @@
 #define NUMPACKETS 3 /* number of packets to send before delay */
 #define RETRY_DELAY 30 /* time in seconds to delay after sending NUMPACKETS */
 
-static int signalFd;
+static int epollfd, signalFd;
+static struct epoll_event events[3];
 
 static char pidfile[MAX_PATH_LENGTH] = PID_FILE_DEFAULT;
 
 static uint32_t requested_ip, server_addr, timeout;
 static uint32_t lease, t1, t2, xid, start;
-static int state, packet_num, fd, listen_mode;
+static int state, packet_num, listenFd, listen_mode;
 
 enum {
     LISTEN_NONE,
@@ -87,6 +89,28 @@ struct client_config_t client_config = {
     .ifindex = 0,
     .arp = "\0",
 };
+
+static void epoll_add(int fd)
+{
+    struct epoll_event ev;
+    int r;
+    ev.events = EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLHUP;
+    ev.data.fd = fd;
+    r = epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &ev);
+    if (r == -1)
+        suicide("epoll_add failed %s", strerror(errno));
+}
+
+static void epoll_del(int fd)
+{
+    struct epoll_event ev;
+    int r;
+    ev.events = EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLHUP;
+    ev.data.fd = fd;
+    r = epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, &ev);
+    if (r == -1)
+        suicide("epoll_del failed %s", strerror(errno));
+}
 
 static void show_usage(void)
 {
@@ -117,17 +141,23 @@ static void change_listen_mode(int new_mode)
     log_line("entering %s listen mode",
              new_mode ? (new_mode == 1 ? "kernel" : "raw") : "none");
     listen_mode = new_mode;
-    if (fd >= 0) {
-        close(fd);
-        fd = -1;
+    if (listenFd >= 0) {
+        epoll_del(listenFd);
+        close(listenFd);
+        listenFd = -1;
     }
-    if (new_mode == LISTEN_KERNEL)
-        fd = listen_socket(INADDR_ANY, CLIENT_PORT, client_config.interface);
-    else if (new_mode == LISTEN_RAW)
-        fd = raw_socket(client_config.ifindex);
+    if (new_mode == LISTEN_KERNEL) {
+        listenFd = listen_socket(INADDR_ANY, CLIENT_PORT,
+                                 client_config.interface);
+        epoll_add(listenFd);
+    }
+    else if (new_mode == LISTEN_RAW) {
+        listenFd = raw_socket(client_config.ifindex);
+        epoll_add(listenFd);
+    }
     else /* LISTEN_NONE */
         return;
-    if (fd < 0) {
+    if (listenFd < 0) {
         log_error("FATAL: couldn't listen on socket: %s.", strerror(errno));
         exit(EXIT_FAILURE);
     }
@@ -303,9 +333,9 @@ static void handle_packet(void)
     struct dhcpMessage packet;
 
     if (listen_mode == LISTEN_KERNEL)
-        len = get_packet(&packet, fd);
+        len = get_packet(&packet, listenFd);
     else if (listen_mode == LISTEN_RAW)
-        len = get_raw_packet(&packet, fd);
+        len = get_raw_packet(&packet, listenFd);
     else /* LISTEN_NONE */
         return;
 
@@ -470,39 +500,37 @@ static void signal_dispatch()
 
 static void do_work(void)
 {
-    struct timeval tv;
-    fd_set rfds;
+    int timeoutms;
+
+    epollfd = epoll_create1(0);
+    if (epollfd == -1)
+        suicide("epoll_create1 failed");
+    epoll_add(signalFd);
+    change_listen_mode(LISTEN_RAW);
+
     for (;;) {
-
-        tv.tv_sec = timeout - time(0);
-        tv.tv_usec = 0;
-
-        if (tv.tv_sec <= 0) {
+        timeoutms = (timeout - time(0)) * 1000;
+        if (timeoutms <= 0) {
             handle_timeout();
             continue;
         }
 
-        FD_ZERO(&rfds);
-        FD_SET(signalFd, &rfds);
-        if (fd >= 0)
-            FD_SET(fd, &rfds);
-        if (select(fd > signalFd ? fd + 1 : signalFd + 1,
-                   &rfds, NULL, NULL, &tv) == -1) {
-            switch (errno) {
-                case EBADF:
-                    fd = -1;
-                default:
-                    log_error("Error: \"%s\" on select!",
-                              strerror(errno));
-                case EINTR:  /* Signal received, go back to top. */
-                    continue;
-            }
+        int r = epoll_wait(epollfd, events, 3, timeoutms);
+        if (r == -1) {
+            if (errno == EINTR)
+                continue;
+            else
+                suicide("epoll_wait failed");
         }
-
-        if (FD_ISSET(signalFd, &rfds))
-            signal_dispatch();
-        if (FD_ISSET(fd, &rfds))
-            handle_packet();
+        for (int i = 0; i < r; ++i) {
+            int fd = events[i].data.fd;
+            if (fd == signalFd)
+                signal_dispatch();
+            else if (fd == listenFd)
+                handle_packet();
+            else
+                suicide("epoll_wait: unknown fd");
+        }
     }
 }
 
@@ -643,7 +671,6 @@ int main(int argc, char **argv)
 
     state = INIT_SELECTING;
     run_script(NULL, SCRIPT_DECONFIG);
-    change_listen_mode(LISTEN_RAW);
 
     do_work();
 
