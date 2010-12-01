@@ -34,6 +34,7 @@
 #include <time.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/signalfd.h>
 #include <net/if.h>
 #include <errno.h>
 #include <pwd.h>
@@ -59,12 +60,13 @@
 #define NUMPACKETS 3 /* number of packets to send before delay */
 #define RETRY_DELAY 30 /* time in seconds to delay after sending NUMPACKETS */
 
+static int signalFd;
+
 static char pidfile[MAX_PATH_LENGTH] = PID_FILE_DEFAULT;
 
 static uint32_t requested_ip, server_addr, timeout;
 static uint32_t lease, t1, t2, xid, start;
 static int state, packet_num, fd, listen_mode;
-static sig_atomic_t pending_exit, pending_renew, pending_release;
 
 enum {
     LISTEN_NONE,
@@ -180,21 +182,6 @@ static void perform_release(void)
     change_listen_mode(LISTEN_NONE);
     state = RELEASED;
     timeout = 0x7fffffff;
-}
-
-static void signal_handler(int sig)
-{
-    switch (sig) {
-        case SIGUSR1:
-            pending_renew = 1;
-            break;
-        case SIGUSR2:
-            pending_release = 1;
-            break;
-        case SIGTERM:
-            pending_exit = 1;
-            break;
-    }
 }
 
 static void background(void)
@@ -437,21 +424,55 @@ static void handle_packet(void)
     }
 }
 
-static int do_work(void)
+static void setup_signals()
+{
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGUSR1);
+    sigaddset(&mask, SIGUSR2);
+    sigaddset(&mask, SIGTERM);
+    if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0)
+        suicide("sigprocmask failed");
+    signalFd = signalfd(-1, &mask, SFD_NONBLOCK);
+    if (signalFd < 0)
+        suicide("signalfd failed");
+}
+
+static void signal_dispatch()
+{
+    int t, off = 0;
+    struct signalfd_siginfo si;
+  again:
+    t = read(signalFd, (char *)&si + off, sizeof si - off);
+    if (t < sizeof si - off) {
+        if (t < 0) {
+            if (t == EAGAIN || t == EWOULDBLOCK || t == EINTR)
+                goto again;
+            else
+                suicide("signalfd read error");
+        }
+        off += t;
+    }
+    switch (si.ssi_signo) {
+        case SIGUSR1:
+            perform_renew();
+            break;
+        case SIGUSR2:
+            perform_release();
+            break;
+        case SIGTERM:
+            log_line("Received SIGTERM.  Exiting gracefully.");
+            exit(EXIT_SUCCESS);
+        default:
+            break;
+    }
+}
+
+static void do_work(void)
 {
     struct timeval tv;
     fd_set rfds;
     for (;;) {
-
-        /* Handle signals asynchronously. */
-        if (pending_renew)
-            perform_renew();
-        if (pending_release)
-            perform_release();
-        if (pending_exit) {
-            log_line("Received SIGTERM.  Exiting gracefully.");
-            exit(EXIT_SUCCESS);
-        }
 
         tv.tv_sec = timeout - time(0);
         tv.tv_usec = 0;
@@ -462,9 +483,11 @@ static int do_work(void)
         }
 
         FD_ZERO(&rfds);
+        FD_SET(signalFd, &rfds);
         if (fd >= 0)
             FD_SET(fd, &rfds);
-        if (select(fd + 1, &rfds, NULL, NULL, &tv) == -1) {
+        if (select(fd > signalFd ? fd + 1 : signalFd + 1,
+                   &rfds, NULL, NULL, &tv) == -1) {
             switch (errno) {
                 case EBADF:
                     fd = -1;
@@ -476,6 +499,8 @@ static int do_work(void)
             }
         }
 
+        if (FD_ISSET(signalFd, &rfds))
+            signal_dispatch();
         if (FD_ISSET(fd, &rfds))
             handle_packet();
     }
@@ -600,10 +625,7 @@ int main(int argc, char **argv)
         memcpy(client_config.clientid + 3, client_config.arp, 6);
     }
 
-    /* setup signal handlers */
-    signal(SIGUSR1, signal_handler);
-    signal(SIGUSR2, signal_handler);
-    signal(SIGTERM, signal_handler);
+    setup_signals();
 
     if (chdir(chroot_dir)) {
         printf("Failed to chdir(%s)!\n", chroot_dir);
