@@ -56,19 +56,20 @@
 #include "strl.h"
 #include "pidfile.h"
 #include "malloc.h"
+#include "io.h"
 
 #define VERSION "1.0"
 #define NUMPACKETS 3 /* number of packets to send before delay */
 #define RETRY_DELAY 30 /* time in seconds to delay after sending NUMPACKETS */
 
-static int epollfd, signalFd;
+static int epollfd, signalFd, arpFd = -1;
 static struct epoll_event events[3];
 
 static char pidfile[MAX_PATH_LENGTH] = PID_FILE_DEFAULT;
 
 static uint32_t requested_ip, server_addr, timeout;
 static uint32_t lease, t1, t2, xid, start;
-static int state, packet_num, listenFd, listen_mode;
+static int dhcp_state, arp_prev_dhcp_state, packet_num, listenFd, listen_mode;
 
 enum {
     LISTEN_NONE,
@@ -167,19 +168,26 @@ static void change_listen_mode(int new_mode)
 static void perform_renew(void)
 {
     log_line("Performing a DHCP renew...");
-    switch (state) {
+  retry:
+    switch (dhcp_state) {
         case BOUND:
             change_listen_mode(LISTEN_KERNEL);
+        case ARP_CHECK:
+            // Cancel arp ping in progress and treat as previous state.
+            epoll_del(arpFd);
+            arpFd = -1;
+            dhcp_state = arp_prev_dhcp_state;
+            goto retry;
         case RENEWING:
         case REBINDING:
-            state = RENEW_REQUESTED;
+            dhcp_state = RENEW_REQUESTED;
             break;
         case RENEW_REQUESTED: /* impatient are we? fine, square 1 */
             run_script(NULL, SCRIPT_DECONFIG);
         case REQUESTING:
         case RELEASED:
             change_listen_mode(LISTEN_RAW);
-            state = INIT_SELECTING;
+            dhcp_state = INIT_SELECTING;
             break;
         case INIT_SELECTING:
             break;
@@ -199,7 +207,8 @@ static void perform_release(void)
     struct in_addr temp_saddr, temp_raddr;
 
     /* send release packet */
-    if (state == BOUND || state == RENEWING || state == REBINDING) {
+    if (dhcp_state == BOUND || dhcp_state == RENEWING ||
+        dhcp_state == REBINDING || dhcp_state == ARP_CHECK) {
         temp_saddr.s_addr = server_addr;
         temp_raddr.s_addr = requested_ip;
         log_line("Unicasting a release of %s to %s.",
@@ -209,8 +218,12 @@ static void perform_release(void)
     }
     log_line("Entering released state.");
 
+    if (dhcp_state == ARP_CHECK) {
+        epoll_del(arpFd);
+        arpFd = -1;
+    }
     change_listen_mode(LISTEN_NONE);
-    state = RELEASED;
+    dhcp_state = RELEASED;
     timeout = 0x7fffffff;
 }
 
@@ -229,12 +242,63 @@ static void background(void)
     write_pid(pidfile);
 }
 
+static struct arpMsg arpreply;
+static int arpreply_offset;
+static struct dhcpMessage arp_dhcp_packet;
+
+static void arp_failed(void)
+{
+    log_line("Offered address is in use: declining.");
+    epoll_del(arpFd);
+    arpFd = -1;
+    send_decline(xid, server_addr, arp_dhcp_packet.yiaddr);
+
+    if (arp_prev_dhcp_state != REQUESTING)
+        run_script(NULL, SCRIPT_DECONFIG);
+    dhcp_state = INIT_SELECTING;
+    requested_ip = 0;
+    timeout = time(0);
+    packet_num = 0;
+    change_listen_mode(LISTEN_RAW);
+}
+
+static void arp_success(void)
+{
+    struct in_addr temp_addr;
+
+    epoll_del(arpFd);
+    arpFd = -1;
+
+    /* enter bound state */
+    t1 = lease >> 1;
+
+    /* little fixed point for n * .875 */
+    t2 = (lease * 0x7) >> 3;
+    temp_addr.s_addr = arp_dhcp_packet.yiaddr;
+    log_line("Lease of %s obtained, lease time %ld.",
+             inet_ntoa(temp_addr), lease);
+    start = time(0);
+    timeout = t1 + start;
+    requested_ip = arp_dhcp_packet.yiaddr;
+    run_script(&arp_dhcp_packet,
+               ((arp_prev_dhcp_state == RENEWING ||
+                 arp_prev_dhcp_state == REBINDING)
+                ? SCRIPT_RENEW : SCRIPT_BOUND));
+
+    dhcp_state = BOUND;
+    change_listen_mode(LISTEN_NONE);
+    if (client_config.quit_after_lease)
+        exit(EXIT_SUCCESS);
+    if (!client_config.foreground)
+        background();
+}
+
 /* Handle select timeout dropping to zero */
 static void handle_timeout(void)
 {
     time_t now = time(0);
 
-    switch (state) {
+    switch (dhcp_state) {
         case INIT_SELECTING:
             if (packet_num < NUMPACKETS) {
                 if (packet_num == 0)
@@ -261,7 +325,7 @@ static void handle_timeout(void)
         case REQUESTING:
             if (packet_num < NUMPACKETS) {
                 /* send request packet */
-                if (state == RENEW_REQUESTED)
+                if (dhcp_state == RENEW_REQUESTED)
                     /* unicast */
                     send_renew(xid, server_addr, requested_ip);
                 else
@@ -271,9 +335,9 @@ static void handle_timeout(void)
                 packet_num++;
             } else {
                 /* timed out, go back to init state */
-                if (state == RENEW_REQUESTED)
+                if (dhcp_state == RENEW_REQUESTED)
                     run_script(NULL, SCRIPT_DECONFIG);
-                state = INIT_SELECTING;
+                dhcp_state = INIT_SELECTING;
                 timeout = now;
                 packet_num = 0;
                 change_listen_mode(LISTEN_RAW);
@@ -281,7 +345,7 @@ static void handle_timeout(void)
             break;
         case BOUND:
             /* Lease is starting to run out, time to enter renewing state */
-            state = RENEWING;
+            dhcp_state = RENEWING;
             change_listen_mode(LISTEN_KERNEL);
             log_line("Entering renew state.");
             /* fall right through */
@@ -289,7 +353,7 @@ static void handle_timeout(void)
             /* Either set a new T1, or enter REBINDING state */
             if ((t2 - t1) <= (lease / 14400 + 1)) {
                 /* timed out, enter rebinding state */
-                state = REBINDING;
+                dhcp_state = REBINDING;
                 timeout = now + (t2 - t1);
                 log_line("Entering rebinding state.");
             } else {
@@ -304,7 +368,7 @@ static void handle_timeout(void)
             /* Either set a new T2, or enter INIT state */
             if ((lease - t2) <= (lease / 14400 + 1)) {
                 /* timed out, enter init state */
-                state = INIT_SELECTING;
+                dhcp_state = INIT_SELECTING;
                 log_line("Lease lost, entering init state.");
                 run_script(NULL, SCRIPT_DECONFIG);
                 timeout = now;
@@ -322,6 +386,45 @@ static void handle_timeout(void)
             /* yah, I know, *you* say it would never happen */
             timeout = 0x7fffffff;
             break;
+        case ARP_CHECK:
+            arp_failed();
+            break;
+    }
+}
+
+typedef uint32_t aliased_uint32_t __attribute__((__may_alias__));
+static void handle_arp_response(void)
+{
+    if (arpreply_offset < sizeof arpreply) {
+        int r = safe_read(arpFd, (char *)&arpreply + arpreply_offset,
+                          sizeof arpreply - arpreply_offset);
+        if (r < 0) {
+            arp_failed();
+            return;
+        } else
+            arpreply_offset += r;
+    }
+
+    //log3("sHaddr %02x:%02x:%02x:%02x:%02x:%02x",
+    //arp.sHaddr[0], arp.sHaddr[1], arp.sHaddr[2],
+    //arp.sHaddr[3], arp.sHaddr[4], arp.sHaddr[5]);
+
+    if (arpreply_offset >= ARP_MSG_SIZE) {
+        if (arpreply.operation == htons(ARPOP_REPLY)
+            /* don't check: Linux returns invalid tHaddr (fixed in 2.6.24?) */
+            /* && memcmp(arp.tHaddr, from_mac, 6) == 0 */
+            && *(aliased_uint32_t*)arpreply.sInaddr == arp_dhcp_packet.yiaddr)
+        {
+            /* if ARP source MAC matches safe_mac
+             * (which is client's MAC), then it's not a conflict
+             * (client simply already has this IP and replies to ARPs!)
+             */
+            /* if (memcmp(safe_mac, arp.sHaddr, 6) == 0) */
+            arp_success();
+        } else {
+            memset(&arpreply, 0, sizeof arpreply);
+            arpreply_offset = 0;
+        }
     }
 }
 
@@ -329,7 +432,6 @@ static void handle_packet(void)
 {
     unsigned char *temp = NULL, *message = NULL;
     int len;
-    struct in_addr temp_addr;
     struct dhcpMessage packet;
 
     if (listen_mode == LISTEN_KERNEL)
@@ -359,7 +461,7 @@ static void handle_packet(void)
     }
 
     time_t now = time(0);
-    switch (state) {
+    switch (dhcp_state) {
         case INIT_SELECTING:
             /* Must be a DHCPOFFER to one of our xid's */
             if (*message == DHCPOFFER) {
@@ -370,13 +472,18 @@ static void handle_packet(void)
                     requested_ip = packet.yiaddr;
 
                     /* enter requesting state */
-                    state = REQUESTING;
+                    dhcp_state = REQUESTING;
                     timeout = now;
                     packet_num = 0;
                 } else {
                     log_line("No server ID in message");
                 }
             }
+            break;
+        case ARP_CHECK:
+            /* We ignore dhcp packets for now.  This state will
+             * be changed by the callback for arp ping.
+             */
             break;
         case RENEW_REQUESTED:
         case REQUESTING:
@@ -396,54 +503,29 @@ static void handle_packet(void)
                         lease = RETRY_DELAY;
                 }
 
-                if (!arpping(packet.yiaddr, NULL, 0, client_config.arp,
-                             client_config.interface)) {
-                    log_line("Offered address is in use: declining.");
-                    send_decline(xid, server_addr, packet.yiaddr);
-
-                    if (state != REQUESTING)
-                        run_script(NULL, SCRIPT_DECONFIG);
-                    state = INIT_SELECTING;
-                    requested_ip = 0;
-                    timeout = now;
-                    packet_num = 0;
-                    change_listen_mode(LISTEN_RAW);
-                    break;
-                }
-
-                /* enter bound state */
-                t1 = lease >> 1;
-
-                /* little fixed point for n * .875 */
-                t2 = (lease * 0x7) >> 3;
-                temp_addr.s_addr = packet.yiaddr;
-                log_line("Lease of %s obtained, lease time %ld.",
-                         inet_ntoa(temp_addr), lease);
-                start = now;
-                timeout = t1 + start;
-                requested_ip = packet.yiaddr;
-                run_script(&packet,
-                           ((state == RENEWING || state == REBINDING)
-                            ? SCRIPT_RENEW : SCRIPT_BOUND));
-
-                state = BOUND;
-                change_listen_mode(LISTEN_NONE);
-                if (client_config.quit_after_lease)
-                    exit(EXIT_SUCCESS);
-                if (!client_config.foreground)
-                    background();
+                arp_prev_dhcp_state = dhcp_state;
+                dhcp_state = ARP_CHECK;
+                memcpy(&arp_dhcp_packet, &packet, sizeof packet);
+                arpFd = arpping(arp_dhcp_packet.yiaddr, NULL, 0,
+                                client_config.arp, client_config.interface);
+                epoll_add(arpFd);
+                timeout = now + 2;
+                memset(&arpreply, 0, sizeof arpreply);
+                arpreply_offset = 0;
+                // Can transition to BOUND or INIT_SELECTING.
 
             } else if (*message == DHCPNAK) {
                 /* return to init state */
                 log_line("Received DHCP NAK.");
                 run_script(&packet, SCRIPT_NAK);
-                if (state != REQUESTING)
+                if (dhcp_state != REQUESTING)
                     run_script(NULL, SCRIPT_DECONFIG);
-                state = INIT_SELECTING;
+                dhcp_state = INIT_SELECTING;
                 timeout = now;
                 requested_ip = 0;
                 packet_num = 0;
                 change_listen_mode(LISTEN_RAW);
+                // XXX: this isn't rfc compliant: should be exp backoff
                 sleep(3); /* avoid excessive network traffic */
             }
             break;
@@ -528,6 +610,8 @@ static void do_work(void)
                 signal_dispatch();
             else if (fd == listenFd)
                 handle_packet();
+            else if (fd == arpFd)
+                handle_arp_response();
             else
                 suicide("epoll_wait: unknown fd");
         }
@@ -669,7 +753,7 @@ int main(int argc, char **argv)
             "cap_net_bind_service,cap_net_broadcast,cap_net_raw=ep");
     drop_root(uid, gid);
 
-    state = INIT_SELECTING;
+    dhcp_state = INIT_SELECTING;
     run_script(NULL, SCRIPT_DECONFIG);
 
     do_work();
