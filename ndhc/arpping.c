@@ -17,13 +17,6 @@
 #include "strl.h"
 #include "io.h"
 
-static unsigned long long curms()
-{
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return tv.tv_sec * 1000ULL + tv.tv_usec / 1000ULL;
-}
-
 /* Returns fd of the arp socket, or -1 on failure. */
 int arpping(uint32_t test_nip, const uint8_t *safe_mac, uint32_t from_ip,
             uint8_t *from_mac, const char *interface)
