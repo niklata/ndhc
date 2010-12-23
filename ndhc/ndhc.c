@@ -71,7 +71,7 @@ static uint32_t requested_ip, server_addr, timeout;
 static uint32_t lease, t1, t2, xid;
 static long long start;
 
-static int dhcp_state, arp_prev_dhcp_state, packet_num, listenFd, listen_mode;
+static int dhcp_state, arp_prev_dhcp_state, packet_num, listenFd = -1, listen_mode;
 
 enum {
     LISTEN_NONE,
@@ -394,7 +394,8 @@ static void handle_timeout(void)
             timeout = -1;
             break;
         case ARP_CHECK:
-            arp_failed();
+            /* No response to ARP obviously means that the address is free. */
+            arp_success();
             break;
     }
 }
@@ -419,15 +420,16 @@ static void handle_arp_response(void)
     if (arpreply_offset >= ARP_MSG_SIZE) {
         if (arpreply.operation == htons(ARPOP_REPLY)
             /* don't check: Linux returns invalid tHaddr (fixed in 2.6.24?) */
-            /* && memcmp(arp.tHaddr, from_mac, 6) == 0 */
+            /* && memcmp(arpreply.tHaddr, from_mac, 6) == 0 */
             && *(aliased_uint32_t*)arpreply.sInaddr == arp_dhcp_packet.yiaddr)
         {
             /* if ARP source MAC matches safe_mac
              * (which is client's MAC), then it's not a conflict
              * (client simply already has this IP and replies to ARPs!)
              */
-            /* if (memcmp(safe_mac, arp.sHaddr, 6) == 0) */
-            arp_success();
+            /* if (memcmp(safe_mac, arpreply.sHaddr, 6) == 0) */
+            /*     arp_success(); */
+            arp_failed();
         } else {
             memset(&arpreply, 0, sizeof arpreply);
             arpreply_offset = 0;
@@ -589,7 +591,7 @@ static void signal_dispatch()
 static void do_work(void)
 {
     long long last_awake;
-    int timeout_delta;
+    int timeout_delta, stimeout;
 
     epollfd = epoll_create1(0);
     if (epollfd == -1)
@@ -619,10 +621,13 @@ static void do_work(void)
                 suicide("epoll_wait: unknown fd");
         }
 
+        stimeout = timeout;
         timeout_delta = curms() - last_awake;
-        timeout -= timeout_delta;
-        if (timeout <= 0)
+        stimeout -= timeout_delta;
+        if (stimeout <= 0) {
+            timeout = 0;
             handle_timeout();
+        }
     }
 }
 
@@ -671,9 +676,11 @@ int main(int argc, char **argv)
                 break;
             case 'f':
                 client_config.foreground = 1;
+                gflags_detach = 0;
                 break;
             case 'b':
                 client_config.background_if_no_lease = 1;
+                gflags_detach = 1;
                 break;
             case 'p':
                 strlcpy(pidfile, optarg, sizeof pidfile);
