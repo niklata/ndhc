@@ -62,22 +62,40 @@
 #define NUMPACKETS 3 /* number of packets to send before delay */
 #define RETRY_DELAY 30 /* time in seconds to delay after sending NUMPACKETS */
 
+enum {
+	DHCP_STATE_NULL = 0,
+	INIT_SELECTING,
+	REQUESTING,
+	BOUND,
+	RENEWING,
+	REBINDING,
+	ARP_CHECK,
+	INIT_REBOOT,
+	RENEW_REQUESTED,
+	RELEASED
+};
+
+enum {
+    LISTEN_NONE = 0,
+    LISTEN_KERNEL,
+    LISTEN_RAW
+};
+
 static int epollfd, signalFd, arpFd = -1;
 static struct epoll_event events[3];
 
 static char pidfile[MAX_PATH_LENGTH] = PID_FILE_DEFAULT;
 
-static uint32_t requested_ip, server_addr, timeout;
+static int timeout;
+static uint32_t requested_ip, server_addr;
 static uint32_t lease, t1, t2, xid;
 static long long start;
 
-static int dhcp_state, arp_prev_dhcp_state, packet_num, listenFd = -1, listen_mode;
-
-enum {
-    LISTEN_NONE,
-    LISTEN_KERNEL,
-    LISTEN_RAW
-};
+static int dhcp_state = INIT_SELECTING;
+static int arp_prev_dhcp_state = DHCP_STATE_NULL;
+static int listen_mode = LISTEN_NONE;
+static int listenFd = -1;
+static int packet_num;
 
 struct client_config_t client_config = {
     /* Default options. */
@@ -199,6 +217,7 @@ static void perform_renew(void)
             dhcp_state = INIT_SELECTING;
             break;
         case INIT_SELECTING:
+        default:
             break;
     }
 
@@ -396,6 +415,7 @@ static void handle_timeout(void)
         case ARP_CHECK:
             /* No response to ARP obviously means that the address is free. */
             arp_success();
+        default:
             break;
     }
 }
@@ -591,7 +611,7 @@ static void signal_dispatch()
 static void do_work(void)
 {
     long long last_awake;
-    int timeout_delta, stimeout;
+    int timeout_delta;
 
     epollfd = epoll_create1(0);
     if (epollfd == -1)
@@ -621,10 +641,9 @@ static void do_work(void)
                 suicide("epoll_wait: unknown fd");
         }
 
-        stimeout = timeout;
         timeout_delta = curms() - last_awake;
-        stimeout -= timeout_delta;
-        if (stimeout <= 0) {
+        timeout -= timeout_delta;
+        if (timeout <= 0) {
             timeout = 0;
             handle_timeout();
         }
@@ -768,7 +787,6 @@ int main(int argc, char **argv)
             "cap_net_bind_service,cap_net_broadcast,cap_net_raw=ep");
     drop_root(uid, gid);
 
-    dhcp_state = INIT_SELECTING;
     run_script(NULL, SCRIPT_DECONFIG);
 
     do_work();
