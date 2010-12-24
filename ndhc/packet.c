@@ -12,6 +12,7 @@
 #include "packet.h"
 #include "dhcpmsg.h"
 #include "socket.h"
+#include "arp.h"
 #include "ifchange.h"
 #include "sys.h"
 #include "log.h"
@@ -225,9 +226,6 @@ static void init_selecting_packet(struct client_state_t *cs,
     }
 }
 
-// from ndhc.c
-void arp_check(struct dhcpMessage *packet);
-
 static void dhcp_ack_or_nak_packet(struct client_state_t *cs,
                                    struct dhcpMessage *packet,
                                    unsigned char *message)
@@ -247,7 +245,7 @@ static void dhcp_ack_or_nak_packet(struct client_state_t *cs,
                 cs->lease = RETRY_DELAY;
         }
 
-        arp_check(packet);
+        arp_check(cs, packet);
         // Can transition from DS_ARP_CHECK to DS_BOUND or DS_INIT_SELECTING.
 
     } else if (*message == DHCPNAK) {
