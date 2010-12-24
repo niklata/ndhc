@@ -1,7 +1,0 @@
-TODO
-----
-+ using time(0) breaks if the system clock changes, find a portable solution
-+ make failure of reading functions revert to previous value, not the default
-+ sanity code for option[OPT_LEN]
-+ fix aliasing (ie: eth0:0)
-
