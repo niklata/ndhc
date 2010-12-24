@@ -62,41 +62,10 @@
 #define NUMPACKETS 3 /* number of packets to send before delay */
 #define RETRY_DELAY 30 /* time in seconds to delay after sending NUMPACKETS */
 
-enum {
-	DHCP_STATE_NULL = 0,
-	INIT_SELECTING,
-	REQUESTING,
-	BOUND,
-	RENEWING,
-	REBINDING,
-	ARP_CHECK,
-	INIT_REBOOT,
-	RENEW_REQUESTED,
-	RELEASED
-};
-
-enum {
-    LISTEN_NONE = 0,
-    LISTEN_KERNEL,
-    LISTEN_RAW
-};
-
-struct client_state_t {
-    unsigned long long leaseStartTime;
-    int dhcpState;
-    int arpPrevState;
-    int listenMode;
-    int packetNum;
-    int epollFd, signalFd, listenFd, arpFd;
-    int timeout;
-    uint32_t requestedIP, serverAddr;
-    uint32_t lease, t1, t2, xid;
-};
-
 struct client_state_t cs = {
-    .dhcpState = INIT_SELECTING,
-    .arpPrevState = DHCP_STATE_NULL,
-    .listenMode = LISTEN_NONE,
+    .dhcpState = DS_INIT_SELECTING,
+    .arpPrevState = DS_NULL,
+    .listenMode = LM_NONE,
     .packetNum = 0,
     .xid = 0,
     .timeout = 0,
@@ -191,16 +160,16 @@ static void change_listen_mode(int new_mode)
         close(cs.listenFd);
         cs.listenFd = -1;
     }
-    if (new_mode == LISTEN_KERNEL) {
+    if (new_mode == LM_KERNEL) {
         cs.listenFd = listen_socket(INADDR_ANY, CLIENT_PORT,
                                  client_config.interface);
         epoll_add(cs.listenFd);
     }
-    else if (new_mode == LISTEN_RAW) {
+    else if (new_mode == LM_RAW) {
         cs.listenFd = raw_socket(client_config.ifindex);
         epoll_add(cs.listenFd);
     }
-    else /* LISTEN_NONE */
+    else /* LM_NONE */
         return;
     if (cs.listenFd < 0) {
         log_error("FATAL: couldn't listen on socket: %s.", strerror(errno));
@@ -214,26 +183,26 @@ static void perform_renew(void)
     log_line("Performing a DHCP renew...");
   retry:
     switch (cs.dhcpState) {
-        case BOUND:
-            change_listen_mode(LISTEN_KERNEL);
-        case ARP_CHECK:
+        case DS_BOUND:
+            change_listen_mode(LM_KERNEL);
+        case DS_ARP_CHECK:
             // Cancel arp ping in progress and treat as previous state.
             epoll_del(cs.arpFd);
             cs.arpFd = -1;
             cs.dhcpState = cs.arpPrevState;
             goto retry;
-        case RENEWING:
-        case REBINDING:
-            cs.dhcpState = RENEW_REQUESTED;
+        case DS_RENEWING:
+        case DS_REBINDING:
+            cs.dhcpState = DS_RENEW_REQUESTED;
             break;
-        case RENEW_REQUESTED: /* impatient are we? fine, square 1 */
+        case DS_RENEW_REQUESTED: /* impatient are we? fine, square 1 */
             run_script(NULL, SCRIPT_DECONFIG);
-        case REQUESTING:
-        case RELEASED:
-            change_listen_mode(LISTEN_RAW);
-            cs.dhcpState = INIT_SELECTING;
+        case DS_REQUESTING:
+        case DS_RELEASED:
+            change_listen_mode(LM_RAW);
+            cs.dhcpState = DS_INIT_SELECTING;
             break;
-        case INIT_SELECTING:
+        case DS_INIT_SELECTING:
         default:
             break;
     }
@@ -252,8 +221,8 @@ static void perform_release(void)
     struct in_addr temp_saddr, temp_raddr;
 
     /* send release packet */
-    if (cs.dhcpState == BOUND || cs.dhcpState == RENEWING ||
-        cs.dhcpState == REBINDING || cs.dhcpState == ARP_CHECK) {
+    if (cs.dhcpState == DS_BOUND || cs.dhcpState == DS_RENEWING ||
+        cs.dhcpState == DS_REBINDING || cs.dhcpState == DS_ARP_CHECK) {
         temp_saddr.s_addr = cs.serverAddr;
         temp_raddr.s_addr = cs.requestedIP;
         log_line("Unicasting a release of %s to %s.",
@@ -263,12 +232,12 @@ static void perform_release(void)
     }
     log_line("Entering released state.");
 
-    if (cs.dhcpState == ARP_CHECK) {
+    if (cs.dhcpState == DS_ARP_CHECK) {
         epoll_del(cs.arpFd);
         cs.arpFd = -1;
     }
-    change_listen_mode(LISTEN_NONE);
-    cs.dhcpState = RELEASED;
+    change_listen_mode(LM_NONE);
+    cs.dhcpState = DS_RELEASED;
     cs.timeout = -1;
 }
 
@@ -298,13 +267,13 @@ static void arp_failed(void)
     cs.arpFd = -1;
     send_decline(cs.xid, cs.serverAddr, arp_dhcp_packet.yiaddr);
 
-    if (cs.arpPrevState != REQUESTING)
+    if (cs.arpPrevState != DS_REQUESTING)
         run_script(NULL, SCRIPT_DECONFIG);
-    cs.dhcpState = INIT_SELECTING;
+    cs.dhcpState = DS_INIT_SELECTING;
     cs.requestedIP = 0;
     cs.timeout = 0;
     cs.packetNum = 0;
-    change_listen_mode(LISTEN_RAW);
+    change_listen_mode(LM_RAW);
 }
 
 static void arp_success(void)
@@ -326,12 +295,12 @@ static void arp_success(void)
              inet_ntoa(temp_addr), cs.lease);
     cs.requestedIP = arp_dhcp_packet.yiaddr;
     run_script(&arp_dhcp_packet,
-               ((cs.arpPrevState == RENEWING ||
-                 cs.arpPrevState == REBINDING)
+               ((cs.arpPrevState == DS_RENEWING ||
+                 cs.arpPrevState == DS_REBINDING)
                 ? SCRIPT_RENEW : SCRIPT_BOUND));
 
-    cs.dhcpState = BOUND;
-    change_listen_mode(LISTEN_NONE);
+    cs.dhcpState = DS_BOUND;
+    change_listen_mode(LM_NONE);
     if (client_config.quit_after_lease)
         exit(EXIT_SUCCESS);
     if (!client_config.foreground)
@@ -372,10 +341,10 @@ static void renew_requested_timeout()
     } else {
         /* timed out, go back to init state */
         run_script(NULL, SCRIPT_DECONFIG);
-        cs.dhcpState = INIT_SELECTING;
+        cs.dhcpState = DS_INIT_SELECTING;
         cs.timeout = 0;
         cs.packetNum = 0;
-        change_listen_mode(LISTEN_RAW);
+        change_listen_mode(LM_RAW);
     }
 }
 
@@ -388,19 +357,19 @@ static void requesting_timeout()
         cs.packetNum++;
     } else {
         /* timed out, go back to init state */
-        cs.dhcpState = INIT_SELECTING;
+        cs.dhcpState = DS_INIT_SELECTING;
         cs.timeout = 0;
         cs.packetNum = 0;
-        change_listen_mode(LISTEN_RAW);
+        change_listen_mode(LM_RAW);
     }
 }
 
 static void renewing_timeout()
 {
-    /* Either set a new T1, or enter REBINDING state */
+    /* Either set a new T1, or enter DS_REBINDING state */
     if ((cs.t2 - cs.t1) <= (cs.lease / 14400 + 1)) {
         /* timed out, enter rebinding state */
-        cs.dhcpState = REBINDING;
+        cs.dhcpState = DS_REBINDING;
         cs.timeout = (cs.t2 - cs.t1) * 1000;
         log_line("Entering rebinding state.");
     } else {
@@ -415,8 +384,8 @@ static void renewing_timeout()
 static void bound_timeout()
 {
     /* Lease is starting to run out, time to enter renewing state */
-    cs.dhcpState = RENEWING;
-    change_listen_mode(LISTEN_KERNEL);
+    cs.dhcpState = DS_RENEWING;
+    change_listen_mode(LM_KERNEL);
     log_line("Entering renew state.");
     renewing_timeout();
 }
@@ -426,12 +395,12 @@ static void rebinding_timeout()
     /* Either set a new T2, or enter INIT state */
     if ((cs.lease - cs.t2) <= (cs.lease / 14400 + 1)) {
         /* timed out, enter init state */
-        cs.dhcpState = INIT_SELECTING;
+        cs.dhcpState = DS_INIT_SELECTING;
         log_line("Lease lost, entering init state.");
         run_script(NULL, SCRIPT_DECONFIG);
         cs.timeout = 0;
         cs.packetNum = 0;
-        change_listen_mode(LISTEN_RAW);
+        change_listen_mode(LM_RAW);
     } else {
         /* send a request packet */
         send_renew(cs.xid, 0, cs.requestedIP); /* broadcast */
@@ -445,14 +414,14 @@ static void rebinding_timeout()
 static void handle_timeout(void)
 {
     switch (cs.dhcpState) {
-        case INIT_SELECTING: init_selecting_timeout(); break;
-        case RENEW_REQUESTED: renew_requested_timeout(); break;
-        case REQUESTING: requesting_timeout(); break;
-        case RENEWING: renewing_timeout(); break;
-        case BOUND: bound_timeout(); break;
-        case REBINDING: rebinding_timeout(); break;
-        case RELEASED: cs.timeout = -1; break;
-        case ARP_CHECK: arp_success(); break;
+        case DS_INIT_SELECTING: init_selecting_timeout(); break;
+        case DS_RENEW_REQUESTED: renew_requested_timeout(); break;
+        case DS_REQUESTING: requesting_timeout(); break;
+        case DS_RENEWING: renewing_timeout(); break;
+        case DS_BOUND: bound_timeout(); break;
+        case DS_REBINDING: rebinding_timeout(); break;
+        case DS_RELEASED: cs.timeout = -1; break;
+        case DS_ARP_CHECK: arp_success(); break;
         default: break;
     }
 }
@@ -470,7 +439,7 @@ static void init_selecting_packet(struct dhcpMessage *packet,
             cs.requestedIP = packet->yiaddr;
 
             /* enter requesting state */
-            cs.dhcpState = REQUESTING;
+            cs.dhcpState = DS_REQUESTING;
             cs.timeout = 0;
             cs.packetNum = 0;
         } else {
@@ -498,7 +467,7 @@ static void dhcp_ack_or_nak_packet(struct dhcpMessage *packet,
         }
 
         cs.arpPrevState = cs.dhcpState;
-        cs.dhcpState = ARP_CHECK;
+        cs.dhcpState = DS_ARP_CHECK;
         memcpy(&arp_dhcp_packet, packet, sizeof (struct dhcpMessage));
         cs.arpFd = arpping(arp_dhcp_packet.yiaddr, NULL, 0,
                         client_config.arp, client_config.interface);
@@ -506,19 +475,19 @@ static void dhcp_ack_or_nak_packet(struct dhcpMessage *packet,
         cs.timeout = 2000;
         memset(&arpreply, 0, sizeof arpreply);
         arpreply_offset = 0;
-        // Can transition to BOUND or INIT_SELECTING.
+        // Can transition to DS_BOUND or DS_INIT_SELECTING.
 
     } else if (*message == DHCPNAK) {
         /* return to init state */
         log_line("Received DHCP NAK.");
         run_script(packet, SCRIPT_NAK);
-        if (cs.dhcpState != REQUESTING)
+        if (cs.dhcpState != DS_REQUESTING)
             run_script(NULL, SCRIPT_DECONFIG);
-        cs.dhcpState = INIT_SELECTING;
+        cs.dhcpState = DS_INIT_SELECTING;
         cs.timeout = 0;
         cs.requestedIP = 0;
         cs.packetNum = 0;
-        change_listen_mode(LISTEN_RAW);
+        change_listen_mode(LM_RAW);
         // XXX: this isn't rfc compliant: should be exp backoff
         sleep(3); /* avoid excessive network traffic */
     }
@@ -530,11 +499,11 @@ static void handle_packet(void)
     int len;
     struct dhcpMessage packet;
 
-    if (cs.listenMode == LISTEN_KERNEL)
+    if (cs.listenMode == LM_KERNEL)
         len = get_packet(&packet, cs.listenFd);
-    else if (cs.listenMode == LISTEN_RAW)
+    else if (cs.listenMode == LM_RAW)
         len = get_raw_packet(&packet, cs.listenFd);
-    else /* LISTEN_NONE */
+    else /* LM_NONE */
         return;
 
     if (len == -1 && errno != EINTR) {
@@ -557,22 +526,22 @@ static void handle_packet(void)
     }
 
     switch (cs.dhcpState) {
-        case INIT_SELECTING:
+        case DS_INIT_SELECTING:
             init_selecting_packet(&packet, message);
             break;
-        case ARP_CHECK:
+        case DS_ARP_CHECK:
             /* We ignore dhcp packets for now.  This state will
              * be changed by the callback for arp ping.
              */
             break;
-        case RENEW_REQUESTED:
-        case REQUESTING:
-        case RENEWING:
-        case REBINDING:
+        case DS_RENEW_REQUESTED:
+        case DS_REQUESTING:
+        case DS_RENEWING:
+        case DS_REBINDING:
             dhcp_ack_or_nak_packet(&packet, message);
             break;
-        case BOUND:
-        case RELEASED:
+        case DS_BOUND:
+        case DS_RELEASED:
         default:
             break;
     }
@@ -669,7 +638,7 @@ static void do_work(void)
     if (cs.epollFd == -1)
         suicide("epoll_create1 failed");
     epoll_add(cs.signalFd);
-    change_listen_mode(LISTEN_RAW);
+    change_listen_mode(LM_RAW);
     handle_timeout();
 
     for (;;) {
