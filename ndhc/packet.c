@@ -10,7 +10,7 @@
 #include <errno.h>
 
 #include "packet.h"
-#include "clientpacket.h"
+#include "dhcpmsg.h"
 #include "socket.h"
 #include "script.h"
 #include "sys.h"

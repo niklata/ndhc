@@ -16,7 +16,7 @@
 #include <sys/time.h>
 #include <errno.h>
 #include "arp.h"
-#include "clientpacket.h"
+#include "dhcpmsg.h"
 #include "packet.h"
 #include "sys.h"
 #include "script.h"

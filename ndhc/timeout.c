@@ -5,7 +5,7 @@
 #include "config.h"
 #include "script.h"
 #include "packet.h"
-#include "clientpacket.h"
+#include "dhcpmsg.h"
 #include "arp.h"
 #include "log.h"
 

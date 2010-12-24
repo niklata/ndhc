@@ -45,7 +45,7 @@
 #include "dhcpd.h"
 #include "config.h"
 #include "options.h"
-#include "clientpacket.h"
+#include "dhcpmsg.h"
 #include "packet.h"
 #include "timeout.h"
 #include "sys.h"

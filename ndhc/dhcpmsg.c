@@ -1,4 +1,4 @@
-/* clientpacket.c
+/* dhcpmsg.c
  *
  * Packet generation and dispatching functions for the DHCP client.
  *
