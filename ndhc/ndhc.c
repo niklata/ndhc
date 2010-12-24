@@ -326,14 +326,13 @@ int main(int argc, char **argv)
                 len = strlen(optarg) > 64 ? 64 : strlen(optarg);
                 if (client_config.hostname)
                     free(client_config.hostname);
-                client_config.hostname = xmalloc(len + 1);
+                client_config.hostname = xmalloc(len + 3);
                 client_config.hostname[OPT_CODE] = DHCP_HOST_NAME;
-                client_config.hostname[OPT_LEN] = len;
-                strlcpy((char*)client_config.hostname + OPT_DATA, optarg,
-                        len + 1 - (OPT_DATA - OPT_CODE));
+                client_config.hostname[OPT_LEN] = len + 1;
+                memcpy(client_config.hostname + 3, optarg, len);
                 break;
             case 'i':
-                client_config.interface =  optarg;
+                client_config.interface = optarg;
                 break;
             case 'n':
                 client_config.abort_if_no_lease = 1;

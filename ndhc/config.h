@@ -42,8 +42,8 @@ struct client_config_t {
 	char abort_if_no_lease;		/* Abort if no lease */
 	char background_if_no_lease;	/* Fork to background if no lease */
 	char *interface;		/* The name of the interface to use */
-	unsigned char *clientid;	/* Optional client id to use */
-	unsigned char *hostname;	/* Optional hostname to use */
+	unsigned char *clientid;	/* Optional client id to use (unterminated) */
+	unsigned char *hostname;	/* Optional hostname to use (unterminated) */
 	int ifindex;			/* Index number of the interface to use */
 	unsigned char arp[6];		/* Our arp address */
 };
