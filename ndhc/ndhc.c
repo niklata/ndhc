@@ -95,8 +95,6 @@ struct client_config_t client_config = {
     .arp = "\0",
 };
 
-static char pidfile[MAX_PATH_LENGTH] = PID_FILE_DEFAULT;
-
 static void show_usage(void)
 {
     printf(
@@ -182,21 +180,6 @@ static void perform_release(void)
     change_listen_mode(&cs, LM_NONE);
     cs.dhcpState = DS_RELEASED;
     cs.timeout = -1;
-}
-
-void background(void)
-{
-    static char called;
-    if (!called && daemon(0, 0) == -1) {
-        perror("fork");
-        exit(EXIT_SUCCESS);
-    }
-    called = 1;  /* Do not fork again. */
-    if (file_exists(pidfile, "w") == -1) {
-        log_line("FATAL - cannot open pidfile for write!");
-        exit(EXIT_FAILURE);
-    }
-    write_pid(pidfile);
 }
 
 static void setup_signals()

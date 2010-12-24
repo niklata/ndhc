@@ -29,9 +29,6 @@ static struct arpMsg arpreply;
 static int arpreply_offset;
 static struct dhcpMessage arp_dhcp_packet;
 
-// from ndhc.c
-void background(void);
-
 /* Returns fd of the arp socket, or -1 on failure. */
 static int arpping(uint32_t test_nip, const uint8_t *safe_mac,
                    uint32_t from_ip, uint8_t *from_mac, const char *interface)
@@ -80,7 +77,6 @@ static int arpping(uint32_t test_nip, const uint8_t *safe_mac,
     return arpfd;
 }
 
-// only called from packet.c
 void arp_check(struct client_state_t *cs, struct dhcpMessage *packet)
 {
     cs->arpPrevState = cs->dhcpState;
@@ -110,7 +106,6 @@ static void arp_failed(struct client_state_t *cs)
     change_listen_mode(cs, LM_RAW);
 }
 
-// only called from timeout.c
 void arp_success(struct client_state_t *cs)
 {
     struct in_addr temp_addr;

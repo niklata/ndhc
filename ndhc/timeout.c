@@ -9,9 +9,6 @@
 #include "arpping.h"
 #include "log.h"
 
-// from ndhc.c
-void background(void);
-
 static void init_selecting_timeout(struct client_state_t *cs)
 {
     if (cs->packetNum < NUMPACKETS) {
