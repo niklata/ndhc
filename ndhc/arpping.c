@@ -5,21 +5,36 @@
  * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 #include <unistd.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/if_ether.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <sys/time.h>
 #include <errno.h>
 #include "arpping.h"
+#include "clientpacket.h"
+#include "sys.h"
+#include "script.h"
 #include "dhcpd.h"
 #include "log.h"
 #include "strl.h"
 #include "io.h"
 
+static struct arpMsg arpreply;
+static int arpreply_offset;
+static struct dhcpMessage arp_dhcp_packet;
+
+// from ndhc.c
+void change_listen_mode(int new_mode);
+void background(void);
+
 /* Returns fd of the arp socket, or -1 on failure. */
-int arpping(uint32_t test_nip, const uint8_t *safe_mac, uint32_t from_ip,
-            uint8_t *from_mac, const char *interface)
+static int arpping(uint32_t test_nip, const uint8_t *safe_mac,
+                   uint32_t from_ip, uint8_t *from_mac, const char *interface)
 {
     int arpfd;
     int opt = 1;
@@ -63,4 +78,103 @@ int arpping(uint32_t test_nip, const uint8_t *safe_mac, uint32_t from_ip,
         return -1;
     }
     return arpfd;
+}
+
+// only called from packet.c
+void arp_check(struct client_state_t *cs, struct dhcpMessage *packet)
+{
+    cs->arpPrevState = cs->dhcpState;
+    cs->dhcpState = DS_ARP_CHECK;
+    memcpy(&arp_dhcp_packet, packet, sizeof (struct dhcpMessage));
+    cs->arpFd = arpping(arp_dhcp_packet.yiaddr, NULL, 0,
+                       client_config.arp, client_config.interface);
+    epoll_add(cs, cs->arpFd);
+    cs->timeout = 2000;
+    memset(&arpreply, 0, sizeof arpreply);
+    arpreply_offset = 0;
+}
+
+static void arp_failed(struct client_state_t *cs)
+{
+    log_line("Offered address is in use: declining.");
+    epoll_del(cs, cs->arpFd);
+    cs->arpFd = -1;
+    send_decline(cs->xid, cs->serverAddr, arp_dhcp_packet.yiaddr);
+
+    if (cs->arpPrevState != DS_REQUESTING)
+        run_script(NULL, SCRIPT_DECONFIG);
+    cs->dhcpState = DS_INIT_SELECTING;
+    cs->requestedIP = 0;
+    cs->timeout = 0;
+    cs->packetNum = 0;
+    change_listen_mode(LM_RAW);
+}
+
+// only called from timeout.c
+void arp_success(struct client_state_t *cs)
+{
+    struct in_addr temp_addr;
+
+    epoll_del(cs, cs->arpFd);
+    cs->arpFd = -1;
+
+    /* enter bound state */
+    cs->t1 = cs->lease >> 1;
+    /* little fixed point for n * .875 */
+    cs->t2 = (cs->lease * 0x7) >> 3;
+    cs->timeout = cs->t1 * 1000;
+    cs->leaseStartTime = curms();
+
+    temp_addr.s_addr = arp_dhcp_packet.yiaddr;
+    log_line("Lease of %s obtained, lease time %ld.",
+             inet_ntoa(temp_addr), cs->lease);
+    cs->requestedIP = arp_dhcp_packet.yiaddr;
+    run_script(&arp_dhcp_packet,
+               ((cs->arpPrevState == DS_RENEWING ||
+                 cs->arpPrevState == DS_REBINDING)
+                ? SCRIPT_RENEW : SCRIPT_BOUND));
+
+    cs->dhcpState = DS_BOUND;
+    change_listen_mode(LM_NONE);
+    if (client_config.quit_after_lease)
+        exit(EXIT_SUCCESS);
+    if (!client_config.foreground)
+        background();
+}
+
+typedef uint32_t aliased_uint32_t __attribute__((__may_alias__));
+void handle_arp_response(struct client_state_t *cs)
+{
+    if (arpreply_offset < sizeof arpreply) {
+        int r = safe_read(cs->arpFd, (char *)&arpreply + arpreply_offset,
+                          sizeof arpreply - arpreply_offset);
+        if (r < 0) {
+            arp_failed(cs);
+            return;
+        } else
+            arpreply_offset += r;
+    }
+
+    //log3("sHaddr %02x:%02x:%02x:%02x:%02x:%02x",
+    //arp.sHaddr[0], arp.sHaddr[1], arp.sHaddr[2],
+    //arp.sHaddr[3], arp.sHaddr[4], arp.sHaddr[5]);
+
+    if (arpreply_offset >= ARP_MSG_SIZE) {
+        if (arpreply.operation == htons(ARPOP_REPLY)
+            /* don't check: Linux returns invalid tHaddr (fixed in 2.6.24?) */
+            /* && memcmp(arpreply.tHaddr, from_mac, 6) == 0 */
+            && *(aliased_uint32_t*)arpreply.sInaddr == arp_dhcp_packet.yiaddr)
+        {
+            /* if ARP source MAC matches safe_mac
+             * (which is client's MAC), then it's not a conflict
+             * (client simply already has this IP and replies to ARPs!)
+             */
+            /* if (memcmp(safe_mac, arpreply.sHaddr, 6) == 0) */
+            /*     arp_success(); */
+            arp_failed(cs);
+        } else {
+            memset(&arpreply, 0, sizeof arpreply);
+            arpreply_offset = 0;
+        }
+    }
 }

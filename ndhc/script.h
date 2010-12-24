@@ -1,6 +1,8 @@
 #ifndef SCRIPT_H_
 #define SCRIPT_H_
 
+#include "packet.h"
+
 enum {
 	SCRIPT_DECONFIG = 0,
 	SCRIPT_BOUND = 1,

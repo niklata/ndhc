@@ -47,6 +47,8 @@
 #include "options.h"
 #include "clientpacket.h"
 #include "packet.h"
+#include "timeout.h"
+#include "sys.h"
 #include "script.h"
 #include "socket.h"
 #include "arpping.h"
@@ -95,35 +97,6 @@ struct client_config_t client_config = {
 
 static char pidfile[MAX_PATH_LENGTH] = PID_FILE_DEFAULT;
 
-static unsigned long long curms()
-{
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return tv.tv_sec * 1000ULL + tv.tv_usec / 1000ULL;
-}
-
-static void epoll_add(int fd)
-{
-    struct epoll_event ev;
-    int r;
-    ev.events = EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLHUP;
-    ev.data.fd = fd;
-    r = epoll_ctl(cs.epollFd, EPOLL_CTL_ADD, fd, &ev);
-    if (r == -1)
-        suicide("epoll_add failed %s", strerror(errno));
-}
-
-static void epoll_del(int fd)
-{
-    struct epoll_event ev;
-    int r;
-    ev.events = EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLHUP;
-    ev.data.fd = fd;
-    r = epoll_ctl(cs.epollFd, EPOLL_CTL_DEL, fd, &ev);
-    if (r == -1)
-        suicide("epoll_del failed %s", strerror(errno));
-}
-
 static void show_usage(void)
 {
     printf(
@@ -154,18 +127,18 @@ void change_listen_mode(int new_mode)
              new_mode ? (new_mode == 1 ? "kernel" : "raw") : "none");
     cs.listenMode = new_mode;
     if (cs.listenFd >= 0) {
-        epoll_del(cs.listenFd);
+        epoll_del(&cs, cs.listenFd);
         close(cs.listenFd);
         cs.listenFd = -1;
     }
     if (new_mode == LM_KERNEL) {
         cs.listenFd = listen_socket(INADDR_ANY, CLIENT_PORT,
                                  client_config.interface);
-        epoll_add(cs.listenFd);
+        epoll_add(&cs, cs.listenFd);
     }
     else if (new_mode == LM_RAW) {
         cs.listenFd = raw_socket(client_config.ifindex);
-        epoll_add(cs.listenFd);
+        epoll_add(&cs, cs.listenFd);
     }
     else /* LM_NONE */
         return;
@@ -185,7 +158,7 @@ static void perform_renew(void)
             change_listen_mode(LM_KERNEL);
         case DS_ARP_CHECK:
             // Cancel arp ping in progress and treat as previous state.
-            epoll_del(cs.arpFd);
+            epoll_del(&cs, cs.arpFd);
             cs.arpFd = -1;
             cs.dhcpState = cs.arpPrevState;
             goto retry;
@@ -231,7 +204,7 @@ static void perform_release(void)
     log_line("Entering released state.");
 
     if (cs.dhcpState == DS_ARP_CHECK) {
-        epoll_del(cs.arpFd);
+        epoll_del(&cs, cs.arpFd);
         cs.arpFd = -1;
     }
     change_listen_mode(LM_NONE);
@@ -239,7 +212,7 @@ static void perform_release(void)
     cs.timeout = -1;
 }
 
-static void background(void)
+void background(void)
 {
     static char called;
     if (!called && daemon(0, 0) == -1) {
@@ -252,226 +225,6 @@ static void background(void)
         exit(EXIT_FAILURE);
     }
     write_pid(pidfile);
-}
-
-static struct arpMsg arpreply;
-static int arpreply_offset;
-static struct dhcpMessage arp_dhcp_packet;
-
-void arp_check(struct dhcpMessage *packet)
-{
-    cs.arpPrevState = cs.dhcpState;
-    cs.dhcpState = DS_ARP_CHECK;
-    memcpy(&arp_dhcp_packet, packet, sizeof (struct dhcpMessage));
-    cs.arpFd = arpping(arp_dhcp_packet.yiaddr, NULL, 0,
-                        client_config.arp, client_config.interface);
-    epoll_add(cs.arpFd);
-    cs.timeout = 2000;
-    memset(&arpreply, 0, sizeof arpreply);
-    arpreply_offset = 0;
-}
-
-static void arp_failed(void)
-{
-    log_line("Offered address is in use: declining.");
-    epoll_del(cs.arpFd);
-    cs.arpFd = -1;
-    send_decline(cs.xid, cs.serverAddr, arp_dhcp_packet.yiaddr);
-
-    if (cs.arpPrevState != DS_REQUESTING)
-        run_script(NULL, SCRIPT_DECONFIG);
-    cs.dhcpState = DS_INIT_SELECTING;
-    cs.requestedIP = 0;
-    cs.timeout = 0;
-    cs.packetNum = 0;
-    change_listen_mode(LM_RAW);
-}
-
-static void arp_success(void)
-{
-    struct in_addr temp_addr;
-
-    epoll_del(cs.arpFd);
-    cs.arpFd = -1;
-
-    /* enter bound state */
-    cs.t1 = cs.lease >> 1;
-    /* little fixed point for n * .875 */
-    cs.t2 = (cs.lease * 0x7) >> 3;
-    cs.timeout = cs.t1 * 1000;
-    cs.leaseStartTime = curms();
-
-    temp_addr.s_addr = arp_dhcp_packet.yiaddr;
-    log_line("Lease of %s obtained, lease time %ld.",
-             inet_ntoa(temp_addr), cs.lease);
-    cs.requestedIP = arp_dhcp_packet.yiaddr;
-    run_script(&arp_dhcp_packet,
-               ((cs.arpPrevState == DS_RENEWING ||
-                 cs.arpPrevState == DS_REBINDING)
-                ? SCRIPT_RENEW : SCRIPT_BOUND));
-
-    cs.dhcpState = DS_BOUND;
-    change_listen_mode(LM_NONE);
-    if (client_config.quit_after_lease)
-        exit(EXIT_SUCCESS);
-    if (!client_config.foreground)
-        background();
-}
-
-static void init_selecting_timeout()
-{
-    if (cs.packetNum < NUMPACKETS) {
-        if (cs.packetNum == 0)
-            cs.xid = random_xid();
-        /* broadcast */
-        send_discover(cs.xid, cs.requestedIP);
-
-        cs.timeout = ((cs.packetNum == NUMPACKETS - 1) ? 4 : 2) * 1000;
-        cs.packetNum++;
-    } else {
-        if (client_config.background_if_no_lease) {
-            log_line("No lease, going to background.");
-            background();
-        } else if (client_config.abort_if_no_lease) {
-            log_line("No lease, failing.");
-            exit(EXIT_FAILURE);
-        }
-        /* wait to try again */
-        cs.packetNum = 0;
-        cs.timeout = RETRY_DELAY * 1000;
-    }
-}
-
-static void renew_requested_timeout()
-{
-    if (cs.packetNum < NUMPACKETS) {
-        /* send unicast request packet */
-        send_renew(cs.xid, cs.serverAddr, cs.requestedIP);
-        cs.timeout = ((cs.packetNum == NUMPACKETS - 1) ? 10 : 2) * 1000;
-        cs.packetNum++;
-    } else {
-        /* timed out, go back to init state */
-        run_script(NULL, SCRIPT_DECONFIG);
-        cs.dhcpState = DS_INIT_SELECTING;
-        cs.timeout = 0;
-        cs.packetNum = 0;
-        change_listen_mode(LM_RAW);
-    }
-}
-
-static void requesting_timeout()
-{
-    if (cs.packetNum < NUMPACKETS) {
-        /* send broadcast request packet */
-        send_selecting(cs.xid, cs.serverAddr, cs.requestedIP);
-        cs.timeout = ((cs.packetNum == NUMPACKETS - 1) ? 10 : 2) * 1000;
-        cs.packetNum++;
-    } else {
-        /* timed out, go back to init state */
-        cs.dhcpState = DS_INIT_SELECTING;
-        cs.timeout = 0;
-        cs.packetNum = 0;
-        change_listen_mode(LM_RAW);
-    }
-}
-
-static void renewing_timeout()
-{
-    /* Either set a new T1, or enter DS_REBINDING state */
-    if ((cs.t2 - cs.t1) <= (cs.lease / 14400 + 1)) {
-        /* timed out, enter rebinding state */
-        cs.dhcpState = DS_REBINDING;
-        cs.timeout = (cs.t2 - cs.t1) * 1000;
-        log_line("Entering rebinding state.");
-    } else {
-        /* send a request packet */
-        send_renew(cs.xid, cs.serverAddr, cs.requestedIP); /* unicast */
-
-        cs.t1 = ((cs.t2 - cs.t1) >> 1) + cs.t1;
-        cs.timeout = (cs.t1 * 1000) - (curms() - cs.leaseStartTime);
-    }
-}
-
-static void bound_timeout()
-{
-    /* Lease is starting to run out, time to enter renewing state */
-    cs.dhcpState = DS_RENEWING;
-    change_listen_mode(LM_KERNEL);
-    log_line("Entering renew state.");
-    renewing_timeout();
-}
-
-static void rebinding_timeout()
-{
-    /* Either set a new T2, or enter INIT state */
-    if ((cs.lease - cs.t2) <= (cs.lease / 14400 + 1)) {
-        /* timed out, enter init state */
-        cs.dhcpState = DS_INIT_SELECTING;
-        log_line("Lease lost, entering init state.");
-        run_script(NULL, SCRIPT_DECONFIG);
-        cs.timeout = 0;
-        cs.packetNum = 0;
-        change_listen_mode(LM_RAW);
-    } else {
-        /* send a request packet */
-        send_renew(cs.xid, 0, cs.requestedIP); /* broadcast */
-
-        cs.t2 = ((cs.lease - cs.t2) >> 1) + cs.t2;
-        cs.timeout = (cs.t2 * 1000) - (curms() - cs.leaseStartTime);
-    }
-}
-
-/* Handle epoll timeout expiring */
-static void handle_timeout(void)
-{
-    switch (cs.dhcpState) {
-        case DS_INIT_SELECTING: init_selecting_timeout(); break;
-        case DS_RENEW_REQUESTED: renew_requested_timeout(); break;
-        case DS_REQUESTING: requesting_timeout(); break;
-        case DS_RENEWING: renewing_timeout(); break;
-        case DS_BOUND: bound_timeout(); break;
-        case DS_REBINDING: rebinding_timeout(); break;
-        case DS_RELEASED: cs.timeout = -1; break;
-        case DS_ARP_CHECK: arp_success(); break;
-        default: break;
-    }
-}
-
-typedef uint32_t aliased_uint32_t __attribute__((__may_alias__));
-static void handle_arp_response(void)
-{
-    if (arpreply_offset < sizeof arpreply) {
-        int r = safe_read(cs.arpFd, (char *)&arpreply + arpreply_offset,
-                          sizeof arpreply - arpreply_offset);
-        if (r < 0) {
-            arp_failed();
-            return;
-        } else
-            arpreply_offset += r;
-    }
-
-    //log3("sHaddr %02x:%02x:%02x:%02x:%02x:%02x",
-    //arp.sHaddr[0], arp.sHaddr[1], arp.sHaddr[2],
-    //arp.sHaddr[3], arp.sHaddr[4], arp.sHaddr[5]);
-
-    if (arpreply_offset >= ARP_MSG_SIZE) {
-        if (arpreply.operation == htons(ARPOP_REPLY)
-            /* don't check: Linux returns invalid tHaddr (fixed in 2.6.24?) */
-            /* && memcmp(arpreply.tHaddr, from_mac, 6) == 0 */
-            && *(aliased_uint32_t*)arpreply.sInaddr == arp_dhcp_packet.yiaddr)
-        {
-            /* if ARP source MAC matches safe_mac
-             * (which is client's MAC), then it's not a conflict
-             * (client simply already has this IP and replies to ARPs!)
-             */
-            /* if (memcmp(safe_mac, arpreply.sHaddr, 6) == 0) */
-            /*     arp_success(); */
-            arp_failed();
-        } else {
-            memset(&arpreply, 0, sizeof arpreply);
-            arpreply_offset = 0;
-        }
-    }
 }
 
 static void setup_signals()
@@ -527,9 +280,9 @@ static void do_work(void)
     cs.epollFd = epoll_create1(0);
     if (cs.epollFd == -1)
         suicide("epoll_create1 failed");
-    epoll_add(cs.signalFd);
+    epoll_add(&cs, cs.signalFd);
     change_listen_mode(LM_RAW);
-    handle_timeout();
+    handle_timeout(&cs);
 
     for (;;) {
         last_awake = curms();
@@ -547,7 +300,7 @@ static void do_work(void)
             else if (fd == cs.listenFd)
                 handle_packet(&cs);
             else if (fd == cs.arpFd)
-                handle_arp_response();
+                handle_arp_response(&cs);
             else
                 suicide("epoll_wait: unknown fd");
         }
@@ -556,7 +309,7 @@ static void do_work(void)
         cs.timeout -= timeout_delta;
         if (cs.timeout <= 0) {
             cs.timeout = 0;
-            handle_timeout();
+            handle_timeout(&cs);
         }
     }
 }

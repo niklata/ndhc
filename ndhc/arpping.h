@@ -4,6 +4,9 @@
 #include <stdint.h>
 #include <net/if_arp.h>
 
+#include "config.h"
+#include "packet.h"
+
 struct arpMsg {
     /* Ethernet header */
     uint8_t  h_dest[6];     /* 00 destination ether addr */
@@ -27,7 +30,8 @@ enum {
     ARP_MSG_SIZE = 0x2a
 };
 
-int arpping(uint32_t test_nip, const uint8_t *safe_mac, uint32_t from_ip,
-            uint8_t *from_mac, const char *interface);
+void arp_check(struct client_state_t *cs, struct dhcpMessage *packet);
+void arp_success(struct client_state_t *cs);
+void handle_arp_response(struct client_state_t *cs);
 
 #endif /* ARPPING_H_ */

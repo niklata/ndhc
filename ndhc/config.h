@@ -1,6 +1,8 @@
 #ifndef DHCPC_H_
 #define DHCPC_H_
 
+#include <stdint.h>
+
 #define NUMPACKETS 3 /* number of packets to send before delay */
 #define RETRY_DELAY 30 /* time in seconds to delay after sending NUMPACKETS */
 
