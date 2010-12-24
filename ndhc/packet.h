@@ -4,6 +4,8 @@
 #include <netinet/udp.h>
 #include <netinet/ip.h>
 
+#include "config.h"
+
 struct dhcpMessage {
     uint8_t op;
     uint8_t htype;
@@ -52,5 +54,5 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
                unsigned char *dest_arp, int ifindex);
 int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
                   int source_port, uint32_t dest_ip, int dest_port);
-
+void handle_packet(struct client_state_t *cs);
 #endif

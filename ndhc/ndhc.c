@@ -59,8 +59,6 @@
 #include "io.h"
 
 #define VERSION "1.0"
-#define NUMPACKETS 3 /* number of packets to send before delay */
-#define RETRY_DELAY 30 /* time in seconds to delay after sending NUMPACKETS */
 
 struct client_state_t cs = {
     .dhcpState = DS_INIT_SELECTING,
@@ -150,7 +148,7 @@ static void show_usage(void)
 }
 
 /* Switch listen socket between raw (if-bound), kernel (ip-bound), and none */
-static void change_listen_mode(int new_mode)
+void change_listen_mode(int new_mode)
 {
     log_line("entering %s listen mode",
              new_mode ? (new_mode == 1 ? "kernel" : "raw") : "none");
@@ -259,6 +257,19 @@ static void background(void)
 static struct arpMsg arpreply;
 static int arpreply_offset;
 static struct dhcpMessage arp_dhcp_packet;
+
+void arp_check(struct dhcpMessage *packet)
+{
+    cs.arpPrevState = cs.dhcpState;
+    cs.dhcpState = DS_ARP_CHECK;
+    memcpy(&arp_dhcp_packet, packet, sizeof (struct dhcpMessage));
+    cs.arpFd = arpping(arp_dhcp_packet.yiaddr, NULL, 0,
+                        client_config.arp, client_config.interface);
+    epoll_add(cs.arpFd);
+    cs.timeout = 2000;
+    memset(&arpreply, 0, sizeof arpreply);
+    arpreply_offset = 0;
+}
 
 static void arp_failed(void)
 {
@@ -426,127 +437,6 @@ static void handle_timeout(void)
     }
 }
 
-static void init_selecting_packet(struct dhcpMessage *packet,
-                                  unsigned char *message)
-{
-    unsigned char *temp = NULL;
-    /* Must be a DHCPOFFER to one of our xid's */
-    if (*message == DHCPOFFER) {
-        if ((temp = get_option(packet, DHCP_SERVER_ID))) {
-            /* Memcpy to a temp buffer to force alignment */
-            memcpy(&cs.serverAddr, temp, 4);
-            cs.xid = packet->xid;
-            cs.requestedIP = packet->yiaddr;
-
-            /* enter requesting state */
-            cs.dhcpState = DS_REQUESTING;
-            cs.timeout = 0;
-            cs.packetNum = 0;
-        } else {
-            log_line("No server ID in message");
-        }
-    }
-}
-
-static void dhcp_ack_or_nak_packet(struct dhcpMessage *packet,
-                                   unsigned char *message)
-{
-    unsigned char *temp = NULL;
-    if (*message == DHCPACK) {
-        if (!(temp = get_option(packet, DHCP_LEASE_TIME))) {
-            log_line("No lease time received, assuming 1h.");
-            cs.lease = 60 * 60;
-        } else {
-            /* Memcpy to a temp buffer to force alignment */
-            memcpy(&cs.lease, temp, 4);
-            cs.lease = ntohl(cs.lease);
-            /* Enforce upper and lower bounds on lease. */
-            cs.lease &= 0x0fffffff;
-            if (cs.lease < RETRY_DELAY)
-                cs.lease = RETRY_DELAY;
-        }
-
-        cs.arpPrevState = cs.dhcpState;
-        cs.dhcpState = DS_ARP_CHECK;
-        memcpy(&arp_dhcp_packet, packet, sizeof (struct dhcpMessage));
-        cs.arpFd = arpping(arp_dhcp_packet.yiaddr, NULL, 0,
-                        client_config.arp, client_config.interface);
-        epoll_add(cs.arpFd);
-        cs.timeout = 2000;
-        memset(&arpreply, 0, sizeof arpreply);
-        arpreply_offset = 0;
-        // Can transition to DS_BOUND or DS_INIT_SELECTING.
-
-    } else if (*message == DHCPNAK) {
-        /* return to init state */
-        log_line("Received DHCP NAK.");
-        run_script(packet, SCRIPT_NAK);
-        if (cs.dhcpState != DS_REQUESTING)
-            run_script(NULL, SCRIPT_DECONFIG);
-        cs.dhcpState = DS_INIT_SELECTING;
-        cs.timeout = 0;
-        cs.requestedIP = 0;
-        cs.packetNum = 0;
-        change_listen_mode(LM_RAW);
-        // XXX: this isn't rfc compliant: should be exp backoff
-        sleep(3); /* avoid excessive network traffic */
-    }
-}
-
-static void handle_packet(void)
-{
-    unsigned char *message = NULL;
-    int len;
-    struct dhcpMessage packet;
-
-    if (cs.listenMode == LM_KERNEL)
-        len = get_packet(&packet, cs.listenFd);
-    else if (cs.listenMode == LM_RAW)
-        len = get_raw_packet(&packet, cs.listenFd);
-    else /* LM_NONE */
-        return;
-
-    if (len == -1 && errno != EINTR) {
-        log_error("reopening socket.");
-        change_listen_mode(cs.listenMode); /* just close and reopen */
-    }
-
-    if (len < 0)
-        return;
-
-    if (packet.xid != cs.xid) {
-        log_line("Ignoring XID %lx (our xid is %lx).",
-                 (uint32_t) packet.xid, cs.xid);
-        return;
-    }
-
-    if ((message = get_option(&packet, DHCP_MESSAGE_TYPE)) == NULL) {
-        log_line("couldnt get option from packet -- ignoring");
-        return;
-    }
-
-    switch (cs.dhcpState) {
-        case DS_INIT_SELECTING:
-            init_selecting_packet(&packet, message);
-            break;
-        case DS_ARP_CHECK:
-            /* We ignore dhcp packets for now.  This state will
-             * be changed by the callback for arp ping.
-             */
-            break;
-        case DS_RENEW_REQUESTED:
-        case DS_REQUESTING:
-        case DS_RENEWING:
-        case DS_REBINDING:
-            dhcp_ack_or_nak_packet(&packet, message);
-            break;
-        case DS_BOUND:
-        case DS_RELEASED:
-        default:
-            break;
-    }
-}
-
 typedef uint32_t aliased_uint32_t __attribute__((__may_alias__));
 static void handle_arp_response(void)
 {
@@ -655,7 +545,7 @@ static void do_work(void)
             if (fd == cs.signalFd)
                 signal_dispatch();
             else if (fd == cs.listenFd)
-                handle_packet();
+                handle_packet(&cs);
             else if (fd == cs.arpFd)
                 handle_arp_response();
             else

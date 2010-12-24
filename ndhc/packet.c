@@ -10,6 +10,8 @@
 #include <errno.h>
 
 #include "packet.h"
+#include "clientpacket.h"
+#include "script.h"
 #include "log.h"
 #include "io.h"
 #include "dhcpd.h"
@@ -65,8 +67,8 @@ uint16_t checksum(void *addr, int count)
 /* Constuct a ip/udp header for a packet, and specify the source and dest
  * hardware address */
 int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
-	       int source_port, uint32_t dest_ip, int dest_port,
-	       unsigned char *dest_arp, int ifindex)
+               int source_port, uint32_t dest_ip, int dest_port,
+               unsigned char *dest_arp, int ifindex)
 {
     struct sockaddr_ll dest;
     struct ip_udp_dhcp_packet packet;
@@ -168,4 +170,123 @@ int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
     close(fd);
   out:
     return result;
+}
+
+static void init_selecting_packet(struct client_state_t *cs,
+                                  struct dhcpMessage *packet,
+                                  unsigned char *message)
+{
+    unsigned char *temp = NULL;
+    /* Must be a DHCPOFFER to one of our xid's */
+    if (*message == DHCPOFFER) {
+        if ((temp = get_option(packet, DHCP_SERVER_ID))) {
+            /* Memcpy to a temp buffer to force alignment */
+            memcpy(&cs->serverAddr, temp, 4);
+            cs->xid = packet->xid;
+            cs->requestedIP = packet->yiaddr;
+
+            /* enter requesting state */
+            cs->dhcpState = DS_REQUESTING;
+            cs->timeout = 0;
+            cs->packetNum = 0;
+        } else {
+            log_line("No server ID in message");
+        }
+    }
+}
+
+// from ndhc.c
+void change_listen_mode(int new_mode);
+void arp_check(struct dhcpMessage *packet);
+
+static void dhcp_ack_or_nak_packet(struct client_state_t *cs,
+                                   struct dhcpMessage *packet,
+                                   unsigned char *message)
+{
+    unsigned char *temp = NULL;
+    if (*message == DHCPACK) {
+        if (!(temp = get_option(packet, DHCP_LEASE_TIME))) {
+            log_line("No lease time received, assuming 1h.");
+            cs->lease = 60 * 60;
+        } else {
+            /* Memcpy to a temp buffer to force alignment */
+            memcpy(&cs->lease, temp, 4);
+            cs->lease = ntohl(cs->lease);
+            /* Enforce upper and lower bounds on lease. */
+            cs->lease &= 0x0fffffff;
+            if (cs->lease < RETRY_DELAY)
+                cs->lease = RETRY_DELAY;
+        }
+
+        arp_check(packet);
+        // Can transition from DS_ARP_CHECK to DS_BOUND or DS_INIT_SELECTING.
+
+    } else if (*message == DHCPNAK) {
+        /* return to init state */
+        log_line("Received DHCP NAK.");
+        run_script(packet, SCRIPT_NAK);
+        if (cs->dhcpState != DS_REQUESTING)
+            run_script(NULL, SCRIPT_DECONFIG);
+        cs->dhcpState = DS_INIT_SELECTING;
+        cs->timeout = 0;
+        cs->requestedIP = 0;
+        cs->packetNum = 0;
+        change_listen_mode(LM_RAW);
+        // XXX: this isn't rfc compliant: should be exp backoff
+        sleep(3); /* avoid excessive network traffic */
+    }
+}
+
+void handle_packet(struct client_state_t *cs)
+{
+    unsigned char *message = NULL;
+    int len;
+    struct dhcpMessage packet;
+
+    if (cs->listenMode == LM_KERNEL)
+        len = get_packet(&packet, cs->listenFd);
+    else if (cs->listenMode == LM_RAW)
+        len = get_raw_packet(&packet, cs->listenFd);
+    else /* LM_NONE */
+        return;
+
+    if (len == -1 && errno != EINTR) {
+        log_error("reopening socket.");
+        change_listen_mode(cs->listenMode); /* just close and reopen */
+    }
+
+    if (len < 0)
+        return;
+
+    if (packet.xid != cs->xid) {
+        log_line("Ignoring XID %lx (our xid is %lx).",
+                 (uint32_t) packet.xid, cs->xid);
+        return;
+    }
+
+    if ((message = get_option(&packet, DHCP_MESSAGE_TYPE)) == NULL) {
+        log_line("couldnt get option from packet -- ignoring");
+        return;
+    }
+
+    switch (cs->dhcpState) {
+        case DS_INIT_SELECTING:
+            init_selecting_packet(cs, &packet, message);
+            break;
+        case DS_ARP_CHECK:
+            /* We ignore dhcp packets for now.  This state will
+             * be changed by the callback for arp ping.
+             */
+            break;
+        case DS_RENEW_REQUESTED:
+        case DS_REQUESTING:
+        case DS_RENEWING:
+        case DS_REBINDING:
+            dhcp_ack_or_nak_packet(cs, &packet, message);
+            break;
+        case DS_BOUND:
+        case DS_RELEASED:
+        default:
+            break;
+    }
 }
