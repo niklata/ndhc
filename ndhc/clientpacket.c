@@ -40,7 +40,7 @@
 #include "dhcpd.h"
 #include "packet.h"
 #include "options.h"
-#include "dhcpc.h"
+#include "config.h"
 #include "log.h"
 #include "io.h"
 

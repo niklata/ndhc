@@ -43,7 +43,7 @@
 
 #include "ndhc-defines.h"
 #include "dhcpd.h"
-#include "dhcpc.h"
+#include "config.h"
 #include "options.h"
 #include "clientpacket.h"
 #include "packet.h"
