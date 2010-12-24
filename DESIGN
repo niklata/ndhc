@@ -25,7 +25,7 @@ Goals:
 
 2.  Reliability
 
-	a.  Don't try to handle severe errors.  
+	a.  Don't try to handle severe errors.
 
 	b.  Log errors if program state is still sane.
 
@@ -40,8 +40,8 @@ Goals:
 
 	a.  Portability is good, but portability may not be as wide as
 	    a less secure program.  Capabilities or MAC are not well
-	    standardized, but remain necessary features.  
-	
+	    standardized, but remain necessary features.
+
         b.  Aside from the previous caveat, try to be as portable as
 	    possible.  At the very least, the dhcp client daemon
 	    should be easily portable (only broadcast and perhaps RAW
@@ -57,34 +57,7 @@ Goals:
 	a.  If we aren't required to sacrifice anything more
 	    important, it's always good to be frugal.
 
-
-Specifics:
-
-Implementation language will be C.  C is universally available, very
-predictable, and well accepted.  dhcp clients don't have to deal with
-complicated data structures or extensively with strings, so C's
-largest weaknesses should not be highly apparent.  On the other hand,
-dhcp clients must extensively deal with the OS in a low-level fashion.
-C's strongest points will therefore be used.
-
-More practically, a program written in a compiled language other than
-C will be poorly accepted by the average user.  Since widespread use
-is an eventual goal of ndhc, this point is very eloquent.
-
-For now, I'm taking advantage of the existing udhcpc.  With minor
-modifications, it will serve quite well as the dhcp client daemon.  It
-is then only necessary for me to write a client request translator
-and a interface change daemon.  The result should be a highly modular
-solution.
-
-I'm developing on a Linux-based platform.  ndhc will first be designed
-to work properly on a Linux-based system.  I will then make certain
-that ndhc works well on a RSBAC-enabled Linux system.  Afterwards, I
-_may_ spend some effort porting ndhc to FreeBSD (but don't count on it).  I
-have no personal interest in other platforms.
-
 Layout:
-
 
 ndhc daemon  (root -> chroot -> drop all !(CAP_NET_BROADCAST|CAP_NET_RAW) 
               -> nopriv)
