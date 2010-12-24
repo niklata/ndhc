@@ -49,7 +49,7 @@
 #include "packet.h"
 #include "timeout.h"
 #include "sys.h"
-#include "script.h"
+#include "ifchange.h"
 #include "socket.h"
 #include "arp.h"
 #include "log.h"
@@ -88,7 +88,6 @@ struct client_config_t client_config = {
     .quit_after_lease = 0,
     .background_if_no_lease = 0,
     .interface = "eth0",
-    .script = "none",
     .clientid = NULL,
     .hostname = NULL,
     .ifindex = 0,
@@ -137,7 +136,7 @@ static void perform_renew(void)
             cs.dhcpState = DS_RENEW_REQUESTED;
             break;
         case DS_RENEW_REQUESTED: /* impatient are we? fine, square 1 */
-            run_script(NULL, SCRIPT_DECONFIG);
+            ifchange(NULL, IFCHANGE_DECONFIG);
         case DS_REQUESTING:
         case DS_RELEASED:
             change_listen_mode(&cs, LM_RAW);
@@ -169,7 +168,7 @@ static void perform_release(void)
         log_line("Unicasting a release of %s to %s.",
                  inet_ntoa(temp_raddr), inet_ntoa(temp_saddr));
         send_release(cs.serverAddr, cs.requestedIP); /* unicast */
-        run_script(NULL, SCRIPT_DECONFIG);
+        ifchange(NULL, IFCHANGE_DECONFIG);
     }
     log_line("Entering released state.");
 
@@ -406,7 +405,7 @@ int main(int argc, char **argv)
             "cap_net_bind_service,cap_net_broadcast,cap_net_raw=ep");
     drop_root(uid, gid);
 
-    run_script(NULL, SCRIPT_DECONFIG);
+    ifchange(NULL, IFCHANGE_DECONFIG);
 
     do_work();
 

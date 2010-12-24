@@ -19,7 +19,7 @@
 #include "dhcpmsg.h"
 #include "packet.h"
 #include "sys.h"
-#include "script.h"
+#include "ifchange.h"
 #include "dhcpd.h"
 #include "log.h"
 #include "strl.h"
@@ -98,7 +98,7 @@ static void arp_failed(struct client_state_t *cs)
     send_decline(cs->xid, cs->serverAddr, arp_dhcp_packet.yiaddr);
 
     if (cs->arpPrevState != DS_REQUESTING)
-        run_script(NULL, SCRIPT_DECONFIG);
+        ifchange(NULL, IFCHANGE_DECONFIG);
     cs->dhcpState = DS_INIT_SELECTING;
     cs->requestedIP = 0;
     cs->timeout = 0;
@@ -124,10 +124,10 @@ void arp_success(struct client_state_t *cs)
     log_line("Lease of %s obtained, lease time %ld.",
              inet_ntoa(temp_addr), cs->lease);
     cs->requestedIP = arp_dhcp_packet.yiaddr;
-    run_script(&arp_dhcp_packet,
-               ((cs->arpPrevState == DS_RENEWING ||
-                 cs->arpPrevState == DS_REBINDING)
-                ? SCRIPT_RENEW : SCRIPT_BOUND));
+    ifchange(&arp_dhcp_packet,
+             ((cs->arpPrevState == DS_RENEWING ||
+               cs->arpPrevState == DS_REBINDING)
+              ? IFCHANGE_RENEW : IFCHANGE_BOUND));
 
     cs->dhcpState = DS_BOUND;
     change_listen_mode(cs, LM_NONE);

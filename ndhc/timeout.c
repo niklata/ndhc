@@ -3,7 +3,7 @@
 
 #include "timeout.h"
 #include "config.h"
-#include "script.h"
+#include "ifchange.h"
 #include "packet.h"
 #include "dhcpmsg.h"
 #include "arp.h"
@@ -42,7 +42,7 @@ static void renew_requested_timeout(struct client_state_t *cs)
         cs->packetNum++;
     } else {
         /* timed out, go back to init state */
-        run_script(NULL, SCRIPT_DECONFIG);
+        ifchange(NULL, IFCHANGE_DECONFIG);
         cs->dhcpState = DS_INIT_SELECTING;
         cs->timeout = 0;
         cs->packetNum = 0;
@@ -99,7 +99,7 @@ static void rebinding_timeout(struct client_state_t *cs)
         /* timed out, enter init state */
         cs->dhcpState = DS_INIT_SELECTING;
         log_line("Lease lost, entering init state.");
-        run_script(NULL, SCRIPT_DECONFIG);
+        ifchange(NULL, IFCHANGE_DECONFIG);
         cs->timeout = 0;
         cs->packetNum = 0;
         change_listen_mode(cs, LM_RAW);

@@ -8,7 +8,7 @@ set(NDHC_SRCS
   socket.c
   packet.c
   timeout.c
-  script.c
+  ifchange.c
   dhcpmsg.c
   arp.c
   ndhc.c

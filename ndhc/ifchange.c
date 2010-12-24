@@ -1,4 +1,4 @@
-/* script.c
+/* ifchange.c
  *
  * Functions to call the interface change daemon
  *
@@ -39,7 +39,7 @@
 #include "options.h"
 #include "log.h"
 #include "io.h"
-#include "script.h"
+#include "ifchange.h"
 
 static int snprintip(char *dest, size_t size, unsigned char *ip)
 {
@@ -234,23 +234,23 @@ static void bound_if(struct dhcpMessage *packet)
     close(sockfd);
 }
 
-void run_script(struct dhcpMessage *packet, int mode)
+void ifchange(struct dhcpMessage *packet, int mode)
 {
     switch (mode) {
-        case SCRIPT_DECONFIG:
+        case IFCHANGE_DECONFIG:
             deconfig_if();
             break;
-        case SCRIPT_BOUND:
+        case IFCHANGE_BOUND:
             bound_if(packet);
             break;
-        case SCRIPT_RENEW:
+        case IFCHANGE_RENEW:
             bound_if(packet);
             break;
-        case SCRIPT_NAK:
+        case IFCHANGE_NAK:
             deconfig_if();
             break;
         default:
-            log_error("invalid script mode: %d", mode);
+            log_error("invalid ifchange mode: %d", mode);
             break;
     }
 }

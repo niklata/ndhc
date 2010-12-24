@@ -12,7 +12,7 @@
 #include "packet.h"
 #include "dhcpmsg.h"
 #include "socket.h"
-#include "script.h"
+#include "ifchange.h"
 #include "sys.h"
 #include "log.h"
 #include "io.h"
@@ -253,9 +253,9 @@ static void dhcp_ack_or_nak_packet(struct client_state_t *cs,
     } else if (*message == DHCPNAK) {
         /* return to init state */
         log_line("Received DHCP NAK.");
-        run_script(packet, SCRIPT_NAK);
+        ifchange(packet, IFCHANGE_NAK);
         if (cs->dhcpState != DS_REQUESTING)
-            run_script(NULL, SCRIPT_DECONFIG);
+            ifchange(NULL, IFCHANGE_DECONFIG);
         cs->dhcpState = DS_INIT_SELECTING;
         cs->timeout = 0;
         cs->requestedIP = 0;
