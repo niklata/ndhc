@@ -10,7 +10,7 @@ set(NDHC_SRCS
   timeout.c
   script.c
   clientpacket.c
-  arpping.c
+  arp.c
   ndhc.c
   )
 

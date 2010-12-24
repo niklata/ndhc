@@ -15,7 +15,7 @@
 #include <arpa/inet.h>
 #include <sys/time.h>
 #include <errno.h>
-#include "arpping.h"
+#include "arp.h"
 #include "clientpacket.h"
 #include "packet.h"
 #include "sys.h"

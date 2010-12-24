@@ -51,7 +51,7 @@
 #include "sys.h"
 #include "script.h"
 #include "socket.h"
-#include "arpping.h"
+#include "arp.h"
 #include "log.h"
 #include "chroot.h"
 #include "cap.h"

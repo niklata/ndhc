@@ -6,7 +6,7 @@
 #include "script.h"
 #include "packet.h"
 #include "clientpacket.h"
-#include "arpping.h"
+#include "arp.h"
 #include "log.h"
 
 static void init_selecting_timeout(struct client_state_t *cs)
