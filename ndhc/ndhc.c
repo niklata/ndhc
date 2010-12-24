@@ -302,14 +302,13 @@ int main(int argc, char **argv)
 
         switch (c) {
             case 'c':
-                len = strlen(optarg) > 255 ? 255 : strlen(optarg);
+                len = strlen(optarg) > 64 ? 64 : strlen(optarg);
                 if (client_config.clientid)
                     free(client_config.clientid);
-                client_config.clientid = xmalloc(len + 1);
+                client_config.clientid = xmalloc(len + 3);
                 client_config.clientid[OPT_CODE] = DHCP_CLIENT_ID;
-                client_config.clientid[OPT_LEN] = len;
-                strlcpy((char *)client_config.clientid + OPT_DATA, optarg,
-                        len + 1 - (OPT_DATA - OPT_CODE));
+                client_config.clientid[OPT_LEN] = len + 1;
+                memcpy(client_config.clientid + 3, optarg, len);
                 break;
             case 'f':
                 client_config.foreground = 1;
@@ -324,7 +323,7 @@ int main(int argc, char **argv)
                 break;
             case 'h':
             case 'H':
-                len = strlen(optarg) > 255 ? 255 : strlen(optarg);
+                len = strlen(optarg) > 64 ? 64 : strlen(optarg);
                 if (client_config.hostname)
                     free(client_config.hostname);
                 client_config.hostname = xmalloc(len + 1);
