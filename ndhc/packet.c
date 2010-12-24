@@ -1,4 +1,4 @@
-#include <stddef.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <netinet/in.h>
@@ -11,7 +11,9 @@
 
 #include "packet.h"
 #include "clientpacket.h"
+#include "socket.h"
 #include "script.h"
+#include "sys.h"
 #include "log.h"
 #include "io.h"
 #include "dhcpd.h"
@@ -172,6 +174,34 @@ int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
     return result;
 }
 
+/* Switch listen socket between raw (if-bound), kernel (ip-bound), and none */
+void change_listen_mode(struct client_state_t *cs, int new_mode)
+{
+    log_line("entering %s listen mode",
+             new_mode ? (new_mode == 1 ? "kernel" : "raw") : "none");
+    cs->listenMode = new_mode;
+    if (cs->listenFd >= 0) {
+        epoll_del(cs, cs->listenFd);
+        close(cs->listenFd);
+        cs->listenFd = -1;
+    }
+    if (new_mode == LM_KERNEL) {
+        cs->listenFd = listen_socket(INADDR_ANY, CLIENT_PORT,
+                                     client_config.interface);
+        epoll_add(cs, cs->listenFd);
+    }
+    else if (new_mode == LM_RAW) {
+        cs->listenFd = raw_socket(client_config.ifindex);
+        epoll_add(cs, cs->listenFd);
+    }
+    else /* LM_NONE */
+        return;
+    if (cs->listenFd < 0) {
+        log_error("FATAL: couldn't listen on socket: %s.", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+}
+
 static void init_selecting_packet(struct client_state_t *cs,
                                   struct dhcpMessage *packet,
                                   unsigned char *message)
@@ -196,7 +226,6 @@ static void init_selecting_packet(struct client_state_t *cs,
 }
 
 // from ndhc.c
-void change_listen_mode(int new_mode);
 void arp_check(struct dhcpMessage *packet);
 
 static void dhcp_ack_or_nak_packet(struct client_state_t *cs,
@@ -231,7 +260,7 @@ static void dhcp_ack_or_nak_packet(struct client_state_t *cs,
         cs->timeout = 0;
         cs->requestedIP = 0;
         cs->packetNum = 0;
-        change_listen_mode(LM_RAW);
+        change_listen_mode(cs, LM_RAW);
         // XXX: this isn't rfc compliant: should be exp backoff
         sleep(3); /* avoid excessive network traffic */
     }
@@ -252,7 +281,7 @@ void handle_packet(struct client_state_t *cs)
 
     if (len == -1 && errno != EINTR) {
         log_error("reopening socket.");
-        change_listen_mode(cs->listenMode); /* just close and reopen */
+        change_listen_mode(cs, cs->listenMode); /* just close and reopen */
     }
 
     if (len < 0)

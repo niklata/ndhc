@@ -4,12 +4,12 @@
 #include "timeout.h"
 #include "config.h"
 #include "script.h"
+#include "packet.h"
 #include "clientpacket.h"
 #include "arpping.h"
 #include "log.h"
 
 // from ndhc.c
-void change_listen_mode(int new_mode);
 void background(void);
 
 static void init_selecting_timeout(struct client_state_t *cs)
@@ -49,7 +49,7 @@ static void renew_requested_timeout(struct client_state_t *cs)
         cs->dhcpState = DS_INIT_SELECTING;
         cs->timeout = 0;
         cs->packetNum = 0;
-        change_listen_mode(LM_RAW);
+        change_listen_mode(cs, LM_RAW);
     }
 }
 
@@ -65,7 +65,7 @@ static void requesting_timeout(struct client_state_t *cs)
         cs->dhcpState = DS_INIT_SELECTING;
         cs->timeout = 0;
         cs->packetNum = 0;
-        change_listen_mode(LM_RAW);
+        change_listen_mode(cs, LM_RAW);
     }
 }
 
@@ -90,7 +90,7 @@ static void bound_timeout(struct client_state_t *cs)
 {
     /* Lease is starting to run out, time to enter renewing state */
     cs->dhcpState = DS_RENEWING;
-    change_listen_mode(LM_KERNEL);
+    change_listen_mode(cs, LM_KERNEL);
     log_line("Entering renew state.");
     renewing_timeout(cs);
 }
@@ -105,7 +105,7 @@ static void rebinding_timeout(struct client_state_t *cs)
         run_script(NULL, SCRIPT_DECONFIG);
         cs->timeout = 0;
         cs->packetNum = 0;
-        change_listen_mode(LM_RAW);
+        change_listen_mode(cs, LM_RAW);
     } else {
         /* send a request packet */
         send_renew(cs->xid, 0, cs->requestedIP); /* broadcast */

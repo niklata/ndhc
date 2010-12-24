@@ -120,34 +120,6 @@ static void show_usage(void)
     exit(EXIT_SUCCESS);
 }
 
-/* Switch listen socket between raw (if-bound), kernel (ip-bound), and none */
-void change_listen_mode(int new_mode)
-{
-    log_line("entering %s listen mode",
-             new_mode ? (new_mode == 1 ? "kernel" : "raw") : "none");
-    cs.listenMode = new_mode;
-    if (cs.listenFd >= 0) {
-        epoll_del(&cs, cs.listenFd);
-        close(cs.listenFd);
-        cs.listenFd = -1;
-    }
-    if (new_mode == LM_KERNEL) {
-        cs.listenFd = listen_socket(INADDR_ANY, CLIENT_PORT,
-                                 client_config.interface);
-        epoll_add(&cs, cs.listenFd);
-    }
-    else if (new_mode == LM_RAW) {
-        cs.listenFd = raw_socket(client_config.ifindex);
-        epoll_add(&cs, cs.listenFd);
-    }
-    else /* LM_NONE */
-        return;
-    if (cs.listenFd < 0) {
-        log_error("FATAL: couldn't listen on socket: %s.", strerror(errno));
-        exit(EXIT_FAILURE);
-    }
-}
-
 /* perform a renew */
 static void perform_renew(void)
 {
@@ -155,7 +127,7 @@ static void perform_renew(void)
   retry:
     switch (cs.dhcpState) {
         case DS_BOUND:
-            change_listen_mode(LM_KERNEL);
+            change_listen_mode(&cs, LM_KERNEL);
         case DS_ARP_CHECK:
             // Cancel arp ping in progress and treat as previous state.
             epoll_del(&cs, cs.arpFd);
@@ -170,7 +142,7 @@ static void perform_renew(void)
             run_script(NULL, SCRIPT_DECONFIG);
         case DS_REQUESTING:
         case DS_RELEASED:
-            change_listen_mode(LM_RAW);
+            change_listen_mode(&cs, LM_RAW);
             cs.dhcpState = DS_INIT_SELECTING;
             break;
         case DS_INIT_SELECTING:
@@ -207,7 +179,7 @@ static void perform_release(void)
         epoll_del(&cs, cs.arpFd);
         cs.arpFd = -1;
     }
-    change_listen_mode(LM_NONE);
+    change_listen_mode(&cs, LM_NONE);
     cs.dhcpState = DS_RELEASED;
     cs.timeout = -1;
 }
@@ -281,7 +253,7 @@ static void do_work(void)
     if (cs.epollFd == -1)
         suicide("epoll_create1 failed");
     epoll_add(&cs, cs.signalFd);
-    change_listen_mode(LM_RAW);
+    change_listen_mode(&cs, LM_RAW);
     handle_timeout(&cs);
 
     for (;;) {
