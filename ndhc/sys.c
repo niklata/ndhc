@@ -20,10 +20,9 @@ void background(void)
     }
     called = 1;  /* Do not fork again. */
     if (file_exists(pidfile, "w") == -1) {
-        log_line("FATAL - cannot open pidfile for write!");
-        exit(EXIT_FAILURE);
-    }
-    write_pid(pidfile);
+        log_line("cannot open pidfile for write!");
+    } else
+        write_pid(pidfile);
 }
 
 void epoll_add(struct client_state_t *cs, int fd)
