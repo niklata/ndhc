@@ -38,6 +38,14 @@
 #include "strl.h"
 #include "dhcpd.h" /* For SERVER_PORT and CLIENT_PORT */
 
+static int set_sock_nonblock(int fd)
+{
+    int ret = 0, flags;
+    flags = fcntl(fd, F_GETFL);
+    ret = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    return ret;
+}
+
 /* Given an interface name in @interface, return its index number,
  * IPv4 address, and MAC in @ifindex, @addr (optional), and @mac.*/
 int read_interface(char *interface, int *ifindex, uint32_t *addr, uint8_t *mac)
@@ -115,6 +123,8 @@ int listen_socket(unsigned int ip, int port, char *inf)
                    &interface, sizeof interface) < 0)
         goto out_fd;
 
+    set_sock_nonblock(fd);
+
     memset(&addr, 0, sizeof addr);
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
@@ -190,6 +200,8 @@ int raw_socket(int ifindex)
                        sizeof filter_prog) >= 0)
             log_line("Attached filter to raw socket fd %d", fd);
     }
+
+    set_sock_nonblock(fd);
 
     sock.sll_family = AF_PACKET;
     sock.sll_protocol = htons(ETH_P_IP);
