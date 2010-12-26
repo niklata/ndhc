@@ -227,21 +227,10 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
 
     memset(&packet, 0, packet_size);
     int len = safe_read(fd, (char *)&packet, packet_size);
-    if (len == -1) {
+    if (len == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
         log_line("get_raw_packet: read error %s", strerror(errno));
         usleep(500000); /* possible down interface, looping condition */
         return -1;
-    }
-
-    if (len < header_size) {
-        log_line("Message too short to contain IP + UDP headers, ignoring");
-        sleep(1);
-        return -2;
-    }
-
-    if (len < ntohs(packet.ip.tot_len)) {
-        log_line("Truncated packet");
-        return -2;
     }
 
     /* ignore any extra garbage bytes */
