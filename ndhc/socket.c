@@ -26,6 +26,7 @@
 #include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <net/if.h>
