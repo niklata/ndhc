@@ -39,7 +39,7 @@
 #include "strl.h"
 #include "dhcpd.h" /* For SERVER_PORT and CLIENT_PORT */
 
-static int set_sock_nonblock(int fd)
+int set_sock_nonblock(int fd)
 {
     int ret = 0, flags;
     flags = fcntl(fd, F_GETFL);

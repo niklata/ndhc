@@ -17,6 +17,7 @@
 #include "arp.h"
 #include "dhcpmsg.h"
 #include "packet.h"
+#include "socket.h"
 #include "sys.h"
 #include "ifchange.h"
 #include "dhcpd.h"
@@ -49,6 +50,8 @@ static int arpping(uint32_t test_nip, const uint8_t *safe_mac,
         close(arpfd);
         return -1;
     }
+
+    set_sock_nonblock(arpfd);
 
     /* send arp request */
     memset(&arp, 0, sizeof arp);
