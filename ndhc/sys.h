@@ -3,6 +3,7 @@
 
 #include <sys/time.h>
 #include "ndhc-defines.h"
+#include "config.h"
 
 static inline unsigned long long curms()
 {
@@ -13,7 +14,8 @@ static inline unsigned long long curms()
 
 extern char pidfile[MAX_PATH_LENGTH];
 
-void background(void);
+void setup_signals(struct client_state_t *cs);
+void background(struct client_state_t *cs);
 void epoll_add(struct client_state_t *cs, int fd);
 void epoll_del(struct client_state_t *cs, int fd);
 

@@ -22,7 +22,7 @@ static void init_selecting_timeout(struct client_state_t *cs)
     } else {
         if (client_config.background_if_no_lease) {
             log_line("No lease, going to background.");
-            background();
+            background(cs);
         } else if (client_config.abort_if_no_lease) {
             log_line("No lease, failing.");
             exit(EXIT_FAILURE);

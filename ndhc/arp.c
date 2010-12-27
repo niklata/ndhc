@@ -136,7 +136,7 @@ void arp_success(struct client_state_t *cs)
     if (client_config.quit_after_lease)
         exit(EXIT_SUCCESS);
     if (!client_config.foreground)
-        background();
+        background(cs);
 }
 
 typedef uint32_t aliased_uint32_t __attribute__((__may_alias__));

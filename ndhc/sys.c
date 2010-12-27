@@ -3,7 +3,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <signal.h>
 #include <sys/epoll.h>
+#include <sys/signalfd.h>
 #include "config.h"
 #include "log.h"
 #include "pidfile.h"
@@ -11,14 +13,38 @@
 
 char pidfile[MAX_PATH_LENGTH] = PID_FILE_DEFAULT;
 
-void background(void)
+void setup_signals(struct client_state_t *cs)
+{
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGUSR1);
+    sigaddset(&mask, SIGUSR2);
+    sigaddset(&mask, SIGTERM);
+    if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0)
+        suicide("sigprocmask failed");
+    if (cs->signalFd >= 0) {
+        epoll_del(cs, cs->signalFd);
+        close(cs->signalFd);
+    }
+    cs->signalFd = signalfd(-1, &mask, SFD_NONBLOCK);
+    if (cs->signalFd < 0)
+        suicide("signalfd failed");
+    epoll_add(cs, cs->signalFd);
+}
+
+// @cs can be NULL
+void background(struct client_state_t *cs)
 {
     static char called;
-    if (!called && daemon(0, 0) == -1) {
-        perror("fork");
-        exit(EXIT_SUCCESS);
+    if (!called) {
+        called = 1;  /* Do not fork again. */
+        if (daemon(0, 0) == -1) {
+            perror("fork");
+            exit(EXIT_SUCCESS);
+        }
+        if (cs)
+            setup_signals(cs);
     }
-    called = 1;  /* Do not fork again. */
     if (file_exists(pidfile, "w") == -1) {
         log_line("cannot open pidfile for write!");
     } else
@@ -46,3 +72,4 @@ void epoll_del(struct client_state_t *cs, int fd)
     if (r == -1)
         suicide("epoll_del failed %s", strerror(errno));
 }
+

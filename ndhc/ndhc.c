@@ -181,20 +181,6 @@ static void perform_release(void)
     cs.timeout = -1;
 }
 
-static void setup_signals()
-{
-    sigset_t mask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGUSR1);
-    sigaddset(&mask, SIGUSR2);
-    sigaddset(&mask, SIGTERM);
-    if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0)
-        suicide("sigprocmask failed");
-    cs.signalFd = signalfd(-1, &mask, SFD_NONBLOCK);
-    if (cs.signalFd < 0)
-        suicide("signalfd failed");
-}
-
 static void signal_dispatch()
 {
     int t, off = 0;
@@ -234,7 +220,7 @@ static void do_work(void)
     cs.epollFd = epoll_create1(0);
     if (cs.epollFd == -1)
         suicide("epoll_create1 failed");
-    epoll_add(&cs, cs.signalFd);
+    setup_signals(&cs);
     change_listen_mode(&cs, LM_RAW);
     handle_timeout(&cs);
 
@@ -386,8 +372,6 @@ int main(int argc, char **argv)
         client_config.clientid[OPT_DATA] = 1;
         memcpy(client_config.clientid + 3, client_config.arp, 6);
     }
-
-    setup_signals();
 
     if (chdir(chroot_dir)) {
         printf("Failed to chdir(%s)!\n", chroot_dir);
