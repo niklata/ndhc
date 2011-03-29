@@ -47,57 +47,6 @@ int set_sock_nonblock(int fd)
     return ret;
 }
 
-/* Given an interface name in @interface, return its index number,
- * IPv4 address, and MAC in @ifindex, @addr (optional), and @mac.*/
-int read_interface(char *interface, int *ifindex, uint32_t *addr, uint8_t *mac)
-{
-    int fd, ret = -1;
-    struct ifreq ifr;
-    struct sockaddr_in *our_ip;
-
-    memset(&ifr, 0, sizeof(struct ifreq));
-    if((fd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) == -1) {
-        log_error("socket failed!: %s", strerror(errno));
-        goto out;
-    }
-
-    ifr.ifr_addr.sa_family = AF_INET;
-    strlcpy(ifr.ifr_name, interface, IFNAMSIZ);
-
-    if (addr) {
-        if (ioctl(fd, SIOCGIFADDR, &ifr)) {
-            log_error("Couldn't get IP for %s.", strerror(errno));
-            goto out_fd;
-        }
-        our_ip = (struct sockaddr_in *) &ifr.ifr_addr;
-        *addr = our_ip->sin_addr.s_addr;
-        log_line("%s (our ip) = %s", ifr.ifr_name,
-                 inet_ntoa(our_ip->sin_addr));
-    }
-
-    if (ioctl(fd, SIOCGIFINDEX, &ifr)) {
-        log_error("SIOCGIFINDEX failed!: %s", strerror(errno));
-        goto out_fd;
-    }
-
-    log_line("adapter index %d", ifr.ifr_ifindex);
-    *ifindex = ifr.ifr_ifindex;
-
-    if (ioctl(fd, SIOCGIFHWADDR, &ifr)) {
-        log_error("Couldn't get MAC for %s", strerror(errno));
-        goto out_fd;
-    }
-
-    memcpy(mac, ifr.ifr_hwaddr.sa_data, 6);
-    log_line("adapter hardware address %02x:%02x:%02x:%02x:%02x:%02x",
-             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    ret = 0;
-  out_fd:
-    close(fd);
-  out:
-    return ret;
-}
-
 /* Returns fd of new listen socket bound to @ip:@port on interface @inf
  * on success, or -1 on failure. */
 int listen_socket(unsigned int ip, int port, char *inf)

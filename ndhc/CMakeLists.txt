@@ -11,6 +11,7 @@ set(NDHC_SRCS
   ifchange.c
   dhcpmsg.c
   arp.c
+  netlink.c
   ndhc.c
   )
 

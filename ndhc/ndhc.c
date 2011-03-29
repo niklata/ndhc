@@ -52,6 +52,8 @@
 #include "ifchange.h"
 #include "socket.h"
 #include "arp.h"
+#include "netlink.h"
+
 #include "log.h"
 #include "chroot.h"
 #include "cap.h"
@@ -361,9 +363,14 @@ int main(int argc, char **argv)
         write_pid(pidfile);
     }
 
-    if (read_interface(client_config.interface, &client_config.ifindex,
-                       NULL, client_config.arp) < 0)
+    if (nl_open() < 0) {
+        log_line("FATAL - failed to open netlink socket");
         exit(EXIT_FAILURE);
+    }
+    if (nl_getifdata(client_config.interface) < 0) {
+        log_line("FATAL - failed to get interface MAC and index");
+        exit(EXIT_FAILURE);
+    }
 
     if (!client_config.clientid) {
         client_config.clientid = xmalloc(6 + 3);
@@ -391,5 +398,6 @@ int main(int argc, char **argv)
 
     do_work();
 
+    nl_close();
     return EXIT_SUCCESS;
 }
