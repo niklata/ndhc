@@ -17,23 +17,17 @@
 #include <unistd.h>
 #include <net/if.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <strings.h>
 #include <string.h>
 #include <sys/select.h>
 #include <fcntl.h>
 
 #include "netlink.h"
-#include "config.h"
 #include "log.h"
-
-// OS_REMOVED -> exit
-// OS_SHUT -> exit
-// OS_DOWN -> action
-// OS_UP -> action
 
 #define NLMSG_RECVSIZE 8192
 
-static int nl_socket = -1;
 static unsigned int nl_seq;
 
 /* internal callback handling */
@@ -43,7 +37,8 @@ static __u32 nlcb_pid;
 static unsigned int nlcb_seq;
 static char nlcb_run;
 
-int nl_open() {
+int nl_open(struct client_state_t *cs)
+{
     struct sockaddr_nl nlsock = {
         .nl_family = AF_NETLINK,
         .nl_pad = 0,
@@ -53,37 +48,40 @@ int nl_open() {
 
     nlcb_pid = nlsock.nl_pid;
 
-    assert(nl_socket == -1);
+    assert(cs->nlFd == -1);
 
-    nl_socket = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+    cs->nlFd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
 
-    if (nl_socket == -1) return -1;
+    if (cs->nlFd == -1)
+        return -1;
 
-    if (bind(nl_socket, (const struct sockaddr *)&nlsock, sizeof(nlsock)))
+    if (bind(cs->nlFd, (const struct sockaddr *)&nlsock, sizeof(nlsock)))
         goto err_close;
 
-    if (fcntl(nl_socket, F_SETFD, FD_CLOEXEC))
+    if (fcntl(cs->nlFd, F_SETFD, FD_CLOEXEC))
         goto err_close;
 
     return 0;
 
   err_close:
-    nl_close();
+    nl_close(cs);
     return -1;
 }
 
-void nl_close() {
-    close(nl_socket);
-    nl_socket = -1;
+void nl_close(struct client_state_t *cs)
+{
+    close(cs->nlFd);
+    cs->nlFd = -1;
 }
 
-void nl_queryifstatus(int ifidx) {
+void nl_queryifstatus(int ifidx, struct client_state_t *cs)
+{
     struct {
         struct nlmsghdr hdr;
         struct ifinfomsg ifinfo;
     } req;
 
-    req.hdr.nlmsg_len = sizeof(req);
+    req.hdr.nlmsg_len = sizeof req;
     req.hdr.nlmsg_type = RTM_GETLINK;
     req.hdr.nlmsg_flags = NLM_F_REQUEST | NLM_F_ROOT;
     req.hdr.nlmsg_seq = ++nl_seq;
@@ -93,11 +91,13 @@ void nl_queryifstatus(int ifidx) {
     req.ifinfo.ifi_flags = IFF_UP;
     req.ifinfo.ifi_change = 0xffffffff;
 
-    send(nl_socket, &req, sizeof(req),0);
+    send(cs->nlFd, &req, sizeof req, 0);
 }
 
-
-static void nl_handlemsg(struct nlmsghdr *msg, unsigned int len) {
+// Decode netlink messages and process them
+static void nl_handlemsg(struct nlmsghdr *msg, unsigned int len,
+                         struct client_state_t *cs)
+{
     if (len < sizeof(*msg)) return;
 
     while(NLMSG_OK(msg,len)) {
@@ -118,17 +118,41 @@ static void nl_handlemsg(struct nlmsghdr *msg, unsigned int len) {
                     if (ifinfo->ifi_index != client_config.ifindex)
                         break;
                     if (ifinfo->ifi_flags & IFF_UP) {
-                        if (ifinfo->ifi_flags & IFF_RUNNING)
-                            printf("XXX_OS_UP() NYI\n");
-                        else
-                            printf("XXX_OS_DOWN() NYI\n");
-                    } else
-                        printf("XXX_OS_SHUT() NYI\n");
+                        if (ifinfo->ifi_flags & IFF_RUNNING) {
+                            if (cs->ifsPrevState != IFS_UP) {
+                                cs->ifsPrevState = IFS_UP;
+                                /*
+                                 * If we have a lease, then check to see
+                                 * if our gateway is still valid.  If it fails,
+                                 * state -> INIT_REBOOT.
+                                 *
+                                 * If we don't have a lease, state -> INIT.
+                                 */ 
+                            }
+                        } else {
+                            if (cs->ifsPrevState != IFS_DOWN) {
+                                cs->ifsPrevState = IFS_DOWN;
+                                /*
+                                 * state -> DOWN
+                                 */ 
+                            }
+                        }
+                    } else {
+                        if (cs->ifsPrevState != IFS_SHUT) {
+                            cs->ifsPrevState = IFS_SHUT;
+                            log_line("Interface shut down; exiting.");
+                            exit(EXIT_SUCCESS);
+                        }
+                    }
                     break;
                 case RTM_DELLINK:
                     if (ifinfo->ifi_index != client_config.ifindex)
                         break;
-                    printf("XXX_OS_REMOVED() NYI\n");
+                    if (cs->ifsPrevState != IFS_REMOVED) {
+                        cs->ifsPrevState = IFS_REMOVED;
+                        log_line("Interface removed; exiting.");
+                        exit(EXIT_SUCCESS);
+                    }
                     break;
                 default:
                     break;
@@ -138,21 +162,35 @@ static void nl_handlemsg(struct nlmsghdr *msg, unsigned int len) {
     }
 }
 
-static void nl_sync_dump() {
+void handle_nl_message(struct client_state_t *cs)
+{
+    char c[NLMSG_RECVSIZE];
+    struct nlmsghdr *msg = (struct nlmsghdr *)c;
+    int n;
+
+    assert(cs->nlFd != -1);
+    n = recv(cs->nlFd, c, NLMSG_RECVSIZE, 0);
+    nl_handlemsg(msg, n, cs);
+}
+
+// Wait for and synchronously process netlink replies until a callback completes
+static void nl_sync_dump(struct client_state_t *cs)
+{
     char c[NLMSG_RECVSIZE];
     struct nlmsghdr *msg = (struct nlmsghdr *)c;
     int n;
 
     nlcb_seq = nl_seq;
     for(nlcb_run = 1; nlcb_run;) {
-        n = recv(nl_socket, c, NLMSG_RECVSIZE, 0);
+        n = recv(cs->nlFd, c, NLMSG_RECVSIZE, 0);
         assert(n >= 0);
-        nl_handlemsg(msg,n);
+        nl_handlemsg(msg, n, cs);
     }
 }
 
 // Callback function for getting interface mac address and index.
-static void copy_ifdata(struct nlmsghdr *msg, void **args) {
+static void copy_ifdata(struct nlmsghdr *msg, void **args)
+{
     struct ifinfomsg *ifinfo = NLMSG_DATA(msg);
     struct rtattr *rta = IFLA_RTA(ifinfo);
     int len = NLMSG_PAYLOAD(msg, sizeof(*ifinfo));
@@ -193,7 +231,8 @@ static void copy_ifdata(struct nlmsghdr *msg, void **args) {
 }
 
 // Gets interface mac address and index (synchronous).
-int nl_getifdata(const char *ifname) {
+int nl_getifdata(const char *ifname, struct client_state_t *cs)
+{
     struct {
         struct nlmsghdr hdr;
         struct ifinfomsg ifinfo;
@@ -206,12 +245,12 @@ int nl_getifdata(const char *ifname) {
     req.hdr.nlmsg_pid = nlcb_pid;
     req.ifinfo.ifi_family = AF_UNSPEC;
 
-    if (send(nl_socket, &req, sizeof(req), 0) != sizeof(req)) return -1;
+    if (send(cs->nlFd, &req, sizeof(req), 0) != sizeof(req)) return -1;
 
     nlcb_function = copy_ifdata;
     nlcb_args[0] = NULL;
 
-    nl_sync_dump();
+    nl_sync_dump(cs);
 
     return nlcb_args[0]?0:-1;
 }

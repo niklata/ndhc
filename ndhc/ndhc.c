@@ -33,7 +33,6 @@
 #include <signal.h>
 #include <time.h>
 #include <string.h>
-#include <sys/ioctl.h>
 #include <sys/epoll.h>
 #include <sys/signalfd.h>
 #include <net/if.h>
@@ -67,6 +66,7 @@
 struct client_state_t cs = {
     .dhcpState = DS_INIT_SELECTING,
     .arpPrevState = DS_NULL,
+    .ifsPrevState = IFS_NONE,
     .listenMode = LM_NONE,
     .packetNum = 0,
     .xid = 0,
@@ -81,6 +81,7 @@ struct client_state_t cs = {
     .signalFd = -1,
     .listenFd = -1,
     .arpFd = -1,
+    .nlFd = -1,
 };
 
 struct client_config_t client_config = {
@@ -223,6 +224,7 @@ static void do_work(void)
     if (cs.epollFd == -1)
         suicide("epoll_create1 failed");
     setup_signals(&cs);
+    epoll_add(&cs, cs.nlFd);
     change_listen_mode(&cs, LM_RAW);
     handle_timeout(&cs);
 
@@ -243,6 +245,8 @@ static void do_work(void)
                 handle_packet(&cs);
             else if (fd == cs.arpFd)
                 handle_arp_response(&cs);
+            else if (fd == cs.nlFd)
+                handle_nl_message(&cs);
             else
                 suicide("epoll_wait: unknown fd");
         }
@@ -363,11 +367,11 @@ int main(int argc, char **argv)
         write_pid(pidfile);
     }
 
-    if (nl_open() < 0) {
+    if (nl_open(&cs) < 0) {
         log_line("FATAL - failed to open netlink socket");
         exit(EXIT_FAILURE);
     }
-    if (nl_getifdata(client_config.interface) < 0) {
+    if (nl_getifdata(client_config.interface, &cs) < 0) {
         log_line("FATAL - failed to get interface MAC and index");
         exit(EXIT_FAILURE);
     }
@@ -398,6 +402,6 @@ int main(int argc, char **argv)
 
     do_work();
 
-    nl_close();
+    nl_close(&cs);
     return EXIT_SUCCESS;
 }

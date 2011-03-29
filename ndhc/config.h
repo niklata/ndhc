@@ -24,13 +24,22 @@ enum {
     LM_RAW
 };
 
+enum {
+	IFS_NONE = 0,
+	IFS_UP,
+	IFS_DOWN,
+	IFS_SHUT,
+	IFS_REMOVED
+};
+
 struct client_state_t {
     unsigned long long leaseStartTime;
     int dhcpState;
     int arpPrevState;
+	int ifsPrevState;
     int listenMode;
     int packetNum;
-    int epollFd, signalFd, listenFd, arpFd;
+    int epollFd, signalFd, listenFd, arpFd, nlFd;
     int timeout;
     uint32_t requestedIP, serverAddr;
     uint32_t lease, t1, t2, xid;
