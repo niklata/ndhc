@@ -2,8 +2,7 @@
  *
  * Functions to call the interface change daemon
  *
- * Russ Dill <Russ.Dill@asu.edu> July 2001
- * Nicholas J. Kain <njkain at gmail dot com> 2004-2010
+ * Nicholas J. Kain <njkain at gmail dot com> 2004-2011
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -40,41 +39,26 @@
 #include "io.h"
 #include "ifchange.h"
 
-static int snprintip(char *dest, size_t size, unsigned char *ip)
-{
-    if (!dest)
-        return -1;
-    return snprintf(dest, size, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
-}
-
-static int sprintip(char *dest, size_t size, char *pre, unsigned char *ip)
-{
-    if (!dest)
-        return -1;
-    return snprintf(dest, size, "%s%d.%d.%d.%d",
-					pre, ip[0], ip[1], ip[2], ip[3]);
-}
-
 /* Fill buf with the ifchd command text of option 'option'. */
 /* Returns 0 if successful, -1 if nothing was filled in. */
-static int fill_options(char *buf, unsigned char *option, ssize_t optlen,
+static int ifchd_cmd(char *buf, unsigned char *option, ssize_t optlen,
                         struct dhcp_option *type_p, unsigned int maxlen)
 {
     char *obuf = buf;
+    uint8_t *ooption = option;
     enum option_type type = type_p->type;
     ssize_t typelen = option_length(type);
-    ssize_t rem = optlen;
     uint8_t code = type_p->code;
 
     if (!option)
         return -1;
 
     if (type == OPTION_STRING) {
-        buf += snprintf(buf, maxlen, "%s=", type_p->name);
-        if (maxlen < rem + 1)
+        buf += snprintf(buf, maxlen, "%s:", type_p->name);
+        if (maxlen < optlen + 1)
             return -1;
-        memcpy(buf, option, rem);
-        buf[rem] = '\0';
+        memcpy(buf, option, optlen);
+        buf[optlen] = ':';
         return 0;
     }
 
@@ -93,41 +77,43 @@ static int fill_options(char *buf, unsigned char *option, ssize_t optlen,
         }
     }
 
-    buf += snprintf(buf, maxlen, "%s=", type_p->name);
+    buf += snprintf(buf, maxlen, "%s:", type_p->name);
 
     for(;;) {
         switch (type) {
-            case OPTION_IP: /* Works regardless of host byte order. */
-                buf += sprintip(buf, maxlen - (buf - obuf), "", option);
+            case OPTION_IP: {
+                if (inet_ntop(AF_INET, option, buf, maxlen - (buf - obuf) - 1))
+                    buf += strlen(buf);
                 break;
+            }
             case OPTION_U8:
-                buf += snprintf(buf, maxlen - (buf - obuf), "%u ", *option);
+                buf += snprintf(buf, maxlen - (buf - obuf) - 1, "%u ", *option);
                 break;
             case OPTION_U16: {
                 uint16_t val_u16;
                 memcpy(&val_u16, option, 2);
-                buf += snprintf(buf, maxlen - (buf - obuf), "%u ",
+                buf += snprintf(buf, maxlen - (buf - obuf) - 1, "%u ",
                                 ntohs(val_u16));
                 break;
             }
             case OPTION_S16: {
                 int16_t val_s16;
                 memcpy(&val_s16, option, 2);
-                buf += snprintf(buf, maxlen - (buf - obuf), "%d ",
+                buf += snprintf(buf, maxlen - (buf - obuf) - 1, "%d ",
                                 ntohs(val_s16));
                 break;
             }
             case OPTION_U32: {
                 uint32_t val_u32;
                 memcpy(&val_u32, option, 4);
-                buf += snprintf(buf, maxlen - (buf - obuf), "%u ",
+                buf += snprintf(buf, maxlen - (buf - obuf) - 1, "%u ",
                                 ntohl(val_u32));
                 break;
             }
             case OPTION_S32: {
                 int32_t val_s32;
                 memcpy(&val_s32, option, 4);
-                buf += snprintf(buf, maxlen - (buf - obuf), "%d ",
+                buf += snprintf(buf, maxlen - (buf - obuf) - 1, "%d ",
                                 ntohl(val_s32));
                 break;
             }
@@ -135,11 +121,11 @@ static int fill_options(char *buf, unsigned char *option, ssize_t optlen,
                 return 0;
         }
         option += typelen;
-        rem -= typelen;
-        if (rem <= 0)
+        if ((option - ooption) >= optlen)
             break;
         *(buf++) = ':';
     }
+    *(buf++) = ':';
     return 0;
 }
 
@@ -185,10 +171,10 @@ static void deconfig_if(void)
     close(sockfd);
 }
 
-static void translate_option(int sockfd, struct dhcpMessage *packet,
+static void send_cmd(int sockfd, struct dhcpMessage *packet,
                              unsigned char code)
 {
-    char buf[256], buf2[256];
+    char buf[256];
     unsigned char *p;
     int i;
     struct dhcp_option *opt = NULL;
@@ -206,21 +192,10 @@ static void translate_option(int sockfd, struct dhcpMessage *packet,
     if (!opt)
         return;
 
-    memset(buf, '\0', sizeof(buf));
-    memset(buf2, '\0', sizeof(buf2));
-
+    memset(buf, '\0', sizeof buf);
     p = get_option(packet, code, &optlen);
-    if (fill_options(buf2, p, optlen, opt, sizeof buf2 - 1) == -1)
+    if (ifchd_cmd(buf, p, optlen, opt, sizeof buf) == -1)
         return;
-    snprintf(buf, sizeof buf, "%s:", buf2);
-    for (i = 0; i < 256; i++) {
-        if (buf[i] == '\0')
-            break;
-        if (buf[i] == '=') {
-            buf[i] = ':';
-            break;
-        }
-    }
     sockwrite(sockfd, buf, strlen(buf));
 }
 
@@ -238,18 +213,18 @@ static void bound_if(struct dhcpMessage *packet)
     snprintf(buf, sizeof buf, "interface:%s:", client_config.interface);
     sockwrite(sockfd, buf, strlen(buf));
 
-    snprintip(ip, sizeof ip, (unsigned char *) &packet->yiaddr);
+    inet_ntop(AF_INET, &packet->yiaddr, ip, sizeof ip);
     snprintf(buf, sizeof buf, "ip:%s:", ip);
     sockwrite(sockfd, buf, strlen(buf));
 
-    translate_option(sockfd, packet, DHCP_SUBNET);
-    translate_option(sockfd, packet, DHCP_ROUTER);
-    translate_option(sockfd, packet, DHCP_DNS_SERVER);
-    translate_option(sockfd, packet, DHCP_HOST_NAME);
-    translate_option(sockfd, packet, DHCP_DOMAIN_NAME);
-    translate_option(sockfd, packet, DHCP_MTU);
-    translate_option(sockfd, packet, DHCP_BROADCAST);
-    translate_option(sockfd, packet, DHCP_WINS_SERVER);
+    send_cmd(sockfd, packet, DHCP_SUBNET);
+    send_cmd(sockfd, packet, DHCP_ROUTER);
+    send_cmd(sockfd, packet, DHCP_DNS_SERVER);
+    send_cmd(sockfd, packet, DHCP_HOST_NAME);
+    send_cmd(sockfd, packet, DHCP_DOMAIN_NAME);
+    send_cmd(sockfd, packet, DHCP_MTU);
+    send_cmd(sockfd, packet, DHCP_BROADCAST);
+    send_cmd(sockfd, packet, DHCP_WINS_SERVER);
 
     close(sockfd);
 }
