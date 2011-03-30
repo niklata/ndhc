@@ -55,22 +55,30 @@ static int sprintip(char *dest, size_t size, char *pre, unsigned char *ip)
 					pre, ip[0], ip[1], ip[2], ip[3]);
 }
 
-/* Fill dest with the text of option 'option'. */
+/* Fill buf with the ifchd command text of option 'option'. */
 /* Returns 0 if successful, -1 if nothing was filled in. */
-static int fill_options(char *dest, unsigned char *option, ssize_t optlen,
+static int fill_options(char *buf, unsigned char *option, ssize_t optlen,
                         struct dhcp_option *type_p, unsigned int maxlen)
 {
-    char *odest;
+    char *obuf = buf;
     enum option_type type = type_p->type;
     ssize_t typelen = option_length(type);
-    uint32_t val_u32;
-    int32_t val_s32;
-    uint16_t val_u16;
-    int16_t val_s16;
+    ssize_t rem = optlen;
     uint8_t code = type_p->code;
 
     if (!option)
         return -1;
+
+    if (type == OPTION_STRING) {
+        buf += snprintf(buf, maxlen, "%s=", type_p->name);
+        if (maxlen < rem + 1)
+            return -1;
+        memcpy(buf, option, rem);
+        buf[rem] = '\0';
+        return 0;
+    }
+
+    // Length and type checking.
     if (optlen != typelen) {
         if (option_valid_list(code)) {
             if ((optlen % typelen)) {
@@ -84,55 +92,53 @@ static int fill_options(char *dest, unsigned char *option, ssize_t optlen,
             return -1;
         }
     }
-    int len = option[-1]; // XXX: WTF ugly as all hell
 
-    odest = dest;
-
-    dest += snprintf(dest, maxlen, "%s=", type_p->name);
+    buf += snprintf(buf, maxlen, "%s=", type_p->name);
 
     for(;;) {
         switch (type) {
             case OPTION_IP: /* Works regardless of host byte order. */
-                dest += sprintip(dest, maxlen - (dest - odest), "", option);
+                buf += sprintip(buf, maxlen - (buf - obuf), "", option);
                 break;
             case OPTION_U8:
-                dest += snprintf(dest, maxlen - (dest - odest),
-								 "%u ", *option);
+                buf += snprintf(buf, maxlen - (buf - obuf), "%u ", *option);
                 break;
-            case OPTION_U16:
+            case OPTION_U16: {
+                uint16_t val_u16;
                 memcpy(&val_u16, option, 2);
-                dest += snprintf(dest, maxlen - (dest - odest),
-								 "%u ", ntohs(val_u16));
+                buf += snprintf(buf, maxlen - (buf - obuf), "%u ",
+                                ntohs(val_u16));
                 break;
-            case OPTION_S16:
+            }
+            case OPTION_S16: {
+                int16_t val_s16;
                 memcpy(&val_s16, option, 2);
-                dest += snprintf(dest, maxlen - (dest - odest),
-								 "%d ", ntohs(val_s16));
+                buf += snprintf(buf, maxlen - (buf - obuf), "%d ",
+                                ntohs(val_s16));
                 break;
-            case OPTION_U32:
+            }
+            case OPTION_U32: {
+                uint32_t val_u32;
                 memcpy(&val_u32, option, 4);
-                dest += snprintf(dest, maxlen - (dest - odest),
-								 "%u ", (uint32_t) ntohl(val_u32));
+                buf += snprintf(buf, maxlen - (buf - obuf), "%u ",
+                                ntohl(val_u32));
                 break;
-            case OPTION_S32:
+            }
+            case OPTION_S32: {
+                int32_t val_s32;
                 memcpy(&val_s32, option, 4);
-                dest += snprintf(dest, maxlen - (dest - odest),
-								 "%d ", (int32_t) ntohl(val_s32));
+                buf += snprintf(buf, maxlen - (buf - obuf), "%d ",
+                                ntohl(val_s32));
                 break;
-            case OPTION_STRING:
-                if ( (maxlen - (dest - odest)) < (unsigned)len)
-                    return -1;
-                memcpy(dest, option, len);
-                dest[len] = '\0';
-                return 0;  /* Short circuit this case */
-            case OPTION_NONE:
+            }
+            default:
                 return 0;
         }
         option += typelen;
-        len -= typelen;
-        if (len <= 0)
+        rem -= typelen;
+        if (rem <= 0)
             break;
-        *(dest++) = ':';
+        *(buf++) = ':';
     }
     return 0;
 }

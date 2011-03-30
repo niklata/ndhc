@@ -81,7 +81,6 @@ uint8_t option_length(enum option_type type)
 {
 	switch (type) {
 		case OPTION_IP: return 4;
-		case OPTION_STRING: return 1; // XXX ?
 		case OPTION_U8: return 1;
 		case OPTION_U16: return 2;
 		case OPTION_S16: return 2;
@@ -150,7 +149,8 @@ unsigned char *alloc_dhcp_client_id_option(unsigned char type,
 	return alloc_option(DHCP_CLIENT_ID, data, sizeof data);
 }
 
-// Worker function for get_option().
+// Worker function for get_option().  Optlen will be set to the length
+// of the option data.
 static uint8_t *do_get_option(uint8_t *buf, ssize_t buflen, int code,
 							  char *overload, ssize_t *optlen)
 {
@@ -194,7 +194,8 @@ static uint8_t *do_get_option(uint8_t *buf, ssize_t buflen, int code,
 	return NULL;
 }
 
-/* Get an option with bounds checking (warning, result is not aligned) */
+// Get an option with bounds checking (warning, result is not aligned)
+// optlen will be equal to the length of the option data.
 uint8_t *get_option(struct dhcpMessage *packet, int code, ssize_t *optlen)
 {
 	uint8_t *option, *buf;
