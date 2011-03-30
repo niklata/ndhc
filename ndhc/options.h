@@ -75,8 +75,8 @@ unsigned char *alloc_option(unsigned char code, unsigned char *optdata,
 unsigned char *alloc_dhcp_client_id_option(unsigned char type,
 										   unsigned char *idstr, size_t idstrlen);
 
-uint8_t *get_option(struct dhcpMessage *packet, int code, ssize_t *optlen);
-int end_option(uint8_t *optionptr);
+uint8_t *get_option_data(struct dhcpMessage *packet, int code, ssize_t *optlen);
+int get_end_option_idx(uint8_t *optbuf, size_t bufsize);
 int add_option_string(unsigned char *optionptr, unsigned char *string);
 int add_simple_option(unsigned char *optionptr, unsigned char code, uint32_t data);
 

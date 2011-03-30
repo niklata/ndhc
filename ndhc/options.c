@@ -174,10 +174,10 @@ unsigned char *alloc_dhcp_client_id_option(unsigned char type,
 	return alloc_option(DHCP_CLIENT_ID, data, sizeof data);
 }
 
-// Worker function for get_option().  Optlen will be set to the length
+// Worker function for get_option_data().  Optlen will be set to the length
 // of the option data.
-static uint8_t *do_get_option(uint8_t *buf, ssize_t buflen, int code,
-							  char *overload, ssize_t *optlen)
+static uint8_t *do_get_option_data(uint8_t *buf, ssize_t buflen, int code,
+								   char *overload, ssize_t *optlen)
 {
 	/* option bytes: [code][len]([data1][data2]..[dataLEN]) */
 	*overload = 0;
@@ -221,7 +221,7 @@ static uint8_t *do_get_option(uint8_t *buf, ssize_t buflen, int code,
 
 // Get an option with bounds checking (warning, result is not aligned)
 // optlen will be equal to the length of the option data.
-uint8_t *get_option(struct dhcpMessage *packet, int code, ssize_t *optlen)
+uint8_t *get_option_data(struct dhcpMessage *packet, int code, ssize_t *optlen)
 {
 	uint8_t *option, *buf;
 	ssize_t buflen;
@@ -230,40 +230,45 @@ uint8_t *get_option(struct dhcpMessage *packet, int code, ssize_t *optlen)
 	buf = packet->options;
 	buflen = sizeof packet->options;
 
-	option = do_get_option(buf, buflen, code, &overload, optlen);
+	option = do_get_option_data(buf, buflen, code, &overload, optlen);
 	if (option)
 		return option;
 
 	if (overload & 1) {
 		parsed_ff = 1;
-		option = do_get_option(packet->file, sizeof packet->file,
-							   code, &overload, optlen);
+		option = do_get_option_data(packet->file, sizeof packet->file,
+									code, &overload, optlen);
 		if (option)
 			return option;
 	}
 	if (overload & 2) {
-		option = do_get_option(packet->sname, sizeof packet->sname,
-							   code, &overload, optlen);
+		option = do_get_option_data(packet->sname, sizeof packet->sname,
+									code, &overload, optlen);
 		if (option)
 			return option;
 		if (!parsed_ff && overload & 1)
-			option = do_get_option(packet->file, sizeof packet->file,
-								   code, &overload, optlen);
+			option = do_get_option_data(packet->file, sizeof packet->file,
+										code, &overload, optlen);
 	}
 	return option;
 }
 
 /* return the position of the 'end' option */
-int end_option(uint8_t *optionptr)
+int get_end_option_idx(uint8_t *optbuf, size_t bufsize)
 {
 	int i = 0;
-
-	while (i < DHCP_OPTIONS_BUFSIZE && optionptr[i] != DHCP_END) {
-		if (optionptr[i] != DHCP_PADDING)
-			i += optionptr[i + OPT_LEN] + OPT_DATA - 1;
-		i++;
+	while (i < bufsize && optbuf[i] != DHCP_END) {
+		if (optbuf[i] != DHCP_PADDING)
+			i += optbuf[i+1] + 2;
+		else
+			i++;
 	}
-	return (i < DHCP_OPTIONS_BUFSIZE - 1 ? i : DHCP_OPTIONS_BUFSIZE - 1);
+	if (i < bufsize - 1)
+		return i;
+	else {
+		log_warning("get_end_option_idx(): did not find DHCP_END marker");
+		return bufsize - 1;
+	}
 }
 
 
@@ -271,7 +276,8 @@ int end_option(uint8_t *optionptr)
  * code, length, then data) */
 int add_option_string(unsigned char *optionptr, unsigned char *string)
 {
-	int end = end_option(optionptr);
+	// XXX: not real length
+	int end = get_end_option_idx(optionptr, DHCP_OPTIONS_BUFSIZE);
 
 	/* end position + string length + option code/length + end option */
 	if (end + string[OPT_LEN] + 2 + 1 >= DHCP_OPTIONS_BUFSIZE) {
@@ -319,7 +325,8 @@ int add_simple_option(unsigned char *optionptr, unsigned char code,
 /* checking here because it goes towards the head of the packet. */
 void add_requests(struct dhcpMessage *packet)
 {
-    int end = end_option(packet->options);
+	// XXX: not real length
+    int end = get_end_option_idx(packet->options, DHCP_OPTIONS_BUFSIZE);
     int i, len = 0;
 
     packet->options[end + OPT_CODE] = DHCP_PARAM_REQ;

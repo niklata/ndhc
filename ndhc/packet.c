@@ -105,7 +105,8 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
      * In order to work with those buggy servers,
      * we truncate packets after end option byte.
      */
-    padding = DHCP_OPTIONS_BUFSIZE - 1 - end_option(packet.data.options);
+    padding = DHCP_OPTIONS_BUFSIZE - 1 - get_end_option_idx(packet.data.options,
+                                                    DHCP_OPTIONS_BUFSIZE);
 
     packet.ip.protocol = IPPROTO_UDP;
     packet.ip.saddr = source_ip;
@@ -164,7 +165,8 @@ int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
     if (connect(fd, (struct sockaddr *)&client, sizeof(struct sockaddr)) == -1)
 	goto out_fd;
 
-    padding = DHCP_OPTIONS_BUFSIZE - 1 - end_option(payload->options);
+    padding = DHCP_OPTIONS_BUFSIZE - 1 - get_end_option_idx(payload->options,
+                                                    DHCP_OPTIONS_BUFSIZE);
     result = safe_write(fd, (const char *)payload, DHCP_SIZE - padding);
     if (result == -1)
 	log_error("kernel_packet: write failed: %s", strerror(errno));
@@ -210,7 +212,7 @@ static void init_selecting_packet(struct client_state_t *cs,
     ssize_t optlen;
     /* Must be a DHCPOFFER to one of our xid's */
     if (*message == DHCPOFFER) {
-        if ((temp = get_option(packet, DHCP_SERVER_ID, &optlen))) {
+        if ((temp = get_option_data(packet, DHCP_SERVER_ID, &optlen))) {
             /* Memcpy to a temp buffer to force alignment */
             memcpy(&cs->serverAddr, temp, 4);
             cs->xid = packet->xid;
@@ -233,7 +235,7 @@ static void dhcp_ack_or_nak_packet(struct client_state_t *cs,
     unsigned char *temp = NULL;
     ssize_t optlen;
     if (*message == DHCPACK) {
-        if (!(temp = get_option(packet, DHCP_LEASE_TIME, &optlen))) {
+        if (!(temp = get_option_data(packet, DHCP_LEASE_TIME, &optlen))) {
             log_line("No lease time received, assuming 1h.");
             cs->lease = 60 * 60;
         } else {
@@ -293,7 +295,8 @@ void handle_packet(struct client_state_t *cs)
         return;
     }
 
-    if ((message = get_option(&packet, DHCP_MESSAGE_TYPE, &optlen)) == NULL) {
+    if ((message = get_option_data(&packet, DHCP_MESSAGE_TYPE, &optlen))
+        == NULL) {
         log_line("couldnt get option from packet -- ignoring");
         return;
     }

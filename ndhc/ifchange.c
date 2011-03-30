@@ -1,5 +1,5 @@
 /* ifchange.c - functions to call the interface change daemon
- * Time-stamp: <2011-03-30 11:33:42 nk>
+ * Time-stamp: <2011-03-30 12:02:55 nk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -180,7 +180,7 @@ static void send_cmd(int sockfd, struct dhcpMessage *packet,
         return;
 
     memset(buf, '\0', sizeof buf);
-    optdata = get_option(packet, code, &optlen);
+    optdata = get_option_data(packet, code, &optlen);
     if (ifchd_cmd(buf, sizeof buf, optdata, optlen, code, option_type(code),
                   option_name(code)) == -1)
         return;
