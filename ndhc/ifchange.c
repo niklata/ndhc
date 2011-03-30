@@ -1,5 +1,5 @@
 /* ifchange.c - functions to call the interface change daemon
- * Time-stamp: <2011-03-30 13:14:37 nk>
+ * Time-stamp: <2011-03-30 16:37:33 nk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -170,11 +170,10 @@ static void deconfig_if(void)
     close(sockfd);
 }
 
-static void send_cmd(int sockfd, struct dhcpMessage *packet,
-                             unsigned char code)
+static void send_cmd(int sockfd, struct dhcpMessage *packet, uint8_t code)
 {
     char buf[256];
-    unsigned char *optdata;
+    uint8_t *optdata;
     ssize_t optlen;
 
     if (!packet)
