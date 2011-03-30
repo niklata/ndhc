@@ -75,24 +75,12 @@ static int fill_options(char *dest, unsigned char *option,
 
     dest += snprintf(dest, maxlen, "%s=", type_p->name);
 
-    type = type_p->flags & TYPE_MASK;
+    type = type_p->type;
     optlen = option_lengths[type];
     for(;;) {
         switch (type) {
-            case OPTION_IP_PAIR:
-                dest += sprintip(dest, maxlen - (dest - odest), "", option);
-                *(dest++) = '/';
-                option += 4;
-                optlen = 4;
-                dest += sprintip(dest, maxlen - (dest - odest), "", option);
-                optlen = option_lengths[type];
-                break;
             case OPTION_IP: /* Works regardless of host byte order. */
                 dest += sprintip(dest, maxlen - (dest - odest), "", option);
-                break;
-            case OPTION_BOOLEAN:
-                dest += snprintf(dest, maxlen - (dest - odest),
-								 *option ? "yes " : "no ");
                 break;
             case OPTION_U8:
                 dest += snprintf(dest, maxlen - (dest - odest),

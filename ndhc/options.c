@@ -21,7 +21,7 @@ enum {
 
 /* supported options are easily added here */
 struct dhcp_option options[] = {
-    /* name[10]     flags                                   code */
+    /* name[10]     type                                    code */
     {"subnet"   ,   OPTION_IP,                              0x01},
     {"timezone" ,   OPTION_S32,                             0x02},
     {"router"   ,   OPTION_IP,                              0x03},
@@ -55,8 +55,6 @@ struct dhcp_option options[] = {
 /* Lengths of the different option types */
 int option_lengths[] = {
 	[OPTION_IP] =       4,
-	[OPTION_IP_PAIR] =  8,
-	[OPTION_BOOLEAN] =  1,
 	[OPTION_STRING] =   1,
 	[OPTION_U8] =       1,
 	[OPTION_U16] =      2,
@@ -216,7 +214,7 @@ int add_simple_option(unsigned char *optionptr, unsigned char code,
 
 	for (i = 0; options[i].code; i++)
 		if (options[i].code == code) {
-			length = option_lengths[options[i].flags & TYPE_MASK];
+			length = option_lengths[(size_t)options[i].type];
 		}
 
 	log_line("aso(): code=0x%02x length=0x%02x", code, length);

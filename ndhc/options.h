@@ -4,8 +4,6 @@
 
 #include "packet.h"
 
-#define TYPE_MASK	0x0F
-
 #define DHCP_OPTIONS_BUFSIZE    308
 
 /* DHCP option codes (partial list) */
@@ -55,9 +53,7 @@
 
 enum {
 	OPTION_IP=1,
-	OPTION_IP_PAIR,
 	OPTION_STRING,
-	OPTION_BOOLEAN,
 	OPTION_U8,
 	OPTION_U16,
 	OPTION_S16,
@@ -67,7 +63,7 @@ enum {
 
 struct dhcp_option {
 	char name[10];
-	char flags;
+	char type;
 	unsigned char code;
 };
 
