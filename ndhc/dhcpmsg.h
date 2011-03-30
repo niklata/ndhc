@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#define DHCP_MAGIC              0x63825363
+
 uint32_t random_xid(void);
 int send_discover(uint32_t xid, uint32_t requested);
 int send_selecting(uint32_t xid, uint32_t server, uint32_t requested);
