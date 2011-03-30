@@ -222,14 +222,14 @@ static void bound_if(struct dhcpMessage *packet)
     snprintf(buf, sizeof buf, "ip:%s:", ip);
     sockwrite(sockfd, buf, strlen(buf));
 
-    translate_option(sockfd, packet, 0);
-    translate_option(sockfd, packet, 2);
-    translate_option(sockfd, packet, 5);
-    translate_option(sockfd, packet, 9);
-    translate_option(sockfd, packet, 11);
-    translate_option(sockfd, packet, 15);
-    translate_option(sockfd, packet, 16);
-    translate_option(sockfd, packet, 17);
+    translate_option(sockfd, packet, 0); // Subnet
+    translate_option(sockfd, packet, 2); // Router
+    translate_option(sockfd, packet, 5); // DNS
+    translate_option(sockfd, packet, 9); // Hostname
+    translate_option(sockfd, packet, 11); // Domain
+    translate_option(sockfd, packet, 15); // MTU
+    translate_option(sockfd, packet, 16); // Broadcast
+    translate_option(sockfd, packet, 17); // WINS
 
     close(sockfd);
 }
