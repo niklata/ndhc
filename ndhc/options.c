@@ -1,5 +1,5 @@
 /* options.c - DHCP options handling
- * Time-stamp: <2011-03-30 16:34:41 nk>
+ * Time-stamp: <2011-03-30 16:41:03 nk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -293,7 +293,6 @@ size_t add_u32_option(uint8_t *optbuf, size_t buflen, uint8_t code,
 
     length = option_length(code);
 
-    log_line("add_u32_option: code=0x%02x length=0x%02x", code, length);
     option[0] = code;
     option[1] = length;
 
