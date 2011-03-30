@@ -65,7 +65,6 @@ enum {
 	OPTION_S32
 };
 
-#define OPTION_REQ	0x10 /* have the client request this option */
 #define OPTION_LIST	0x20 /* There can be a list of 1 or more of these */
 
 struct dhcp_option {

@@ -176,20 +176,31 @@ static void deconfig_if(void)
     close(sockfd);
 }
 
-static void translate_option(int sockfd, struct dhcpMessage *packet, int opt)
+static void translate_option(int sockfd, struct dhcpMessage *packet,
+                             unsigned char code)
 {
     char buf[256], buf2[256];
     unsigned char *p;
     int i;
+    struct dhcp_option *opt = NULL;
 
     if (!packet)
+        return;
+
+    for (i = 0; options[i].code; ++i) {
+        if (options[i].code == code) {
+            opt = &options[i];
+            break;
+        }
+    }
+    if (!opt)
         return;
 
     memset(buf, '\0', sizeof(buf));
     memset(buf2, '\0', sizeof(buf2));
 
-    p = get_option(packet, options[opt].code);
-    if (fill_options(buf2, p, &options[opt], sizeof buf2 - 1) == -1)
+    p = get_option(packet, code);
+    if (fill_options(buf2, p, opt, sizeof buf2 - 1) == -1)
         return;
     snprintf(buf, sizeof buf, "%s:", buf2);
     for (i = 0; i < 256; i++) {
@@ -221,14 +232,14 @@ static void bound_if(struct dhcpMessage *packet)
     snprintf(buf, sizeof buf, "ip:%s:", ip);
     sockwrite(sockfd, buf, strlen(buf));
 
-    translate_option(sockfd, packet, 0); // Subnet
-    translate_option(sockfd, packet, 2); // Router
-    translate_option(sockfd, packet, 5); // DNS
-    translate_option(sockfd, packet, 9); // Hostname
-    translate_option(sockfd, packet, 11); // Domain
-    translate_option(sockfd, packet, 15); // MTU
-    translate_option(sockfd, packet, 16); // Broadcast
-    translate_option(sockfd, packet, 17); // WINS
+    translate_option(sockfd, packet, DHCP_SUBNET);
+    translate_option(sockfd, packet, DHCP_ROUTER);
+    translate_option(sockfd, packet, DHCP_DNS_SERVER);
+    translate_option(sockfd, packet, DHCP_HOST_NAME);
+    translate_option(sockfd, packet, DHCP_DOMAIN_NAME);
+    translate_option(sockfd, packet, DHCP_MTU);
+    translate_option(sockfd, packet, DHCP_BROADCAST);
+    translate_option(sockfd, packet, DHCP_WINS_SERVER);
 
     close(sockfd);
 }

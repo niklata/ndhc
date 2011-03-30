@@ -22,23 +22,23 @@ enum {
 /* supported options are easily added here */
 struct dhcp_option options[] = {
     /* name[10]     flags                                   code */
-    {"subnet"   ,   OPTION_IP | OPTION_REQ,                 0x01},
+    {"subnet"   ,   OPTION_IP,                              0x01},
     {"timezone" ,   OPTION_S32,                             0x02},
-    {"router"   ,   OPTION_IP | OPTION_LIST | OPTION_REQ,   0x03},
+    {"router"   ,   OPTION_IP | OPTION_LIST,                0x03},
     {"timesvr"  ,   OPTION_IP | OPTION_LIST,                0x04},
     {"namesvr"  ,   OPTION_IP | OPTION_LIST,                0x05},
-    {"dns"      ,   OPTION_IP | OPTION_LIST | OPTION_REQ,   0x06},
+    {"dns"      ,   OPTION_IP | OPTION_LIST,                0x06},
     {"logsvr"   ,   OPTION_IP | OPTION_LIST,                0x07},
     {"cookiesvr",   OPTION_IP | OPTION_LIST,                0x08},
     {"lprsvr"   ,   OPTION_IP | OPTION_LIST,                0x09},
-    {"hostname" ,   OPTION_STRING | OPTION_REQ,             0x0c},
+    {"hostname" ,   OPTION_STRING,                          0x0c},
     {"bootsize" ,   OPTION_U16,                             0x0d},
-    {"domain"   ,   OPTION_STRING | OPTION_REQ,             0x0f},
+    {"domain"   ,   OPTION_STRING,                          0x0f},
     {"swapsvr"  ,   OPTION_IP,                              0x10},
     {"rootpath" ,   OPTION_STRING,                          0x11},
     {"ipttl"    ,   OPTION_U8,                              0x17},
     {"mtu"      ,   OPTION_U16,                             0x1a},
-    {"broadcast",   OPTION_IP | OPTION_REQ,                 0x1c},
+    {"broadcast",   OPTION_IP,                              0x1c},
     {"ntpsrv"   ,   OPTION_IP | OPTION_LIST,                0x2a},
     {"wins"     ,   OPTION_IP | OPTION_LIST,                0x2c},
     {"requestip",   OPTION_IP,                              0x32},
@@ -46,6 +46,7 @@ struct dhcp_option options[] = {
     {"dhcptype" ,   OPTION_U8,                              0x35},
     {"serverid" ,   OPTION_IP,                              0x36},
     {"message"  ,   OPTION_STRING,                          0x38},
+    {"maxsize"  ,   OPTION_U16,                             0x39},
     {"tftp"     ,   OPTION_STRING,                          0x42},
     {"bootfile" ,   OPTION_STRING,                          0x43},
     {""         ,   0x00,                                   0x00}
@@ -249,18 +250,28 @@ struct option_set *find_option(struct option_set *opt_list, char code)
 	return NULL;
 }
 
-/* Add a paramater request list for stubborn DHCP servers. Pull the data
- * from the struct in options.c. Don't do bounds checking here because it
- * goes towards the head of the packet. */
+// List of options that will be sent on the parameter request list to the
+// remote DHCP server.
+static unsigned char req_opts[] = {
+	DHCP_SUBNET,
+	DHCP_ROUTER,
+	DHCP_DNS_SERVER,
+	DHCP_HOST_NAME,
+	DHCP_DOMAIN_NAME,
+	DHCP_BROADCAST,
+	0x00
+};
+
+/* Add a paramater request list for stubborn DHCP servers.  Don't do bounds */
+/* checking here because it goes towards the head of the packet. */
 void add_requests(struct dhcpMessage *packet)
 {
     int end = end_option(packet->options);
     int i, len = 0;
 
     packet->options[end + OPT_CODE] = DHCP_PARAM_REQ;
-    for (i = 0; options[i].code; i++)
-        if (options[i].flags & OPTION_REQ)
-            packet->options[end + OPT_DATA + len++] = options[i].code;
+    for (i = 0; req_opts[i]; i++)
+		packet->options[end + OPT_DATA + len++] = req_opts[i];
     packet->options[end + OPT_LEN] = len;
     packet->options[end + OPT_DATA + len] = DHCP_END;
 }
