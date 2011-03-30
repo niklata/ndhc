@@ -49,19 +49,56 @@ struct dhcp_option options[] = {
     {"maxsize"  ,   OPTION_U16,                             0x39},
     {"tftp"     ,   OPTION_STRING,                          0x42},
     {"bootfile" ,   OPTION_STRING,                          0x43},
-    {""         ,   0x00,                                   0x00}
+    {""         ,   OPTION_NONE,                            0x00}
 };
 
-/* Lengths of the different option types */
-int option_lengths[] = {
-	[OPTION_IP] =       4,
-	[OPTION_STRING] =   1,
-	[OPTION_U8] =       1,
-	[OPTION_U16] =      2,
-	[OPTION_S16] =      2,
-	[OPTION_U32] =      4,
-	[OPTION_S32] =      4
+// List of options that will be sent on the parameter request list to the
+// remote DHCP server.
+static unsigned char req_opts[] = {
+	DHCP_SUBNET,
+	DHCP_ROUTER,
+	DHCP_DNS_SERVER,
+	DHCP_HOST_NAME,
+	DHCP_DOMAIN_NAME,
+	DHCP_BROADCAST,
+	0x00
 };
+
+static unsigned char list_opts[] = {
+	DHCP_ROUTER,
+	DHCP_TIME_SERVER,
+	DHCP_NAME_SERVER,
+	DHCP_DNS_SERVER,
+	DHCP_LOG_SERVER,
+	DHCP_COOKIE_SERVER,
+	DHCP_LPR_SERVER,
+	DHCP_NTP_SERVER,
+	DHCP_WINS_SERVER,
+	0x00
+};
+
+uint8_t option_length(enum option_type type)
+{
+	switch (type) {
+		case OPTION_IP: return 4;
+		case OPTION_STRING: return 1; // XXX ?
+		case OPTION_U8: return 1;
+		case OPTION_U16: return 2;
+		case OPTION_S16: return 2;
+		case OPTION_U32: return 4;
+		case OPTION_S32: return 4;
+		default: return 0;
+	}
+}
+
+int option_valid_list(uint8_t code)
+{
+	int i;
+	for (i = 0; i < sizeof list_opts; ++i)
+		if (list_opts[i] == code)
+			return 1;
+	return 0;
+}
 
 size_t sizeof_option(unsigned char code, size_t datalen)
 {
@@ -229,7 +266,7 @@ int add_simple_option(unsigned char *optionptr, unsigned char code,
 
 	for (i = 0; options[i].code; i++)
 		if (options[i].code == code) {
-			length = option_lengths[(size_t)options[i].type];
+			length = option_length(options[i].type);
 		}
 
 	log_line("aso(): code=0x%02x length=0x%02x", code, length);
@@ -251,18 +288,6 @@ int add_simple_option(unsigned char *optionptr, unsigned char code,
 	}
 	return add_option_string(optionptr, option);
 }
-
-// List of options that will be sent on the parameter request list to the
-// remote DHCP server.
-static unsigned char req_opts[] = {
-	DHCP_SUBNET,
-	DHCP_ROUTER,
-	DHCP_DNS_SERVER,
-	DHCP_HOST_NAME,
-	DHCP_DOMAIN_NAME,
-	DHCP_BROADCAST,
-	0x00
-};
 
 /* Add a paramater request list for stubborn DHCP servers.  Don't do bounds */
 /* checking here because it goes towards the head of the packet. */

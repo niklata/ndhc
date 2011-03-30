@@ -51,8 +51,9 @@
 #define DHCP_WPAD               0xfc
 #define DHCP_END                0xff
 
-enum {
-	OPTION_IP=1,
+enum option_type {
+	OPTION_NONE = 0,
+	OPTION_IP,
 	OPTION_STRING,
 	OPTION_U8,
 	OPTION_U16,
@@ -63,13 +64,14 @@ enum {
 
 struct dhcp_option {
 	char name[10];
-	char type;
+	enum option_type type;
 	unsigned char code;
 };
 
 extern struct dhcp_option options[];
-extern int option_lengths[];
 
+uint8_t option_length(enum option_type type);
+int option_valid_list(uint8_t code);
 size_t sizeof_option(unsigned char code, size_t datalen);
 size_t set_option(unsigned char *buf, size_t buflen, unsigned char code,
 				  unsigned char *optdata, size_t datalen);

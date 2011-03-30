@@ -57,26 +57,39 @@ static int sprintip(char *dest, size_t size, char *pre, unsigned char *ip)
 
 /* Fill dest with the text of option 'option'. */
 /* Returns 0 if successful, -1 if nothing was filled in. */
-static int fill_options(char *dest, unsigned char *option,
-						 struct dhcp_option *type_p, unsigned int maxlen)
+static int fill_options(char *dest, unsigned char *option, ssize_t optlen,
+                        struct dhcp_option *type_p, unsigned int maxlen)
 {
-    int type, optlen;
-    uint16_t val_u16;
-    int16_t val_s16;
+    char *odest;
+    enum option_type type = type_p->type;
+    ssize_t typelen = option_length(type);
     uint32_t val_u32;
     int32_t val_s32;
-    char *odest;
+    uint16_t val_u16;
+    int16_t val_s16;
+    uint8_t code = type_p->code;
 
     if (!option)
         return -1;
+    if (optlen != typelen) {
+        if (option_valid_list(code)) {
+            if ((optlen % typelen)) {
+                log_warning("Bad data received - option list size mismatch: code=0x%02x proplen=0x%02x optlen=0x%02x",
+                            code, typelen, optlen);
+                return -1;
+            }
+        } else {
+            log_warning("Bad data received - option size mismatch: code=0x%02x proplen=0x%02x optlen=0x%02x",
+                        code, typelen, optlen);
+            return -1;
+        }
+    }
     int len = option[-1]; // XXX: WTF ugly as all hell
 
     odest = dest;
 
     dest += snprintf(dest, maxlen, "%s=", type_p->name);
 
-    type = type_p->type;
-    optlen = option_lengths[type];
     for(;;) {
         switch (type) {
             case OPTION_IP: /* Works regardless of host byte order. */
@@ -112,9 +125,11 @@ static int fill_options(char *dest, unsigned char *option,
                 memcpy(dest, option, len);
                 dest[len] = '\0';
                 return 0;  /* Short circuit this case */
+            case OPTION_NONE:
+                return 0;
         }
-        option += optlen;
-        len -= optlen;
+        option += typelen;
+        len -= typelen;
         if (len <= 0)
             break;
         *(dest++) = ':';
@@ -189,7 +204,7 @@ static void translate_option(int sockfd, struct dhcpMessage *packet,
     memset(buf2, '\0', sizeof(buf2));
 
     p = get_option(packet, code, &optlen);
-    if (fill_options(buf2, p, opt, sizeof buf2 - 1) == -1)
+    if (fill_options(buf2, p, optlen, opt, sizeof buf2 - 1) == -1)
         return;
     snprintf(buf, sizeof buf, "%s:", buf2);
     for (i = 0; i < 256; i++) {
