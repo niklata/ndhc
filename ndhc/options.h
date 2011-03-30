@@ -88,6 +88,15 @@ struct option_set {
 extern struct dhcp_option options[];
 extern int option_lengths[];
 
+size_t sizeof_option(unsigned char code, size_t datalen);
+size_t set_option(unsigned char *buf, size_t buflen, unsigned char code,
+				  unsigned char *optdata, size_t datalen);
+unsigned char *alloc_option(unsigned char code, unsigned char *optdata,
+							size_t datalen);
+
+unsigned char *alloc_dhcp_client_id_option(unsigned char type,
+										   unsigned char *idstr, size_t idstrlen);
+
 uint8_t *get_option(struct dhcpMessage *packet, int code);
 int end_option(uint8_t *optionptr);
 int add_option_string(unsigned char *optionptr, unsigned char *string);

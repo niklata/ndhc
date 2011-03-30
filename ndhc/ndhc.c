@@ -296,10 +296,8 @@ int main(int argc, char **argv)
                 len = strlen(optarg) > 64 ? 64 : strlen(optarg);
                 if (client_config.clientid)
                     free(client_config.clientid);
-                client_config.clientid = xmalloc(len + 3);
-                client_config.clientid[OPT_CODE] = DHCP_CLIENT_ID;
-                client_config.clientid[OPT_LEN] = len + 1;
-                memcpy(client_config.clientid + 3, optarg, len);
+                client_config.clientid =
+                    alloc_dhcp_client_id_option(0, (unsigned char *)optarg, len);
                 break;
             case 'f':
                 client_config.foreground = 1;
@@ -317,10 +315,8 @@ int main(int argc, char **argv)
                 len = strlen(optarg) > 64 ? 64 : strlen(optarg);
                 if (client_config.hostname)
                     free(client_config.hostname);
-                client_config.hostname = xmalloc(len + 3);
-                client_config.hostname[OPT_CODE] = DHCP_HOST_NAME;
-                client_config.hostname[OPT_LEN] = len + 1;
-                memcpy(client_config.hostname + 3, optarg, len);
+                client_config.hostname =
+                    alloc_option(DHCP_HOST_NAME, (unsigned char *)optarg, len);
                 break;
             case 'i':
                 client_config.interface = optarg;
@@ -376,11 +372,8 @@ int main(int argc, char **argv)
     }
 
     if (!client_config.clientid) {
-        client_config.clientid = xmalloc(6 + 3);
-        client_config.clientid[OPT_CODE] = DHCP_CLIENT_ID;
-        client_config.clientid[OPT_LEN] = 7;
-        client_config.clientid[OPT_DATA] = 1;
-        memcpy(client_config.clientid + 3, client_config.arp, 6);
+        client_config.clientid =
+            alloc_dhcp_client_id_option(1, client_config.arp, 6);
     }
 
     if (chdir(chroot_dir)) {

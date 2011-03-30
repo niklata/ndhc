@@ -8,8 +8,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "log.h"
 #include "options.h"
+
+#include "log.h"
+#include "malloc.h"
 
 /* supported options are easily added here */
 struct dhcp_option options[] = {
@@ -56,6 +58,55 @@ int option_lengths[] = {
 	[OPTION_S32] =      4
 };
 
+size_t sizeof_option(unsigned char code, size_t datalen)
+{
+	if (code == DHCP_PADDING || code == DHCP_END)
+		return 1;
+	return 2 + datalen;
+}
+
+// optdata can be NULL
+size_t set_option(unsigned char *buf, size_t buflen, unsigned char code,
+				  unsigned char *optdata, size_t datalen)
+{
+	if (!optdata)
+		datalen = 0;
+	if (code == DHCP_PADDING || code == DHCP_END) {
+		if (buflen < 1)
+			return 0;
+		buf[0] = code;
+		return 1;
+	}
+
+	if (datalen > 255 || buflen < 2 + datalen)
+		return 0;
+	buf[0] = code;
+	buf[1] = datalen;
+	memcpy(buf + 2, optdata, datalen);
+	return 2 + datalen;
+}
+
+unsigned char *alloc_option(unsigned char code, unsigned char *optdata,
+							size_t datalen)
+{
+	unsigned char *ret;
+	size_t len = sizeof_option(code, datalen);
+	ret = xmalloc(len);
+	set_option(ret, len, code, optdata, datalen);
+	return ret;
+}
+
+// This is tricky -- the data must be prefixed by one byte indicating the
+// type of ARP MAC address (1 for ethernet) or 0 for a purely symbolic
+// identifier.
+unsigned char *alloc_dhcp_client_id_option(unsigned char type,
+										   unsigned char *idstr, size_t idstrlen)
+{
+	unsigned char data[idstrlen + 1];
+	data[0] = type;
+	memcpy(data + 1, idstr, idstrlen);
+	return alloc_option(DHCP_CLIENT_ID, data, sizeof data);
+}
 
 /* Get an option with bounds checking (warning, result is not aligned) */
 uint8_t* get_option(struct dhcpMessage *packet, int code)
@@ -161,6 +212,7 @@ int add_simple_option(unsigned char *optionptr, unsigned char code,
 			length = option_lengths[options[i].flags & TYPE_MASK];
 		}
 
+	log_line("aso(): code=0x%02x length=0x%02x", code, length);
 	option[OPT_CODE] = code;
 	option[OPT_LEN] = (unsigned char)length;
 
