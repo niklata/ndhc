@@ -1,5 +1,5 @@
 /* options.c - DHCP options handling
- * Time-stamp: <2011-03-30 15:52:12 nk>
+ * Time-stamp: <2011-03-30 16:01:18 nk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -23,14 +23,13 @@
 #include <string.h>
 
 #include "options.h"
-
 #include "log.h"
 #include "malloc.h"
 
 struct dhcp_option {
 	char name[10];
 	enum option_type type;
-	unsigned char code;
+	uint8_t code;
 };
 
 /* supported options are easily added here */
@@ -68,7 +67,7 @@ static struct dhcp_option options[] = {
 
 // List of options that will be sent on the parameter request list to the
 // remote DHCP server.
-static unsigned char req_opts[] = {
+static uint8_t req_opts[] = {
 	DHCP_SUBNET,
 	DHCP_ROUTER,
 	DHCP_DNS_SERVER,
@@ -78,7 +77,7 @@ static unsigned char req_opts[] = {
 	0x00
 };
 
-static unsigned char list_opts[] = {
+static uint8_t list_opts[] = {
 	DHCP_ROUTER,
 	DHCP_TIME_SERVER,
 	DHCP_NAME_SERVER,
@@ -142,7 +141,7 @@ int option_valid_list(uint8_t code)
 	return 0;
 }
 
-size_t sizeof_option(unsigned char code, size_t datalen)
+size_t sizeof_option(uint8_t code, size_t datalen)
 {
 	if (code == DHCP_PADDING || code == DHCP_END)
 		return 1;
@@ -150,8 +149,8 @@ size_t sizeof_option(unsigned char code, size_t datalen)
 }
 
 // optdata can be NULL
-size_t set_option(unsigned char *buf, size_t buflen, unsigned char code,
-				  unsigned char *optdata, size_t datalen)
+size_t set_option(uint8_t *buf, size_t buflen, uint8_t code, uint8_t *optdata,
+				  size_t datalen)
 {
 	if (!optdata)
 		datalen = 0;
@@ -170,10 +169,9 @@ size_t set_option(unsigned char *buf, size_t buflen, unsigned char code,
 	return 2 + datalen;
 }
 
-unsigned char *alloc_option(unsigned char code, unsigned char *optdata,
-							size_t datalen)
+uint8_t *alloc_option(uint8_t code, uint8_t *optdata, size_t datalen)
 {
-	unsigned char *ret;
+	uint8_t *ret;
 	size_t len = sizeof_option(code, datalen);
 	ret = xmalloc(len);
 	set_option(ret, len, code, optdata, datalen);
@@ -183,10 +181,10 @@ unsigned char *alloc_option(unsigned char code, unsigned char *optdata,
 // This is tricky -- the data must be prefixed by one byte indicating the
 // type of ARP MAC address (1 for ethernet) or 0 for a purely symbolic
 // identifier.
-unsigned char *alloc_dhcp_client_id_option(unsigned char type,
-										   unsigned char *idstr, size_t idstrlen)
+uint8_t *alloc_dhcp_client_id_option(uint8_t type, uint8_t *idstr,
+									 size_t idstrlen)
 {
-	unsigned char data[idstrlen + 1];
+	uint8_t data[idstrlen + 1];
 	data[0] = type;
 	memcpy(data + 1, idstr, idstrlen);
 	return alloc_option(DHCP_CLIENT_ID, data, sizeof data);
@@ -339,7 +337,7 @@ size_t add_u32_option(uint8_t *optbuf, size_t buflen, uint8_t code,
 }
 
 /* Add a paramater request list for stubborn DHCP servers */
-void add_option_request_list(struct dhcpMessage *packet)
+void add_option_request_list(uint8_t *optbuf, size_t buflen)
 {
     int i;
 	uint8_t reqdata[sizeof req_opts + 1];
@@ -348,5 +346,5 @@ void add_option_request_list(struct dhcpMessage *packet)
 	reqdata[1] = sizeof reqdata - 2;
     for (i = 0; req_opts[i]; i++)
 		reqdata[i + 2] = req_opts[i];
-	add_option_string(packet->options, DHCP_OPTIONS_BUFSIZE, reqdata);
+	add_option_string(optbuf, buflen, reqdata);
 }

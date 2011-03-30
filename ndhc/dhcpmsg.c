@@ -127,7 +127,7 @@ int send_discover(uint32_t xid, uint32_t requested)
     /* Request a RFC-specified max size to work around buggy servers. */
     add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE,
                    DHCP_MAX_SIZE, htons(576));
-    add_option_request_list(&packet);
+    add_option_request_list(packet.options, DHCP_OPTIONS_BUFSIZE);
     log_line("Sending discover...");
     return bcast_raw_packet(&packet);
 }
@@ -145,7 +145,7 @@ int send_selecting(uint32_t xid, uint32_t server, uint32_t requested)
                    requested);
     add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_SERVER_ID, server);
 
-    add_option_request_list(&packet);
+    add_option_request_list(packet.options, DHCP_OPTIONS_BUFSIZE);
     addr.s_addr = requested;
     log_line("Sending select for %s...", inet_ntoa(addr));
     return bcast_raw_packet(&packet);
@@ -160,7 +160,7 @@ int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr)
     packet.xid = xid;
     packet.ciaddr = ciaddr;
 
-    add_option_request_list(&packet);
+    add_option_request_list(packet.options, DHCP_OPTIONS_BUFSIZE);
     log_line("Sending renew...");
     if (server)
         return kernel_packet(&packet, ciaddr, DHCP_CLIENT_PORT, server,
