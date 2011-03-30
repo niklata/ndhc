@@ -79,7 +79,8 @@ static void init_header(struct dhcpMessage *packet, char type)
     packet->hlen = 6; // ETH_10MB_LEN
     packet->cookie = htonl(DHCP_MAGIC);
     packet->options[0] = DHCP_END;
-    add_simple_option(packet->options, DHCP_MESSAGE_TYPE, type);
+    add_u32_option(packet->options, DHCP_OPTIONS_BUFSIZE, DHCP_MESSAGE_TYPE,
+                   type);
 }
 
 /* initialize a packet with the proper defaults */
@@ -93,10 +94,13 @@ static void init_packet(struct dhcpMessage *packet, char type)
 
     init_header(packet, type);
     memcpy(packet->chaddr, client_config.arp, 6);
-    add_option_string(packet->options, client_config.clientid);
+    add_option_string(packet->options, DHCP_OPTIONS_BUFSIZE,
+                      client_config.clientid);
     if (client_config.hostname)
-        add_option_string(packet->options, client_config.hostname);
-    add_option_string(packet->options, (unsigned char *)&vendor_id);
+        add_option_string(packet->options, DHCP_OPTIONS_BUFSIZE,
+                          client_config.hostname);
+    add_option_string(packet->options, DHCP_OPTIONS_BUFSIZE,
+                      (unsigned char *)&vendor_id);
 }
 
 #define MAC_BCAST_ADDR  (unsigned char *) "\xff\xff\xff\xff\xff\xff"
@@ -117,11 +121,13 @@ int send_discover(uint32_t xid, uint32_t requested)
     init_packet(&packet, DHCPDISCOVER);
     packet.xid = xid;
     if (requested)
-        add_simple_option(packet.options, DHCP_REQUESTED_IP, requested);
+        add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_REQUESTED_IP,
+                       requested);
 
     /* Request a RFC-specified max size to work around buggy servers. */
-    add_simple_option(packet.options, DHCP_MAX_SIZE, htons(576));
-    add_requests(&packet);
+    add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE,
+                   DHCP_MAX_SIZE, htons(576));
+    add_option_request_list(&packet);
     log_line("Sending discover...");
     return bcast_raw_packet(&packet);
 }
@@ -135,10 +141,11 @@ int send_selecting(uint32_t xid, uint32_t server, uint32_t requested)
     init_packet(&packet, DHCPREQUEST);
     packet.xid = xid;
 
-    add_simple_option(packet.options, DHCP_REQUESTED_IP, requested);
-    add_simple_option(packet.options, DHCP_SERVER_ID, server);
+    add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_REQUESTED_IP,
+                   requested);
+    add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_SERVER_ID, server);
 
-    add_requests(&packet);
+    add_option_request_list(&packet);
     addr.s_addr = requested;
     log_line("Sending select for %s...", inet_ntoa(addr));
     return bcast_raw_packet(&packet);
@@ -153,7 +160,7 @@ int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr)
     packet.xid = xid;
     packet.ciaddr = ciaddr;
 
-    add_requests(&packet);
+    add_option_request_list(&packet);
     log_line("Sending renew...");
     if (server)
         return kernel_packet(&packet, ciaddr, DHCP_CLIENT_PORT, server,
@@ -179,8 +186,9 @@ int send_decline(uint32_t xid, uint32_t server, uint32_t requested)
      */
     packet.xid = xid;
     /* DHCPDECLINE uses "requested ip", not ciaddr, to store offered IP */
-    add_simple_option(packet.options, DHCP_REQUESTED_IP, requested);
-    add_simple_option(packet.options, DHCP_SERVER_ID, server);
+    add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_REQUESTED_IP,
+                   requested);
+    add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_SERVER_ID, server);
 
     log_line("Sending decline...");
     return bcast_raw_packet(&packet);
@@ -195,8 +203,9 @@ int send_release(uint32_t server, uint32_t ciaddr)
     packet.xid = random_xid();
     packet.ciaddr = ciaddr;
 
-    add_simple_option(packet.options, DHCP_REQUESTED_IP, ciaddr);
-    add_simple_option(packet.options, DHCP_SERVER_ID, server);
+    add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_REQUESTED_IP,
+                   ciaddr);
+    add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_SERVER_ID, server);
 
     log_line("Sending release...");
     return kernel_packet(&packet, ciaddr, DHCP_CLIENT_PORT, server,

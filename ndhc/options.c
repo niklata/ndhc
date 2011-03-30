@@ -1,7 +1,21 @@
-/*
- * options.c -- DHCP server option packet tools
- * Rewrite by Russ Dill <Russ.Dill@asu.edu> July 2001
- * Fixes and hardening: Nicholas J. Kain <njkain at gmail dot com>
+/* options.c - DHCP options handling
+ * Time-stamp: <2011-03-30 15:52:12 nk>
+ *
+ * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #include <stdio.h>
@@ -12,12 +26,6 @@
 
 #include "log.h"
 #include "malloc.h"
-
-enum {
-    OPT_CODE = 0,
-    OPT_LEN  = 1,
-    OPT_DATA = 2
-};
 
 struct dhcp_option {
 	char name[10];
@@ -55,7 +63,7 @@ static struct dhcp_option options[] = {
     {"maxsize"  ,   OPTION_U16,                             0x39},
     {"tftp"     ,   OPTION_STRING,                          0x42},
     {"bootfile" ,   OPTION_STRING,                          0x43},
-    {""         ,   OPTION_NONE,                            0x00}
+    {"NONE"     ,   OPTION_NONE,                            0x00}
 };
 
 // List of options that will be sent on the parameter request list to the
@@ -102,7 +110,7 @@ const char *option_name(uint8_t code)
 	return bad_option_name;
 }
 
-uint8_t option_length(enum option_type type)
+static uint8_t option_type_length(enum option_type type)
 {
 	switch (type) {
 		case OPTION_IP: return 4;
@@ -113,6 +121,16 @@ uint8_t option_length(enum option_type type)
 		case OPTION_S32: return 4;
 		default: return 0;
 	}
+}
+
+uint8_t option_length(uint8_t code)
+{
+	int i;
+	for (i = 0; options[i].code; i++)
+		if (options[i].code == code)
+			return option_type_length(options[i].type);
+	log_warning("option_length: unknown length for code 0x%02x", code);
+	return 0;
 }
 
 int option_valid_list(uint8_t code)
@@ -254,61 +272,60 @@ uint8_t *get_option_data(struct dhcpMessage *packet, int code, ssize_t *optlen)
 }
 
 /* return the position of the 'end' option */
-int get_end_option_idx(uint8_t *optbuf, size_t bufsize)
+ssize_t get_end_option_idx(uint8_t *optbuf, size_t bufsize)
 {
-	int i = 0;
-	while (i < bufsize && optbuf[i] != DHCP_END) {
+	int i;
+	for (i = 0; i < bufsize; ++i) {
+		if (optbuf[i] == DHCP_END)
+			return i;
+		if (optbuf[i] == DHCP_PADDING)
+			continue;
 		if (optbuf[i] != DHCP_PADDING)
-			i += optbuf[i+1] + 2;
-		else
-			i++;
+			i += optbuf[i+1] + 1;
 	}
-	if (i < bufsize - 1)
-		return i;
-	else {
-		log_warning("get_end_option_idx(): did not find DHCP_END marker");
-		return bufsize - 1;
-	}
+	log_warning("get_end_option_idx(): did not find DHCP_END marker");
+	return -1;
 }
-
 
 /* add an option string to the options (an option string contains an option
  * code, length, then data) */
-int add_option_string(unsigned char *optionptr, unsigned char *string)
+size_t add_option_string(uint8_t *optbuf, size_t buflen, uint8_t *optstr)
 {
-	// XXX: not real length
-	int end = get_end_option_idx(optionptr, DHCP_OPTIONS_BUFSIZE);
+	size_t end = get_end_option_idx(optbuf, buflen);
+	size_t datalen = optstr[1];
 
-	/* end position + string length + option code/length + end option */
-	if (end + string[OPT_LEN] + 2 + 1 >= DHCP_OPTIONS_BUFSIZE) {
-		log_error("Option 0x%02x did not fit into the packet!",
-				  string[OPT_CODE]);
+	if (end == -1) {
+		log_warning("add_option_string: Buffer has no DHCP_END marker");
 		return 0;
 	}
-	memcpy(optionptr + end, string, string[OPT_LEN] + 2);
-	optionptr[end + string[OPT_LEN] + 2] = DHCP_END;
-	return string[OPT_LEN] + 2;
+	/* end position + optstr length + option code/length + end option */
+	if (end + datalen + 2 + 1 >= buflen) {
+		log_warning("Option 0x%02x did not fit into the packet!", optstr[0]);
+		return 0;
+	}
+	memcpy(optbuf + end, optstr, datalen + 2);
+	optbuf[end + datalen + 2] = DHCP_END;
+	return datalen + 2;
 }
 
-int add_simple_option(unsigned char *optionptr, unsigned char code,
+size_t add_u32_option(uint8_t *optbuf, size_t buflen, uint8_t code,
 					  uint32_t data)
 {
-	int i, length = 0;
-	unsigned char option[2 + 4];
+	int length = 0;
+	uint8_t option[6];
 
-	for (i = 0; options[i].code; i++)
-		if (options[i].code == code) {
-			length = option_length(options[i].type);
-		}
+	length = option_length(code);
 
-	log_line("aso(): code=0x%02x length=0x%02x", code, length);
-	option[OPT_CODE] = code;
-	option[OPT_LEN] = (unsigned char)length;
+	log_line("add_u32_option: code=0x%02x length=0x%02x", code, length);
+	option[0] = code;
+	option[1] = length;
 
 	if (!length) {
-		log_error("Could not add option 0x%02x", code);
+		log_warning("add_u32_option: option code 0x%02x has 0 length", code);
 		return 0;
-	} else if (length == 1) {
+	}
+
+	if (length == 1) {
 		uint8_t t = (uint8_t)data;
 		memcpy(option + 2, &t, 1);
 	} else if (length == 2) {
@@ -318,20 +335,18 @@ int add_simple_option(unsigned char *optionptr, unsigned char code,
 		uint32_t t = (uint32_t)data;
 		memcpy(option + 2, &t, 4);
 	}
-	return add_option_string(optionptr, option);
+	return add_option_string(optbuf, buflen, option);
 }
 
-/* Add a paramater request list for stubborn DHCP servers.  Don't do bounds */
-/* checking here because it goes towards the head of the packet. */
-void add_requests(struct dhcpMessage *packet)
+/* Add a paramater request list for stubborn DHCP servers */
+void add_option_request_list(struct dhcpMessage *packet)
 {
-	// XXX: not real length
-    int end = get_end_option_idx(packet->options, DHCP_OPTIONS_BUFSIZE);
-    int i, len = 0;
+    int i;
+	uint8_t reqdata[sizeof req_opts + 1];
 
-    packet->options[end + OPT_CODE] = DHCP_PARAM_REQ;
+	reqdata[0] = DHCP_PARAM_REQ;
+	reqdata[1] = sizeof reqdata - 2;
     for (i = 0; req_opts[i]; i++)
-		packet->options[end + OPT_DATA + len++] = req_opts[i];
-    packet->options[end + OPT_LEN] = len;
-    packet->options[end + OPT_DATA + len] = DHCP_END;
+		reqdata[i + 2] = req_opts[i];
+	add_option_string(packet->options, DHCP_OPTIONS_BUFSIZE, reqdata);
 }

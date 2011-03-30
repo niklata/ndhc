@@ -1,5 +1,5 @@
 /* ifchange.c - functions to call the interface change daemon
- * Time-stamp: <2011-03-30 12:02:55 nk>
+ * Time-stamp: <2011-03-30 13:14:37 nk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -40,13 +40,14 @@
 
 /* Fill buf with the ifchd command text of option 'option'. */
 /* Returns 0 if successful, -1 if nothing was filled in. */
-static int ifchd_cmd(char *buf, size_t buflen,
-                     unsigned char *option, ssize_t optlen,
-                     uint8_t code, enum option_type type, const char *optname)
+static int ifchd_cmd(char *buf, size_t buflen, uint8_t *option, ssize_t optlen,
+                     uint8_t code)
 {
     char *obuf = buf;
     uint8_t *ooption = option;
-    ssize_t typelen = option_length(type);
+    const char *optname = option_name(code);
+    enum option_type type = option_type(code);
+    ssize_t typelen = option_length(code);
 
     if (!option || type == OPTION_NONE)
         return -1;
@@ -181,8 +182,7 @@ static void send_cmd(int sockfd, struct dhcpMessage *packet,
 
     memset(buf, '\0', sizeof buf);
     optdata = get_option_data(packet, code, &optlen);
-    if (ifchd_cmd(buf, sizeof buf, optdata, optlen, code, option_type(code),
-                  option_name(code)) == -1)
+    if (ifchd_cmd(buf, sizeof buf, optdata, optlen, code) == -1)
         return;
     sockwrite(sockfd, buf, strlen(buf));
 }

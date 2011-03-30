@@ -1,4 +1,22 @@
-/* options.h */
+/* options.h - DHCP options handling
+ * Time-stamp: <2011-03-30 15:50:30 nk>
+ *
+ * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
 #ifndef OPTIONS_H_
 #define OPTIONS_H_
 
@@ -64,7 +82,7 @@ enum option_type {
 
 const char *option_name(uint8_t code);
 enum option_type option_type(uint8_t code);
-uint8_t option_length(enum option_type type);
+uint8_t option_length(uint8_t code);
 int option_valid_list(uint8_t code);
 size_t sizeof_option(unsigned char code, size_t datalen);
 size_t set_option(unsigned char *buf, size_t buflen, unsigned char code,
@@ -76,10 +94,10 @@ unsigned char *alloc_dhcp_client_id_option(unsigned char type,
 										   unsigned char *idstr, size_t idstrlen);
 
 uint8_t *get_option_data(struct dhcpMessage *packet, int code, ssize_t *optlen);
-int get_end_option_idx(uint8_t *optbuf, size_t bufsize);
-int add_option_string(unsigned char *optionptr, unsigned char *string);
-int add_simple_option(unsigned char *optionptr, unsigned char code, uint32_t data);
-
-void add_requests(struct dhcpMessage *packet);
+ssize_t get_end_option_idx(uint8_t *optbuf, size_t bufsize);
+size_t add_option_string(uint8_t *optbuf, size_t buflen, uint8_t *optstr);
+size_t add_u32_option(uint8_t *optbuf, size_t buflen, uint8_t code,
+					  uint32_t data);
+void add_option_request_list(struct dhcpMessage *packet);
 
 #endif

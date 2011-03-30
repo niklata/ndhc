@@ -105,8 +105,13 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
      * In order to work with those buggy servers,
      * we truncate packets after end option byte.
      */
-    padding = DHCP_OPTIONS_BUFSIZE - 1 - get_end_option_idx(packet.data.options,
-                                                    DHCP_OPTIONS_BUFSIZE);
+    ssize_t endloc = get_end_option_idx(packet.data.options,
+                                        DHCP_OPTIONS_BUFSIZE);
+    if (endloc == -1) {
+        log_error("raw_packet: attempt to send packet with no DHCP_END");
+        goto out_fd;
+    }
+    padding = DHCP_OPTIONS_BUFSIZE - 1 - endloc;
 
     packet.ip.protocol = IPPROTO_UDP;
     packet.ip.saddr = source_ip;
@@ -165,8 +170,13 @@ int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
     if (connect(fd, (struct sockaddr *)&client, sizeof(struct sockaddr)) == -1)
 	goto out_fd;
 
-    padding = DHCP_OPTIONS_BUFSIZE - 1 - get_end_option_idx(payload->options,
-                                                    DHCP_OPTIONS_BUFSIZE);
+    ssize_t endloc = get_end_option_idx(payload->options,
+                                        DHCP_OPTIONS_BUFSIZE);
+    if (endloc == -1) {
+        log_error("kernel_packet: attempt to send packet with no DHCP_END");
+        goto out_fd;
+    }
+    padding = DHCP_OPTIONS_BUFSIZE - 1 - endloc;
     result = safe_write(fd, (const char *)payload, DHCP_SIZE - padding);
     if (result == -1)
 	log_error("kernel_packet: write failed: %s", strerror(errno));
