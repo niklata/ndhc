@@ -171,6 +171,7 @@ static void translate_option(int sockfd, struct dhcpMessage *packet,
     unsigned char *p;
     int i;
     struct dhcp_option *opt = NULL;
+    ssize_t optlen;
 
     if (!packet)
         return;
@@ -187,7 +188,7 @@ static void translate_option(int sockfd, struct dhcpMessage *packet,
     memset(buf, '\0', sizeof(buf));
     memset(buf2, '\0', sizeof(buf2));
 
-    p = get_option(packet, code);
+    p = get_option(packet, code, &optlen);
     if (fill_options(buf2, p, opt, sizeof buf2 - 1) == -1)
         return;
     snprintf(buf, sizeof buf, "%s:", buf2);

@@ -52,3 +52,13 @@ go into an inactive state (until it is killed, or receives a SIGUSR1). You do
 not need to sleep between sending signals, as signals received are processed
 sequentially in the order they are received.
 
+DHCP pitfalls
+-------------
+
+Send a packet that has an options field set to:
+DHCP-OPTION-OVERLOAD:3
+
+Then in the file and sname fields:
+DHCP-OPTION-OVERLOAD:3
+
+I suspect some bad dhcp programs will hang given this input.

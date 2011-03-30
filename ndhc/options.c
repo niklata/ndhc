@@ -113,66 +113,81 @@ unsigned char *alloc_dhcp_client_id_option(unsigned char type,
 	return alloc_option(DHCP_CLIENT_ID, data, sizeof data);
 }
 
-/* Get an option with bounds checking (warning, result is not aligned) */
-uint8_t* get_option(struct dhcpMessage *packet, int code)
+// Worker function for get_option().
+static uint8_t *do_get_option(uint8_t *buf, ssize_t buflen, int code,
+							  char *overload, ssize_t *optlen)
 {
-	uint8_t *optionptr;
-	int len, rem, overload = 0;
-	enum {
-		OPTION_FIELD = 0,
-		FILE_FIELD	 = 1,
-		SNAME_FIELD	 = 2
-	};
-	enum {
-		FILE_FIELD101  = FILE_FIELD  * 0x101,
-		SNAME_FIELD101 = SNAME_FIELD * 0x101,
-	};
-
-	/* option bytes: [code][len][data1][data2]..[dataLEN] */
-	optionptr = packet->options;
-	rem = sizeof packet->options;
-	while (1) {
-		if (rem <= 0) {
-			log_warning("Bad packet, malformed option field.");
-			return NULL;
-		}
-		if (optionptr[OPT_CODE] == DHCP_PADDING) {
-			rem--;
-			optionptr++;
+	/* option bytes: [code][len]([data1][data2]..[dataLEN]) */
+	*overload = 0;
+	while (buflen > 0) {
+		// Advance over padding.
+		if (buf[0] == DHCP_PADDING) {
+			buflen--;
+			buf++;
 			continue;
 		}
-		if (optionptr[OPT_CODE] == DHCP_END) {
-			if ((overload & FILE_FIELD101) == FILE_FIELD) {
-				/* can use packet->file, and didn't look at it yet */
-				overload |= FILE_FIELD101; /* "we looked at it" */
-				optionptr = packet->file;
-				rem = sizeof packet->file;
-				continue;
-			}
-			if ((overload & SNAME_FIELD101) == SNAME_FIELD) {
-				/* can use packet->sname, and didn't look at it yet */
-				overload |= SNAME_FIELD101; /* "we looked at it" */
-				optionptr = packet->sname;
-				rem = sizeof packet->sname;
-				continue;
-			}
-			break;
+
+		// We hit the end.
+		if (buf[0] == DHCP_END) {
+			*optlen = 0;
+			return NULL;
 		}
-		len = 2 + optionptr[OPT_LEN];
-		rem -= len;
-		if (rem < 0)
-			continue; /* complain and return NULL */
 
-		if (optionptr[OPT_CODE] == code)
-			return optionptr + OPT_DATA;
+		buflen -= buf[1] + 2;
+		if (buflen < 0) {
+			log_warning("Bad dhcp data: option length would exceed options field length");
+			*optlen = 0;
+			return NULL;
+		}
 
-		if (optionptr[OPT_CODE] == DHCP_OPTION_OVERLOAD) {
-			overload |= optionptr[OPT_DATA];
+		if (buf[0] == code) {
+			*optlen = buf[1];
+			return buf + 2;
+		}
+
+		if (buf[0] == DHCP_OPTION_OVERLOAD) {
+			if (buf[1] == 1)
+				*overload |= buf[2];
 			/* fall through */
 		}
-		optionptr += len;
+		buf += buf[1] + 2;
 	}
+	log_warning("Bad dhcp data: unmarked end of options field");
+	*optlen = 0;
 	return NULL;
+}
+
+/* Get an option with bounds checking (warning, result is not aligned) */
+uint8_t *get_option(struct dhcpMessage *packet, int code, ssize_t *optlen)
+{
+	uint8_t *option, *buf;
+	ssize_t buflen;
+	char overload, parsed_ff = 0;
+
+	buf = packet->options;
+	buflen = sizeof packet->options;
+
+	option = do_get_option(buf, buflen, code, &overload, optlen);
+	if (option)
+		return option;
+
+	if (overload & 1) {
+		parsed_ff = 1;
+		option = do_get_option(packet->file, sizeof packet->file,
+							   code, &overload, optlen);
+		if (option)
+			return option;
+	}
+	if (overload & 2) {
+		option = do_get_option(packet->sname, sizeof packet->sname,
+							   code, &overload, optlen);
+		if (option)
+			return option;
+		if (!parsed_ff && overload & 1)
+			option = do_get_option(packet->file, sizeof packet->file,
+								   code, &overload, optlen);
+	}
+	return option;
 }
 
 /* return the position of the 'end' option */

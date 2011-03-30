@@ -207,9 +207,10 @@ static void init_selecting_packet(struct client_state_t *cs,
                                   unsigned char *message)
 {
     unsigned char *temp = NULL;
+    ssize_t optlen;
     /* Must be a DHCPOFFER to one of our xid's */
     if (*message == DHCPOFFER) {
-        if ((temp = get_option(packet, DHCP_SERVER_ID))) {
+        if ((temp = get_option(packet, DHCP_SERVER_ID, &optlen))) {
             /* Memcpy to a temp buffer to force alignment */
             memcpy(&cs->serverAddr, temp, 4);
             cs->xid = packet->xid;
@@ -230,8 +231,9 @@ static void dhcp_ack_or_nak_packet(struct client_state_t *cs,
                                    unsigned char *message)
 {
     unsigned char *temp = NULL;
+    ssize_t optlen;
     if (*message == DHCPACK) {
-        if (!(temp = get_option(packet, DHCP_LEASE_TIME))) {
+        if (!(temp = get_option(packet, DHCP_LEASE_TIME, &optlen))) {
             log_line("No lease time received, assuming 1h.");
             cs->lease = 60 * 60;
         } else {
@@ -268,6 +270,7 @@ void handle_packet(struct client_state_t *cs)
     unsigned char *message = NULL;
     int len;
     struct dhcpMessage packet;
+    ssize_t optlen;
 
     if (cs->listenMode == LM_KERNEL)
         len = get_packet(&packet, cs->listenFd);
@@ -290,7 +293,7 @@ void handle_packet(struct client_state_t *cs)
         return;
     }
 
-    if ((message = get_option(&packet, DHCP_MESSAGE_TYPE)) == NULL) {
+    if ((message = get_option(&packet, DHCP_MESSAGE_TYPE, &optlen)) == NULL) {
         log_line("couldnt get option from packet -- ignoring");
         return;
     }
