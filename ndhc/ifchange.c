@@ -69,7 +69,7 @@ static int fill_options(char *dest, unsigned char *option,
 
     if (!option)
         return -1;
-    int len = option[OPT_LEN - 2];
+    int len = option[-1]; // XXX: WTF ugly as all hell
 
     odest = dest;
 

@@ -68,12 +68,6 @@ enum {
 #define OPTION_REQ	0x10 /* have the client request this option */
 #define OPTION_LIST	0x20 /* There can be a list of 1 or more of these */
 
-enum {
-    OPT_CODE = 0,
-    OPT_LEN  = 1,
-    OPT_DATA = 2
-};
-
 struct dhcp_option {
 	char name[10];
 	char flags;
@@ -102,5 +96,7 @@ int end_option(uint8_t *optionptr);
 int add_option_string(unsigned char *optionptr, unsigned char *string);
 int add_simple_option(unsigned char *optionptr, unsigned char code, uint32_t data);
 struct option_set *find_option(struct option_set *opt_list, char code);
+
+void add_requests(struct dhcpMessage *packet);
 
 #endif

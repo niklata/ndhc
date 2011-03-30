@@ -13,6 +13,12 @@
 #include "log.h"
 #include "malloc.h"
 
+enum {
+    OPT_CODE = 0,
+    OPT_LEN  = 1,
+    OPT_DATA = 2
+};
+
 /* supported options are easily added here */
 struct dhcp_option options[] = {
     /* name[10]     flags                                   code */
@@ -241,4 +247,20 @@ struct option_set *find_option(struct option_set *opt_list, char code)
 	if (opt_list && opt_list->data[OPT_CODE] == code)
 		return opt_list;
 	return NULL;
+}
+
+/* Add a paramater request list for stubborn DHCP servers. Pull the data
+ * from the struct in options.c. Don't do bounds checking here because it
+ * goes towards the head of the packet. */
+void add_requests(struct dhcpMessage *packet)
+{
+    int end = end_option(packet->options);
+    int i, len = 0;
+
+    packet->options[end + OPT_CODE] = DHCP_PARAM_REQ;
+    for (i = 0; options[i].code; i++)
+        if (options[i].flags & OPTION_REQ)
+            packet->options[end + OPT_DATA + len++] = options[i].code;
+    packet->options[end + OPT_LEN] = len;
+    packet->options[end + OPT_DATA + len] = DHCP_END;
 }

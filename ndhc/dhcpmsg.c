@@ -99,22 +99,6 @@ static void init_packet(struct dhcpMessage *packet, char type)
     add_option_string(packet->options, (unsigned char *)&vendor_id);
 }
 
-/* Add a paramater request list for stubborn DHCP servers. Pull the data
- * from the struct in options.c. Don't do bounds checking here because it
- * goes towards the head of the packet. */
-static void add_requests(struct dhcpMessage *packet)
-{
-    int end = end_option(packet->options);
-    int i, len = 0;
-
-    packet->options[end + OPT_CODE] = DHCP_PARAM_REQ;
-    for (i = 0; options[i].code; i++)
-        if (options[i].flags & OPTION_REQ)
-            packet->options[end + OPT_DATA + len++] = options[i].code;
-    packet->options[end + OPT_LEN] = len;
-    packet->options[end + OPT_DATA + len] = DHCP_END;
-}
-
 #define MAC_BCAST_ADDR  (unsigned char *) "\xff\xff\xff\xff\xff\xff"
 /* Wrapper that broadcasts a raw dhcp packet on the bound interface. */
 static int bcast_raw_packet(struct dhcpMessage *packet)

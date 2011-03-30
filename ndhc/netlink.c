@@ -132,6 +132,7 @@ static void nl_handlemsg(struct nlmsghdr *msg, unsigned int len,
                                 if (cs->dhcpState == DS_BOUND) {
                                     /* arp_check_gw(cs); */
                                 } else if (cs->dhcpState != DS_INIT_SELECTING) {
+                                    log_line("nl: taking down interface");
                                     // Same as packet.c: line 258
                                     ifchange(NULL, IFCHANGE_DECONFIG);
                                     cs->dhcpState = DS_INIT_SELECTING;
