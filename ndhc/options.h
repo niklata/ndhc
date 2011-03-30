@@ -1,5 +1,5 @@
 /* options.h - DHCP options handling
- * Time-stamp: <2011-03-30 16:07:24 nk>
+ * Time-stamp: <2011-03-30 16:34:55 nk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -70,14 +70,14 @@
 #define DHCP_END                0xff
 
 enum option_type {
-	OPTION_NONE = 0,
-	OPTION_IP = 1,
-	OPTION_STRING = 2,
-	OPTION_U8 = 3,
-	OPTION_U16 = 4,
-	OPTION_S16 = 5,
-	OPTION_U32 = 6,
-	OPTION_S32 = 7
+    OPTION_NONE = 0,
+    OPTION_IP = 1,
+    OPTION_STRING = 2,
+    OPTION_U8 = 3,
+    OPTION_U16 = 4,
+    OPTION_S16 = 5,
+    OPTION_U32 = 6,
+    OPTION_S32 = 7
 };
 
 const char *option_name(uint8_t code);
@@ -86,17 +86,17 @@ uint8_t option_length(uint8_t code);
 int option_valid_list(uint8_t code);
 size_t sizeof_option(uint8_t code, size_t datalen);
 size_t set_option(uint8_t *buf, size_t buflen, uint8_t code, uint8_t *optdata,
-				  size_t datalen);
+                  size_t datalen);
 uint8_t *alloc_option(uint8_t code, uint8_t *optdata, size_t datalen);
 
 uint8_t *alloc_dhcp_client_id_option(uint8_t type, uint8_t *idstr,
-									 size_t idstrlen);
+                                     size_t idstrlen);
 
 uint8_t *get_option_data(struct dhcpMessage *packet, int code, ssize_t *optlen);
 ssize_t get_end_option_idx(uint8_t *optbuf, size_t bufsize);
 size_t add_option_string(uint8_t *optbuf, size_t buflen, uint8_t *optstr);
 size_t add_u32_option(uint8_t *optbuf, size_t buflen, uint8_t code,
-					  uint32_t data);
+                      uint32_t data);
 void add_option_request_list(uint8_t *optbuf, size_t buflen);
 
 #endif
