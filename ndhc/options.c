@@ -141,7 +141,6 @@ int add_option_string(unsigned char *optionptr, unsigned char *string)
 				  string[OPT_CODE]);
 		return 0;
 	}
-	log_line("adding option 0x%02x", string[OPT_CODE]);
 	memcpy(optionptr + end, string, string[OPT_LEN] + 2);
 	optionptr[end + string[OPT_LEN] + 2] = DHCP_END;
 	return string[OPT_LEN] + 2;
