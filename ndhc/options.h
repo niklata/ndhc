@@ -62,14 +62,8 @@ enum option_type {
 	OPTION_S32
 };
 
-struct dhcp_option {
-	char name[10];
-	enum option_type type;
-	unsigned char code;
-};
-
-extern struct dhcp_option options[];
-
+const char *option_name(uint8_t code);
+enum option_type option_type(uint8_t code);
 uint8_t option_length(enum option_type type);
 int option_valid_list(uint8_t code);
 size_t sizeof_option(unsigned char code, size_t datalen);

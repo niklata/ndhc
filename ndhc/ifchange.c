@@ -1,8 +1,7 @@
-/* ifchange.c
+/* ifchange.c - functions to call the interface change daemon
+ * Time-stamp: <2011-03-30 11:33:42 nk>
  *
- * Functions to call the interface change daemon
- *
- * Nicholas J. Kain <njkain at gmail dot com> 2004-2011
+ * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -41,21 +40,20 @@
 
 /* Fill buf with the ifchd command text of option 'option'. */
 /* Returns 0 if successful, -1 if nothing was filled in. */
-static int ifchd_cmd(char *buf, unsigned char *option, ssize_t optlen,
-                        struct dhcp_option *type_p, unsigned int maxlen)
+static int ifchd_cmd(char *buf, size_t buflen,
+                     unsigned char *option, ssize_t optlen,
+                     uint8_t code, enum option_type type, const char *optname)
 {
     char *obuf = buf;
     uint8_t *ooption = option;
-    enum option_type type = type_p->type;
     ssize_t typelen = option_length(type);
-    uint8_t code = type_p->code;
 
-    if (!option)
+    if (!option || type == OPTION_NONE)
         return -1;
 
     if (type == OPTION_STRING) {
-        buf += snprintf(buf, maxlen, "%s:", type_p->name);
-        if (maxlen < optlen + 1)
+        buf += snprintf(buf, buflen, "%s:", optname);
+        if (buflen < optlen + 1)
             return -1;
         memcpy(buf, option, optlen);
         buf[optlen] = ':';
@@ -77,43 +75,43 @@ static int ifchd_cmd(char *buf, unsigned char *option, ssize_t optlen,
         }
     }
 
-    buf += snprintf(buf, maxlen, "%s:", type_p->name);
+    buf += snprintf(buf, buflen, "%s:", optname);
 
     for(;;) {
         switch (type) {
             case OPTION_IP: {
-                if (inet_ntop(AF_INET, option, buf, maxlen - (buf - obuf) - 1))
+                if (inet_ntop(AF_INET, option, buf, buflen - (buf - obuf) - 1))
                     buf += strlen(buf);
                 break;
             }
             case OPTION_U8:
-                buf += snprintf(buf, maxlen - (buf - obuf) - 1, "%u ", *option);
+                buf += snprintf(buf, buflen - (buf - obuf) - 1, "%u ", *option);
                 break;
             case OPTION_U16: {
                 uint16_t val_u16;
                 memcpy(&val_u16, option, 2);
-                buf += snprintf(buf, maxlen - (buf - obuf) - 1, "%u ",
+                buf += snprintf(buf, buflen - (buf - obuf) - 1, "%u ",
                                 ntohs(val_u16));
                 break;
             }
             case OPTION_S16: {
                 int16_t val_s16;
                 memcpy(&val_s16, option, 2);
-                buf += snprintf(buf, maxlen - (buf - obuf) - 1, "%d ",
+                buf += snprintf(buf, buflen - (buf - obuf) - 1, "%d ",
                                 ntohs(val_s16));
                 break;
             }
             case OPTION_U32: {
                 uint32_t val_u32;
                 memcpy(&val_u32, option, 4);
-                buf += snprintf(buf, maxlen - (buf - obuf) - 1, "%u ",
+                buf += snprintf(buf, buflen - (buf - obuf) - 1, "%u ",
                                 ntohl(val_u32));
                 break;
             }
             case OPTION_S32: {
                 int32_t val_s32;
                 memcpy(&val_s32, option, 4);
-                buf += snprintf(buf, maxlen - (buf - obuf) - 1, "%d ",
+                buf += snprintf(buf, buflen - (buf - obuf) - 1, "%d ",
                                 ntohl(val_s32));
                 break;
             }
@@ -175,26 +173,16 @@ static void send_cmd(int sockfd, struct dhcpMessage *packet,
                              unsigned char code)
 {
     char buf[256];
-    unsigned char *p;
-    int i;
-    struct dhcp_option *opt = NULL;
+    unsigned char *optdata;
     ssize_t optlen;
 
     if (!packet)
         return;
 
-    for (i = 0; options[i].code; ++i) {
-        if (options[i].code == code) {
-            opt = &options[i];
-            break;
-        }
-    }
-    if (!opt)
-        return;
-
     memset(buf, '\0', sizeof buf);
-    p = get_option(packet, code, &optlen);
-    if (ifchd_cmd(buf, p, optlen, opt, sizeof buf) == -1)
+    optdata = get_option(packet, code, &optlen);
+    if (ifchd_cmd(buf, sizeof buf, optdata, optlen, code, option_type(code),
+                  option_name(code)) == -1)
         return;
     sockwrite(sockfd, buf, strlen(buf));
 }

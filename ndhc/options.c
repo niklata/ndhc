@@ -19,8 +19,14 @@ enum {
     OPT_DATA = 2
 };
 
+struct dhcp_option {
+	char name[10];
+	enum option_type type;
+	unsigned char code;
+};
+
 /* supported options are easily added here */
-struct dhcp_option options[] = {
+static struct dhcp_option options[] = {
     /* name[10]     type                                    code */
     {"subnet"   ,   OPTION_IP,                              0x01},
     {"timezone" ,   OPTION_S32,                             0x02},
@@ -76,6 +82,25 @@ static unsigned char list_opts[] = {
 	DHCP_WINS_SERVER,
 	0x00
 };
+
+enum option_type option_type(uint8_t code)
+{
+	int i;
+	for (i = 0; options[i].code; ++i)
+        if (options[i].code == code)
+			return options[i].type;
+	return OPTION_NONE;
+}
+
+static const char bad_option_name[] = "BADOPTION";
+const char *option_name(uint8_t code)
+{
+	int i;
+	for (i = 0; options[i].code; ++i)
+        if (options[i].code == code)
+			return options[i].name;
+	return bad_option_name;
+}
 
 uint8_t option_length(enum option_type type)
 {
