@@ -24,6 +24,7 @@
 #include <fcntl.h>
 
 #include "netlink.h"
+#include "ifchange.h"
 #include "log.h"
 
 #define NLMSG_RECVSIZE 8192
@@ -123,18 +124,29 @@ static void nl_handlemsg(struct nlmsghdr *msg, unsigned int len,
                                 cs->ifsPrevState = IFS_UP;
                                 /*
                                  * If we have a lease, then check to see
-                                 * if our gateway is still valid.  If it fails,
-                                 * state -> INIT_REBOOT.
+                                 * if our gateway is still valid (via ARP).
+                                 * If it fails, state -> INIT.
                                  *
                                  * If we don't have a lease, state -> INIT.
-                                 */ 
+                                 */
+                                if (cs->dhcpState == DS_BOUND) {
+                                    /* arp_check_gw(cs); */
+                                } else if (cs->dhcpState != DS_INIT_SELECTING) {
+                                    // Same as packet.c: line 258
+                                    ifchange(NULL, IFCHANGE_DECONFIG);
+                                    cs->dhcpState = DS_INIT_SELECTING;
+                                    cs->timeout = 0;
+                                    cs->requestedIP = 0;
+                                    cs->packetNum = 0;
+                                    change_listen_mode(cs, LM_RAW);
+                                }
                             }
                         } else {
                             if (cs->ifsPrevState != IFS_DOWN) {
                                 cs->ifsPrevState = IFS_DOWN;
                                 /*
                                  * state -> DOWN
-                                 */ 
+                                 */
                             }
                         }
                     } else {
