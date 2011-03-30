@@ -237,17 +237,6 @@ int add_simple_option(unsigned char *optionptr, unsigned char code,
 	return add_option_string(optionptr, option);
 }
 
-/* find option 'code' in opt_list */
-struct option_set *find_option(struct option_set *opt_list, char code)
-{
-	while (opt_list && opt_list->data[OPT_CODE] < code)
-		opt_list = opt_list->next;
-
-	if (opt_list && opt_list->data[OPT_CODE] == code)
-		return opt_list;
-	return NULL;
-}
-
 // List of options that will be sent on the parameter request list to the
 // remote DHCP server.
 static unsigned char req_opts[] = {
