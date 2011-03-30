@@ -1,5 +1,5 @@
 /* options.h - DHCP options handling
- * Time-stamp: <2011-03-30 16:01:26 nk>
+ * Time-stamp: <2011-03-30 16:07:24 nk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -71,13 +71,13 @@
 
 enum option_type {
 	OPTION_NONE = 0,
-	OPTION_IP,
-	OPTION_STRING,
-	OPTION_U8,
-	OPTION_U16,
-	OPTION_S16,
-	OPTION_U32,
-	OPTION_S32
+	OPTION_IP = 1,
+	OPTION_STRING = 2,
+	OPTION_U8 = 3,
+	OPTION_U16 = 4,
+	OPTION_S16 = 5,
+	OPTION_U32 = 6,
+	OPTION_S32 = 7
 };
 
 const char *option_name(uint8_t code);

@@ -1,5 +1,5 @@
 /* options.c - DHCP options handling
- * Time-stamp: <2011-03-30 16:01:18 nk>
+ * Time-stamp: <2011-03-30 16:31:50 nk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -32,28 +32,32 @@ struct dhcp_option {
 	uint8_t code;
 };
 
-/* supported options are easily added here */
+// Marks an option that will be sent on the parameter request list to the
+// remote DHCP server.
+#define OPTION_REQ 16
+// Marks an option that can be sent as a list of multiple items.
+#define OPTION_LIST 32
 static struct dhcp_option options[] = {
     /* name[10]     type                                    code */
-    {"subnet"   ,   OPTION_IP,                              0x01},
+    {"subnet"   ,   OPTION_IP | OPTION_LIST | OPTION_REQ,   0x01},
     {"timezone" ,   OPTION_S32,                             0x02},
-    {"router"   ,   OPTION_IP,                              0x03},
-    {"timesvr"  ,   OPTION_IP,                              0x04},
-    {"namesvr"  ,   OPTION_IP,                              0x05},
-    {"dns"      ,   OPTION_IP,                              0x06},
-    {"logsvr"   ,   OPTION_IP,                              0x07},
-    {"cookiesvr",   OPTION_IP,                              0x08},
-    {"lprsvr"   ,   OPTION_IP,                              0x09},
-    {"hostname" ,   OPTION_STRING,                          0x0c},
+    {"router"   ,   OPTION_IP | OPTION_REQ,                 0x03},
+    {"timesvr"  ,   OPTION_IP | OPTION_LIST,                0x04},
+    {"namesvr"  ,   OPTION_IP | OPTION_LIST,                0x05},
+    {"dns"      ,   OPTION_IP | OPTION_LIST | OPTION_REQ,   0x06},
+    {"logsvr"   ,   OPTION_IP | OPTION_LIST,                0x07},
+    {"cookiesvr",   OPTION_IP | OPTION_LIST,                0x08},
+    {"lprsvr"   ,   OPTION_IP | OPTION_LIST,                0x09},
+    {"hostname" ,   OPTION_STRING | OPTION_REQ,             0x0c},
     {"bootsize" ,   OPTION_U16,                             0x0d},
-    {"domain"   ,   OPTION_STRING,                          0x0f},
+    {"domain"   ,   OPTION_STRING | OPTION_REQ,             0x0f},
     {"swapsvr"  ,   OPTION_IP,                              0x10},
     {"rootpath" ,   OPTION_STRING,                          0x11},
     {"ipttl"    ,   OPTION_U8,                              0x17},
     {"mtu"      ,   OPTION_U16,                             0x1a},
-    {"broadcast",   OPTION_IP,                              0x1c},
-    {"ntpsrv"   ,   OPTION_IP,                              0x2a},
-    {"wins"     ,   OPTION_IP,                              0x2c},
+    {"broadcast",   OPTION_IP | OPTION_REQ,                 0x1c},
+    {"ntpsrv"   ,   OPTION_IP | OPTION_LIST,                0x2a},
+    {"wins"     ,   OPTION_IP | OPTION_LIST,                0x2c},
     {"requestip",   OPTION_IP,                              0x32},
     {"lease"    ,   OPTION_U32,                             0x33},
     {"dhcptype" ,   OPTION_U8,                              0x35},
@@ -65,38 +69,13 @@ static struct dhcp_option options[] = {
     {"NONE"     ,   OPTION_NONE,                            0x00}
 };
 
-// List of options that will be sent on the parameter request list to the
-// remote DHCP server.
-static uint8_t req_opts[] = {
-	DHCP_SUBNET,
-	DHCP_ROUTER,
-	DHCP_DNS_SERVER,
-	DHCP_HOST_NAME,
-	DHCP_DOMAIN_NAME,
-	DHCP_BROADCAST,
-	0x00
-};
-
-static uint8_t list_opts[] = {
-	DHCP_ROUTER,
-	DHCP_TIME_SERVER,
-	DHCP_NAME_SERVER,
-	DHCP_DNS_SERVER,
-	DHCP_LOG_SERVER,
-	DHCP_COOKIE_SERVER,
-	DHCP_LPR_SERVER,
-	DHCP_NTP_SERVER,
-	DHCP_WINS_SERVER,
-	0x00
-};
-
 enum option_type option_type(uint8_t code)
 {
-	int i;
-	for (i = 0; options[i].code; ++i)
+    int i;
+    for (i = 0; options[i].code; ++i)
         if (options[i].code == code)
-			return options[i].type;
-	return OPTION_NONE;
+            return options[i].type & 0xf;
+    return OPTION_NONE;
 }
 
 static const char bad_option_name[] = "BADOPTION";
@@ -127,7 +106,7 @@ uint8_t option_length(uint8_t code)
 	int i;
 	for (i = 0; options[i].code; i++)
 		if (options[i].code == code)
-			return option_type_length(options[i].type);
+			return option_type_length(options[i].type & 0xf);
 	log_warning("option_length: unknown length for code 0x%02x", code);
 	return 0;
 }
@@ -135,8 +114,8 @@ uint8_t option_length(uint8_t code)
 int option_valid_list(uint8_t code)
 {
 	int i;
-	for (i = 0; i < sizeof list_opts; ++i)
-		if (list_opts[i] == code)
+	for (i = 0; options[i].code; ++i)
+		if ((options[i].code == code) && (options[i].type & OPTION_LIST))
 			return 1;
 	return 0;
 }
@@ -339,12 +318,14 @@ size_t add_u32_option(uint8_t *optbuf, size_t buflen, uint8_t code,
 /* Add a paramater request list for stubborn DHCP servers */
 void add_option_request_list(uint8_t *optbuf, size_t buflen)
 {
-    int i;
-	uint8_t reqdata[sizeof req_opts + 1];
+    int i, j = 0;
+    uint8_t reqdata[256];
 
-	reqdata[0] = DHCP_PARAM_REQ;
-	reqdata[1] = sizeof reqdata - 2;
-    for (i = 0; req_opts[i]; i++)
-		reqdata[i + 2] = req_opts[i];
-	add_option_string(optbuf, buflen, reqdata);
+    reqdata[0] = DHCP_PARAM_REQ;
+    for (i = 0, j = 2; options[i].code; i++) {
+        if (options[i].type & OPTION_REQ)
+            reqdata[j++] = options[i].code;
+    }
+    reqdata[1] = j - 2;
+    add_option_string(optbuf, buflen, reqdata);
 }
