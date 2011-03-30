@@ -33,7 +33,6 @@
 #include <errno.h>
 
 #include "options.h"
-#include "dhcpd.h"
 #include "config.h"
 #include "packet.h"
 #include "options.h"

@@ -9,7 +9,6 @@
 #include <string.h>
 
 #include "log.h"
-#include "dhcpd.h"
 #include "options.h"
 
 /* supported options are easily added here */
@@ -63,6 +62,11 @@ uint8_t* get_option(struct dhcpMessage *packet, int code)
 {
 	uint8_t *optionptr;
 	int len, rem, overload = 0;
+	enum {
+		OPTION_FIELD = 0,
+		FILE_FIELD	 = 1,
+		SNAME_FIELD	 = 2
+	};
 	enum {
 		FILE_FIELD101  = FILE_FIELD  * 0x101,
 		SNAME_FIELD101 = SNAME_FIELD * 0x101,

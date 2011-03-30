@@ -36,7 +36,6 @@
 #include <linux/filter.h>
 #include "log.h"
 #include "strl.h"
-#include "dhcpd.h" /* For SERVER_PORT and CLIENT_PORT */
 
 int set_sock_nonblock(int fd)
 {
@@ -142,13 +141,10 @@ int raw_socket(int ifindex)
         return -1;
     }
 
-    if (SERVER_PORT == 67 && CLIENT_PORT == 68) {
-        /* Use only if standard ports are in use */
-        /* Ignoring error (kernel may lack support for this) */
-        if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &filter_prog,
-                       sizeof filter_prog) >= 0)
-            log_line("Attached filter to raw socket fd %d", fd);
-    }
+    /* Ignoring error (kernel may lack support for this) */
+    if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &filter_prog,
+                   sizeof filter_prog) >= 0)
+        log_line("Attached filter to raw socket fd %d", fd);
 
     set_sock_nonblock(fd);
 

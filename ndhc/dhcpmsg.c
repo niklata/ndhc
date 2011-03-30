@@ -37,7 +37,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include "dhcpd.h"
+#include "dhcpmsg.h"
 #include "packet.h"
 #include "options.h"
 #include "config.h"
@@ -74,9 +74,9 @@ uint32_t random_xid(void)
 static void init_header(struct dhcpMessage *packet, char type)
 {
     memset(packet, 0, DHCP_SIZE);
-    packet->op = BOOTREQUEST; /* client */
-    packet->htype = ETH_10MB;
-    packet->hlen = ETH_10MB_LEN;
+    packet->op = 1; // BOOTREQUEST (client)
+    packet->htype = 1; // ETH_10MB
+    packet->hlen = 6; // ETH_10MB_LEN
     packet->cookie = htonl(DHCP_MAGIC);
     packet->options[0] = DHCP_END;
     add_simple_option(packet->options, DHCP_MESSAGE_TYPE, type);
@@ -115,12 +115,14 @@ static void add_requests(struct dhcpMessage *packet)
     packet->options[end + OPT_DATA + len] = DHCP_END;
 }
 
+#define MAC_BCAST_ADDR  (unsigned char *) "\xff\xff\xff\xff\xff\xff"
 /* Wrapper that broadcasts a raw dhcp packet on the bound interface. */
 static int bcast_raw_packet(struct dhcpMessage *packet)
 {
-    return raw_packet(packet, INADDR_ANY, CLIENT_PORT, INADDR_BROADCAST,
-                      SERVER_PORT, MAC_BCAST_ADDR, client_config.ifindex);
+    return raw_packet(packet, INADDR_ANY, DHCP_CLIENT_PORT, INADDR_BROADCAST,
+                      DHCP_SERVER_PORT, MAC_BCAST_ADDR, client_config.ifindex);
 }
+#undef MAC_BCAST_ADDR
 
 /* Broadcast a DHCP discover packet to the network, with an optionally
  * requested IP */
@@ -170,8 +172,8 @@ int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr)
     add_requests(&packet);
     log_line("Sending renew...");
     if (server)
-        return kernel_packet(&packet, ciaddr, CLIENT_PORT,
-                             server, SERVER_PORT);
+        return kernel_packet(&packet, ciaddr, DHCP_CLIENT_PORT, server,
+                             DHCP_SERVER_PORT);
     else
         return bcast_raw_packet(&packet);
 }
@@ -213,7 +215,8 @@ int send_release(uint32_t server, uint32_t ciaddr)
     add_simple_option(packet.options, DHCP_SERVER_ID, server);
 
     log_line("Sending release...");
-    return kernel_packet(&packet, ciaddr, CLIENT_PORT, server, SERVER_PORT);
+    return kernel_packet(&packet, ciaddr, DHCP_CLIENT_PORT, server,
+                         DHCP_SERVER_PORT);
 }
 
 /* return -1 on errors that are fatal for the socket,
@@ -252,7 +255,7 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
         sleep(1);
         return -2;
     }
-    if (packet.udp.dest != htons(CLIENT_PORT)) {
+    if (packet.udp.dest != htons(DHCP_CLIENT_PORT)) {
         log_line("UDP destination port incorrect: %d", ntohs(packet.udp.dest));
         sleep(1);
         return -2;

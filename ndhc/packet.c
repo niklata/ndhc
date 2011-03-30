@@ -17,7 +17,6 @@
 #include "sys.h"
 #include "log.h"
 #include "io.h"
-#include "dhcpd.h"
 #include "options.h"
 
 /* Read a packet from socket fd, return -1 on read error, -2 on packet error */
@@ -187,7 +186,7 @@ void change_listen_mode(struct client_state_t *cs, int new_mode)
         cs->listenFd = -1;
     }
     if (new_mode == LM_KERNEL) {
-        cs->listenFd = listen_socket(INADDR_ANY, CLIENT_PORT,
+        cs->listenFd = listen_socket(INADDR_ANY, DHCP_CLIENT_PORT,
                                      client_config.interface);
         epoll_add(cs, cs->listenFd);
     }

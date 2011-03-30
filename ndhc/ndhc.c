@@ -41,7 +41,6 @@
 #include <grp.h>
 
 #include "ndhc-defines.h"
-#include "dhcpd.h"
 #include "config.h"
 #include "options.h"
 #include "dhcpmsg.h"

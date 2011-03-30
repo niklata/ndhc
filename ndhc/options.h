@@ -6,6 +6,8 @@
 
 #define TYPE_MASK	0x0F
 
+#define DHCP_OPTIONS_BUFSIZE    308
+
 /* DHCP option codes (partial list) */
 #define DHCP_PADDING            0x00
 #define DHCP_SUBNET             0x01
@@ -66,10 +68,21 @@ enum {
 #define OPTION_REQ	0x10 /* have the client request this option */
 #define OPTION_LIST	0x20 /* There can be a list of 1 or more of these */
 
+enum {
+    OPT_CODE = 0,
+    OPT_LEN  = 1,
+    OPT_DATA = 2
+};
+
 struct dhcp_option {
 	char name[10];
 	char flags;
 	unsigned char code;
+};
+
+struct option_set {
+    unsigned char *data;
+    struct option_set *next;
 };
 
 extern struct dhcp_option options[];

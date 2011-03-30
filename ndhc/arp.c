@@ -20,7 +20,6 @@
 #include "socket.h"
 #include "sys.h"
 #include "ifchange.h"
-#include "dhcpd.h"
 #include "log.h"
 #include "strl.h"
 #include "io.h"
