@@ -9,6 +9,8 @@
 #include "arp.h"
 #include "log.h"
 
+
+#define DELAY_SEC (((RETRY_DELAY - (RETRY_DELAY / NUMPACKETS)) / NUMPACKETS) + 1)
 static void init_selecting_timeout(struct client_state_t *cs)
 {
     if (cs->packetNum < NUMPACKETS) {
@@ -17,7 +19,7 @@ static void init_selecting_timeout(struct client_state_t *cs)
         /* broadcast */
         send_discover(cs->xid, cs->requestedIP);
 
-        cs->timeout = ((cs->packetNum == NUMPACKETS - 1) ? 4 : 2) * 1000;
+        cs->timeout = DELAY_SEC * (cs->packetNum + 1);
         cs->packetNum++;
     } else {
         if (client_config.background_if_no_lease) {
@@ -32,6 +34,7 @@ static void init_selecting_timeout(struct client_state_t *cs)
         cs->timeout = RETRY_DELAY * 1000;
     }
 }
+#undef DELAY_SEC
 
 static void renew_requested_timeout(struct client_state_t *cs)
 {
