@@ -1,5 +1,5 @@
 /* packet.c - send and react to DHCP message packets
- * Time-stamp: <2011-03-30 23:57:14 nk>
+ * Time-stamp: <2011-03-31 00:01:50 nk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  * (c) 2001 Russ Dill <Russ.Dill@asu.edu>
@@ -289,12 +289,10 @@ static void dhcp_ack_or_nak_packet(struct client_state_t *cs,
         if (cs->dhcpState != DS_REQUESTING)
             ifchange(NULL, IFCHANGE_DECONFIG);
         cs->dhcpState = DS_INIT_SELECTING;
-        cs->timeout = 0;
+        cs->timeout = 5000;
         cs->requestedIP = 0;
         cs->packetNum = 0;
         change_listen_mode(cs, LM_RAW);
-        // XXX: this isn't rfc compliant: should be exp backoff
-        sleep(3); /* avoid excessive network traffic */
     }
 }
 
