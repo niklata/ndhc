@@ -1,8 +1,13 @@
-/*
- * Derived from busybox's udhcpc variant, which in turn was...
+/* arp.c - arp ping checking
+ * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
+ *
+ * Originally derived from busybox's udhcpc variant, which in turn was...
  * Mostly stolen from: dhcpcd - DHCP client daemon
  * by Yoichi Hariguchi <yoichi@fore.com>
- * Licensed under GPLv2, see file LICENSE in this source tree.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation
  */
 #include <unistd.h>
 #include <stdlib.h>
@@ -29,7 +34,7 @@ static int arpreply_offset;
 static struct dhcpMessage arp_dhcp_packet;
 
 /* Returns fd of the arp socket, or -1 on failure. */
-static int arpping(uint32_t test_nip, const uint8_t *safe_mac,
+static int arpping(struct client_state_t *cs, uint32_t test_ip,
                    uint32_t from_ip, uint8_t *from_mac, const char *interface)
 {
     int arpfd;
@@ -37,6 +42,10 @@ static int arpping(uint32_t test_nip, const uint8_t *safe_mac,
     struct sockaddr addr;   /* for interface name */
     struct arpMsg arp;
 
+    if (cs->arpFd != -1) {
+        epoll_del(cs, cs->arpFd);
+        close(cs->arpFd);
+    }
     arpfd = socket(PF_PACKET, SOCK_PACKET, htons(ETH_P_ARP));
     if (arpfd == -1) {
         log_warning("arpping: failed to create socket: %s", strerror(errno));
@@ -65,7 +74,7 @@ static int arpping(uint32_t test_nip, const uint8_t *safe_mac,
     memcpy(arp.sHaddr, from_mac, 6);                /* source hardware address */
     memcpy(arp.sInaddr, &from_ip, sizeof from_ip);  /* source IP address */
     /* tHaddr is zero-filled */                     /* target hardware address */
-    memcpy(arp.tInaddr, &test_nip, sizeof test_nip);/* target IP address */
+    memcpy(arp.tInaddr, &test_ip, sizeof test_ip);  /* target IP address */
 
     memset(&addr, 0, sizeof addr);
     strlcpy(addr.sa_data, interface, sizeof addr.sa_data);
@@ -83,8 +92,8 @@ void arp_check(struct client_state_t *cs, struct dhcpMessage *packet)
     cs->arpPrevState = cs->dhcpState;
     cs->dhcpState = DS_ARP_CHECK;
     memcpy(&arp_dhcp_packet, packet, sizeof (struct dhcpMessage));
-    cs->arpFd = arpping(arp_dhcp_packet.yiaddr, NULL, 0,
-                       client_config.arp, client_config.interface);
+    cs->arpFd = arpping(cs, arp_dhcp_packet.yiaddr, 0, client_config.arp,
+                        client_config.interface);
     epoll_add(cs, cs->arpFd);
     cs->timeout = 2000;
     memset(&arpreply, 0, sizeof arpreply);
@@ -96,11 +105,23 @@ void arp_gw_check(struct client_state_t *cs)
     cs->arpPrevState = cs->dhcpState;
     cs->dhcpState = DS_ARP_GW_CHECK;
     memset(&arp_dhcp_packet, 0, sizeof (struct dhcpMessage));
-    cs->arpFd = arpping(cs->routerAddr, NULL, 0,
-                        client_config.arp, client_config.interface);
+    cs->arpFd = arpping(cs, cs->routerAddr, 0, client_config.arp,
+                        client_config.interface);
     epoll_add(cs, cs->arpFd);
     cs->oldTimeout = cs->timeout;
     cs->timeout = 2000;
+    memset(&arpreply, 0, sizeof arpreply);
+    arpreply_offset = 0;
+}
+
+void arp_get_gw_hwaddr(struct client_state_t *cs)
+{
+    if (cs->dhcpState != DS_BOUND)
+        log_warning("arp_get_gw_hwaddr: called when state != DS_BOUND");
+    memset(&arp_dhcp_packet, 0, sizeof (struct dhcpMessage));
+    cs->arpFd = arpping(cs, cs->routerAddr, 0, client_config.arp,
+                        client_config.interface);
+    epoll_add(cs, cs->arpFd);
     memset(&arpreply, 0, sizeof arpreply);
     arpreply_offset = 0;
 }
@@ -109,6 +130,7 @@ static void arp_failed(struct client_state_t *cs)
 {
     log_line("Offered address is in use: declining.");
     epoll_del(cs, cs->arpFd);
+    close(cs->arpFd);
     cs->arpFd = -1;
     send_decline(cs->xid, cs->serverAddr, arp_dhcp_packet.yiaddr);
 
@@ -125,6 +147,7 @@ void arp_gw_failed(struct client_state_t *cs)
 {
     log_line("arp: gateway appears to have changed, getting new lease");
     epoll_del(cs, cs->arpFd);
+    close(cs->arpFd);
     cs->arpFd = -1;
 
     // Same as packet.c: line 258
@@ -142,6 +165,7 @@ void arp_success(struct client_state_t *cs)
     struct in_addr temp_addr;
 
     epoll_del(cs, cs->arpFd);
+    close(cs->arpFd);
     cs->arpFd = -1;
 
     /* enter bound state */
@@ -155,12 +179,11 @@ void arp_success(struct client_state_t *cs)
     log_line("Lease of %s obtained, lease time %ld.",
              inet_ntoa(temp_addr), cs->lease);
     cs->requestedIP = arp_dhcp_packet.yiaddr;
+    cs->dhcpState = DS_BOUND;
     ifchange(&arp_dhcp_packet,
              ((cs->arpPrevState == DS_RENEWING ||
                cs->arpPrevState == DS_REBINDING)
               ? IFCHANGE_RENEW : IFCHANGE_BOUND));
-
-    cs->dhcpState = DS_BOUND;
     change_listen_mode(cs, LM_NONE);
     if (client_config.quit_after_lease)
         exit(EXIT_SUCCESS);
@@ -172,6 +195,7 @@ void arp_gw_success(struct client_state_t *cs)
 {
     log_line("arp: gateway seems unchanged");
     epoll_del(cs, cs->arpFd);
+    close(cs->arpFd);
     cs->arpFd = -1;
     cs->timeout = cs->oldTimeout;
     cs->dhcpState = cs->arpPrevState;
@@ -194,15 +218,14 @@ void handle_arp_response(struct client_state_t *cs)
             arpreply_offset += r;
     }
 
-    //log3("sHaddr %02x:%02x:%02x:%02x:%02x:%02x",
-    //arp.sHaddr[0], arp.sHaddr[1], arp.sHaddr[2],
-    //arp.sHaddr[3], arp.sHaddr[4], arp.sHaddr[5]);
-
-    if (arpreply_offset >= ARP_MSG_SIZE) {
-        if (cs->dhcpState == DS_ARP_CHECK) {
+    if (arpreply_offset < ARP_MSG_SIZE) {
+        log_warning("handle_arp_response: Received short ARP message.");
+        return;
+    }
+    switch (cs->dhcpState) {
+        case DS_ARP_CHECK:
             if (arpreply.operation == htons(ARPOP_REPLY)
-                // don't check: Linux returns invalid tHaddr (fixed in 2.6.24?)
-                // && !memcmp(arpreply.tHaddr, from_mac, 6)
+                && !memcmp(arpreply.tHaddr, client_config.arp, 6)
                 && *(aliased_uint32_t*)arpreply.sInaddr
                 == arp_dhcp_packet.yiaddr)
             {
@@ -215,20 +238,47 @@ void handle_arp_response(struct client_state_t *cs)
                 memset(&arpreply, 0, sizeof arpreply);
                 arpreply_offset = 0;
             }
-            return;
-        } else {
+            break;
+        case DS_ARP_GW_CHECK:
             if (arpreply.operation == htons(ARPOP_REPLY)
-                // don't check: Linux returns invalid tHaddr (fixed in 2.6.24?)
-                // && !memcmp(arpreply.tHaddr, from_mac, 6)
+                && !memcmp(arpreply.tHaddr, client_config.arp, 6)
                 && *(aliased_uint32_t*)arpreply.sInaddr == cs->routerAddr)
             {
-                // XXX: would be nice to check arp gateway mac, too
-                arp_gw_success(cs);
+                // Success only if the router/gw MAC matches stored value
+                if (!memcmp(cs->routerArp, arpreply.sHaddr, 6))
+                    arp_gw_success(cs);
+                else
+                    arp_gw_failed(cs);
             } else {
                 memset(&arpreply, 0, sizeof arpreply);
                 arpreply_offset = 0;
             }
-            return;
-        }
+            break;
+        case DS_BOUND:
+            if (arpreply.operation == htons(ARPOP_REPLY)
+                && !memcmp(arpreply.tHaddr, client_config.arp, 6)
+                && *(aliased_uint32_t*)arpreply.sInaddr == cs->routerAddr)
+            {
+                memcpy(cs->routerArp, arpreply.sHaddr, 6);
+                epoll_del(cs, cs->arpFd);
+                close(cs->arpFd);
+                cs->arpFd = -1;
+                log_line("gateway hardware address %02x:%02x:%02x:%02x:%02x:%02x",
+                         cs->routerArp[0], cs->routerArp[1],
+                         cs->routerArp[2], cs->routerArp[3],
+                         cs->routerArp[4], cs->routerArp[5]);
+            } else {
+                log_line("still looking for gateway hardware address");
+                memset(&arpreply, 0, sizeof arpreply);
+                arpreply_offset = 0;
+            }
+            break;
+        default:
+            epoll_del(cs, cs->arpFd);
+            close(cs->arpFd);
+            cs->arpFd = -1;
+            log_warning("handle_arp_response: called in invalid state 0x%02x",
+                        cs->dhcpState);
+            break;
     }
 }

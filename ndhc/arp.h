@@ -35,5 +35,6 @@ void arp_success(struct client_state_t *cs);
 void handle_arp_response(struct client_state_t *cs);
 void arp_gw_check(struct client_state_t *cs);
 void arp_gw_failed(struct client_state_t *cs);
+void arp_get_gw_hwaddr(struct client_state_t *cs);
 
 #endif /* ARPPING_H_ */

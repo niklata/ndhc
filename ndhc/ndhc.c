@@ -83,6 +83,7 @@ struct client_state_t cs = {
     .listenFd = -1,
     .arpFd = -1,
     .nlFd = -1,
+    .routerArp = "\0\0\0\0\0\0",
 };
 
 struct client_config_t client_config = {
@@ -95,7 +96,7 @@ struct client_config_t client_config = {
     .clientid = NULL,
     .hostname = NULL,
     .ifindex = 0,
-    .arp = "\0",
+    .arp = "\0\0\0\0\0\0",
 };
 
 static void show_usage(void)
@@ -132,6 +133,7 @@ static void perform_renew(void)
         case DS_ARP_CHECK:
             // Cancel arp ping in progress and treat as previous state.
             epoll_del(&cs, cs.arpFd);
+            close(cs.arpFd);
             cs.arpFd = -1;
             cs.dhcpState = cs.arpPrevState;
             goto retry;
@@ -178,6 +180,7 @@ static void perform_release(void)
 
     if (cs.dhcpState == DS_ARP_CHECK) {
         epoll_del(&cs, cs.arpFd);
+        close(cs.arpFd);
         cs.arpFd = -1;
     }
     change_listen_mode(&cs, LM_NONE);

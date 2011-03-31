@@ -1,5 +1,5 @@
 /* ifchange.c - functions to call the interface change daemon
- * Time-stamp: <2011-03-30 20:21:30 nk>
+ * Time-stamp: <2011-03-30 22:54:28 nk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -34,12 +34,14 @@
 #include "config.h"
 #include "packet.h"
 #include "options.h"
+#include "arp.h"
 #include "log.h"
 #include "io.h"
 #include "ifchange.h"
 
 // For access to routerAddr and nothing else.
 extern struct client_state_t cs;
+static char router_set;
 
 /* Fill buf with the ifchd command text of option 'option'. */
 /* Returns 0 if successful, -1 if nothing was filled in. */
@@ -88,6 +90,7 @@ static int ifchd_cmd(char *buf, size_t buflen, uint8_t *option, ssize_t optlen,
                 // for verifying gateway existence by ARP when link returns.
                 if (code == DHCP_ROUTER) {
                     memcpy(&cs.routerAddr, option, 4);
+                    router_set = 1;
                 }
                 if (inet_ntop(AF_INET, option, buf, buflen - (buf - obuf) - 1))
                     buf += strlen(buf);
@@ -212,6 +215,7 @@ static void bound_if(struct dhcpMessage *packet)
     snprintf(buf, sizeof buf, "ip:%s:", ip);
     sockwrite(sockfd, buf, strlen(buf));
 
+    router_set = 0;
     send_cmd(sockfd, packet, DHCP_SUBNET);
     send_cmd(sockfd, packet, DHCP_ROUTER);
     send_cmd(sockfd, packet, DHCP_DNS_SERVER);
@@ -222,6 +226,8 @@ static void bound_if(struct dhcpMessage *packet)
     send_cmd(sockfd, packet, DHCP_WINS_SERVER);
 
     close(sockfd);
+    if (router_set == 1)
+        arp_get_gw_hwaddr(&cs);
 }
 
 void ifchange(struct dhcpMessage *packet, int mode)

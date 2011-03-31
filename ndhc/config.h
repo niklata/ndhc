@@ -44,6 +44,7 @@ struct client_state_t {
     int timeout, oldTimeout;
     uint32_t requestedIP, serverAddr, routerAddr;
     uint32_t lease, t1, t2, xid;
+	unsigned char routerArp[6];
 };
 
 struct client_config_t {
