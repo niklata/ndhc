@@ -1,5 +1,5 @@
 /* ifchange.h - functions to call the interface change daemon
- * Time-stamp: <2011-03-30 16:38:19 nk>
+ * Time-stamp: <2011-03-31 03:44:18 nk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *

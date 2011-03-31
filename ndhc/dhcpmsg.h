@@ -1,5 +1,5 @@
 /* dhcpmsg.c - dhcp packet generation and sending functions
- * Time-stamp: <2011-03-30 23:53:52 nk>
+ * Time-stamp: <2011-03-31 03:27:02 nk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  * (c) 2001 Russ Dill <Russ.Dill@asu.edu>
@@ -43,7 +43,6 @@ enum {
 uint32_t random_xid(void);
 int send_discover(uint32_t xid, uint32_t requested);
 int send_selecting(uint32_t xid, uint32_t server, uint32_t requested);
-int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr);
 int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr);
 int send_decline(uint32_t xid, uint32_t server, uint32_t requested);
 int send_release(uint32_t server, uint32_t ciaddr);
