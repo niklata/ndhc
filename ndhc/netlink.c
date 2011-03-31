@@ -155,7 +155,8 @@ static void nl_handlemsg(struct nlmsghdr *msg, unsigned int len,
                                  * If we don't have a lease, state -> INIT.
                                  */
                                 if (cs->dhcpState == DS_BOUND) {
-                                    arp_gw_check(cs);
+                                    if (arp_gw_check(cs) == -1)
+                                        log_warning("arp_gw_check could not make arp socket, assuming lease is still OK");
                                 } else if (cs->dhcpState != DS_INIT_SELECTING)
                                     takedown_if(cs);
                             }

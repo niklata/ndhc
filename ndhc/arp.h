@@ -1,5 +1,5 @@
 /* arp.h - functions to call the interface change daemon
- * Time-stamp: <2011-03-30 23:36:45 nk>
+ * Time-stamp: <2011-03-31 02:28:59 nk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -49,15 +49,11 @@ struct arpMsg {
     uint8_t  pad[18];       /* 2a pad for min. ethernet payload (60 bytes) */
 };
 
-enum {
-    ARP_MSG_SIZE = 0x2a
-};
-
-void arp_check(struct client_state_t *cs, struct dhcpMessage *packet);
+int arp_check(struct client_state_t *cs, struct dhcpMessage *packet);
+int arp_gw_check(struct client_state_t *cs);
+int arp_get_gw_hwaddr(struct client_state_t *cs);
 void arp_success(struct client_state_t *cs);
-void handle_arp_response(struct client_state_t *cs);
-void arp_gw_check(struct client_state_t *cs);
 void arp_gw_failed(struct client_state_t *cs);
-void arp_get_gw_hwaddr(struct client_state_t *cs);
+void handle_arp_response(struct client_state_t *cs);
 
 #endif /* ARPPING_H_ */

@@ -1,5 +1,5 @@
 /* config.h - internal configuration and state for ndhc
- * Time-stamp: <2011-03-30 23:33:07 nk>
+ * Time-stamp: <2011-03-31 01:38:03 nk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *

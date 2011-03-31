@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-03-30 23:34:21 nk>
+ * Time-stamp: <2011-03-31 02:29:09 nk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -41,37 +41,50 @@
 #include "strl.h"
 #include "io.h"
 
+#define ARP_MSG_SIZE 0x2a
+#define ARP_RETRY_COUNT 3
+
 static struct arpMsg arpreply;
 static int arpreply_offset;
 static struct dhcpMessage arp_dhcp_packet;
+static int arp_packet_num;
 
-/* Returns fd of the arp socket, or -1 on failure. */
+static int arp_close_fd(struct client_state_t *cs)
+{
+    if (cs->arpFd != -1) {
+        epoll_del(cs, cs->arpFd);
+        close(cs->arpFd);
+        cs->arpFd = -1;
+        return 1;
+    }
+    return 0;
+}
+
+/* Returns 0 on success, -1 on failure. */
 static int arpping(struct client_state_t *cs, uint32_t test_ip,
                    uint32_t from_ip, uint8_t *from_mac, const char *interface)
 {
-    int arpfd;
     int opt = 1;
     struct sockaddr addr;   /* for interface name */
     struct arpMsg arp;
 
-    if (cs->arpFd != -1) {
-        epoll_del(cs, cs->arpFd);
-        close(cs->arpFd);
-    }
-    arpfd = socket(PF_PACKET, SOCK_PACKET, htons(ETH_P_ARP));
-    if (arpfd == -1) {
-        log_warning("arpping: failed to create socket: %s", strerror(errno));
-        return -1;
-    }
+    if (cs->arpFd == -1) {
+        int arpfd = socket(PF_PACKET, SOCK_PACKET, htons(ETH_P_ARP));
+        if (arpfd == -1) {
+            log_warning("arpping: failed to create socket: %s", strerror(errno));
+            return -1;
+        }
 
-    if (setsockopt(arpfd, SOL_SOCKET, SO_BROADCAST,
-                   &opt, sizeof opt) == -1) {
-        log_warning("arpping: failed to set broadcast: %s", strerror(errno));
-        close(arpfd);
-        return -1;
+        if (setsockopt(arpfd, SOL_SOCKET, SO_BROADCAST,
+                       &opt, sizeof opt) == -1) {
+            log_warning("arpping: failed to set broadcast: %s", strerror(errno));
+            close(arpfd);
+            return -1;
+        }
+        set_sock_nonblock(arpfd);
+        cs->arpFd = arpfd;
+        epoll_add(cs, arpfd);
     }
-
-    set_sock_nonblock(arpfd);
 
     /* send arp request */
     memset(&arp, 0, sizeof arp);
@@ -90,60 +103,63 @@ static int arpping(struct client_state_t *cs, uint32_t test_ip,
 
     memset(&addr, 0, sizeof addr);
     strlcpy(addr.sa_data, interface, sizeof addr.sa_data);
-    if (safe_sendto(arpfd, (const char *)&arp, sizeof arp,
+    if (safe_sendto(cs->arpFd, (const char *)&arp, sizeof arp,
                     0, &addr, sizeof addr) < 0) {
         log_error("arpping: sendto failed: %s", strerror(errno));
-        close(arpfd);
+        arp_close_fd(cs);
         return -1;
     }
-    return arpfd;
+    arp_packet_num = 0;
+    return 0;
 }
 
-void arp_check(struct client_state_t *cs, struct dhcpMessage *packet)
+int arp_check(struct client_state_t *cs, struct dhcpMessage *packet)
 {
+    if (arpping(cs, arp_dhcp_packet.yiaddr, 0, client_config.arp,
+                client_config.interface) == -1)
+        return -1;
     cs->arpPrevState = cs->dhcpState;
     cs->dhcpState = DS_ARP_CHECK;
-    memcpy(&arp_dhcp_packet, packet, sizeof (struct dhcpMessage));
-    cs->arpFd = arpping(cs, arp_dhcp_packet.yiaddr, 0, client_config.arp,
-                        client_config.interface);
-    epoll_add(cs, cs->arpFd);
     cs->timeout = 2000;
+    memcpy(&arp_dhcp_packet, packet, sizeof (struct dhcpMessage));
     memset(&arpreply, 0, sizeof arpreply);
     arpreply_offset = 0;
+    return 0;
 }
 
-void arp_gw_check(struct client_state_t *cs)
+int arp_gw_check(struct client_state_t *cs)
 {
+    if (arpping(cs, cs->routerAddr, 0, client_config.arp,
+                client_config.interface) == -1)
+        return -1;
     cs->arpPrevState = cs->dhcpState;
     cs->dhcpState = DS_ARP_GW_CHECK;
-    memset(&arp_dhcp_packet, 0, sizeof (struct dhcpMessage));
-    cs->arpFd = arpping(cs, cs->routerAddr, 0, client_config.arp,
-                        client_config.interface);
-    epoll_add(cs, cs->arpFd);
     cs->oldTimeout = cs->timeout;
     cs->timeout = 2000;
+    memset(&arp_dhcp_packet, 0, sizeof (struct dhcpMessage));
     memset(&arpreply, 0, sizeof arpreply);
     arpreply_offset = 0;
+    return 0;
 }
 
-void arp_get_gw_hwaddr(struct client_state_t *cs)
+int arp_get_gw_hwaddr(struct client_state_t *cs)
 {
     if (cs->dhcpState != DS_BOUND)
         log_warning("arp_get_gw_hwaddr: called when state != DS_BOUND");
+    if (arpping(cs, cs->routerAddr, 0, client_config.arp,
+                client_config.interface) == -1)
+        return -1;
+    log_line("arp_get_hw_addr: searching for gw address");
     memset(&arp_dhcp_packet, 0, sizeof (struct dhcpMessage));
-    cs->arpFd = arpping(cs, cs->routerAddr, 0, client_config.arp,
-                        client_config.interface);
-    epoll_add(cs, cs->arpFd);
     memset(&arpreply, 0, sizeof arpreply);
     arpreply_offset = 0;
+    return 0;
 }
 
 static void arp_failed(struct client_state_t *cs)
 {
     log_line("Offered address is in use: declining.");
-    epoll_del(cs, cs->arpFd);
-    close(cs->arpFd);
-    cs->arpFd = -1;
+    arp_close_fd(cs);
     send_decline(cs->xid, cs->serverAddr, arp_dhcp_packet.yiaddr);
 
     if (cs->arpPrevState != DS_REQUESTING)
@@ -158,9 +174,7 @@ static void arp_failed(struct client_state_t *cs)
 void arp_gw_failed(struct client_state_t *cs)
 {
     log_line("arp: gateway appears to have changed, getting new lease");
-    epoll_del(cs, cs->arpFd);
-    close(cs->arpFd);
-    cs->arpFd = -1;
+    arp_close_fd(cs);
 
     // Same as packet.c: line 258
     ifchange(NULL, IFCHANGE_DECONFIG);
@@ -176,9 +190,7 @@ void arp_success(struct client_state_t *cs)
 {
     struct in_addr temp_addr;
 
-    epoll_del(cs, cs->arpFd);
-    close(cs->arpFd);
-    cs->arpFd = -1;
+    arp_close_fd(cs);
 
     /* enter bound state */
     cs->t1 = cs->lease >> 1;
@@ -206,9 +218,8 @@ void arp_success(struct client_state_t *cs)
 void arp_gw_success(struct client_state_t *cs)
 {
     log_line("arp: gateway seems unchanged");
-    epoll_del(cs, cs->arpFd);
-    close(cs->arpFd);
-    cs->arpFd = -1;
+    arp_close_fd(cs);
+
     cs->timeout = cs->oldTimeout;
     cs->dhcpState = cs->arpPrevState;
 }
@@ -220,12 +231,13 @@ void handle_arp_response(struct client_state_t *cs)
         int r = safe_read(cs->arpFd, (char *)&arpreply + arpreply_offset,
                           sizeof arpreply - arpreply_offset);
         if (r < 0) {
-            // Conservative responses: assume failure.
-            if (cs->dhcpState == DS_ARP_CHECK)
-                arp_failed(cs);
-            else
-                arp_gw_failed(cs);
-            return;
+            log_warning("handle_arp_response: short read");
+            switch (cs->dhcpState) {
+                case DS_ARP_CHECK: arp_failed(cs); break;
+                case DS_ARP_GW_CHECK: arp_gw_failed(cs); break;
+                case DS_BOUND: break; // keep trying for finding gw mac
+                default: break;
+            }
         } else
             arpreply_offset += r;
     }
@@ -234,6 +246,8 @@ void handle_arp_response(struct client_state_t *cs)
         log_warning("handle_arp_response: Received short ARP message.");
         return;
     }
+
+    ++arp_packet_num;
     switch (cs->dhcpState) {
         case DS_ARP_CHECK:
             if (arpreply.operation == htons(ARPOP_REPLY)
@@ -246,7 +260,9 @@ void handle_arp_response(struct client_state_t *cs)
                     arp_success(cs);
                 else
                     arp_failed(cs);
+                return;
             } else {
+                log_line("arp ping noise while waiting for check timeout");
                 memset(&arpreply, 0, sizeof arpreply);
                 arpreply_offset = 0;
             }
@@ -261,7 +277,9 @@ void handle_arp_response(struct client_state_t *cs)
                     arp_gw_success(cs);
                 else
                     arp_gw_failed(cs);
+                return;
             } else {
+                log_line("still waiting for gateway to reply to arp ping");
                 memset(&arpreply, 0, sizeof arpreply);
                 arpreply_offset = 0;
             }
@@ -272,13 +290,13 @@ void handle_arp_response(struct client_state_t *cs)
                 && *(aliased_uint32_t*)arpreply.sInaddr == cs->routerAddr)
             {
                 memcpy(cs->routerArp, arpreply.sHaddr, 6);
-                epoll_del(cs, cs->arpFd);
-                close(cs->arpFd);
-                cs->arpFd = -1;
+                arp_close_fd(cs);
+
                 log_line("gateway hardware address %02x:%02x:%02x:%02x:%02x:%02x",
                          cs->routerArp[0], cs->routerArp[1],
                          cs->routerArp[2], cs->routerArp[3],
                          cs->routerArp[4], cs->routerArp[5]);
+                return;
             } else {
                 log_line("still looking for gateway hardware address");
                 memset(&arpreply, 0, sizeof arpreply);
@@ -286,11 +304,21 @@ void handle_arp_response(struct client_state_t *cs)
             }
             break;
         default:
-            epoll_del(cs, cs->arpFd);
-            close(cs->arpFd);
-            cs->arpFd = -1;
+            arp_close_fd(cs);
             log_warning("handle_arp_response: called in invalid state 0x%02x",
                         cs->dhcpState);
-            break;
+            return;
+    }
+    if (arp_packet_num >= ARP_RETRY_COUNT) {
+        switch (cs->dhcpState) {
+            case DS_BOUND:
+                if (arpping(cs, cs->routerAddr, 0, client_config.arp,
+                            client_config.interface) == -1)
+                    log_line("failed to retransmit arp packet for finding gw mac addr");
+                break;
+            default:
+                log_line("not yet bothering with arp retransmit for non-DS_BOUND state");
+                break;
+        }
     }
 }

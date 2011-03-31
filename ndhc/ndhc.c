@@ -1,5 +1,5 @@
 /* ndhc.c - DHCP client
- * Time-stamp: <2011-03-30 23:58:05 nk>
+ * Time-stamp: <2011-03-31 01:38:17 nk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *

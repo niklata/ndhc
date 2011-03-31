@@ -1,5 +1,5 @@
 /* ifchange.c - functions to call the interface change daemon
- * Time-stamp: <2011-03-30 22:54:28 nk>
+ * Time-stamp: <2011-03-31 01:57:46 nk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -226,8 +226,12 @@ static void bound_if(struct dhcpMessage *packet)
     send_cmd(sockfd, packet, DHCP_WINS_SERVER);
 
     close(sockfd);
-    if (router_set == 1)
-        arp_get_gw_hwaddr(&cs);
+    if (router_set == 1) {
+        if (arp_get_gw_hwaddr(&cs) == -1) {
+            log_warning("arp_get_gw_hwaddr failed to make arp socket; setting gw mac=ff:ff:ff:ff:ff:ff");
+            memset(&cs.routerAddr, 0xff, 4);
+        }
+    }
 }
 
 void ifchange(struct dhcpMessage *packet, int mode)
