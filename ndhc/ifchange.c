@@ -1,5 +1,5 @@
 /* ifchange.c - functions to call the interface change daemon
- * Time-stamp: <2011-03-30 19:23:54 nk>
+ * Time-stamp: <2011-03-30 20:21:30 nk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -87,7 +87,6 @@ static int ifchd_cmd(char *buf, size_t buflen, uint8_t *option, ssize_t optlen,
                 // This is a bit of a layering violation, but it's necessary
                 // for verifying gateway existence by ARP when link returns.
                 if (code == DHCP_ROUTER) {
-                    log_line("copied gateway address to cs->routerAddr");
                     memcpy(&cs.routerAddr, option, 4);
                 }
                 if (inet_ntop(AF_INET, option, buf, buflen - (buf - obuf) - 1))
