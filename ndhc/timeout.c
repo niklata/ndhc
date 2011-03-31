@@ -1,5 +1,5 @@
 /* timeout.c - callbacks to react to event timeouts
- * Time-stamp: <2011-03-30 23:42:13 nk>
+ * Time-stamp: <2011-03-31 15:18:41 nk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -37,7 +37,6 @@ static void init_selecting_timeout(struct client_state_t *cs)
             cs->xid = random_xid();
         /* broadcast */
         send_discover(cs->xid, cs->requestedIP);
-
         cs->timeout = DELAY_SEC * (cs->packetNum + 1) * 1000;
         cs->packetNum++;
     } else {
