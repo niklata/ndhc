@@ -1,3 +1,24 @@
+/* packet.h - send and react to DHCP message packets
+ * Time-stamp: <2011-03-30 23:57:02 nk>
+ *
+ * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
+ * (c) 2001 Russ Dill <Russ.Dill@asu.edu>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+
 #ifndef PACKET_H_
 #define PACKET_H_
 
@@ -40,16 +61,16 @@ struct udp_dhcp_packet {
 };
 
 enum {
-	IP_UPD_DHCP_SIZE = sizeof(struct ip_udp_dhcp_packet),
-	UPD_DHCP_SIZE    = sizeof(struct udp_dhcp_packet),
-	DHCP_SIZE        = sizeof(struct dhcpMessage),
+    IP_UPD_DHCP_SIZE = sizeof(struct ip_udp_dhcp_packet),
+    UPD_DHCP_SIZE    = sizeof(struct udp_dhcp_packet),
+    DHCP_SIZE        = sizeof(struct dhcpMessage),
 };
 
 int get_packet(struct dhcpMessage *packet, int fd);
 uint16_t checksum(void *addr, int count);
 int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
                int source_port, uint32_t dest_ip, int dest_port,
-               unsigned char *dest_arp, int ifindex);
+               uint8_t *dest_arp, int ifindex);
 int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
                   int source_port, uint32_t dest_ip, int dest_port);
 void change_listen_mode(struct client_state_t *cs, int new_mode);

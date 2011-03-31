@@ -1,9 +1,8 @@
-/* dhcpmsg.c
+/* dhcpmsg.c - dhcp packet generation and sending functions
+ * Time-stamp: <2011-03-30 23:57:43 nk>
  *
- * Packet generation and dispatching functions for the DHCP client.
- *
- * Nicholas J. Kain <njkain at gmail dot com> 2004-2010
- * Russ Dill <Russ.Dill@asu.edu> July 2001
+ * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
+ * (c) 2001 Russ Dill <Russ.Dill@asu.edu>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -100,10 +99,10 @@ static void init_packet(struct dhcpMessage *packet, char type)
         add_option_string(packet->options, DHCP_OPTIONS_BUFSIZE,
                           client_config.hostname);
     add_option_string(packet->options, DHCP_OPTIONS_BUFSIZE,
-                      (unsigned char *)&vendor_id);
+                      (uint8_t *)&vendor_id);
 }
 
-#define MAC_BCAST_ADDR  (unsigned char *) "\xff\xff\xff\xff\xff\xff"
+#define MAC_BCAST_ADDR (uint8_t *)"\xff\xff\xff\xff\xff\xff"
 /* Wrapper that broadcasts a raw dhcp packet on the bound interface. */
 static int bcast_raw_packet(struct dhcpMessage *packet)
 {

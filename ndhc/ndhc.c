@@ -1,9 +1,7 @@
-/* ndhc.c
+/* ndhc.c - DHCP client
+ * Time-stamp: <2011-03-30 23:58:05 nk>
  *
- * ndhc DHCP client, originally based on udhcpc
- *
- * Nicholas J. Kain <njkain at gmail dot com> 2004-2010
- * Russ Dill <Russ.Dill@asu.edu> July 2001
+ * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -302,7 +300,7 @@ int main(int argc, char **argv)
                 if (client_config.clientid)
                     free(client_config.clientid);
                 client_config.clientid =
-                    alloc_dhcp_client_id_option(0, (unsigned char *)optarg, len);
+                    alloc_dhcp_client_id_option(0, (uint8_t *)optarg, len);
                 break;
             case 'f':
                 client_config.foreground = 1;
@@ -321,7 +319,7 @@ int main(int argc, char **argv)
                 if (client_config.hostname)
                     free(client_config.hostname);
                 client_config.hostname =
-                    alloc_option(DHCP_HOST_NAME, (unsigned char *)optarg, len);
+                    alloc_option(DHCP_HOST_NAME, (uint8_t *)optarg, len);
                 break;
             case 'i':
                 client_config.interface = optarg;

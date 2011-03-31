@@ -1,3 +1,24 @@
+/* packet.c - send and react to DHCP message packets
+ * Time-stamp: <2011-03-30 23:57:14 nk>
+ *
+ * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
+ * (c) 2001 Russ Dill <Russ.Dill@asu.edu>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -27,13 +48,13 @@ int get_packet(struct dhcpMessage *packet, int fd)
     memset(packet, 0, DHCP_SIZE);
     bytes = safe_read(fd, (char *)packet, DHCP_SIZE);
     if (bytes == -1) {
-	log_line("Read on listen socket failed: %s", strerror(errno));
-	return -1;
+        log_line("Read on listen socket failed: %s", strerror(errno));
+        return -1;
     }
 
     if (ntohl(packet->cookie) != DHCP_MAGIC) {
-	log_error("Packet with bad magic number, ignoring.");
-	return -2;
+        log_error("Packet with bad magic number, ignoring.");
+        return -2;
     }
     log_line("Received a packet");
 
@@ -47,21 +68,21 @@ uint16_t checksum(void *addr, int count)
     uint16_t *source = (uint16_t *)addr;
 
     while (count > 1)  {
-	sum += *source++;
-	count -= 2;
+        sum += *source++;
+        count -= 2;
     }
 
     /*  Add left-over byte, if any */
     if (count > 0) {
-	/* Make sure that the left-over byte is added correctly both
-	 * with little and big endian hosts */
-	uint16_t tmp = 0;
-	*(uint8_t *)&tmp = *(uint8_t *)source;
-	sum += tmp;
+        /* Make sure that the left-over byte is added correctly both
+         * with little and big endian hosts */
+        uint16_t tmp = 0;
+        *(uint8_t *)&tmp = *(uint8_t *)source;
+        sum += tmp;
     }
     /*  Fold 32-bit sum to 16 bits */
     while (sum >> 16)
-	sum = (sum & 0xffff) + (sum >> 16);
+        sum = (sum & 0xffff) + (sum >> 16);
 
     return ~sum;
 }
@@ -70,7 +91,7 @@ uint16_t checksum(void *addr, int count)
  * hardware address */
 int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
                int source_port, uint32_t dest_ip, int dest_port,
-               unsigned char *dest_arp, int ifindex)
+               uint8_t *dest_arp, int ifindex)
 {
     struct sockaddr_ll dest;
     struct ip_udp_dhcp_packet packet;
@@ -78,8 +99,8 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
     unsigned int padding;
 
     if ((fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP))) < 0) {
-	log_error("raw_packet: socket failed: %s", strerror(errno));
-	goto out;
+        log_error("raw_packet: socket failed: %s", strerror(errno));
+        goto out;
     }
 
     memset(&dest, 0, sizeof dest);
@@ -92,8 +113,8 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
     dest.sll_halen = 6;
     memcpy(dest.sll_addr, dest_arp, 6);
     if (bind(fd, (struct sockaddr *)&dest, sizeof(struct sockaddr_ll)) < 0) {
-	log_error("raw_packet: bind failed: %s", strerror(errno));
-	goto out_fd;
+        log_error("raw_packet: bind failed: %s", strerror(errno));
+        goto out_fd;
     }
 
     /* We were sending full-sized DHCP packets (zero padded),
@@ -131,9 +152,9 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
     packet.ip.check = checksum(&packet.ip, sizeof packet.ip);
 
     r = safe_sendto(fd, (const char *)&packet, IP_UPD_DHCP_SIZE - padding,
-		    0, (struct sockaddr *)&dest, sizeof dest);
+                    0, (struct sockaddr *)&dest, sizeof dest);
     if (r == -1)
-	log_error("raw_packet: sendto failed: %s", strerror(errno));
+        log_error("raw_packet: sendto failed: %s", strerror(errno));
   out_fd:
     close(fd);
   out:
@@ -142,17 +163,17 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
 
 /* Let the kernel do all the work for packet generation */
 int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
-		  int source_port, uint32_t dest_ip, int dest_port)
+                  int source_port, uint32_t dest_ip, int dest_port)
 {
     struct sockaddr_in client;
     int opt = 1, fd, result = -1;
     unsigned int padding;
 
     if ((fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
-	goto out;
+        goto out;
 
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt) == -1)
-	goto out_fd;
+        goto out_fd;
 
     memset(&client, 0, sizeof(client));
     client.sin_family = AF_INET;
@@ -160,7 +181,7 @@ int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
     client.sin_addr.s_addr = source_ip;
 
     if (bind(fd, (struct sockaddr *)&client, sizeof(struct sockaddr)) == -1)
-	goto out_fd;
+        goto out_fd;
 
     memset(&client, 0, sizeof(client));
     client.sin_family = AF_INET;
@@ -168,7 +189,7 @@ int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
     client.sin_addr.s_addr = dest_ip;
 
     if (connect(fd, (struct sockaddr *)&client, sizeof(struct sockaddr)) == -1)
-	goto out_fd;
+        goto out_fd;
 
     ssize_t endloc = get_end_option_idx(payload->options,
                                         DHCP_OPTIONS_BUFSIZE);
@@ -179,7 +200,7 @@ int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
     padding = DHCP_OPTIONS_BUFSIZE - 1 - endloc;
     result = safe_write(fd, (const char *)payload, DHCP_SIZE - padding);
     if (result == -1)
-	log_error("kernel_packet: write failed: %s", strerror(errno));
+        log_error("kernel_packet: write failed: %s", strerror(errno));
   out_fd:
     close(fd);
   out:
@@ -216,9 +237,9 @@ void change_listen_mode(struct client_state_t *cs, int new_mode)
 
 static void init_selecting_packet(struct client_state_t *cs,
                                   struct dhcpMessage *packet,
-                                  unsigned char *message)
+                                  uint8_t *message)
 {
-    unsigned char *temp = NULL;
+    uint8_t *temp = NULL;
     ssize_t optlen;
     /* Must be a DHCPOFFER to one of our xid's */
     if (*message == DHCPOFFER) {
@@ -240,9 +261,9 @@ static void init_selecting_packet(struct client_state_t *cs,
 
 static void dhcp_ack_or_nak_packet(struct client_state_t *cs,
                                    struct dhcpMessage *packet,
-                                   unsigned char *message)
+                                   uint8_t *message)
 {
-    unsigned char *temp = NULL;
+    uint8_t *temp = NULL;
     ssize_t optlen;
     if (*message == DHCPACK) {
         if (!(temp = get_option_data(packet, DHCP_LEASE_TIME, &optlen))) {
@@ -279,7 +300,7 @@ static void dhcp_ack_or_nak_packet(struct client_state_t *cs,
 
 void handle_packet(struct client_state_t *cs)
 {
-    unsigned char *message = NULL;
+    uint8_t *message = NULL;
     int len;
     struct dhcpMessage packet;
     ssize_t optlen;

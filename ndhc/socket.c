@@ -1,10 +1,8 @@
-/*
- * socket.c -- DHCP server client/server socket creation
+/* socket.c - raw and kernel socket creation functions
+ * Time-stamp: <2011-03-30 23:47:03 nk>
  *
- * Copyright (C) 2004-2010 Nicholas J. Kain <njkain at gmail dot com>
- * Rewrite by Russ Dill <Russ.Dill@asu.edu> July 2001
- * Copyright (C) 1999 Matthew Ramsay <matthewr@moreton.com.au>
- *			Chris Trew <ctrew@moreton.com.au>
+ * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
+ * Kernel BPF filter is (c) 2006, 2007 Stefan Rompf <sux@loplof.de>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -94,19 +92,11 @@ int raw_socket(int ifindex)
 
     /*
      * Comment:
-     *
      *   I've selected not to see LL header, so BPF doesn't see it, too.
      *   The filter may also pass non-IP and non-ARP packets, but we do
      *   a more complete check when receiving the message in userspace.
-     *
      * and filter shamelessly stolen from:
-     *
      *   http://www.flamewarmaster.de/software/dhcpclient/
-     *
-     * There are a few other interesting ideas on that page (look under
-     * "Motivation").  Use of netlink events is most interesting.  Think
-     * of various network servers listening for events and reconfiguring.
-     * That would obsolete sending HUP signals and/or make use of restarts.
      *
      *  Copyright: 2006, 2007 Stefan Rompf <sux@loplof.de>.
      *  License: GPL v2.
