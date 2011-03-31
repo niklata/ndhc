@@ -91,6 +91,20 @@ void arp_check(struct client_state_t *cs, struct dhcpMessage *packet)
     arpreply_offset = 0;
 }
 
+void arp_gw_check(struct client_state_t *cs)
+{
+    cs->arpPrevState = cs->dhcpState;
+    cs->dhcpState = DS_ARP_GW_CHECK;
+    memset(&arp_dhcp_packet, 0, sizeof (struct dhcpMessage));
+    cs->arpFd = arpping(cs->routerAddr, NULL, 0,
+                        client_config.arp, client_config.interface);
+    epoll_add(cs, cs->arpFd);
+    cs->oldTimeout = cs->timeout;
+    cs->timeout = 2000;
+    memset(&arpreply, 0, sizeof arpreply);
+    arpreply_offset = 0;
+}
+
 static void arp_failed(struct client_state_t *cs)
 {
     log_line("Offered address is in use: declining.");
@@ -103,6 +117,22 @@ static void arp_failed(struct client_state_t *cs)
     cs->dhcpState = DS_INIT_SELECTING;
     cs->requestedIP = 0;
     cs->timeout = 0;
+    cs->packetNum = 0;
+    change_listen_mode(cs, LM_RAW);
+}
+
+void arp_gw_failed(struct client_state_t *cs)
+{
+    log_line("arp: gateway appears to have changed, getting new lease");
+    epoll_del(cs, cs->arpFd);
+    cs->arpFd = -1;
+
+    // Same as packet.c: line 258
+    ifchange(NULL, IFCHANGE_DECONFIG);
+    cs->dhcpState = DS_INIT_SELECTING;
+    cs->oldTimeout = 0;
+    cs->timeout = 0;
+    cs->requestedIP = 0;
     cs->packetNum = 0;
     change_listen_mode(cs, LM_RAW);
 }
@@ -138,6 +168,15 @@ void arp_success(struct client_state_t *cs)
         background(cs);
 }
 
+void arp_gw_success(struct client_state_t *cs)
+{
+    log_line("arp: gateway seems unchanged");
+    epoll_del(cs, cs->arpFd);
+    cs->arpFd = -1;
+    cs->timeout = cs->oldTimeout;
+    cs->dhcpState = cs->arpPrevState;
+}
+
 typedef uint32_t aliased_uint32_t __attribute__((__may_alias__));
 void handle_arp_response(struct client_state_t *cs)
 {
@@ -145,7 +184,11 @@ void handle_arp_response(struct client_state_t *cs)
         int r = safe_read(cs->arpFd, (char *)&arpreply + arpreply_offset,
                           sizeof arpreply - arpreply_offset);
         if (r < 0) {
-            arp_failed(cs);
+            // Conservative responses: assume failure.
+            if (cs->dhcpState == DS_ARP_CHECK)
+                arp_failed(cs);
+            else
+                arp_gw_failed(cs);
             return;
         } else
             arpreply_offset += r;
@@ -156,21 +199,36 @@ void handle_arp_response(struct client_state_t *cs)
     //arp.sHaddr[3], arp.sHaddr[4], arp.sHaddr[5]);
 
     if (arpreply_offset >= ARP_MSG_SIZE) {
-        if (arpreply.operation == htons(ARPOP_REPLY)
-            /* don't check: Linux returns invalid tHaddr (fixed in 2.6.24?) */
-            /* && memcmp(arpreply.tHaddr, from_mac, 6) == 0 */
-            && *(aliased_uint32_t*)arpreply.sInaddr == arp_dhcp_packet.yiaddr)
-        {
-            /* if ARP source MAC matches safe_mac
-             * (which is client's MAC), then it's not a conflict
-             * (client simply already has this IP and replies to ARPs!)
-             */
-            /* if (memcmp(safe_mac, arpreply.sHaddr, 6) == 0) */
-            /*     arp_success(); */
-            arp_failed(cs);
+        if (cs->dhcpState == DS_ARP_CHECK) {
+            if (arpreply.operation == htons(ARPOP_REPLY)
+                // don't check: Linux returns invalid tHaddr (fixed in 2.6.24?)
+                // && !memcmp(arpreply.tHaddr, from_mac, 6)
+                && *(aliased_uint32_t*)arpreply.sInaddr
+                == arp_dhcp_packet.yiaddr)
+            {
+                // Check to see if we replied to our own ARP query.
+                if (!memcmp(client_config.arp, arpreply.sHaddr, 6))
+                    arp_success(cs);
+                else
+                    arp_failed(cs);
+            } else {
+                memset(&arpreply, 0, sizeof arpreply);
+                arpreply_offset = 0;
+            }
+            return;
         } else {
-            memset(&arpreply, 0, sizeof arpreply);
-            arpreply_offset = 0;
+            if (arpreply.operation == htons(ARPOP_REPLY)
+                // don't check: Linux returns invalid tHaddr (fixed in 2.6.24?)
+                // && !memcmp(arpreply.tHaddr, from_mac, 6)
+                && *(aliased_uint32_t*)arpreply.sInaddr == cs->routerAddr)
+            {
+                // XXX: would be nice to check arp gateway mac, too
+                arp_gw_success(cs);
+            } else {
+                memset(&arpreply, 0, sizeof arpreply);
+                arpreply_offset = 0;
+            }
+            return;
         }
     }
 }

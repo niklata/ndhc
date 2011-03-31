@@ -33,5 +33,7 @@ enum {
 void arp_check(struct client_state_t *cs, struct dhcpMessage *packet);
 void arp_success(struct client_state_t *cs);
 void handle_arp_response(struct client_state_t *cs);
+void arp_gw_check(struct client_state_t *cs);
+void arp_gw_failed(struct client_state_t *cs);
 
 #endif /* ARPPING_H_ */

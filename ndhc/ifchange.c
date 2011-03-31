@@ -1,5 +1,5 @@
 /* ifchange.c - functions to call the interface change daemon
- * Time-stamp: <2011-03-30 16:37:33 nk>
+ * Time-stamp: <2011-03-30 19:23:54 nk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -37,6 +37,9 @@
 #include "log.h"
 #include "io.h"
 #include "ifchange.h"
+
+// For access to routerAddr and nothing else.
+extern struct client_state_t cs;
 
 /* Fill buf with the ifchd command text of option 'option'. */
 /* Returns 0 if successful, -1 if nothing was filled in. */
@@ -81,6 +84,12 @@ static int ifchd_cmd(char *buf, size_t buflen, uint8_t *option, ssize_t optlen,
     for(;;) {
         switch (type) {
             case OPTION_IP: {
+                // This is a bit of a layering violation, but it's necessary
+                // for verifying gateway existence by ARP when link returns.
+                if (code == DHCP_ROUTER) {
+                    log_line("copied gateway address to cs->routerAddr");
+                    memcpy(&cs.routerAddr, option, 4);
+                }
                 if (inet_ntop(AF_INET, option, buf, buflen - (buf - obuf) - 1))
                     buf += strlen(buf);
                 break;

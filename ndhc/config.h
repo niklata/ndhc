@@ -13,6 +13,7 @@ enum {
 	DS_BOUND,
 	DS_RENEWING,
 	DS_REBINDING,
+	DS_ARP_GW_CHECK,
 	DS_ARP_CHECK,
 	DS_RENEW_REQUESTED,
 	DS_RELEASED
@@ -40,8 +41,8 @@ struct client_state_t {
     int listenMode;
     int packetNum;
     int epollFd, signalFd, listenFd, arpFd, nlFd;
-    int timeout;
-    uint32_t requestedIP, serverAddr;
+    int timeout, oldTimeout;
+    uint32_t requestedIP, serverAddr, routerAddr;
     uint32_t lease, t1, t2, xid;
 };
 

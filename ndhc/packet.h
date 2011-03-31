@@ -45,11 +45,6 @@ enum {
 	DHCP_SIZE        = sizeof(struct dhcpMessage),
 };
 
-/* Let's see whether compiler understood us right */
-struct BUG_bad_sizeof_struct_ip_udp_dhcp_packet {
-	char c[IP_UPD_DHCP_SIZE == 576 ? 1 : -1];
-};
-
 int get_packet(struct dhcpMessage *packet, int fd);
 uint16_t checksum(void *addr, int count);
 int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,

@@ -19,7 +19,7 @@ static void init_selecting_timeout(struct client_state_t *cs)
         /* broadcast */
         send_discover(cs->xid, cs->requestedIP);
 
-        cs->timeout = DELAY_SEC * (cs->packetNum + 1);
+        cs->timeout = DELAY_SEC * (cs->packetNum + 1) * 1000;
         cs->packetNum++;
     } else {
         if (client_config.background_if_no_lease) {
@@ -127,6 +127,7 @@ void handle_timeout(struct client_state_t *cs)
         case DS_REBINDING: rebinding_timeout(cs); break;
         case DS_RELEASED: cs->timeout = -1; break;
         case DS_ARP_CHECK: arp_success(cs); break;
+        case DS_ARP_GW_CHECK: arp_gw_failed(cs); break;
         default: break;
     }
 }
