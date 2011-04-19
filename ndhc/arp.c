@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-03-31 02:29:09 nk>
+ * Time-stamp: <2011-04-19 16:21:14 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -37,6 +37,7 @@
 #include "socket.h"
 #include "sys.h"
 #include "ifchange.h"
+#include "leasefile.h"
 #include "log.h"
 #include "strl.h"
 #include "io.h"
@@ -209,6 +210,7 @@ void arp_success(struct client_state_t *cs)
                cs->arpPrevState == DS_REBINDING)
               ? IFCHANGE_RENEW : IFCHANGE_BOUND));
     change_listen_mode(cs, LM_NONE);
+    write_leasefile(temp_addr);
     if (client_config.quit_after_lease)
         exit(EXIT_SUCCESS);
     if (!client_config.foreground)

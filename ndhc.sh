@@ -14,6 +14,7 @@ ndhc_start()
 {
 	local args= opt= opts= pidfile="/var/run/ndhc-${IFACE}.pid"
 	local sendhost=true
+	local leasefile="/var/state/${IFACE}.lease"
 
 	eval args=\$ndhc_${IFVAR}
 
@@ -63,7 +64,7 @@ ndhc_start()
 
 	eval "${x}" "${args}" -r `cat /etc/firewall/tmp/OLDEXTIP` \
 		-n -i "${IFACE}" -u "ndhc" -C "/var/lib/ndhc" \
-		-p "${pidfile}" >/dev/null
+		-p "${pidfile}" -l "${leasefile}" >/dev/null
 	eend $? || return 1
 
 	_show_address

@@ -1,5 +1,5 @@
 /* ndhc.c - DHCP client
- * Time-stamp: <2011-03-31 01:38:17 nk>
+ * Time-stamp: <2011-04-19 16:04:53 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -49,6 +49,7 @@
 #include "socket.h"
 #include "arp.h"
 #include "netlink.h"
+#include "leasefile.h"
 
 #include "log.h"
 #include "chroot.h"
@@ -274,6 +275,7 @@ int main(int argc, char **argv)
         {"foreground",  no_argument,        0, 'f'},
         {"background",  no_argument,        0, 'b'},
         {"pidfile",     required_argument,  0, 'p'},
+        {"leasefile",   required_argument,  0, 'l'},
         {"hostname",    required_argument,  0, 'H'},
         {"hostname",    required_argument,      0, 'h'},
         {"interface",   required_argument,  0, 'i'},
@@ -290,7 +292,7 @@ int main(int argc, char **argv)
     /* get options */
     while (1) {
         int option_index = 0;
-        c = getopt_long(argc, argv, "c:fbp:H:h:i:np:qr:u:C:v", arg_options,
+        c = getopt_long(argc, argv, "c:fbp:H:h:i:np:l:qr:u:C:v", arg_options,
                         &option_index);
         if (c == -1) break;
 
@@ -312,6 +314,9 @@ int main(int argc, char **argv)
                 break;
             case 'p':
                 strlcpy(pidfile, optarg, sizeof pidfile);
+                break;
+            case 'l':
+                set_leasefile(optarg);
                 break;
             case 'h':
             case 'H':
@@ -378,6 +383,8 @@ int main(int argc, char **argv)
         client_config.clientid =
             alloc_dhcp_client_id_option(1, client_config.arp, 6);
     }
+
+    open_leasefile();
 
     if (chdir(chroot_dir)) {
         printf("Failed to chdir(%s)!\n", chroot_dir);

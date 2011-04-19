@@ -1,7 +1,7 @@
-/* ifchange.h - functions to call the interface change daemon
- * Time-stamp: <2011-03-31 03:44:18 nk>
+/* leasefile.h - functions for writing the lease file
+ * Time-stamp: <2011-04-19 16:22:47 njk>
  *
- * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
+ * (c) 2011 Nicholas J. Kain <njkain at gmail dot com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,18 +18,6 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef IFCHANGE_H_
-#define IFCHANGE_H_
-
-#include "packet.h"
-
-enum {
-    IFCHANGE_DECONFIG = 0,
-    IFCHANGE_BOUND = 1,
-    IFCHANGE_RENEW = 2,
-    IFCHANGE_NAK = 4
-};
-
-void ifchange(struct dhcpMessage *packet, int mode);
-
-#endif
+void set_leasefile(char *lf);
+void open_leasefile();
+void write_leasefile(struct in_addr ipnum);
