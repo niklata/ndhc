@@ -1,5 +1,5 @@
 /* leasefile.c - functions for writing the lease file
- * Time-stamp: <2011-04-19 16:22:36 njk>
+ * Time-stamp: <2011-04-25 01:02:26 njk>
  *
  * (c) 2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -70,6 +70,7 @@ void write_leasefile(struct in_addr ipnum)
             log_warning("Failed to truncate lease file.\n");
             return;
     }
+    lseek(leasefilefd, 0, SEEK_SET);
     ret = safe_write(leasefilefd, ip, strlen(ip));
     if (ret == -1)
         log_warning("Failed to write ip to lease file.\n");
