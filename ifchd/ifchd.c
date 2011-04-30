@@ -1,7 +1,7 @@
 /* ifchd.c - interface change daemon
- * Time-stamp: <2010-12-01 12:19:39 njk>
+ * Time-stamp: <2011-04-30 07:26:54 nk>
  *
- * (C) 2004-2010 Nicholas J. Kain <njkain at gmail dot com>
+ * (C) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -98,6 +98,8 @@ int allow_hostname = 0;
 static uid_t peer_uid;
 static gid_t peer_gid;
 static pid_t peer_pid;
+
+static int gflags_verbose = 0;
 
 /* Lists of nameservers and search domains.  Unfortunately they must be
  * per-connection, since otherwise seperate clients could race against
@@ -379,7 +381,8 @@ static void execute_list(int i)
 
         p = curl[i]->str;
 
-        log_line("execute_list - p = '%s'", p);
+        if (gflags_verbose)
+            log_line("execute_list - p = '%s'", p);
 
         switch (state[i]) {
             case STATE_NOTHING:
@@ -766,10 +769,11 @@ int main(int argc, char** argv) {
             {"interface", 1, 0, 'i'},
             {"help", 0, 0, 'h'},
             {"version", 0, 0, 'v'},
+            {"verbose", 0, 0, 'V'},
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "dnp:qc:r:ou:g:U:G:P:i:hv", long_options,
+        c = getopt_long(argc, argv, "dnp:qc:r:ou:g:U:G:P:i:hvV", long_options,
                         &option_index);
         if (c == -1)
             break;
@@ -780,7 +784,7 @@ int main(int argc, char** argv) {
                 printf(
 "ifchd %s, if change daemon.  Licensed under GNU GPL.\n", IFCHD_VERSION);
                 printf(
-"Copyright (C) 2004-2010 Nicholas J. Kain\n"
+"Copyright (C) 2004-2011 Nicholas J. Kain\n"
 "Usage: ifchd [OPTIONS]\n"
 "  -d, --detach                detach from TTY and daemonize\n"
 "  -n, --nodetach              stay attached to TTY\n"
@@ -796,6 +800,7 @@ int main(int argc, char** argv) {
 "  -G, --cgroup                group name of clients\n"
 "  -P, --cpid                  process id of client\n"
 "  -i, --interface             ifchd clients may modify this interface\n"
+"  -V, --verbose               log detailed messages\n"
 "  -h, --help                  print this help and exit\n"
 "  -v, --version               print version information and exit\n");
                 exit(EXIT_FAILURE);
@@ -805,7 +810,7 @@ int main(int argc, char** argv) {
                 printf(
 "ifchd %s, if change daemon.  Licensed under GNU GPL.\n", IFCHD_VERSION);
                 printf(
-"Copyright (C) 2004-2010 Nicholas J. Kain\n"
+"Copyright (C) 2004-2011 Nicholas J. Kain\n"
 "This is free software; see the source for copying conditions.  There is NO\n"
 "WARRANTY; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
                 exit(EXIT_FAILURE);
@@ -898,6 +903,10 @@ int main(int argc, char** argv) {
 
             case 'i':
                 add_permitted_if(optarg);
+                break;
+
+            case 'V':
+                gflags_verbose = 1;
                 break;
         }
     }

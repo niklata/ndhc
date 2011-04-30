@@ -1,7 +1,7 @@
 /* linux.c - ifchd Linux-specific functions
- * Time-stamp: <2010-11-12 18:41:15 njk>
+ * Time-stamp: <2011-04-30 07:28:08 nk>
  *
- * (C) 2004-2010 Nicholas J. Kain <njkain at gmail dot com>
+ * (C) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -144,14 +144,16 @@ static int set_if_flag(int idx, short flag)
         log_line("%s: unknown interface: %s\n", ifnam[idx], strerror(errno));
         goto out1;
     }
-    strlcpy(ifrt.ifr_name, ifnam[idx], IFNAMSIZ);
-    ifrt.ifr_flags |= flag;
-    if (ioctl(fd, SIOCSIFFLAGS, &ifrt) < 0) {
-        log_line("%s: failed to set interface flags: %s\n",
-		 ifnam[idx], strerror(errno));
-        goto out1;
-    }
-    ret = 0;
+    if (((ifrt.ifr_flags & flag ) ^ flag) & flag) {
+        strlcpy(ifrt.ifr_name, ifnam[idx], IFNAMSIZ);
+        ifrt.ifr_flags |= flag;
+        if (ioctl(fd, SIOCSIFFLAGS, &ifrt) < 0) {
+            log_line("%s: failed to set interface flags: %s\n",
+                     ifnam[idx], strerror(errno));
+            goto out1;
+        }
+    } else
+        ret = 0;
 
   out1:
     close(fd);
