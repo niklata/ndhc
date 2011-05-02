@@ -1,4 +1,4 @@
-ifchd, copyright (c) 2004-2010 Nicholas Kain.  Licensed under GNU GPL.
+ifchd, copyright (c) 2004-2011 Nicholas Kain.  Licensed under GNU GPL.
 
 Requirements:
 
@@ -69,12 +69,17 @@ USAGE
     b) Create the jail directory and set its ownership properly.
 
         # mkdir /var/lib/ndhc
-        # chown ifchd.ifchd /var/lib/ndhc
+        # chown root.root /var/lib/ndhc
         # chmod a+rx /var/lib/ndhc
+        # cd /var/lib/ndhc
+        # mkdir var
+        # mkdir var/state
+        # mkdir var/run
+        # chown -R ifchd.ifchd var
+        # chmod -R a+rx var
 
     c) Create a urandom device for ndhc to use within the jail.
 
-        # cd /var/lib/ndhc
         # mkdir dev
         # mknod dev/urandom c 1 9
         # mknod dev/null c 1 3
@@ -140,17 +145,19 @@ when it chroots.
 PORTING NOTES
 -------------
 
-There are six major functions that ifchd depends upon that are not generally
+There are seven major functions that ifchd depends upon that are not generally
 portable.  First, it uses the SO_PEERCRED flag of getsockopt() to discriminate
 authorized connections by uid, gid, and pid.  Similar functionality exists in
 at least the BSDs; however, it has a different API.  Second, ifchd takes
 advantage of Linux capabilities so that it does not need full root privileges.
-Capabilities are supposedly a POSIX feature, but in practice, they vary greatly
-from system to system.  Third and fourth, ifchd configures network interfaces
-and routes.  Interface and route configuration is entirely non-portable,
-usually requiring calls to the catch-all ioctl(), and will almost certainly
-require platform-dependent code.  Fifth and sixth, both ifchd and ndhc use
-epoll() and signalfd(), which are Linux-specific.
+Capabilities were a proposed POSIX feature that was not made part of the
+official standard, so any implemention that may exist will be system-dependent.
+Third and fourth, ifchd configures network interfaces and routes.  Interface
+and route configuration is entirely non-portable, usually requiring calls to
+the catch-all ioctl(), and will almost certainly require platform-dependent
+code.  Fifth and sixth, both ifchd and ndhc use epoll() and signalfd(), which
+are Linux-specific.  Seventh, ndhc uses netlink sockets extensively for
+both fetching data and hardware link state change notification events.
 
 Some standard C libraries include a native implementation of strlcpy() and
 strlcat().  Such defines may conflict with my implementations in strl.c/strl.h.

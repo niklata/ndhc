@@ -1,5 +1,5 @@
 /* ifchange.c - functions to call the interface change daemon
- * Time-stamp: <2011-03-31 03:44:58 nk>
+ * Time-stamp: <2011-05-01 19:04:06 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -143,7 +143,7 @@ static int open_ifch(void) {
     int sockfd, ret;
     struct sockaddr_un address = {
         .sun_family = AF_UNIX,
-        .sun_path = "ifchange"
+        .sun_path = "/var/state/ifchange"
     };
 
     sockfd = socket(AF_UNIX, SOCK_STREAM, 0);

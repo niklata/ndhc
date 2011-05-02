@@ -1,5 +1,5 @@
 /* ifchd.c - interface change daemon
- * Time-stamp: <2011-04-30 07:26:54 nk>
+ * Time-stamp: <2011-05-01 19:03:48 njk>
  *
  * (C) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -524,7 +524,7 @@ static int get_listen(void)
     struct sockaddr_un lsock_addr =
     {
         .sun_family = AF_UNIX,
-        .sun_path = COMM_SOCKET_PATH
+        .sun_path = "/var/state/ifchange"
     };
 
     lsock = socket(PF_UNIX, SOCK_STREAM, 0);
@@ -533,11 +533,11 @@ static int get_listen(void)
 
     fcntl(lsock, F_SETFL, O_NONBLOCK);
 
-    (void) unlink(COMM_SOCKET_PATH);
+    (void) unlink("/var/state/ifchange");
     ret = bind(lsock, (struct sockaddr *) &lsock_addr, sizeof(lsock_addr));
     if (ret)
         suicide("dispatch_work - failed to bind socket");
-    ret = chmod(COMM_SOCKET_PATH, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+    ret = chmod("/var/state/ifchange", S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
     if (ret)
         suicide("dispatch_work - failed to chmod socket");
     ret = listen(lsock, SOCK_QUEUE);
