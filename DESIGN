@@ -36,35 +36,28 @@ Goals:
 	    instead the program should promptly exit.  Dead programs
 	    don't cause exploits.
 
-5.  Portability
+3.  Portability
 
 	a.  Portability is good, but portability may not be as wide as
 	    a less secure program.  Capabilities or MAC are not well
 	    standardized, but remain necessary features.
 
-        b.  Aside from the previous caveat, try to be as portable as
-	    possible.  At the very least, the dhcp client daemon
-	    should be easily portable (only broadcast and perhaps RAW
-	    packets are necessary).
+4.  Miscellaneous
 
-98. Speed
-
-	a.  If we aren't required to sacrifice anything more
+	a.  Speed: If we aren't required to sacrifice anything more
 	    important, it's always good to be fast.
 
-99. Size
-
-	a.  If we aren't required to sacrifice anything more
+	a.  Size: If we aren't required to sacrifice anything more
 	    important, it's always good to be frugal.
 
 Layout:
 
-ndhc daemon  (root -> chroot -> drop all !(CAP_NET_BROADCAST|CAP_NET_RAW) 
+ndhc daemon  (root -> chroot -> drop all !(CAP_NET_BROADCAST|CAP_NET_RAW)
               -> nopriv)
 
-* handles dhcp protocol issues
+* handles dhcp protocol issues, netlink hw link notifications, and ARP checks
 * keeps track of leases
-* talks to ndhif to perform tasks that require
+* talks to ifchd to perform tasks that require
   higher privileges than CAP_NET_BROADCAST or CAP_NET_RAW
 
 ifchd daemon  (root -> openfd -> chroot -> drop all !CAP_NET_ADMIN -> nopriv)
