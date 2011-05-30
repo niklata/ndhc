@@ -1,5 +1,5 @@
 /* ifchd.c - interface change daemon
- * Time-stamp: <2011-05-01 19:03:48 njk>
+ * Time-stamp: <2011-05-30 10:30:20 njk>
  *
  * (C) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -664,10 +664,12 @@ static void process_client_fd(int fd)
     memset(buf, '\0', sizeof buf);
 
     r = safe_read(sks[sqidx], buf, sizeof buf / 2 - 1);
-    if (r <= 0) {
-        if (r != 0)
-            log_line("error reading from client fd: %s", strerror(errno));
+    if (r == 0)
         goto fail;
+    else if (r < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return;
+        log_line("error reading from client fd: %s", strerror(errno));
     }
 
     /* Discard everything and close connection if we risk overflow.

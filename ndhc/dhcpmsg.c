@@ -1,5 +1,5 @@
 /* dhcpmsg.c - dhcp packet generation and sending functions
- * Time-stamp: <2011-03-30 23:57:43 nk>
+ * Time-stamp: <2011-05-30 10:43:28 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  * (c) 2001 Russ Dill <Russ.Dill@asu.edu>
@@ -217,11 +217,12 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
 {
     struct ip_udp_dhcp_packet packet;
     uint16_t check;
-    const int packet_size = sizeof(struct ip_udp_dhcp_packet);
 
-    memset(&packet, 0, packet_size);
-    int len = safe_read(fd, (char *)&packet, packet_size);
-    if (len == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
+    memset(&packet, 0, IP_UPD_DHCP_SIZE);
+    int len = safe_read(fd, (char *)&packet, IP_UPD_DHCP_SIZE);
+    if (len == -1) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return -2;
         log_line("get_raw_packet: read error %s", strerror(errno));
         usleep(500000); /* possible down interface, looping condition */
         return -1;
@@ -252,7 +253,7 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
         sleep(1);
         return -2;
     }
-    if (len > packet_size) {
+    if (len > IP_UPD_DHCP_SIZE) {
         log_line("Data longer than that of a IP+UDP+DHCP message: %d", len);
         sleep(1);
         return -2;

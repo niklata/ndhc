@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-04-19 16:21:14 njk>
+ * Time-stamp: <2011-05-30 10:23:54 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -233,7 +233,10 @@ void handle_arp_response(struct client_state_t *cs)
         int r = safe_read(cs->arpFd, (char *)&arpreply + arpreply_offset,
                           sizeof arpreply - arpreply_offset);
         if (r < 0) {
-            log_warning("handle_arp_response: short read");
+            if (errno == EWOULDBLOCK || errno == EAGAIN)
+                return;
+            log_warning("handle_arp_response: ARP response read failed: %s",
+                        strerror(errno));
             switch (cs->dhcpState) {
                 case DS_ARP_CHECK: arp_failed(cs); break;
                 case DS_ARP_GW_CHECK: arp_gw_failed(cs); break;

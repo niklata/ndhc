@@ -1,5 +1,5 @@
 /* packet.c - send and react to DHCP message packets
- * Time-stamp: <2011-03-31 15:22:59 nk>
+ * Time-stamp: <2011-05-30 10:39:56 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  * (c) 2001 Russ Dill <Russ.Dill@asu.edu>
@@ -48,6 +48,8 @@ int get_packet(struct dhcpMessage *packet, int fd)
     memset(packet, 0, DHCP_SIZE);
     bytes = safe_read(fd, (char *)packet, DHCP_SIZE);
     if (bytes == -1) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return -2;
         log_line("Read on listen socket failed: %s", strerror(errno));
         return -1;
     }
@@ -325,6 +327,11 @@ void handle_packet(struct client_state_t *cs)
 
     if (len < 0)
         return;
+
+    if (len < DHCP_SIZE) {
+        log_line("Received short DHCP packet -- ignoring");
+        return;
+    }
 
     if (packet.xid != cs->xid) {
         log_line("Ignoring XID %lx (our xid is %lx).",
