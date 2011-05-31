@@ -1,5 +1,5 @@
 /* linux.c - ifchd Linux-specific functions
- * Time-stamp: <2011-04-30 07:28:08 nk>
+ * Time-stamp: <2011-05-31 11:54:30 njk>
  *
  * (C) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -270,8 +270,11 @@ void perform_router(int idx, char *str)
 		 ifnam[idx], strerror(errno));
         return;
     }
-    if (ioctl(fd, SIOCADDRT, &rt))
-        log_line("%s: failed to set route: %s\n", ifnam[idx], strerror(errno));
+    if (ioctl(fd, SIOCADDRT, &rt)) {
+        if (errno != EEXIST)
+            log_line("%s: failed to set route: %s\n",
+                     ifnam[idx], strerror(errno));
+    }
     close(fd);
 }
 
