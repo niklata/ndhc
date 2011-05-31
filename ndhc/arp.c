@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-05-31 11:13:21 njk>
+ * Time-stamp: <2011-05-31 11:24:14 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -114,6 +114,12 @@ static int arpping(struct client_state_t *cs, uint32_t test_ip,
     return 0;
 }
 
+static void arpreply_clear()
+{
+    memset(&arpreply, 0, sizeof arpreply);
+    arpreply_offset = 0;
+}
+
 int arp_check(struct client_state_t *cs, struct dhcpMessage *packet)
 {
     if (arpping(cs, arp_dhcp_packet.yiaddr, 0, client_config.arp,
@@ -123,8 +129,7 @@ int arp_check(struct client_state_t *cs, struct dhcpMessage *packet)
     cs->dhcpState = DS_ARP_CHECK;
     cs->timeout = 2000;
     memcpy(&arp_dhcp_packet, packet, sizeof (struct dhcpMessage));
-    memset(&arpreply, 0, sizeof arpreply);
-    arpreply_offset = 0;
+    arpreply_clear();
     return 0;
 }
 
@@ -138,8 +143,7 @@ int arp_gw_check(struct client_state_t *cs)
     cs->oldTimeout = cs->timeout;
     cs->timeout = 2000;
     memset(&arp_dhcp_packet, 0, sizeof (struct dhcpMessage));
-    memset(&arpreply, 0, sizeof arpreply);
-    arpreply_offset = 0;
+    arpreply_clear();
     return 0;
 }
 
@@ -152,8 +156,7 @@ int arp_get_gw_hwaddr(struct client_state_t *cs)
         return -1;
     log_line("arp_get_hw_addr: searching for gw address");
     memset(&arp_dhcp_packet, 0, sizeof (struct dhcpMessage));
-    memset(&arpreply, 0, sizeof arpreply);
-    arpreply_offset = 0;
+    arpreply_clear();
     return 0;
 }
 
@@ -217,7 +220,7 @@ void arp_success(struct client_state_t *cs)
         background(cs);
 }
 
-void arp_gw_success(struct client_state_t *cs)
+static void arp_gw_success(struct client_state_t *cs)
 {
     log_line("arp: gateway seems unchanged");
     arp_close_fd(cs);
@@ -291,8 +294,7 @@ void handle_arp_response(struct client_state_t *cs)
             return;
         } else {
             log_line("arp ping noise while waiting for check timeout");
-            memset(&arpreply, 0, sizeof arpreply);
-            arpreply_offset = 0;
+            arpreply_clear();
         }
         break;
     case DS_ARP_GW_CHECK:
@@ -305,8 +307,7 @@ void handle_arp_response(struct client_state_t *cs)
             return;
         } else {
             log_line("still waiting for gateway to reply to arp ping");
-            memset(&arpreply, 0, sizeof arpreply);
-            arpreply_offset = 0;
+            arpreply_clear();
         }
         break;
     case DS_BOUND:
@@ -321,8 +322,7 @@ void handle_arp_response(struct client_state_t *cs)
             return;
         } else {
             log_line("still looking for gateway hardware address");
-            memset(&arpreply, 0, sizeof arpreply);
-            arpreply_offset = 0;
+            arpreply_clear();
         }
         break;
     default:
