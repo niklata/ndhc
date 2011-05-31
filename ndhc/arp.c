@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-05-31 10:03:34 njk>
+ * Time-stamp: <2011-05-31 11:13:21 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -89,18 +89,18 @@ static int arpping(struct client_state_t *cs, uint32_t test_ip,
 
     /* send arp request */
     memset(&arp, 0, sizeof arp);
-    memset(arp.h_dest, 0xff, 6);                    /* MAC DA */
-    memcpy(arp.h_source, from_mac, 6);              /* MAC SA */
-    arp.h_proto = htons(ETH_P_ARP);                 /* protocol type (Ethernet) */
-    arp.htype = htons(ARPHRD_ETHER);                /* hardware type */
-    arp.ptype = htons(ETH_P_IP);                    /* protocol type (ARP message) */
-    arp.hlen = 6;                                   /* hardware address length */
-    arp.plen = 4;                                   /* protocol address length */
-    arp.operation = htons(ARPOP_REQUEST);           /* ARP op code */
-    memcpy(arp.sHaddr, from_mac, 6);                /* source hardware address */
-    memcpy(arp.sInaddr, &from_ip, sizeof from_ip);  /* source IP address */
-    /* tHaddr is zero-filled */                     /* target hardware address */
-    memcpy(arp.tInaddr, &test_ip, sizeof test_ip);  /* target IP address */
+    memset(arp.h_dest, 0xff, 6);                 /* MAC DA */
+    memcpy(arp.h_source, from_mac, 6);           /* MAC SA */
+    arp.h_proto = htons(ETH_P_ARP);              /* protocol type (Ethernet) */
+    arp.htype = htons(ARPHRD_ETHER);             /* hardware type */
+    arp.ptype = htons(ETH_P_IP);                 /* protocol type (ARP message) */
+    arp.hlen = 6;                                /* hardware address length */
+    arp.plen = 4;                                /* protocol address length */
+    arp.operation = htons(ARPOP_REQUEST);        /* ARP op code */
+    memcpy(arp.smac, from_mac, 6);               /* source hardware address */
+    memcpy(arp.sip4, &from_ip, sizeof from_ip);  /* source IP address */
+    /* dmac is zero-filled */                    /* target hardware address */
+    memcpy(arp.dip4, &test_ip, sizeof test_ip);  /* target IP address */
 
     memset(&addr, 0, sizeof addr);
     strlcpy(addr.sa_data, interface, sizeof addr.sa_data);
@@ -244,12 +244,11 @@ static int arp_validate(struct arpMsg *am)
         return 0;
     if (memcmp(am->h_dest, client_config.arp, 6))
         return 0;
-    if (memcmp(am->tHaddr, client_config.arp, 6))
+    if (memcmp(am->dmac, client_config.arp, 6))
         return 0;
     return 1;
 }
 
-typedef uint32_t aliased_uint32_t __attribute__((__may_alias__));
 void handle_arp_response(struct client_state_t *cs)
 {
     if (arpreply_offset < sizeof arpreply) {
@@ -282,58 +281,55 @@ void handle_arp_response(struct client_state_t *cs)
 
     ++arp_packet_num;
     switch (cs->dhcpState) {
-        case DS_ARP_CHECK:
-            if (*(aliased_uint32_t*)arpreply.sInaddr == arp_dhcp_packet.yiaddr)
-            {
-                // Check to see if we replied to our own ARP query.
-                if (!memcmp(client_config.arp, arpreply.sHaddr, 6))
-                    arp_success(cs);
-                else
-                    arp_failed(cs);
-                return;
-            } else {
-                log_line("arp ping noise while waiting for check timeout");
-                memset(&arpreply, 0, sizeof arpreply);
-                arpreply_offset = 0;
-            }
-            break;
-        case DS_ARP_GW_CHECK:
-            if (*(aliased_uint32_t*)arpreply.sInaddr == cs->routerAddr)
-            {
-                // Success only if the router/gw MAC matches stored value
-                if (!memcmp(cs->routerArp, arpreply.sHaddr, 6))
-                    arp_gw_success(cs);
-                else
-                    arp_gw_failed(cs);
-                return;
-            } else {
-                log_line("still waiting for gateway to reply to arp ping");
-                memset(&arpreply, 0, sizeof arpreply);
-                arpreply_offset = 0;
-            }
-            break;
-        case DS_BOUND:
-            if (*(aliased_uint32_t*)arpreply.sInaddr == cs->routerAddr)
-            {
-                memcpy(cs->routerArp, arpreply.sHaddr, 6);
-                arp_close_fd(cs);
-
-                log_line("gateway hardware address %02x:%02x:%02x:%02x:%02x:%02x",
-                         cs->routerArp[0], cs->routerArp[1],
-                         cs->routerArp[2], cs->routerArp[3],
-                         cs->routerArp[4], cs->routerArp[5]);
-                return;
-            } else {
-                log_line("still looking for gateway hardware address");
-                memset(&arpreply, 0, sizeof arpreply);
-                arpreply_offset = 0;
-            }
-            break;
-        default:
-            arp_close_fd(cs);
-            log_warning("handle_arp_response: called in invalid state 0x%02x",
-                        cs->dhcpState);
+    case DS_ARP_CHECK:
+        if (!memcmp(arpreply.sip4, &arp_dhcp_packet.yiaddr, 4)) {
+            // Check to see if we replied to our own ARP query.
+            if (!memcmp(client_config.arp, arpreply.smac, 6))
+                arp_success(cs);
+            else
+                arp_failed(cs);
             return;
+        } else {
+            log_line("arp ping noise while waiting for check timeout");
+            memset(&arpreply, 0, sizeof arpreply);
+            arpreply_offset = 0;
+        }
+        break;
+    case DS_ARP_GW_CHECK:
+        if (!memcmp(arpreply.sip4, &cs->routerAddr, 4)) {
+            // Success only if the router/gw MAC matches stored value
+            if (!memcmp(cs->routerArp, arpreply.smac, 6))
+                arp_gw_success(cs);
+            else
+                arp_gw_failed(cs);
+            return;
+        } else {
+            log_line("still waiting for gateway to reply to arp ping");
+            memset(&arpreply, 0, sizeof arpreply);
+            arpreply_offset = 0;
+        }
+        break;
+    case DS_BOUND:
+        if (!memcmp(arpreply.sip4, &cs->routerAddr, 4)) {
+            memcpy(cs->routerArp, arpreply.smac, 6);
+            arp_close_fd(cs);
+
+            log_line("gateway hardware address %02x:%02x:%02x:%02x:%02x:%02x",
+                     cs->routerArp[0], cs->routerArp[1],
+                     cs->routerArp[2], cs->routerArp[3],
+                     cs->routerArp[4], cs->routerArp[5]);
+            return;
+        } else {
+            log_line("still looking for gateway hardware address");
+            memset(&arpreply, 0, sizeof arpreply);
+            arpreply_offset = 0;
+        }
+        break;
+    default:
+        arp_close_fd(cs);
+        log_warning("handle_arp_response: called in invalid state 0x%02x",
+                    cs->dhcpState);
+        return;
     }
     if (arp_packet_num >= ARP_RETRY_COUNT) {
         switch (cs->dhcpState) {

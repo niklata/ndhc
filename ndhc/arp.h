@@ -1,5 +1,5 @@
 /* arp.h - functions to call the interface change daemon
- * Time-stamp: <2011-03-31 02:28:59 nk>
+ * Time-stamp: <2011-05-31 11:11:02 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -42,10 +42,10 @@ struct arpMsg {
     uint8_t  hlen;          /* 12 hardware address length (must be 6) */
     uint8_t  plen;          /* 13 protocol address length (must be 4) */
     uint16_t operation;     /* 14 ARP opcode */
-    uint8_t  sHaddr[6];     /* 16 sender's hardware address */
-    uint8_t  sInaddr[4];    /* 1c sender's IP address */
-    uint8_t  tHaddr[6];     /* 20 target's hardware address */
-    uint8_t  tInaddr[4];    /* 26 target's IP address */
+    uint8_t  smac[6];       /* 16 sender's hardware address */
+    uint8_t  sip4[4];       /* 1c sender's IP address */
+    uint8_t  dmac[6];       /* 20 target's hardware address */
+    uint8_t  dip4[4];       /* 26 target's IP address */
     uint8_t  pad[18];       /* 2a pad for min. ethernet payload (60 bytes) */
 };
 
