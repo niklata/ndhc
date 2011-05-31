@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-05-30 10:23:54 njk>
+ * Time-stamp: <2011-05-31 10:03:34 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -226,6 +226,29 @@ void arp_gw_success(struct client_state_t *cs)
     cs->dhcpState = cs->arpPrevState;
 }
 
+static int arp_validate(struct arpMsg *am)
+{
+    if (!am)
+        return 0;
+    if (am->h_proto != htons(ETH_P_ARP))
+        return 0;
+    if (am->htype != htons(ARPHRD_ETHER))
+        return 0;
+    if (am->ptype != htons(ETH_P_IP))
+        return 0;
+    if (am->hlen != 6)
+        return 0;
+    if (am->plen != 4)
+        return 0;
+    if (am->operation != htons(ARPOP_REPLY))
+        return 0;
+    if (memcmp(am->h_dest, client_config.arp, 6))
+        return 0;
+    if (memcmp(am->tHaddr, client_config.arp, 6))
+        return 0;
+    return 1;
+}
+
 typedef uint32_t aliased_uint32_t __attribute__((__may_alias__));
 void handle_arp_response(struct client_state_t *cs)
 {
@@ -252,13 +275,15 @@ void handle_arp_response(struct client_state_t *cs)
         return;
     }
 
+    if (!arp_validate(&arpreply)) {
+        log_warning("handle_arp_response: ARP message header is invalid.");
+        return;
+    }
+
     ++arp_packet_num;
     switch (cs->dhcpState) {
         case DS_ARP_CHECK:
-            if (arpreply.operation == htons(ARPOP_REPLY)
-                && !memcmp(arpreply.tHaddr, client_config.arp, 6)
-                && *(aliased_uint32_t*)arpreply.sInaddr
-                == arp_dhcp_packet.yiaddr)
+            if (*(aliased_uint32_t*)arpreply.sInaddr == arp_dhcp_packet.yiaddr)
             {
                 // Check to see if we replied to our own ARP query.
                 if (!memcmp(client_config.arp, arpreply.sHaddr, 6))
@@ -273,9 +298,7 @@ void handle_arp_response(struct client_state_t *cs)
             }
             break;
         case DS_ARP_GW_CHECK:
-            if (arpreply.operation == htons(ARPOP_REPLY)
-                && !memcmp(arpreply.tHaddr, client_config.arp, 6)
-                && *(aliased_uint32_t*)arpreply.sInaddr == cs->routerAddr)
+            if (*(aliased_uint32_t*)arpreply.sInaddr == cs->routerAddr)
             {
                 // Success only if the router/gw MAC matches stored value
                 if (!memcmp(cs->routerArp, arpreply.sHaddr, 6))
@@ -290,9 +313,7 @@ void handle_arp_response(struct client_state_t *cs)
             }
             break;
         case DS_BOUND:
-            if (arpreply.operation == htons(ARPOP_REPLY)
-                && !memcmp(arpreply.tHaddr, client_config.arp, 6)
-                && *(aliased_uint32_t*)arpreply.sInaddr == cs->routerAddr)
+            if (*(aliased_uint32_t*)arpreply.sInaddr == cs->routerAddr)
             {
                 memcpy(cs->routerArp, arpreply.sHaddr, 6);
                 arp_close_fd(cs);
