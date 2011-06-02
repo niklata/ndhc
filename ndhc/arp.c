@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-05-31 11:24:14 njk>
+ * Time-stamp: <2011-06-02 10:40:49 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -233,22 +233,38 @@ static int arp_validate(struct arpMsg *am)
 {
     if (!am)
         return 0;
-    if (am->h_proto != htons(ETH_P_ARP))
+    if (am->h_proto != htons(ETH_P_ARP)) {
+        log_warning("arp: IP header does not indicate ARP protocol");
         return 0;
-    if (am->htype != htons(ARPHRD_ETHER))
+    }
+    if (am->htype != htons(ARPHRD_ETHER)) {
+        log_warning("arp: ARP hardware type field invalid");
         return 0;
-    if (am->ptype != htons(ETH_P_IP))
+    }
+    if (am->ptype != htons(ETH_P_IP)) {
+        log_warning("arp: ARP protocol type field invalid");
         return 0;
-    if (am->hlen != 6)
+    }
+    if (am->hlen != 6) {
+        log_warning("arp: ARP hardware address length invalid");
         return 0;
-    if (am->plen != 4)
+    }
+    if (am->plen != 4) {
+        log_warning("arp: ARP protocol address length invalid");
         return 0;
-    if (am->operation != htons(ARPOP_REPLY))
+    }
+    if (am->operation != htons(ARPOP_REPLY)) {
+        log_warning("arp: ARP operation type is not 'reply'");
         return 0;
-    if (memcmp(am->h_dest, client_config.arp, 6))
+    }
+    if (memcmp(am->h_dest, client_config.arp, 6)) {
+        log_warning("arp: Ethernet destination does not equal our MAC");
         return 0;
-    if (memcmp(am->dmac, client_config.arp, 6))
+    }
+    if (memcmp(am->dmac, client_config.arp, 6)) {
+        log_warning("arp: ARP destination does not equal our MAC");
         return 0;
+    }
     return 1;
 }
 
