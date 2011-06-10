@@ -1,5 +1,5 @@
 /* io.c - light wrappers for POSIX i/o functions
- * Time-stamp: <2010-11-15 19:45:39 njk>
+ * Time-stamp: <2011-06-10 13:51:03 njk>
  *
  * (c) 2010 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
@@ -43,6 +43,8 @@ int safe_read(int fd, char *buf, int len)
         if (r == -1) {
             if (errno == EINTR)
                 continue;
+            else if ((errno == EAGAIN || errno == EWOULDBLOCK) && s > 0)
+                return s;
             else
                 return -1;
         }
