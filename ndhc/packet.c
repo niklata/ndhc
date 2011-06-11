@@ -1,5 +1,5 @@
 /* packet.c - send and react to DHCP message packets
- * Time-stamp: <2011-06-10 13:56:28 njk>
+ * Time-stamp: <2011-06-11 04:07:56 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  * (c) 2001 Russ Dill <Russ.Dill@asu.edu>
@@ -328,8 +328,8 @@ void handle_packet(struct client_state_t *cs)
     if (len < 0)
         return;
 
-    if (len < 32) {
-        log_line("Received DHCP packet with less than 32 chars -- ignoring");
+    if (len < DHCP_SIZE - 308) {
+        log_line("Packet is too short to contain magic cookie -- ignoring");
         return;
     }
 
