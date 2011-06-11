@@ -1,5 +1,5 @@
 /* packet.h - send and react to DHCP message packets
- * Time-stamp: <2011-03-30 23:57:02 nk>
+ * Time-stamp: <2011-06-11 11:03:14 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  * (c) 2001 Russ Dill <Russ.Dill@asu.edu>
@@ -66,7 +66,6 @@ enum {
     DHCP_SIZE        = sizeof(struct dhcpMessage),
 };
 
-int get_packet(struct dhcpMessage *packet, int fd);
 uint16_t checksum(void *addr, int count);
 int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
                int source_port, uint32_t dest_ip, int dest_port,
