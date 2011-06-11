@@ -1,5 +1,5 @@
 /* dhcpmsg.c - dhcp packet generation and sending functions
- * Time-stamp: <2011-06-11 04:21:26 njk>
+ * Time-stamp: <2011-06-11 04:47:46 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  * (c) 2001 Russ Dill <Russ.Dill@asu.edu>
@@ -224,52 +224,42 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return -2;
         log_line("get_raw_packet: read error %s", strerror(errno));
-        usleep(500000); /* possible down interface, looping condition */
         return -1;
     }
 
     /* ignore any extra garbage bytes */
     len = ntohs(packet.ip.tot_len);
 
-    /* Make sure its the right packet for us, and that it passes
-     * sanity checks */
+    // Validate the IP and UDP headers.
     if (packet.ip.protocol != IPPROTO_UDP) {
         log_line("IP header is not UDP: %d", packet.ip.protocol);
-        sleep(1);
         return -2;
     }
     if (packet.ip.version != IPVERSION) {
         log_line("IP version is not IPv4");
-        sleep(1);
         return -2;
     }
     if (packet.ip.ihl != sizeof packet.ip >> 2) {
         log_line("IP header length incorrect");
-        sleep(1);
+        return -2;
+    }
+    check = packet.ip.check;
+    packet.ip.check = 0;
+    if (check != checksum(&packet.ip, sizeof packet.ip)) {
+        log_line("IP header checksum incorrect");
         return -2;
     }
     if (packet.udp.dest != htons(DHCP_CLIENT_PORT)) {
         log_line("UDP destination port incorrect: %d", ntohs(packet.udp.dest));
-        sleep(1);
         return -2;
     }
     if (len > IP_UPD_DHCP_SIZE) {
         log_line("Data longer than that of a IP+UDP+DHCP message: %d", len);
-        sleep(1);
         return -2;
     }
     if (ntohs(packet.udp.len) != (short)(len - sizeof packet.ip)) {
         log_line("UDP header length incorrect");
-        sleep(1);
         return -2;
-    }
-
-    /* check IP checksum */
-    check = packet.ip.check;
-    packet.ip.check = 0;
-    if (check != checksum(&packet.ip, sizeof packet.ip)) {
-        log_line("Bad IP header checksum, ignoring");
-        return -1;
     }
 
     /* verify the UDP checksum by replacing the header with a psuedo header */
