@@ -1,5 +1,5 @@
 /* ndhc.c - DHCP client
- * Time-stamp: <2011-04-19 16:04:53 njk>
+ * Time-stamp: <2011-06-11 11:13:32 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -41,7 +41,6 @@
 #include "ndhc-defines.h"
 #include "config.h"
 #include "options.h"
-#include "dhcpmsg.h"
 #include "packet.h"
 #include "timeout.h"
 #include "sys.h"

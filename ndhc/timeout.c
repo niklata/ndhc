@@ -1,5 +1,5 @@
 /* timeout.c - callbacks to react to event timeouts
- * Time-stamp: <2011-03-31 15:18:41 nk>
+ * Time-stamp: <2011-06-11 11:13:22 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -25,7 +25,6 @@
 #include "config.h"
 #include "ifchange.h"
 #include "packet.h"
-#include "dhcpmsg.h"
 #include "arp.h"
 #include "log.h"
 

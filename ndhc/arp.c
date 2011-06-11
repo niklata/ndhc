@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-06-02 10:48:31 njk>
+ * Time-stamp: <2011-06-11 11:12:58 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -32,7 +32,6 @@
 #include <sys/time.h>
 #include <errno.h>
 #include "arp.h"
-#include "dhcpmsg.h"
 #include "packet.h"
 #include "socket.h"
 #include "sys.h"

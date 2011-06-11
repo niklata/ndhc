@@ -1,5 +1,5 @@
 /* packet.h - send and react to DHCP message packets
- * Time-stamp: <2011-06-11 11:03:14 njk>
+ * Time-stamp: <2011-06-11 11:12:26 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  * (c) 2001 Russ Dill <Russ.Dill@asu.edu>
@@ -26,6 +26,21 @@
 #include <netinet/ip.h>
 
 #include "config.h"
+
+#define DHCP_SERVER_PORT        67
+#define DHCP_CLIENT_PORT        68
+#define DHCP_MAGIC              0x63825363
+
+enum {
+    DHCPDISCOVER = 1,
+    DHCPOFFER    = 2,
+    DHCPREQUEST  = 3,
+    DHCPDECLINE  = 4,
+    DHCPACK  = 5,
+    DHCPNAK  = 6,
+    DHCPRELEASE  = 7,
+    DHCPINFORM   = 8
+};
 
 struct dhcpMessage {
     uint8_t op; // Message type: 1 = BOOTREQUEST for clients.
@@ -74,4 +89,11 @@ int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
                   int source_port, uint32_t dest_ip, int dest_port);
 void change_listen_mode(struct client_state_t *cs, int new_mode);
 void handle_packet(struct client_state_t *cs);
+uint32_t random_xid(void);
+int send_discover(uint32_t xid, uint32_t requested);
+int send_selecting(uint32_t xid, uint32_t server, uint32_t requested);
+int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr);
+int send_decline(uint32_t xid, uint32_t server, uint32_t requested);
+int send_release(uint32_t server, uint32_t ciaddr);
+
 #endif
