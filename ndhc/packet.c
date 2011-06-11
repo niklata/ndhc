@@ -1,5 +1,5 @@
 /* packet.c - send and react to DHCP message packets
- * Time-stamp: <2011-06-11 04:07:56 njk>
+ * Time-stamp: <2011-06-11 04:26:22 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  * (c) 2001 Russ Dill <Russ.Dill@asu.edu>
@@ -54,11 +54,7 @@ int get_packet(struct dhcpMessage *packet, int fd)
         return -1;
     }
 
-    if (ntohl(packet->cookie) != DHCP_MAGIC) {
-        log_error("Packet with bad magic number, ignoring.");
-        return -2;
-    }
-    log_line("Received a packet");
+    log_line("Received a packet via cooked socket.");
 
     return bytes;
 }
@@ -320,28 +316,34 @@ void handle_packet(struct client_state_t *cs)
     else /* LM_NONE */
         return;
 
-    if (len == -1 && errno != EINTR) {
-        log_error("reopening socket.");
-        change_listen_mode(cs, cs->listenMode); /* just close and reopen */
+    if (len < 0) {
+        // Transient issue handled by packet collection functions.
+        if (len == -2 || (len == -1 && errno == EINTR))
+            return;
+
+        log_error("Error when reading from listening socket: %s.  Reopening listening socket.",
+                  strerror(errno));
+        change_listen_mode(cs, cs->listenMode);
     }
 
-    if (len < 0)
-        return;
-
     if (len < DHCP_SIZE - 308) {
-        log_line("Packet is too short to contain magic cookie -- ignoring");
+        log_line("Packet is too short to contain magic cookie. Ignoring.");
+        return;
+    }
+
+    if (ntohl(packet.cookie) != DHCP_MAGIC) {
+        log_line("Packet with bad magic number. Ignoring.");
         return;
     }
 
     if (packet.xid != cs->xid) {
-        log_line("Ignoring XID %lx (our xid is %lx).",
-                 (uint32_t) packet.xid, cs->xid);
+        log_line("Packet XID %lx does not equal our XID %lx.  Ignoring.",
+                 packet.xid, cs->xid);
         return;
     }
 
-    if ((message = get_option_data(&packet, DHCP_MESSAGE_TYPE, &optlen))
-        == NULL) {
-        log_line("couldnt get option from packet -- ignoring");
+    if (!(message = get_option_data(&packet, DHCP_MESSAGE_TYPE, &optlen))) {
+        log_line("Packet does not specify a DHCP message type. Ignoring.");
         return;
     }
 
@@ -350,9 +352,8 @@ void handle_packet(struct client_state_t *cs)
             init_selecting_packet(cs, &packet, message);
             break;
         case DS_ARP_CHECK:
-            /* We ignore dhcp packets for now.  This state will
-             * be changed by the callback for arp ping.
-             */
+            // We ignore dhcp packets for now.  This state will
+            // be changed by the callback for arp ping.
             break;
         case DS_RENEW_REQUESTED:
         case DS_REQUESTING:

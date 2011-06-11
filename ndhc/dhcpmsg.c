@@ -1,5 +1,5 @@
 /* dhcpmsg.c - dhcp packet generation and sending functions
- * Time-stamp: <2011-05-30 10:43:28 njk>
+ * Time-stamp: <2011-06-11 04:21:26 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  * (c) 2001 Russ Dill <Russ.Dill@asu.edu>
@@ -286,10 +286,6 @@ int get_raw_packet(struct dhcpMessage *payload, int fd)
     memcpy(payload, &packet.data,
            len - sizeof packet.ip - sizeof packet.udp);
 
-    if (ntohl(payload->cookie) != DHCP_MAGIC) {
-        log_error("Packet with bad magic number, ignoring");
-        return -2;
-    }
-    log_line("Received valid DHCP message.");
+    log_line("Received a packet via raw socket.");
     return len - sizeof packet.ip - sizeof packet.udp;
 }
