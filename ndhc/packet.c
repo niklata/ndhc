@@ -1,5 +1,5 @@
 /* packet.c - send and react to DHCP message packets
- * Time-stamp: <2011-06-11 05:02:18 njk>
+ * Time-stamp: <2011-06-11 10:58:37 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  * (c) 2001 Russ Dill <Russ.Dill@asu.edu>
@@ -241,15 +241,11 @@ static void init_selecting_packet(struct client_state_t *cs,
 {
     uint8_t *temp = NULL;
     ssize_t optlen;
-    /* Must be a DHCPOFFER to one of our xid's */
     if (*message == DHCPOFFER) {
         if ((temp = get_option_data(packet, DHCP_SERVER_ID, &optlen))) {
-            /* Memcpy to a temp buffer to force alignment */
             memcpy(&cs->serverAddr, temp, 4);
             cs->xid = packet->xid;
             cs->requestedIP = packet->yiaddr;
-
-            /* enter requesting state */
             cs->dhcpState = DS_REQUESTING;
             cs->timeout = 0;
             cs->packetNum = 0;
@@ -270,7 +266,6 @@ static void dhcp_ack_or_nak_packet(struct client_state_t *cs,
             log_line("No lease time received, assuming 1h.");
             cs->lease = 60 * 60;
         } else {
-            /* Memcpy to a temp buffer to force alignment */
             memcpy(&cs->lease, temp, 4);
             cs->lease = ntohl(cs->lease);
             /* Enforce upper and lower bounds on lease. */
@@ -291,7 +286,6 @@ static void dhcp_ack_or_nak_packet(struct client_state_t *cs,
         }
 
     } else if (*message == DHCPNAK) {
-        /* return to init state */
         log_line("Received DHCP NAK.");
         ifchange(packet, IFCHANGE_NAK);
         if (cs->dhcpState != DS_REQUESTING)
