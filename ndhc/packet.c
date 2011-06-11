@@ -1,5 +1,5 @@
 /* packet.c - send and react to DHCP message packets
- * Time-stamp: <2011-06-11 04:26:22 njk>
+ * Time-stamp: <2011-06-11 05:02:18 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  * (c) 2001 Russ Dill <Russ.Dill@asu.edu>
@@ -205,32 +205,34 @@ int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
     return result;
 }
 
-/* Switch listen socket between raw (if-bound), kernel (ip-bound), and none */
+// Switch listen socket between raw (if-bound), kernel (ip-bound), and none
 void change_listen_mode(struct client_state_t *cs, int new_mode)
 {
-    log_line("entering %s listen mode",
-             new_mode ? (new_mode == 1 ? "kernel" : "raw") : "none");
     cs->listenMode = new_mode;
     if (cs->listenFd >= 0) {
         epoll_del(cs, cs->listenFd);
         close(cs->listenFd);
         cs->listenFd = -1;
     }
-    if (new_mode == LM_KERNEL) {
-        cs->listenFd = listen_socket(INADDR_ANY, DHCP_CLIENT_PORT,
-                                     client_config.interface);
-        epoll_add(cs, cs->listenFd);
+    switch (new_mode) {
+        case LM_NONE:
+            log_line("Stopped listening for DHCP packets.");
+            return;
+        case LM_RAW:
+            cs->listenFd = raw_socket(client_config.ifindex);
+            break;
+        case LM_KERNEL:
+            cs->listenFd = listen_socket(INADDR_ANY, DHCP_CLIENT_PORT,
+                                         client_config.interface);
+            break;
     }
-    else if (new_mode == LM_RAW) {
-        cs->listenFd = raw_socket(client_config.ifindex);
-        epoll_add(cs, cs->listenFd);
-    }
-    else /* LM_NONE */
-        return;
     if (cs->listenFd < 0) {
         log_error("FATAL: couldn't listen on socket: %s.", strerror(errno));
         exit(EXIT_FAILURE);
     }
+    epoll_add(cs, cs->listenFd);
+    log_line("Listening for DHCP packets using a %s socket.",
+             new_mode == LM_RAW ? "raw" : "cooked");
 }
 
 static void init_selecting_packet(struct client_state_t *cs,
