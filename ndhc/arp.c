@@ -30,10 +30,10 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
+#include <fcntl.h>
 #include <errno.h>
 #include "arp.h"
 #include "packet.h"
-#include "socket.h"
 #include "sys.h"
 #include "ifchange.h"
 #include "leasefile.h"
@@ -81,7 +81,7 @@ static int arpping(struct client_state_t *cs, uint32_t test_ip,
             close(arpfd);
             return -1;
         }
-        set_sock_nonblock(arpfd);
+        fcntl(arpfd, F_SETFL, fcntl(arpfd, F_GETFL) | O_NONBLOCK);
         cs->arpFd = arpfd;
         epoll_add(cs, arpfd);
     }

@@ -45,7 +45,6 @@
 #include "timeout.h"
 #include "sys.h"
 #include "ifchange.h"
-#include "socket.h"
 #include "arp.h"
 #include "netlink.h"
 #include "leasefile.h"
