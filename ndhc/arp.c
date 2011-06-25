@@ -61,8 +61,7 @@ static int arp_close_fd(struct client_state_t *cs)
 }
 
 /* Returns 0 on success, -1 on failure. */
-static int arpping(struct client_state_t *cs, uint32_t test_ip,
-                   uint32_t from_ip, uint8_t *from_mac, const char *interface)
+static int arpping(struct client_state_t *cs, uint32_t test_ip)
 {
     int opt = 1;
     struct sockaddr addr;   /* for interface name */
@@ -93,20 +92,20 @@ static int arpping(struct client_state_t *cs, uint32_t test_ip,
     /* send arp request */
     memset(&arp, 0, sizeof arp);
     memset(arp.h_dest, 0xff, 6);                 /* MAC DA */
-    memcpy(arp.h_source, from_mac, 6);           /* MAC SA */
+    memcpy(arp.h_source, client_config.arp, 6);  /* MAC SA */
     arp.h_proto = htons(ETH_P_ARP);              /* protocol type (Ethernet) */
     arp.htype = htons(ARPHRD_ETHER);             /* hardware type */
     arp.ptype = htons(ETH_P_IP);                 /* protocol type (ARP message) */
     arp.hlen = 6;                                /* hardware address length */
     arp.plen = 4;                                /* protocol address length */
     arp.operation = htons(ARPOP_REQUEST);        /* ARP op code */
-    memcpy(arp.smac, from_mac, 6);               /* source hardware address */
-    memcpy(arp.sip4, &from_ip, sizeof from_ip);  /* source IP address */
+    memcpy(arp.smac, client_config.arp, 6);      /* source hardware address */
+    memset(arp.sip4, 0, sizeof arp.sip4);        /* source IP address */
     /* dmac is zero-filled */                    /* target hardware address */
     memcpy(arp.dip4, &test_ip, sizeof test_ip);  /* target IP address */
 
     memset(&addr, 0, sizeof addr);
-    strlcpy(addr.sa_data, interface, sizeof addr.sa_data);
+    strlcpy(addr.sa_data, client_config.interface, sizeof addr.sa_data);
     if (safe_sendto(cs->arpFd, (const char *)&arp, sizeof arp,
                     0, &addr, sizeof addr) < 0) {
         log_error("arp: sendto failed: %s", strerror(errno));
@@ -125,8 +124,7 @@ static void arpreply_clear()
 
 int arp_check(struct client_state_t *cs, struct dhcpMessage *packet)
 {
-    if (arpping(cs, arp_dhcp_packet.yiaddr, 0, client_config.arp,
-                client_config.interface) == -1)
+    if (arpping(cs, arp_dhcp_packet.yiaddr) == -1)
         return -1;
     cs->arpPrevState = cs->dhcpState;
     cs->dhcpState = DS_ARP_CHECK;
@@ -138,8 +136,7 @@ int arp_check(struct client_state_t *cs, struct dhcpMessage *packet)
 
 int arp_gw_check(struct client_state_t *cs)
 {
-    if (arpping(cs, cs->routerAddr, 0, client_config.arp,
-                client_config.interface) == -1)
+    if (arpping(cs, cs->routerAddr) == -1)
         return -1;
     cs->arpPrevState = cs->dhcpState;
     cs->dhcpState = DS_ARP_GW_CHECK;
@@ -154,8 +151,7 @@ int arp_get_gw_hwaddr(struct client_state_t *cs)
 {
     if (cs->dhcpState != DS_BOUND)
         log_error("arp_get_gw_hwaddr: called when state != DS_BOUND");
-    if (arpping(cs, cs->routerAddr, 0, client_config.arp,
-                client_config.interface) == -1)
+    if (arpping(cs, cs->routerAddr) == -1)
         return -1;
     log_line("arp: Searching for gw address");
     memset(&arp_dhcp_packet, 0, sizeof (struct dhcpMessage));
@@ -354,8 +350,7 @@ void handle_arp_response(struct client_state_t *cs)
     if (arp_packet_num >= ARP_RETRY_COUNT) {
         switch (cs->dhcpState) {
             case DS_BOUND:
-                if (arpping(cs, cs->routerAddr, 0, client_config.arp,
-                            client_config.interface) == -1)
+                if (arpping(cs, cs->routerAddr) == -1)
                     log_warning("arp: Failed to retransmit arp packet for finding gw mac addr");
                 break;
             default:
