@@ -81,12 +81,6 @@ enum {
     DHCP_SIZE        = sizeof(struct dhcpMessage),
 };
 
-uint16_t checksum(void *addr, int count);
-int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
-               int source_port, uint32_t dest_ip, int dest_port,
-               uint8_t *dest_arp, int ifindex);
-int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
-                  int source_port, uint32_t dest_ip, int dest_port);
 void change_listen_mode(struct client_state_t *cs, int new_mode);
 void handle_packet(struct client_state_t *cs);
 uint32_t random_xid(void);

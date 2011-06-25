@@ -202,6 +202,32 @@ static int get_packet(struct dhcpMessage *packet, int fd)
     return bytes;
 }
 
+// Compute Internet Checksum for @count bytes beginning at location @addr.
+static uint16_t checksum(void *addr, int count)
+{
+    register int32_t sum = 0;
+    uint16_t *source = (uint16_t *)addr;
+
+    while (count > 1)  {
+        sum += *source++;
+        count -= 2;
+    }
+
+    /*  Add left-over byte, if any */
+    if (count > 0) {
+        /* Make sure that the left-over byte is added correctly both
+         * with little and big endian hosts */
+        uint16_t tmp = 0;
+        *(uint8_t *)&tmp = *(uint8_t *)source;
+        sum += tmp;
+    }
+    /*  Fold 32-bit sum to 16 bits */
+    while (sum >> 16)
+        sum = (sum & 0xffff) + (sum >> 16);
+
+    return ~sum;
+}
+
 // Read a packet from a raw socket.  Returns -1 on fatal error, -2 on
 // transient error.
 static int get_raw_packet(struct dhcpMessage *payload, int fd)
@@ -271,63 +297,35 @@ static int get_raw_packet(struct dhcpMessage *payload, int fd)
     return len - sizeof packet.ip - sizeof packet.udp;
 }
 
-/* Compute Internet Checksum for @count bytes beginning at location @addr. */
-uint16_t checksum(void *addr, int count)
-{
-    register int32_t sum = 0;
-    uint16_t *source = (uint16_t *)addr;
-
-    while (count > 1)  {
-        sum += *source++;
-        count -= 2;
-    }
-
-    /*  Add left-over byte, if any */
-    if (count > 0) {
-        /* Make sure that the left-over byte is added correctly both
-         * with little and big endian hosts */
-        uint16_t tmp = 0;
-        *(uint8_t *)&tmp = *(uint8_t *)source;
-        sum += tmp;
-    }
-    /*  Fold 32-bit sum to 16 bits */
-    while (sum >> 16)
-        sum = (sum & 0xffff) + (sum >> 16);
-
-    return ~sum;
-}
-
-/* Constuct a ip/udp header for a packet, and specify the source and dest
- * hardware address */
-int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
-               int source_port, uint32_t dest_ip, int dest_port,
-               uint8_t *dest_arp, int ifindex)
+// Broadcast a DHCP message using a raw socket.
+static int send_dhcp_raw(struct dhcpMessage *payload)
 {
     int fd, r = -1;
 
     if ((fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IP))) < 0) {
-        log_error("raw_packet: socket failed: %s", strerror(errno));
+        log_error("send_dhcp_raw: socket failed: %s", strerror(errno));
         goto out;
     }
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) == -1) {
-        log_error("raw_packet: failed to set don't route: %s",
+        log_error("send_dhcp_raw: failed to set don't route: %s",
                   strerror(errno));
         goto out_fd;
     }
     if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
-        log_error("raw_packet: set non-blocking failed: %s", strerror(errno));
+        log_error("send_dhcp_raw: set non-blocking failed: %s",
+                  strerror(errno));
         goto out_fd;
     }
     struct sockaddr_ll dest = {
         .sll_family = AF_PACKET,
         .sll_protocol = htons(ETH_P_IP),
-        .sll_ifindex = ifindex,
+        .sll_ifindex = client_config.ifindex,
         .sll_halen = 6,
     };
-    memcpy(dest.sll_addr, dest_arp, 6);
+    memcpy(dest.sll_addr, "\xff\xff\xff\xff\xff\xff", 6);
     if (bind(fd, (struct sockaddr *)&dest, sizeof(struct sockaddr_ll)) < 0) {
-        log_error("raw_packet: bind failed: %s", strerror(errno));
+        log_error("send_dhcp_raw: bind failed: %s", strerror(errno));
         goto out_fd;
     }
 
@@ -339,15 +337,15 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
     ssize_t endloc = get_end_option_idx(packet.data.options,
                                         DHCP_OPTIONS_BUFSIZE);
     if (endloc == -1) {
-        log_error("raw_packet: attempt to send packet with no DHCP_END");
+        log_error("send_dhcp_raw: attempt to send packet with no DHCP_END");
         goto out_fd;
     }
     unsigned int padding = DHCP_OPTIONS_BUFSIZE - 1 - endloc;
     packet.ip.protocol = IPPROTO_UDP;
-    packet.ip.saddr = source_ip;
-    packet.ip.daddr = dest_ip;
-    packet.udp.source = htons(source_port);
-    packet.udp.dest = htons(dest_port);
+    packet.ip.saddr = INADDR_ANY;
+    packet.ip.daddr = INADDR_BROADCAST;
+    packet.udp.source = htons(DHCP_CLIENT_PORT);
+    packet.udp.dest = htons(DHCP_SERVER_PORT);
     packet.udp.len = htons(UPD_DHCP_SIZE - padding);
     // UDP checksumming needs a temporary pseudoheader with a fake length.
     packet.ip.tot_len = packet.udp.len;
@@ -362,32 +360,32 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
     r = safe_sendto(fd, (const char *)&packet, IP_UPD_DHCP_SIZE - padding,
                     0, (struct sockaddr *)&dest, sizeof dest);
     if (r == -1)
-        log_error("raw_packet: sendto failed: %s", strerror(errno));
+        log_error("send_dhcp_raw: sendto failed: %s", strerror(errno));
   out_fd:
     close(fd);
   out:
     return r;
 }
 
-/* Let the kernel do all the work for packet generation */
-int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
-                  int source_port, uint32_t dest_ip, int dest_port)
+// Broadcast a DHCP message using a UDP socket.
+static int send_dhcp_cooked(struct dhcpMessage *payload, uint32_t source_ip,
+                            uint32_t dest_ip)
 {
     int fd, result = -1;
 
     if ((fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
-        log_error("kernel_packet: socket failed: %s", strerror(errno));
+        log_error("send_dhcp_cooked: socket failed: %s", strerror(errno));
         goto out;
     }
 
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt) == -1) {
-        log_error("kernel_packet: set reuse addr failed: %s",
+        log_error("send_dhcp_cooked: set reuse addr failed: %s",
                   strerror(errno));
         goto out_fd;
     }
     if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) == -1) {
-        log_error("kernel_packet: failed to set don't route: %s",
+        log_error("send_dhcp_cooked: failed to set don't route: %s",
                   strerror(errno));
         goto out_fd;
     }
@@ -395,46 +393,46 @@ int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
     memset(&ifr, 0, sizeof (struct ifreq));
     strlcpy(ifr.ifr_name, client_config.interface, IFNAMSIZ);
     if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
-        log_error("kernel_packet: set bind to device failed: %s",
+        log_error("send_dhcp_cooked: set bind to device failed: %s",
                   strerror(errno));
         goto out_fd;
     }
     if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
-        log_error("kernel_packet: set non-blocking failed: %s",
+        log_error("send_dhcp_cooked: set non-blocking failed: %s",
                   strerror(errno));
         goto out_fd;
     }
 
     struct sockaddr_in laddr = {
         .sin_family = AF_INET,
-        .sin_port = htons(source_port),
+        .sin_port = htons(DHCP_CLIENT_PORT),
         .sin_addr.s_addr = source_ip,
     };
     if (bind(fd, (struct sockaddr *)&laddr, sizeof(struct sockaddr)) == -1) {
-        log_error("kernel_packet: bind failed: %s", strerror(errno));
+        log_error("send_dhcp_cooked: bind failed: %s", strerror(errno));
         goto out_fd;
     }
 
     struct sockaddr_in raddr = {
         .sin_family = AF_INET,
-        .sin_port = htons(dest_port),
+        .sin_port = htons(DHCP_SERVER_PORT),
         .sin_addr.s_addr = dest_ip,
     };
     if (connect(fd, (struct sockaddr *)&raddr, sizeof(struct sockaddr)) == -1) {
-        log_error("kernel_packet: connect failed: %s", strerror(errno));
+        log_error("send_dhcp_cooked: connect failed: %s", strerror(errno));
         goto out_fd;
     }
 
     ssize_t endloc = get_end_option_idx(payload->options,
                                         DHCP_OPTIONS_BUFSIZE);
     if (endloc == -1) {
-        log_error("kernel_packet: attempt to send packet with no DHCP_END");
+        log_error("send_dhcp_cooked: attempt to send packet with no DHCP_END");
         goto out_fd;
     }
     unsigned int padding = DHCP_OPTIONS_BUFSIZE - 1 - endloc;
     result = safe_write(fd, (const char *)payload, DHCP_SIZE - padding);
     if (result == -1)
-        log_error("kernel_packet: write failed: %s", strerror(errno));
+        log_error("send_dhcp_cooked: write failed: %s", strerror(errno));
   out_fd:
     close(fd);
   out:
@@ -660,15 +658,6 @@ static void init_packet(struct dhcpMessage *packet, char type)
                       (uint8_t *)&vendor_id);
 }
 
-#define MAC_BCAST_ADDR (uint8_t *)"\xff\xff\xff\xff\xff\xff"
-/* Wrapper that broadcasts a raw dhcp packet on the bound interface. */
-static int bcast_raw_packet(struct dhcpMessage *packet)
-{
-    return raw_packet(packet, INADDR_ANY, DHCP_CLIENT_PORT, INADDR_BROADCAST,
-                      DHCP_SERVER_PORT, MAC_BCAST_ADDR, client_config.ifindex);
-}
-#undef MAC_BCAST_ADDR
-
 /* Broadcast a DHCP discover packet to the network, with an optionally
  * requested IP */
 int send_discover(uint32_t xid, uint32_t requested)
@@ -686,7 +675,7 @@ int send_discover(uint32_t xid, uint32_t requested)
                    DHCP_MAX_SIZE, htons(576));
     add_option_request_list(packet.options, DHCP_OPTIONS_BUFSIZE);
     log_line("Sending discover...");
-    return bcast_raw_packet(&packet);
+    return send_dhcp_raw(&packet);
 }
 
 /* Broadcasts a DHCP request message */
@@ -705,7 +694,7 @@ int send_selecting(uint32_t xid, uint32_t server, uint32_t requested)
     add_option_request_list(packet.options, DHCP_OPTIONS_BUFSIZE);
     addr.s_addr = requested;
     log_line("Sending select for %s...", inet_ntoa(addr));
-    return bcast_raw_packet(&packet);
+    return send_dhcp_raw(&packet);
 }
 
 /* Unicasts or broadcasts a DHCP renew message */
@@ -720,10 +709,9 @@ int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr)
     add_option_request_list(packet.options, DHCP_OPTIONS_BUFSIZE);
     log_line("Sending renew...");
     if (server)
-        return kernel_packet(&packet, ciaddr, DHCP_CLIENT_PORT, server,
-                             DHCP_SERVER_PORT);
+        return send_dhcp_cooked(&packet, ciaddr, server);
     else
-        return bcast_raw_packet(&packet);
+        return send_dhcp_raw(&packet);
 }
 
 /* Broadcast a DHCP decline message */
@@ -748,7 +736,7 @@ int send_decline(uint32_t xid, uint32_t server, uint32_t requested)
     add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_SERVER_ID, server);
 
     log_line("Sending decline...");
-    return bcast_raw_packet(&packet);
+    return send_dhcp_raw(&packet);
 }
 
 /* Unicasts a DHCP release message */
@@ -765,6 +753,6 @@ int send_release(uint32_t server, uint32_t ciaddr)
     add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_SERVER_ID, server);
 
     log_line("Sending release...");
-    return kernel_packet(&packet, ciaddr, DHCP_CLIENT_PORT, server,
-                         DHCP_SERVER_PORT);
+    return send_dhcp_cooked(&packet, ciaddr, server);
 }
+
