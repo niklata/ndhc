@@ -169,7 +169,7 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
     int fd, r = -1;
     unsigned int padding;
 
-    if ((fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP))) < 0) {
+    if ((fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IP))) < 0) {
         log_error("raw_packet: socket failed: %s", strerror(errno));
         goto out;
     }
@@ -177,6 +177,8 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
     memset(&dest, 0, sizeof dest);
     memset(&packet, 0, offsetof(struct ip_udp_dhcp_packet, data));
     packet.data = *payload; /* struct copy */
+
+    set_sock_nonblock(fd);
 
     dest.sll_family = AF_PACKET;
     dest.sll_protocol = htons(ETH_P_IP);

@@ -126,7 +126,7 @@ int raw_socket(int ifindex)
 
     memset(&sock, 0, sizeof sock);
     log_line("Opening raw socket on ifindex %d", ifindex);
-    if ((fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP))) < 0) {
+    if ((fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IP))) < 0) {
         log_error("socket call failed: %s", strerror(errno));
         return -1;
     }
