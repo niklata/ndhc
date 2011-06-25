@@ -3,10 +3,6 @@
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
- * Originally derived from busybox's udhcpc variant, which in turn was...
- * Mostly stolen from: dhcpcd - DHCP client daemon
- * by Yoichi Hariguchi <yoichi@fore.com>
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -30,6 +26,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
+#include <linux/if_packet.h>
 #include <fcntl.h>
 #include <errno.h>
 #include "arp.h"
@@ -38,7 +35,6 @@
 #include "ifchange.h"
 #include "leasefile.h"
 #include "log.h"
-#include "strl.h"
 #include "io.h"
 
 #define ARP_MSG_SIZE 0x2a
@@ -49,33 +45,18 @@ static int arpreply_offset;
 static struct dhcpMessage arp_dhcp_packet;
 static int arp_packet_num;
 
-static int arp_close_fd(struct client_state_t *cs)
+static int arp_open_fd(struct client_state_t *cs)
 {
-    if (cs->arpFd != -1) {
-        epoll_del(cs, cs->arpFd);
-        close(cs->arpFd);
-        cs->arpFd = -1;
-        return 1;
-    }
-    return 0;
-}
-
-/* Returns 0 on success, -1 on failure. */
-static int arpping(struct client_state_t *cs, uint32_t test_ip)
-{
-    int opt = 1;
-    struct sockaddr addr;   /* for interface name */
-    struct arpMsg arp;
-
     if (cs->arpFd == -1) {
-        int arpfd = socket(AF_PACKET, SOCK_PACKET, htons(ETH_P_ARP));
+        int arpfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ARP));
         if (arpfd == -1) {
             log_error("arp: failed to create socket: %s", strerror(errno));
             return -1;
         }
 
+        int opt = 1;
         if (setsockopt(arpfd, SOL_SOCKET, SO_BROADCAST,
-                       &opt, sizeof opt) == -1) {
+                    &opt, sizeof opt) == -1) {
             log_error("arp: failed to set broadcast: %s", strerror(errno));
             close(arpfd);
             return -1;
@@ -88,26 +69,48 @@ static int arpping(struct client_state_t *cs, uint32_t test_ip)
         cs->arpFd = arpfd;
         epoll_add(cs, arpfd);
     }
+    return 0;
+}
 
-    /* send arp request */
-    memset(&arp, 0, sizeof arp);
-    memset(arp.h_dest, 0xff, 6);                 /* MAC DA */
-    memcpy(arp.h_source, client_config.arp, 6);  /* MAC SA */
-    arp.h_proto = htons(ETH_P_ARP);              /* protocol type (Ethernet) */
-    arp.htype = htons(ARPHRD_ETHER);             /* hardware type */
-    arp.ptype = htons(ETH_P_IP);                 /* protocol type (ARP message) */
-    arp.hlen = 6;                                /* hardware address length */
-    arp.plen = 4;                                /* protocol address length */
-    arp.operation = htons(ARPOP_REQUEST);        /* ARP op code */
-    memcpy(arp.smac, client_config.arp, 6);      /* source hardware address */
-    memset(arp.sip4, 0, sizeof arp.sip4);        /* source IP address */
-    /* dmac is zero-filled */                    /* target hardware address */
-    memcpy(arp.dip4, &test_ip, sizeof test_ip);  /* target IP address */
+static int arp_close_fd(struct client_state_t *cs)
+{
+    if (cs->arpFd != -1) {
+        epoll_del(cs, cs->arpFd);
+        close(cs->arpFd);
+        cs->arpFd = -1;
+        return 1;
+    }
+    return 0;
+}
 
-    memset(&addr, 0, sizeof addr);
-    strlcpy(addr.sa_data, client_config.interface, sizeof addr.sa_data);
+// Returns 0 on success, -1 on failure.
+static int arpping(struct client_state_t *cs, uint32_t test_ip)
+{
+    if (arp_open_fd(cs) == -1)
+        return -1;
+
+    struct arpMsg arp = {
+        .h_proto = htons(ETH_P_ARP),
+        .htype = htons(ARPHRD_ETHER),
+        .ptype = htons(ETH_P_IP),
+        .hlen = 6,
+        .plen = 4,
+        .operation = htons(ARPOP_REQUEST),
+    };
+    memset(arp.h_dest, 0xff, 6);
+    memcpy(arp.h_source, client_config.arp, 6);
+    memcpy(arp.smac, client_config.arp, 6);
+    memcpy(arp.dip4, &test_ip, sizeof test_ip);
+
+    struct sockaddr_ll addr = {
+        .sll_family = AF_PACKET,
+        .sll_ifindex = client_config.ifindex,
+        .sll_halen = 6,
+    };
+    memcpy(addr.sll_addr, client_config.arp, 6);
+
     if (safe_sendto(cs->arpFd, (const char *)&arp, sizeof arp,
-                    0, &addr, sizeof addr) < 0) {
+                    0, (struct sockaddr *)&addr, sizeof addr) < 0) {
         log_error("arp: sendto failed: %s", strerror(errno));
         arp_close_fd(cs);
         return -1;
@@ -195,10 +198,8 @@ void arp_success(struct client_state_t *cs)
 
     arp_close_fd(cs);
 
-    /* enter bound state */
     cs->t1 = cs->lease >> 1;
-    /* little fixed point for n * .875 */
-    cs->t2 = (cs->lease * 0x7) >> 3;
+    cs->t2 = (cs->lease * 0x7) >> 3; // T2 = lease * 0.875
     cs->timeout = cs->t1 * 1000;
     cs->leaseStartTime = curms();
 
