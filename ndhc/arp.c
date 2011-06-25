@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-06-11 11:12:58 njk>
+ * Time-stamp: <2011-06-16 21:37:52 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -228,6 +228,9 @@ static void arp_gw_success(struct client_state_t *cs)
     cs->dhcpState = cs->arpPrevState;
 }
 
+// Note that this function will see all ARP traffic on the interface.
+// Therefore the validation shouldn't be noisy, and should silently
+// reject non-malformed ARP packets that are irrelevant.
 static int arp_validate(struct arpMsg *am)
 {
     if (!am)
@@ -253,15 +256,16 @@ static int arp_validate(struct arpMsg *am)
         return 0;
     }
     if (am->operation != htons(ARPOP_REPLY)) {
-        log_warning("arp: ARP operation type is not 'reply'");
+        /* log_warning("arp: ARP operation type is not 'reply': %x", */
+        /*             ntohs(am->operation)); */
         return 0;
     }
     if (memcmp(am->h_dest, client_config.arp, 6)) {
-        log_warning("arp: Ethernet destination does not equal our MAC");
+        /* log_warning("arp: Ethernet destination does not equal our MAC"); */
         return 0;
     }
     if (memcmp(am->dmac, client_config.arp, 6)) {
-        log_warning("arp: ARP destination does not equal our MAC");
+        /* log_warning("arp: ARP destination does not equal our MAC"); */
         return 0;
     }
     return 1;
@@ -291,10 +295,8 @@ void handle_arp_response(struct client_state_t *cs)
         return;
     }
 
-    if (!arp_validate(&arpreply)) {
-        log_warning("arp: ARP message header is invalid -- ignoring");
+    if (!arp_validate(&arpreply))
         return;
-    }
 
     ++arp_packet_num;
     switch (cs->dhcpState) {
