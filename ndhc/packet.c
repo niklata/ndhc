@@ -33,6 +33,7 @@
 #include <features.h>
 #include <netpacket/packet.h>
 #include <net/ethernet.h>
+#include <net/if.h>
 #include <linux/filter.h>
 #include <time.h>
 #include <errno.h>
@@ -50,39 +51,50 @@
  * on success, or -1 on failure. */
 static int create_udp_listen_socket(unsigned int ip, int port, char *inf)
 {
-    struct ifreq interface;
-    int fd;
-    struct sockaddr_in addr;
-    int opt = 1;
-
     log_line("Opening listen socket on 0x%08x:%d %s", ip, port, inf);
+
+    int fd;
     if ((fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
         log_error("create_udp_listen_socket: socket failed: %s",
                   strerror(errno));
         goto out;
     }
 
-    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt) == -1)
+    int opt = 1;
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt) == -1) {
+        log_error("create_udp_listen_socket: set reuse addr failed: %s",
+                  strerror(errno));
         goto out_fd;
-    if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &opt, sizeof opt) == -1)
+    }
+    if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &opt, sizeof opt) == -1) {
+        log_error("create_udp_listen_socket: set broadcast failed: %s",
+                  strerror(errno));
         goto out_fd;
-
-    /* Restrict operations to the physical device @inf */
-    strlcpy(interface.ifr_ifrn.ifrn_name, inf, IFNAMSIZ);
-    if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE,
-                   &interface, sizeof interface) < 0)
+    }
+    if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) == -1) {
+        log_error("create_udp_listen_socket: set don't route failed: %s",
+                  strerror(errno));
         goto out_fd;
-
+    }
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof (struct ifreq));
+    strlcpy(ifr.ifr_name, inf, IFNAMSIZ);
+    if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
+        log_error("create_udp_listen_socket: set bind to device failed: %s",
+                  strerror(errno));
+        goto out_fd;
+    }
     if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
         log_error("create_udp_listen_socket: set non-blocking failed: %s",
                   strerror(errno));
         goto out_fd;
     }
 
-    memset(&addr, 0, sizeof addr);
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = ip;
+    struct sockaddr_in addr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(port),
+        .sin_addr.s_addr = ip,
+    };
     if (bind(fd, (struct sockaddr *)&addr, sizeof(struct sockaddr)) == -1)
         goto out_fd;
 
@@ -95,9 +107,6 @@ static int create_udp_listen_socket(unsigned int ip, int port, char *inf)
 
 static int create_raw_listen_socket(int ifindex)
 {
-    int fd;
-    struct sockaddr_ll sock;
-
     /*
      * Comment:
      *   I've selected not to see LL header, so BPF doesn't see it, too.
@@ -132,35 +141,46 @@ static int create_raw_listen_socket(int ifindex)
         .filter = (struct sock_filter *) filter_instr,
     };
 
-    memset(&sock, 0, sizeof sock);
     log_line("Opening raw socket on ifindex %d", ifindex);
+
+    int fd;
     if ((fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IP))) < 0) {
-        log_error("socket call failed: %s", strerror(errno));
-        return -1;
+        log_error("create_raw_listen_socket: socket failed: %s",
+                  strerror(errno));
+        goto out;
     }
 
-    /* Ignoring error (kernel may lack support for this) */
+    // Ignoring error since kernel may lack support for BPF.
     if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &filter_prog,
                    sizeof filter_prog) >= 0)
         log_line("Attached filter to raw socket fd %d", fd);
 
+    int opt = 1;
+    if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) == -1) {
+        log_error("create_raw_listen_socket: failed to set don't route: %s",
+                  strerror(errno));
+        goto out_fd;
+    }
     if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
         log_error("create_raw_listen_socket: set non-blocking failed: %s",
                   strerror(errno));
-        close(fd);
-        return -1;
+        goto out_fd;
     }
-
-    sock.sll_family = AF_PACKET;
-    sock.sll_protocol = htons(ETH_P_IP);
-    sock.sll_ifindex = ifindex;
+    struct sockaddr_ll sock = {
+        .sll_family = AF_PACKET,
+        .sll_protocol = htons(ETH_P_IP),
+        .sll_ifindex = ifindex,
+    };
     if (bind(fd, (struct sockaddr *)&sock, sizeof(sock)) < 0) {
-        log_error("bind call failed: %s", strerror(errno));
-        close(fd);
-        return -1;
+        log_error("create_raw_listen_socket: bind failed: %s",
+                  strerror(errno));
+        goto out_fd;
     }
-
     return fd;
+out_fd:
+    close(fd);
+out:
+    return -1;
 }
 // Read a packet from a cooked socket.  Returns -1 on fatal error, -2 on
 // transient error.
@@ -283,63 +303,56 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
                int source_port, uint32_t dest_ip, int dest_port,
                uint8_t *dest_arp, int ifindex)
 {
-    struct sockaddr_ll dest;
-    struct ip_udp_dhcp_packet packet;
     int fd, r = -1;
-    unsigned int padding;
 
     if ((fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IP))) < 0) {
         log_error("raw_packet: socket failed: %s", strerror(errno));
         goto out;
     }
-
-    memset(&dest, 0, sizeof dest);
-    memset(&packet, 0, offsetof(struct ip_udp_dhcp_packet, data));
-    packet.data = *payload; /* struct copy */
-
+    int opt = 1;
+    if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) == -1) {
+        log_error("raw_packet: failed to set don't route: %s",
+                  strerror(errno));
+        goto out_fd;
+    }
     if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
         log_error("raw_packet: set non-blocking failed: %s", strerror(errno));
         goto out_fd;
     }
-
-    dest.sll_family = AF_PACKET;
-    dest.sll_protocol = htons(ETH_P_IP);
-    dest.sll_ifindex = ifindex;
-    dest.sll_halen = 6;
+    struct sockaddr_ll dest = {
+        .sll_family = AF_PACKET,
+        .sll_protocol = htons(ETH_P_IP),
+        .sll_ifindex = ifindex,
+        .sll_halen = 6,
+    };
     memcpy(dest.sll_addr, dest_arp, 6);
     if (bind(fd, (struct sockaddr *)&dest, sizeof(struct sockaddr_ll)) < 0) {
         log_error("raw_packet: bind failed: %s", strerror(errno));
         goto out_fd;
     }
 
-    /* We were sending full-sized DHCP packets (zero padded),
-     * but some badly configured servers were seen dropping them.
-     * Apparently they drop all DHCP packets >576 *ethernet* octets big,
-     * whereas they may only drop packets >576 *IP* octets big
-     * (which for typical Ethernet II means 590 octets: 6+6+2 + 576).
-     *
-     * In order to work with those buggy servers,
-     * we truncate packets after end option byte.
-     */
+    struct ip_udp_dhcp_packet packet;
+    memset(&packet, 0, offsetof(struct ip_udp_dhcp_packet, data));
+    packet.data = *payload;
+    // Send packets that are as short as possible, since some servers are buggy
+    // and drop packets that are longer than 562 bytes.
     ssize_t endloc = get_end_option_idx(packet.data.options,
                                         DHCP_OPTIONS_BUFSIZE);
     if (endloc == -1) {
         log_error("raw_packet: attempt to send packet with no DHCP_END");
         goto out_fd;
     }
-    padding = DHCP_OPTIONS_BUFSIZE - 1 - endloc;
-
+    unsigned int padding = DHCP_OPTIONS_BUFSIZE - 1 - endloc;
     packet.ip.protocol = IPPROTO_UDP;
     packet.ip.saddr = source_ip;
     packet.ip.daddr = dest_ip;
     packet.udp.source = htons(source_port);
     packet.udp.dest = htons(dest_port);
-    /* size, excluding IP header: */
     packet.udp.len = htons(UPD_DHCP_SIZE - padding);
-    /* for UDP checksumming, ip.len is set to UDP packet len */
+    // UDP checksumming needs a temporary pseudoheader with a fake length.
     packet.ip.tot_len = packet.udp.len;
     packet.udp.check = checksum(&packet, IP_UPD_DHCP_SIZE - padding);
-    /* but for sending, it is set to IP packet len */
+    // Set the true IP packet length for the final packet.
     packet.ip.tot_len = htons(IP_UPD_DHCP_SIZE - padding);
     packet.ip.ihl = sizeof packet.ip >> 2;
     packet.ip.version = IPVERSION;
@@ -360,31 +373,57 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
 int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
                   int source_port, uint32_t dest_ip, int dest_port)
 {
-    struct sockaddr_in client;
-    int opt = 1, fd, result = -1;
-    unsigned int padding;
+    int fd, result = -1;
 
-    if ((fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
+    if ((fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
+        log_error("kernel_packet: socket failed: %s", strerror(errno));
         goto out;
+    }
 
-    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt) == -1)
+    int opt = 1;
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt) == -1) {
+        log_error("kernel_packet: set reuse addr failed: %s",
+                  strerror(errno));
         goto out_fd;
-
-    memset(&client, 0, sizeof(client));
-    client.sin_family = AF_INET;
-    client.sin_port = htons(source_port);
-    client.sin_addr.s_addr = source_ip;
-
-    if (bind(fd, (struct sockaddr *)&client, sizeof(struct sockaddr)) == -1)
+    }
+    if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) == -1) {
+        log_error("kernel_packet: failed to set don't route: %s",
+                  strerror(errno));
         goto out_fd;
-
-    memset(&client, 0, sizeof(client));
-    client.sin_family = AF_INET;
-    client.sin_port = htons(dest_port);
-    client.sin_addr.s_addr = dest_ip;
-
-    if (connect(fd, (struct sockaddr *)&client, sizeof(struct sockaddr)) == -1)
+    }
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof (struct ifreq));
+    strlcpy(ifr.ifr_name, client_config.interface, IFNAMSIZ);
+    if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
+        log_error("kernel_packet: set bind to device failed: %s",
+                  strerror(errno));
         goto out_fd;
+    }
+    if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
+        log_error("kernel_packet: set non-blocking failed: %s",
+                  strerror(errno));
+        goto out_fd;
+    }
+
+    struct sockaddr_in laddr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(source_port),
+        .sin_addr.s_addr = source_ip,
+    };
+    if (bind(fd, (struct sockaddr *)&laddr, sizeof(struct sockaddr)) == -1) {
+        log_error("kernel_packet: bind failed: %s", strerror(errno));
+        goto out_fd;
+    }
+
+    struct sockaddr_in raddr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(dest_port),
+        .sin_addr.s_addr = dest_ip,
+    };
+    if (connect(fd, (struct sockaddr *)&raddr, sizeof(struct sockaddr)) == -1) {
+        log_error("kernel_packet: connect failed: %s", strerror(errno));
+        goto out_fd;
+    }
 
     ssize_t endloc = get_end_option_idx(payload->options,
                                         DHCP_OPTIONS_BUFSIZE);
@@ -392,7 +431,7 @@ int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
         log_error("kernel_packet: attempt to send packet with no DHCP_END");
         goto out_fd;
     }
-    padding = DHCP_OPTIONS_BUFSIZE - 1 - endloc;
+    unsigned int padding = DHCP_OPTIONS_BUFSIZE - 1 - endloc;
     result = safe_write(fd, (const char *)payload, DHCP_SIZE - padding);
     if (result == -1)
         log_error("kernel_packet: write failed: %s", strerror(errno));

@@ -47,40 +47,50 @@ static int arp_packet_num;
 
 static int arp_open_fd(struct client_state_t *cs)
 {
-    if (cs->arpFd == -1) {
-        int arpfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ARP));
-        if (arpfd == -1) {
-            log_error("arp: failed to create socket: %s", strerror(errno));
-            return -1;
-        }
+    if (cs->arpFd != -1)
+        return 0;
 
-        int opt = 1;
-        if (setsockopt(arpfd, SOL_SOCKET, SO_BROADCAST,
-                    &opt, sizeof opt) == -1) {
-            log_error("arp: failed to set broadcast: %s", strerror(errno));
-            close(arpfd);
-            return -1;
-        }
-        if (fcntl(arpfd, F_SETFL, fcntl(arpfd, F_GETFL) | O_NONBLOCK) == -1) {
-            log_error("arp: failed to set non-blocking: %s", strerror(errno));
-            close(arpfd);
-            return -1;
-        }
-        cs->arpFd = arpfd;
-        epoll_add(cs, arpfd);
+    int fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ARP));
+    if (fd == -1) {
+        log_error("arp: failed to create socket: %s", strerror(errno));
+        goto out;
     }
+
+    int opt = 1;
+    if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &opt, sizeof opt) == -1) {
+        log_error("arp: failed to set broadcast: %s", strerror(errno));
+        goto out_fd;
+    }
+    if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
+        log_error("arp: failed to set non-blocking: %s", strerror(errno));
+        goto out_fd;
+    }
+    struct sockaddr_ll saddr = {
+        .sll_family = AF_PACKET,
+        .sll_protocol = htons(ETH_P_ARP),
+        .sll_ifindex = client_config.ifindex,
+    };
+    if (bind(fd, (struct sockaddr *)&saddr, sizeof(struct sockaddr_ll)) < 0) {
+        log_error("arp: bind failed: %s", strerror(errno));
+        goto out_fd;
+    }
+
+    cs->arpFd = fd;
+    epoll_add(cs, fd);
     return 0;
+out_fd:
+    close(fd);
+out:
+    return -1;
 }
 
-static int arp_close_fd(struct client_state_t *cs)
+static void arp_close_fd(struct client_state_t *cs)
 {
-    if (cs->arpFd != -1) {
-        epoll_del(cs, cs->arpFd);
-        close(cs->arpFd);
-        cs->arpFd = -1;
-        return 1;
-    }
-    return 0;
+    if (cs->arpFd == -1)
+        return;
+    epoll_del(cs, cs->arpFd);
+    close(cs->arpFd);
+    cs->arpFd = -1;
 }
 
 // Returns 0 on success, -1 on failure.
