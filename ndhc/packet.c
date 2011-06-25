@@ -56,7 +56,7 @@ static int create_udp_listen_socket(unsigned int ip, int port, char *inf)
     int opt = 1;
 
     log_line("Opening listen socket on 0x%08x:%d %s", ip, port, inf);
-    if ((fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
+    if ((fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
         log_error("create_udp_listen_socket: socket failed: %s",
                   strerror(errno));
         goto out;
@@ -364,7 +364,7 @@ int kernel_packet(struct dhcpMessage *payload, uint32_t source_ip,
     int opt = 1, fd, result = -1;
     unsigned int padding;
 
-    if ((fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
+    if ((fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
         goto out;
 
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt) == -1)

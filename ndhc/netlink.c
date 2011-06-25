@@ -64,7 +64,7 @@ int nl_open(struct client_state_t *cs)
 
     assert(cs->nlFd == -1);
 
-    cs->nlFd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+    cs->nlFd = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
 
     if (cs->nlFd == -1)
         return -1;

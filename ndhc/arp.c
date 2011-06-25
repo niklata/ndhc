@@ -69,7 +69,7 @@ static int arpping(struct client_state_t *cs, uint32_t test_ip,
     struct arpMsg arp;
 
     if (cs->arpFd == -1) {
-        int arpfd = socket(PF_PACKET, SOCK_PACKET, htons(ETH_P_ARP));
+        int arpfd = socket(AF_PACKET, SOCK_PACKET, htons(ETH_P_ARP));
         if (arpfd == -1) {
             log_error("arp: failed to create socket: %s", strerror(errno));
             return -1;

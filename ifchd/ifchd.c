@@ -527,7 +527,7 @@ static int get_listen(void)
         .sun_path = "/var/state/ifchange"
     };
 
-    lsock = socket(PF_UNIX, SOCK_STREAM, 0);
+    lsock = socket(AF_UNIX, SOCK_STREAM, 0);
     if (lsock == -1)
         suicide("dispatch_work - failed to create socket");
 

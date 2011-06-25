@@ -132,7 +132,7 @@ static int set_if_flag(int idx, short flag)
     if (!is_permitted(ifnam[idx]))
         goto out0;
 
-    fd = socket(PF_INET, SOCK_DGRAM, 0);
+    fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
         log_line("%s: (set_if_flag) failed to open interface socket: %s\n",
 		 ifnam[idx], strerror(errno));
@@ -184,7 +184,7 @@ void perform_ip(int idx, char *str)
     sin.sin_addr = ipaddr;
     memcpy(&ifrt.ifr_addr, &sin, sizeof(struct sockaddr));
 
-    fd = socket(PF_INET, SOCK_DGRAM, 0);
+    fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
         log_line("%s: (perform_ip) failed to open interface socket: %s\n",
 		 ifnam[idx], strerror(errno));
@@ -217,7 +217,7 @@ void perform_subnet(int idx, char *str)
     sin.sin_addr = subnet;
     memcpy(&ifrt.ifr_addr, &sin, sizeof(struct sockaddr));
 
-    fd = socket(PF_INET, SOCK_DGRAM, 0);
+    fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
         log_line("%s: (perform_ip) failed to open interface socket: %s\n",
 		 ifnam[idx], strerror(errno));
@@ -264,7 +264,7 @@ void perform_router(int idx, char *str)
     rt.rt_dev = ifnam[idx];
     rt.rt_metric = 1;
 
-    fd = socket(PF_INET, SOCK_DGRAM, 0);
+    fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
         log_line("%s: (perform_router) failed to open interface socket: %s\n",
 		 ifnam[idx], strerror(errno));
@@ -293,7 +293,7 @@ void perform_mtu(int idx, char *str)
     ifrt.ifr_mtu = mtu;
     strlcpy(ifrt.ifr_name, ifnam[idx], IFNAMSIZ);
 
-    fd = socket(PF_INET, SOCK_DGRAM, 0);
+    fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
         log_line("%s: (perform_mtu) failed to open interface socket: %s\n",
 		 ifnam[idx], strerror(errno));
@@ -325,7 +325,7 @@ void perform_broadcast(int idx, char *str)
     sin.sin_addr = broadcast;
     memcpy(&ifrt.ifr_addr, &sin, sizeof(struct sockaddr));
 
-    fd = socket(PF_INET, SOCK_DGRAM, 0);
+    fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
         log_line("%s: (perform_broadcast) failed to open interface socket: %s\n", ifnam[idx], strerror(errno));
         return;
