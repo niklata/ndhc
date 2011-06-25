@@ -46,14 +46,6 @@
 #include "options.h"
 #include "strl.h"
 
-static int set_sock_nonblock(int fd)
-{
-    int ret = 0, flags;
-    flags = fcntl(fd, F_GETFL);
-    ret = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-    return ret;
-}
-
 /* Returns fd of new listen socket bound to @ip:@port on interface @inf
  * on success, or -1 on failure. */
 static int create_udp_listen_socket(unsigned int ip, int port, char *inf)
@@ -65,7 +57,8 @@ static int create_udp_listen_socket(unsigned int ip, int port, char *inf)
 
     log_line("Opening listen socket on 0x%08x:%d %s", ip, port, inf);
     if ((fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
-        log_error("create_udp_listen_socket: socket failed: %s", strerror(errno));
+        log_error("create_udp_listen_socket: socket failed: %s",
+                  strerror(errno));
         goto out;
     }
 
@@ -80,7 +73,11 @@ static int create_udp_listen_socket(unsigned int ip, int port, char *inf)
                    &interface, sizeof interface) < 0)
         goto out_fd;
 
-    set_sock_nonblock(fd);
+    if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
+        log_error("create_udp_listen_socket: set non-blocking failed: %s",
+                  strerror(errno));
+        goto out_fd;
+    }
 
     memset(&addr, 0, sizeof addr);
     addr.sin_family = AF_INET;
@@ -147,7 +144,12 @@ static int create_raw_listen_socket(int ifindex)
                    sizeof filter_prog) >= 0)
         log_line("Attached filter to raw socket fd %d", fd);
 
-    set_sock_nonblock(fd);
+    if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
+        log_error("create_raw_listen_socket: set non-blocking failed: %s",
+                  strerror(errno));
+        close(fd);
+        return -1;
+    }
 
     sock.sll_family = AF_PACKET;
     sock.sll_protocol = htons(ETH_P_IP);
@@ -295,7 +297,10 @@ int raw_packet(struct dhcpMessage *payload, uint32_t source_ip,
     memset(&packet, 0, offsetof(struct ip_udp_dhcp_packet, data));
     packet.data = *payload; /* struct copy */
 
-    set_sock_nonblock(fd);
+    if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
+        log_error("raw_packet: set non-blocking failed: %s", strerror(errno));
+        goto out_fd;
+    }
 
     dest.sll_family = AF_PACKET;
     dest.sll_protocol = htons(ETH_P_IP);

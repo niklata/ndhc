@@ -81,7 +81,11 @@ static int arpping(struct client_state_t *cs, uint32_t test_ip,
             close(arpfd);
             return -1;
         }
-        fcntl(arpfd, F_SETFL, fcntl(arpfd, F_GETFL) | O_NONBLOCK);
+        if (fcntl(arpfd, F_SETFL, fcntl(arpfd, F_GETFL) | O_NONBLOCK) == -1) {
+            log_error("arp: failed to set non-blocking: %s", strerror(errno));
+            close(arpfd);
+            return -1;
+        }
         cs->arpFd = arpfd;
         epoll_add(cs, arpfd);
     }
