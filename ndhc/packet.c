@@ -366,13 +366,22 @@ static int send_dhcp_raw(struct dhcpmsg *payload)
     size_t padding = DHCP_OPTIONS_BUFSIZE - 1 - endloc;
     size_t iud_len = sizeof(struct ip_udp_dhcp_packet) - padding;
     size_t ud_len = sizeof(struct udp_dhcp_packet) - padding;
-    // UDP checksumming needs a temporary pseudoheader with a fake length.
+
+    struct iphdr ph = {
+        .saddr = INADDR_ANY,
+        .daddr = INADDR_BROADCAST,
+        .protocol = IPPROTO_UDP,
+        .tot_len = htons(ud_len),
+    };
     struct ip_udp_dhcp_packet iudmsg = {
         .ip = {
-            .protocol = IPPROTO_UDP,
             .saddr = INADDR_ANY,
             .daddr = INADDR_BROADCAST,
-            .tot_len = htons(ud_len),
+            .protocol = IPPROTO_UDP,
+            .tot_len = htons(iud_len),
+            .ihl = sizeof iudmsg.ip >> 2,
+            .version = IPVERSION,
+            .ttl = IPDEFTTL,
         },
         .udp = {
             .source = htons(DHCP_CLIENT_PORT),
@@ -381,12 +390,9 @@ static int send_dhcp_raw(struct dhcpmsg *payload)
         },
         .data = *payload,
     };
-    iudmsg.udp.check = net_checksum(&iudmsg, iud_len);
-    // Set the true IP packet length for the final packet.
-    iudmsg.ip.tot_len = htons(iud_len);
-    iudmsg.ip.ihl = sizeof iudmsg.ip >> 2;
-    iudmsg.ip.version = IPVERSION;
-    iudmsg.ip.ttl = IPDEFTTL;
+    uint16_t udpcs = net_checksum(&iudmsg.udp, ud_len);
+    uint16_t phcs = net_checksum(&ph, sizeof ph);
+    iudmsg.udp.check = net_checksum_add(udpcs, phcs);
     iudmsg.ip.check = net_checksum(&iudmsg.ip, sizeof iudmsg.ip);
 
     r = safe_sendto(fd, (const char *)&iudmsg, iud_len, 0,
