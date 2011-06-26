@@ -182,6 +182,7 @@ out_fd:
 out:
     return -1;
 }
+
 // Read a packet from a cooked socket.  Returns -1 on fatal error, -2 on
 // transient error.
 static int get_packet(struct dhcpmsg *packet, int fd)
@@ -214,7 +215,7 @@ static inline uint16_t foldcarry(uint32_t v)
 }
 
 // This function is not suitable for summing buffers that are greater than
-// 128k-1 bytes in length: failure case will be incorrect checksums via
+// 128k bytes in length: failure case will be incorrect checksums via
 // unsigned overflow, which is a defined operation and is safe.  This limit
 // should not be an issue for IPv4 or IPv6 packet, which are limited to
 // at most 64k bytes.

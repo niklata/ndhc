@@ -277,7 +277,7 @@ size_t add_option_string(uint8_t *optbuf, size_t buflen, uint8_t *optstr)
     }
     /* end position + optstr length + option code/length + end option */
     if (end + datalen + 2 + 1 >= buflen) {
-        log_warning("Option 0x%02x did not fit into the packet!", optstr[0]);
+        log_warning("add_option_string: No space for option 0x%02x", optstr[0]);
         return 0;
     }
     memcpy(optbuf + end, optstr, datalen + 2);
