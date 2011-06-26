@@ -30,6 +30,6 @@ enum {
     IFCHANGE_NAK = 4
 };
 
-void ifchange(struct dhcpMessage *packet, int mode);
+void ifchange(struct dhcpmsg *packet, int mode);
 
 #endif

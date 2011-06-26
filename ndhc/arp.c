@@ -42,7 +42,7 @@
 
 static struct arpMsg arpreply;
 static int arpreply_offset;
-static struct dhcpMessage arp_dhcp_packet;
+static struct dhcpmsg arp_dhcp_packet;
 static int arp_packet_num;
 
 static int arp_open_fd(struct client_state_t *cs)
@@ -135,14 +135,14 @@ static void arpreply_clear()
     arpreply_offset = 0;
 }
 
-int arp_check(struct client_state_t *cs, struct dhcpMessage *packet)
+int arp_check(struct client_state_t *cs, struct dhcpmsg *packet)
 {
     if (arpping(cs, arp_dhcp_packet.yiaddr) == -1)
         return -1;
     cs->arpPrevState = cs->dhcpState;
     cs->dhcpState = DS_ARP_CHECK;
     cs->timeout = 2000;
-    memcpy(&arp_dhcp_packet, packet, sizeof (struct dhcpMessage));
+    memcpy(&arp_dhcp_packet, packet, sizeof (struct dhcpmsg));
     arpreply_clear();
     return 0;
 }
@@ -155,7 +155,7 @@ int arp_gw_check(struct client_state_t *cs)
     cs->dhcpState = DS_ARP_GW_CHECK;
     cs->oldTimeout = cs->timeout;
     cs->timeout = 2000;
-    memset(&arp_dhcp_packet, 0, sizeof (struct dhcpMessage));
+    memset(&arp_dhcp_packet, 0, sizeof (struct dhcpmsg));
     arpreply_clear();
     return 0;
 }
@@ -167,7 +167,7 @@ int arp_get_gw_hwaddr(struct client_state_t *cs)
     if (arpping(cs, cs->routerAddr) == -1)
         return -1;
     log_line("arp: Searching for gw address");
-    memset(&arp_dhcp_packet, 0, sizeof (struct dhcpMessage));
+    memset(&arp_dhcp_packet, 0, sizeof (struct dhcpmsg));
     arpreply_clear();
     return 0;
 }

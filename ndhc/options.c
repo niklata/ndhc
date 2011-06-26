@@ -216,7 +216,7 @@ static uint8_t *do_get_option_data(uint8_t *buf, ssize_t buflen, int code,
 
 // Get an option with bounds checking (warning, result is not aligned)
 // optlen will be equal to the length of the option data.
-uint8_t *get_option_data(struct dhcpMessage *packet, int code, ssize_t *optlen)
+uint8_t *get_option_data(struct dhcpmsg *packet, int code, ssize_t *optlen)
 {
     uint8_t *option, *buf;
     ssize_t buflen;
@@ -251,7 +251,7 @@ uint8_t *get_option_data(struct dhcpMessage *packet, int code, ssize_t *optlen)
 /* return the position of the 'end' option */
 ssize_t get_end_option_idx(uint8_t *optbuf, size_t bufsize)
 {
-    int i;
+    size_t i;
     for (i = 0; i < bufsize; ++i) {
         if (optbuf[i] == DHCP_END)
             return i;

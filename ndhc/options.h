@@ -92,7 +92,7 @@ uint8_t *alloc_option(uint8_t code, uint8_t *optdata, size_t datalen);
 uint8_t *alloc_dhcp_client_id_option(uint8_t type, uint8_t *idstr,
                                      size_t idstrlen);
 
-uint8_t *get_option_data(struct dhcpMessage *packet, int code, ssize_t *optlen);
+uint8_t *get_option_data(struct dhcpmsg *packet, int code, ssize_t *optlen);
 ssize_t get_end_option_idx(uint8_t *optbuf, size_t bufsize);
 size_t add_option_string(uint8_t *optbuf, size_t buflen, uint8_t *optstr);
 size_t add_u32_option(uint8_t *optbuf, size_t buflen, uint8_t code,

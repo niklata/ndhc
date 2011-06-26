@@ -181,7 +181,7 @@ static void deconfig_if(void)
     close(sockfd);
 }
 
-static void send_cmd(int sockfd, struct dhcpMessage *packet, uint8_t code)
+static void send_cmd(int sockfd, struct dhcpmsg *packet, uint8_t code)
 {
     char buf[256];
     uint8_t *optdata;
@@ -197,7 +197,7 @@ static void send_cmd(int sockfd, struct dhcpMessage *packet, uint8_t code)
     sockwrite(sockfd, buf, strlen(buf));
 }
 
-static void bound_if(struct dhcpMessage *packet, int mode)
+static void bound_if(struct dhcpmsg *packet, int mode)
 {
     int sockfd;
     char buf[256];
@@ -234,7 +234,7 @@ static void bound_if(struct dhcpMessage *packet, int mode)
     }
 }
 
-void ifchange(struct dhcpMessage *packet, int mode)
+void ifchange(struct dhcpmsg *packet, int mode)
 {
     switch (mode) {
         case IFCHANGE_DECONFIG:

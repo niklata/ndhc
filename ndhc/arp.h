@@ -49,7 +49,7 @@ struct arpMsg {
     uint8_t  pad[18];       /* 2a pad for min. ethernet payload (60 bytes) */
 };
 
-int arp_check(struct client_state_t *cs, struct dhcpMessage *packet);
+int arp_check(struct client_state_t *cs, struct dhcpmsg *packet);
 int arp_gw_check(struct client_state_t *cs);
 int arp_get_gw_hwaddr(struct client_state_t *cs);
 void arp_success(struct client_state_t *cs);

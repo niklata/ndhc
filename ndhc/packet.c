@@ -184,12 +184,12 @@ out:
 }
 // Read a packet from a cooked socket.  Returns -1 on fatal error, -2 on
 // transient error.
-static int get_packet(struct dhcpMessage *packet, int fd)
+static int get_packet(struct dhcpmsg *packet, int fd)
 {
     int bytes;
 
-    memset(packet, 0, DHCP_SIZE);
-    bytes = safe_read(fd, (char *)packet, DHCP_SIZE);
+    memset(packet, 0, sizeof *packet);
+    bytes = safe_read(fd, (char *)packet, sizeof *packet);
     if (bytes == -1) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return -2;
@@ -270,27 +270,22 @@ static int udp_checksum(struct ip_udp_dhcp_packet *packet)
 
 // Read a packet from a raw socket.  Returns -1 on fatal error, -2 on
 // transient error.
-static int get_raw_packet(struct dhcpMessage *payload, int fd)
+static int get_raw_packet(struct dhcpmsg *payload, int fd)
 {
     struct ip_udp_dhcp_packet packet;
-    memset(&packet, 0, IP_UPD_DHCP_SIZE);
+    memset(&packet, 0, sizeof packet);
 
-    int len = safe_read(fd, (char *)&packet, IP_UPD_DHCP_SIZE);
-    if (len == -1) {
+    ssize_t inc = safe_read(fd, (char *)&packet, sizeof packet);
+    if (inc == -1) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return -2;
         log_line("get_raw_packet: read error %s", strerror(errno));
         return -1;
     }
 
-    /* ignore any extra garbage bytes */
-    if (ntohs(packet.ip.tot_len) != len) {
-        log_line("Received %u bytes for a %u byte UDP packet. Discarding extra.",
-                 len, packet.ip.tot_len);
-        len = ntohs(packet.ip.tot_len);
-    }
+    if (inc > ntohs(packet.ip.tot_len))
+        log_line("Discarded extra bytes after reading a single UDP datagram.");
 
-    // Validate the IP and UDP headers.
     if (packet.ip.protocol != IPPROTO_UDP) {
         log_line("IP header is not UDP: %d", packet.ip.protocol);
         return -2;
@@ -307,15 +302,11 @@ static int get_raw_packet(struct dhcpMessage *payload, int fd)
         log_line("IP header checksum incorrect");
         return -2;
     }
-    if (packet.udp.dest != htons(DHCP_CLIENT_PORT)) {
+    if (ntohs(packet.udp.dest) != DHCP_CLIENT_PORT) {
         log_line("UDP destination port incorrect: %d", ntohs(packet.udp.dest));
         return -2;
     }
-    if (len > IP_UPD_DHCP_SIZE) {
-        log_line("Data longer than that of a IP+UDP+DHCP message: %d", len);
-        return -2;
-    }
-    if (ntohs(packet.udp.len) != (short)(len - sizeof packet.ip)) {
+    if (ntohs(packet.udp.len) != ntohs(packet.ip.tot_len) - sizeof packet.ip) {
         log_line("UDP header length incorrect");
         return -2;
     }
@@ -325,15 +316,15 @@ static int get_raw_packet(struct dhcpMessage *payload, int fd)
         return -2;
     }
 
-    memcpy(payload, &packet.data,
-           len - sizeof packet.ip - sizeof packet.udp);
+    size_t l = ntohs(packet.ip.tot_len) - sizeof packet.ip - sizeof packet.udp; 
+    memcpy(payload, &packet.data, l);
 
     log_line("Received a packet via raw socket.");
-    return len - sizeof packet.ip - sizeof packet.udp;
+    return l;
 }
 
 // Broadcast a DHCP message using a raw socket.
-static int send_dhcp_raw(struct dhcpMessage *payload)
+static int send_dhcp_raw(struct dhcpmsg *payload)
 {
     int fd, r = -1;
 
@@ -367,36 +358,38 @@ static int send_dhcp_raw(struct dhcpMessage *payload)
     // Send packets that are as short as possible, since some servers are buggy
     // and drop packets that are longer than 562 bytes.
     ssize_t endloc = get_end_option_idx(payload->options, DHCP_OPTIONS_BUFSIZE);
-    if (endloc == -1) {
+    if (endloc < 0) {
         log_error("send_dhcp_raw: attempt to send packet with no DHCP_END");
         goto out_fd;
     }
-    unsigned int padding = DHCP_OPTIONS_BUFSIZE - 1 - endloc;
-    struct ip_udp_dhcp_packet packet = {
+    size_t padding = DHCP_OPTIONS_BUFSIZE - 1 - endloc;
+    size_t iud_len = sizeof(struct ip_udp_dhcp_packet) - padding;
+    size_t ud_len = sizeof(struct udp_dhcp_packet) - padding;
+    // UDP checksumming needs a temporary pseudoheader with a fake length.
+    struct ip_udp_dhcp_packet iudmsg = {
         .ip = {
             .protocol = IPPROTO_UDP,
             .saddr = INADDR_ANY,
             .daddr = INADDR_BROADCAST,
-            .tot_len = htons(UPD_DHCP_SIZE - padding),
+            .tot_len = htons(ud_len),
         },
         .udp = {
             .source = htons(DHCP_CLIENT_PORT),
             .dest = htons(DHCP_SERVER_PORT),
-            .len = htons(UPD_DHCP_SIZE - padding),
+            .len = htons(ud_len),
         },
         .data = *payload,
     };
-    // UDP checksumming needs a temporary pseudoheader with a fake length.
-    packet.udp.check = net_checksum(&packet, IP_UPD_DHCP_SIZE - padding);
+    iudmsg.udp.check = net_checksum(&iudmsg, iud_len);
     // Set the true IP packet length for the final packet.
-    packet.ip.tot_len = htons(IP_UPD_DHCP_SIZE - padding);
-    packet.ip.ihl = sizeof packet.ip >> 2;
-    packet.ip.version = IPVERSION;
-    packet.ip.ttl = IPDEFTTL;
-    packet.ip.check = net_checksum(&packet.ip, sizeof packet.ip);
+    iudmsg.ip.tot_len = htons(iud_len);
+    iudmsg.ip.ihl = sizeof iudmsg.ip >> 2;
+    iudmsg.ip.version = IPVERSION;
+    iudmsg.ip.ttl = IPDEFTTL;
+    iudmsg.ip.check = net_checksum(&iudmsg.ip, sizeof iudmsg.ip);
 
-    r = safe_sendto(fd, (const char *)&packet, IP_UPD_DHCP_SIZE - padding,
-                    0, (struct sockaddr *)&dest, sizeof dest);
+    r = safe_sendto(fd, (const char *)&iudmsg, iud_len, 0,
+                    (struct sockaddr *)&dest, sizeof dest);
     if (r == -1)
         log_error("send_dhcp_raw: sendto failed: %s", strerror(errno));
   out_fd:
@@ -406,7 +399,7 @@ static int send_dhcp_raw(struct dhcpMessage *payload)
 }
 
 // Broadcast a DHCP message using a UDP socket.
-static int send_dhcp_cooked(struct dhcpMessage *payload, uint32_t source_ip,
+static int send_dhcp_cooked(struct dhcpmsg *payload, uint32_t source_ip,
                             uint32_t dest_ip)
 {
     int fd, result = -1;
@@ -463,12 +456,12 @@ static int send_dhcp_cooked(struct dhcpMessage *payload, uint32_t source_ip,
 
     ssize_t endloc = get_end_option_idx(payload->options,
                                         DHCP_OPTIONS_BUFSIZE);
-    if (endloc == -1) {
+    if (endloc < 0) {
         log_error("send_dhcp_cooked: attempt to send packet with no DHCP_END");
         goto out_fd;
     }
-    unsigned int padding = DHCP_OPTIONS_BUFSIZE - 1 - endloc;
-    result = safe_write(fd, (const char *)payload, DHCP_SIZE - padding);
+    size_t payload_len = sizeof *payload - DHCP_OPTIONS_BUFSIZE - 1 - endloc;
+    result = safe_write(fd, (const char *)payload, payload_len);
     if (result == -1)
         log_error("send_dhcp_cooked: write failed: %s", strerror(errno));
   out_fd:
@@ -509,7 +502,7 @@ void change_listen_mode(struct client_state_t *cs, int new_mode)
 }
 
 static void init_selecting_packet(struct client_state_t *cs,
-                                  struct dhcpMessage *packet,
+                                  struct dhcpmsg *packet,
                                   uint8_t *message)
 {
     uint8_t *temp = NULL;
@@ -529,7 +522,7 @@ static void init_selecting_packet(struct client_state_t *cs,
 }
 
 static void dhcp_ack_or_nak_packet(struct client_state_t *cs,
-                                   struct dhcpMessage *packet,
+                                   struct dhcpmsg *packet,
                                    uint8_t *message)
 {
     uint8_t *temp = NULL;
@@ -575,7 +568,7 @@ void handle_packet(struct client_state_t *cs)
 {
     uint8_t *message = NULL;
     int len;
-    struct dhcpMessage packet;
+    struct dhcpmsg packet;
     ssize_t optlen;
 
     if (cs->listenMode == LM_KERNEL)
@@ -595,7 +588,7 @@ void handle_packet(struct client_state_t *cs)
         change_listen_mode(cs, cs->listenMode);
     }
 
-    if (len < DHCP_SIZE - 308) {
+    if (len < sizeof packet - sizeof packet.options) {
         log_line("Packet is too short to contain magic cookie. Ignoring.");
         return;
     }
@@ -664,9 +657,9 @@ uint32_t random_xid(void)
 }
 
 /* Initializes dhcp packet header for a -client- packet. */
-static void init_header(struct dhcpMessage *packet, char type)
+static void init_header(struct dhcpmsg *packet, char type)
 {
-    memset(packet, 0, DHCP_SIZE);
+    memset(packet, 0, sizeof *packet);
     packet->op = 1; // BOOTREQUEST (client)
     packet->htype = 1; // ETH_10MB
     packet->hlen = 6; // ETH_10MB_LEN
@@ -677,7 +670,7 @@ static void init_header(struct dhcpMessage *packet, char type)
 }
 
 /* initialize a packet with the proper defaults */
-static void init_packet(struct dhcpMessage *packet, char type)
+static void init_packet(struct dhcpmsg *packet, char type)
 {
     struct vendor  {
         char vendor;
@@ -700,7 +693,7 @@ static void init_packet(struct dhcpMessage *packet, char type)
  * requested IP */
 int send_discover(uint32_t xid, uint32_t requested)
 {
-    struct dhcpMessage packet;
+    struct dhcpmsg packet;
 
     init_packet(&packet, DHCPDISCOVER);
     packet.xid = xid;
@@ -719,7 +712,7 @@ int send_discover(uint32_t xid, uint32_t requested)
 /* Broadcasts a DHCP request message */
 int send_selecting(uint32_t xid, uint32_t server, uint32_t requested)
 {
-    struct dhcpMessage packet;
+    struct dhcpmsg packet;
     struct in_addr addr;
 
     init_packet(&packet, DHCPREQUEST);
@@ -738,7 +731,7 @@ int send_selecting(uint32_t xid, uint32_t server, uint32_t requested)
 /* Unicasts or broadcasts a DHCP renew message */
 int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr)
 {
-    struct dhcpMessage packet;
+    struct dhcpmsg packet;
 
     init_packet(&packet, DHCPREQUEST);
     packet.xid = xid;
@@ -755,7 +748,7 @@ int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr)
 /* Broadcast a DHCP decline message */
 int send_decline(uint32_t xid, uint32_t server, uint32_t requested)
 {
-    struct dhcpMessage packet;
+    struct dhcpmsg packet;
 
     /* Fill in: op, htype, hlen, cookie, chaddr, random xid fields,
      * client-id option (unless -C), message type option:
@@ -780,7 +773,7 @@ int send_decline(uint32_t xid, uint32_t server, uint32_t requested)
 /* Unicasts a DHCP release message */
 int send_release(uint32_t server, uint32_t ciaddr)
 {
-    struct dhcpMessage packet;
+    struct dhcpmsg packet;
 
     init_packet(&packet, DHCPRELEASE);
     packet.xid = random_xid();
