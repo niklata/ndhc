@@ -39,12 +39,14 @@ static void init_selecting_timeout(struct client_state_t *cs)
         cs->timeout = DELAY_SEC * (cs->packetNum + 1) * 1000;
         cs->packetNum++;
     } else {
-        if (client_config.background_if_no_lease) {
-            log_line("No lease, going to background.");
-            background(cs);
-        } else if (client_config.abort_if_no_lease) {
-            log_line("No lease, failing.");
-            exit(EXIT_FAILURE);
+        if (cs->init) {
+            if (client_config.background_if_no_lease) {
+                log_line("No lease, going to background.");
+                background(cs);
+            } else if (client_config.abort_if_no_lease) {
+                log_line("No lease, failing.");
+                exit(EXIT_FAILURE);
+            }
         }
         /* wait to try again */
         cs->packetNum = 0;

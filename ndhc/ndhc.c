@@ -67,6 +67,7 @@ struct client_state_t cs = {
     .packetNum = 0,
     .xid = 0,
     .timeout = 0,
+    .init = 1,
     .oldTimeout = 0,
     .leaseStartTime = 0,
     .requestedIP = 0,

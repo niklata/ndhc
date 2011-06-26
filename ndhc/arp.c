@@ -218,6 +218,7 @@ void arp_success(struct client_state_t *cs)
              inet_ntoa(temp_addr), cs->lease);
     cs->requestedIP = arp_dhcp_packet.yiaddr;
     cs->dhcpState = DS_BOUND;
+    cs->init = 0;
     ifchange(&arp_dhcp_packet,
              ((cs->arpPrevState == DS_RENEWING ||
                cs->arpPrevState == DS_REBINDING)

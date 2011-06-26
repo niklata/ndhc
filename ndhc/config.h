@@ -65,6 +65,7 @@ struct client_state_t {
     uint32_t requestedIP, serverAddr, routerAddr;
     uint32_t lease, t1, t2, xid;
     uint8_t routerArp[6];
+    uint8_t init;
 };
 
 struct client_config_t {
