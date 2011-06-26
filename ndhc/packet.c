@@ -202,29 +202,31 @@ static int get_packet(struct dhcpMessage *packet, int fd)
     return bytes;
 }
 
-// Compute Internet Checksum for @count bytes beginning at location @addr.
-static uint16_t checksum(void *addr, int count)
+// This function is not suitable for summing buffers that are greater than
+// 128k-1 bytes in length: failure case will be incorrect checksums via
+// unsigned overflow, which is a defined operation and is safe.  This limit
+// should not be an issue for IPv4 or IPv6 packet, which are limited to
+// at most 64k bytes.
+static uint16_t net_checksum(void *buf, size_t size, uint16_t init)
 {
-    register int32_t sum = 0;
-    uint16_t *source = (uint16_t *)addr;
-
-    while (count > 1)  {
-        sum += *source++;
-        count -= 2;
+    uint32_t sum = init;
+    int odd = size & 0x01;
+    size_t i;
+    size &= ~((size_t)0x01);
+    size >>= 1;
+    uint8_t *b = buf;
+    for (i = 0; i < size; ++i) {
+        uint16_t hi = b[i*2];
+        uint16_t lo = b[i*2+1];
+        sum += ntohs((lo + (hi << 8)));
     }
-
-    /*  Add left-over byte, if any */
-    if (count > 0) {
-        /* Make sure that the left-over byte is added correctly both
-         * with little and big endian hosts */
-        uint16_t tmp = 0;
-        *(uint8_t *)&tmp = *(uint8_t *)source;
-        sum += tmp;
+    if (odd) {
+        uint16_t hi = b[i*2];
+        uint16_t lo = 0;
+        sum += ntohs((lo + (hi << 8)));
     }
-    /*  Fold 32-bit sum to 16 bits */
-    while (sum >> 16)
-        sum = (sum & 0xffff) + (sum >> 16);
-
+    sum = (sum >> 16) + (sum & 0xffff);
+    sum += sum >> 16;
     return ~sum;
 }
 
@@ -262,7 +264,7 @@ static int get_raw_packet(struct dhcpMessage *payload, int fd)
     }
     check = packet.ip.check;
     packet.ip.check = 0;
-    if (check != checksum(&packet.ip, sizeof packet.ip)) {
+    if (check != net_checksum(&packet.ip, sizeof packet.ip, 0)) {
         log_line("IP header checksum incorrect");
         return -2;
     }
@@ -285,7 +287,7 @@ static int get_raw_packet(struct dhcpMessage *payload, int fd)
     packet.ip.tot_len = packet.udp.len; /* cheat on the psuedo-header */
     check = packet.udp.check;
     packet.udp.check = 0;
-    if (check && check != checksum(&packet, len)) {
+    if (check && check != net_checksum(&packet, len, 0)) {
         log_error("Packet with bad UDP checksum received, ignoring");
         return -2;
     }
@@ -329,33 +331,36 @@ static int send_dhcp_raw(struct dhcpMessage *payload)
         goto out_fd;
     }
 
-    struct ip_udp_dhcp_packet packet;
-    memset(&packet, 0, offsetof(struct ip_udp_dhcp_packet, data));
-    packet.data = *payload;
     // Send packets that are as short as possible, since some servers are buggy
     // and drop packets that are longer than 562 bytes.
-    ssize_t endloc = get_end_option_idx(packet.data.options,
-                                        DHCP_OPTIONS_BUFSIZE);
+    ssize_t endloc = get_end_option_idx(payload->options, DHCP_OPTIONS_BUFSIZE);
     if (endloc == -1) {
         log_error("send_dhcp_raw: attempt to send packet with no DHCP_END");
         goto out_fd;
     }
     unsigned int padding = DHCP_OPTIONS_BUFSIZE - 1 - endloc;
-    packet.ip.protocol = IPPROTO_UDP;
-    packet.ip.saddr = INADDR_ANY;
-    packet.ip.daddr = INADDR_BROADCAST;
-    packet.udp.source = htons(DHCP_CLIENT_PORT);
-    packet.udp.dest = htons(DHCP_SERVER_PORT);
-    packet.udp.len = htons(UPD_DHCP_SIZE - padding);
+    struct ip_udp_dhcp_packet packet = {
+        .ip = {
+            .protocol = IPPROTO_UDP,
+            .saddr = INADDR_ANY,
+            .daddr = INADDR_BROADCAST,
+            .tot_len = htons(UPD_DHCP_SIZE - padding),
+        },
+        .udp = {
+            .source = htons(DHCP_CLIENT_PORT),
+            .dest = htons(DHCP_SERVER_PORT),
+            .len = htons(UPD_DHCP_SIZE - padding),
+        },
+        .data = *payload,
+    };
     // UDP checksumming needs a temporary pseudoheader with a fake length.
-    packet.ip.tot_len = packet.udp.len;
-    packet.udp.check = checksum(&packet, IP_UPD_DHCP_SIZE - padding);
+    packet.udp.check = net_checksum(&packet, IP_UPD_DHCP_SIZE - padding, 0);
     // Set the true IP packet length for the final packet.
     packet.ip.tot_len = htons(IP_UPD_DHCP_SIZE - padding);
     packet.ip.ihl = sizeof packet.ip >> 2;
     packet.ip.version = IPVERSION;
     packet.ip.ttl = IPDEFTTL;
-    packet.ip.check = checksum(&packet.ip, sizeof packet.ip);
+    packet.ip.check = net_checksum(&packet.ip, sizeof packet.ip, 0);
 
     r = safe_sendto(fd, (const char *)&packet, IP_UPD_DHCP_SIZE - padding,
                     0, (struct sockaddr *)&dest, sizeof dest);
