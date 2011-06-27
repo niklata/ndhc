@@ -30,6 +30,8 @@
 #ifndef NCM_IO_H_
 #define NCM_IO_H_
 
+#include <sys/socket.h>
+
 int safe_read(int fd, char *buf, int len);
 int safe_write(int fd, const char *buf, int len);
 int safe_sendto(int fd, const char *buf, int len, int flags,

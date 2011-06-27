@@ -77,7 +77,6 @@ struct udp_dhcp_packet {
 
 void change_listen_mode(struct client_state_t *cs, int new_mode);
 void handle_packet(struct client_state_t *cs);
-uint32_t random_xid(void);
 int send_discover(uint32_t xid, uint32_t requested);
 int send_selecting(uint32_t xid, uint32_t server, uint32_t requested);
 int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr);

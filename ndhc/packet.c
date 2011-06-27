@@ -46,6 +46,7 @@
 #include "io.h"
 #include "options.h"
 #include "strl.h"
+#include "random.h"
 
 // Returns fd of new listen socket bound to @ip:@port on interface @inf
 // on success, or -1 on failure.
@@ -636,32 +637,6 @@ void handle_packet(struct client_state_t *cs)
     }
 }
 
-// Generate a 32-bit pseudorandom number
-uint32_t random_xid(void)
-{
-    static int initialized;
-    if (initialized)
-        return rand();
-
-    uint32_t seed;
-    int fd = open("/dev/urandom", O_RDONLY);
-    if (fd != -1) {
-        int r = safe_read(fd, (char *)&seed, sizeof seed);
-        if (r == -1) {
-            log_warning("Could not read /dev/urandom: %s", strerror(errno));
-            close(fd);
-            seed = time(0);
-        }
-    } else {
-        log_warning("Could not open /dev/urandom: %s",
-                    strerror(errno));
-        seed = time(0);
-    }
-    srand(seed);
-    initialized = 1;
-    return rand();
-}
-
 // Initialize a DHCP client packet that will be sent to a server
 static struct dhcpmsg init_packet(char type, uint32_t xid)
 {
@@ -740,7 +715,7 @@ int send_decline(uint32_t xid, uint32_t server, uint32_t requested)
 // Unicasts a DHCP release message
 int send_release(uint32_t server, uint32_t ciaddr)
 {
-    struct dhcpmsg packet = init_packet(DHCPRELEASE, random_xid());
+    struct dhcpmsg packet = init_packet(DHCPRELEASE, libc_random_u32());
     packet.ciaddr = ciaddr;
     add_u32_option(&packet, DHCP_REQUESTED_IP, ciaddr);
     add_u32_option(&packet, DHCP_SERVER_ID, server);

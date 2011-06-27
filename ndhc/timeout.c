@@ -27,13 +27,14 @@
 #include "packet.h"
 #include "arp.h"
 #include "log.h"
+#include "random.h"
 
 #define DELAY_SEC (((RETRY_DELAY - (RETRY_DELAY / NUMPACKETS)) / NUMPACKETS) + 1)
 static void init_selecting_timeout(struct client_state_t *cs)
 {
     if (cs->packetNum < NUMPACKETS) {
         if (cs->packetNum == 0)
-            cs->xid = random_xid();
+            cs->xid = libc_random_u32();
         /* broadcast */
         send_discover(cs->xid, cs->requestedIP);
         cs->timeout = DELAY_SEC * (cs->packetNum + 1) * 1000;
