@@ -120,41 +120,28 @@ int option_valid_list(uint8_t code)
     return 0;
 }
 
-size_t sizeof_option(uint8_t code, size_t datalen)
+static size_t sizeof_option(uint8_t code, size_t datalen)
 {
     if (code == DHCP_PADDING || code == DHCP_END)
         return 1;
     return 2 + datalen;
 }
 
-// optdata can be NULL
-size_t set_option(uint8_t *buf, size_t buflen, uint8_t code, uint8_t *optdata,
-                  size_t datalen)
-{
-    if (!optdata)
-        datalen = 0;
-    if (code == DHCP_PADDING || code == DHCP_END) {
-        if (buflen < 1)
-            return 0;
-        buf[0] = code;
-        return 1;
-    }
-
-    if (datalen > 255 || buflen < 2 + datalen)
-        return 0;
-    buf[0] = code;
-    buf[1] = datalen;
-    memcpy(buf + 2, optdata, datalen);
-    return 2 + datalen;
-}
-
 uint8_t *alloc_option(uint8_t code, uint8_t *optdata, size_t datalen)
 {
-    uint8_t *ret;
+    uint8_t *buf;
     size_t len = sizeof_option(code, datalen);
-    ret = xmalloc(len);
-    set_option(ret, len, code, optdata, datalen);
-    return ret;
+    buf = xmalloc(len);
+    if (!optdata)
+        datalen = 0;
+    if ((code == DHCP_PADDING || code == DHCP_END) && len >= 1) {
+        buf[0] = code;
+    } else if (datalen <= 255 && len >= 2 + datalen) {
+        buf[0] = code;
+        buf[1] = datalen;
+        memcpy(buf + 2, optdata, datalen);
+    }
+    return buf;
 }
 
 // This is tricky -- the data must be prefixed by one byte indicating the
@@ -249,16 +236,16 @@ uint8_t *get_option_data(struct dhcpmsg *packet, int code, ssize_t *optlen)
 }
 
 /* return the position of the 'end' option */
-ssize_t get_end_option_idx(uint8_t *optbuf, size_t bufsize)
+ssize_t get_end_option_idx(struct dhcpmsg *packet)
 {
     size_t i;
-    for (i = 0; i < bufsize; ++i) {
-        if (optbuf[i] == DHCP_END)
+    for (i = 0; i < sizeof packet->options; ++i) {
+        if (packet->options[i] == DHCP_END)
             return i;
-        if (optbuf[i] == DHCP_PADDING)
+        if (packet->options[i] == DHCP_PADDING)
             continue;
-        if (optbuf[i] != DHCP_PADDING)
-            i += optbuf[i+1] + 1;
+        if (packet->options[i] != DHCP_PADDING)
+            i += packet->options[i+1] + 1;
     }
     log_warning("get_end_option_idx(): did not find DHCP_END marker");
     return -1;
@@ -266,9 +253,9 @@ ssize_t get_end_option_idx(uint8_t *optbuf, size_t bufsize)
 
 /* add an option string to the options (an option string contains an option
  * code, length, then data) */
-size_t add_option_string(uint8_t *optbuf, size_t buflen, uint8_t *optstr)
+size_t add_option_string(struct dhcpmsg *packet, uint8_t *optstr)
 {
-    size_t end = get_end_option_idx(optbuf, buflen);
+    size_t end = get_end_option_idx(packet);
     size_t datalen = optstr[1];
 
     if (end == -1) {
@@ -276,17 +263,16 @@ size_t add_option_string(uint8_t *optbuf, size_t buflen, uint8_t *optstr)
         return 0;
     }
     /* end position + optstr length + option code/length + end option */
-    if (end + datalen + 2 + 1 >= buflen) {
+    if (end + datalen + 2 + 1 >= sizeof packet->options) {
         log_warning("add_option_string: No space for option 0x%02x", optstr[0]);
         return 0;
     }
-    memcpy(optbuf + end, optstr, datalen + 2);
-    optbuf[end + datalen + 2] = DHCP_END;
+    memcpy(packet->options + end, optstr, datalen + 2);
+    packet->options[end + datalen + 2] = DHCP_END;
     return datalen + 2;
 }
 
-size_t add_u32_option(uint8_t *optbuf, size_t buflen, uint8_t code,
-                      uint32_t data)
+size_t add_u32_option(struct dhcpmsg *packet, uint8_t code, uint32_t data)
 {
     int length = 0;
     uint8_t option[6];
@@ -311,11 +297,11 @@ size_t add_u32_option(uint8_t *optbuf, size_t buflen, uint8_t code,
         uint32_t t = (uint32_t)data;
         memcpy(option + 2, &t, 4);
     }
-    return add_option_string(optbuf, buflen, option);
+    return add_option_string(packet, option);
 }
 
 /* Add a paramater request list for stubborn DHCP servers */
-void add_option_request_list(uint8_t *optbuf, size_t buflen)
+void add_option_request_list(struct dhcpmsg *packet)
 {
     int i, j = 0;
     uint8_t reqdata[256];
@@ -326,5 +312,5 @@ void add_option_request_list(uint8_t *optbuf, size_t buflen)
             reqdata[j++] = options[i].code;
     }
     reqdata[1] = j - 2;
-    add_option_string(optbuf, buflen, reqdata);
+    add_option_string(packet, reqdata);
 }

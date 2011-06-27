@@ -22,8 +22,6 @@
 
 #include "packet.h"
 
-#define DHCP_OPTIONS_BUFSIZE    308
-
 /* DHCP option codes (partial list) */
 #define DHCP_PADDING            0x00
 #define DHCP_SUBNET             0x01
@@ -84,19 +82,15 @@ const char *option_name(uint8_t code);
 enum option_type option_type(uint8_t code);
 uint8_t option_length(uint8_t code);
 int option_valid_list(uint8_t code);
-size_t sizeof_option(uint8_t code, size_t datalen);
-size_t set_option(uint8_t *buf, size_t buflen, uint8_t code, uint8_t *optdata,
-                  size_t datalen);
 uint8_t *alloc_option(uint8_t code, uint8_t *optdata, size_t datalen);
 
 uint8_t *alloc_dhcp_client_id_option(uint8_t type, uint8_t *idstr,
                                      size_t idstrlen);
 
 uint8_t *get_option_data(struct dhcpmsg *packet, int code, ssize_t *optlen);
-ssize_t get_end_option_idx(uint8_t *optbuf, size_t bufsize);
-size_t add_option_string(uint8_t *optbuf, size_t buflen, uint8_t *optstr);
-size_t add_u32_option(uint8_t *optbuf, size_t buflen, uint8_t code,
-                      uint32_t data);
-void add_option_request_list(uint8_t *optbuf, size_t buflen);
+ssize_t get_end_option_idx(struct dhcpmsg *packet);
+size_t add_option_string(struct dhcpmsg *packet, uint8_t *optstr);
+size_t add_u32_option(struct dhcpmsg *packet, uint8_t code, uint32_t data);
+void add_option_request_list(struct dhcpmsg *packet);
 
 #endif

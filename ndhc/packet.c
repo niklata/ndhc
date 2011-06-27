@@ -358,12 +358,12 @@ static int send_dhcp_raw(struct dhcpmsg *payload)
 
     // Send packets that are as short as possible, since some servers are buggy
     // and drop packets that are longer than 562 bytes.
-    ssize_t endloc = get_end_option_idx(payload->options, DHCP_OPTIONS_BUFSIZE);
+    ssize_t endloc = get_end_option_idx(payload);
     if (endloc < 0) {
         log_error("send_dhcp_raw: attempt to send packet with no DHCP_END");
         goto out_fd;
     }
-    size_t padding = DHCP_OPTIONS_BUFSIZE - 1 - endloc;
+    size_t padding = sizeof payload->options - 1 - endloc;
     size_t iud_len = sizeof(struct ip_udp_dhcp_packet) - padding;
     size_t ud_len = sizeof(struct udp_dhcp_packet) - padding;
 
@@ -461,13 +461,12 @@ static int send_dhcp_cooked(struct dhcpmsg *payload, uint32_t source_ip,
         goto out_fd;
     }
 
-    ssize_t endloc = get_end_option_idx(payload->options,
-                                        DHCP_OPTIONS_BUFSIZE);
+    ssize_t endloc = get_end_option_idx(payload);
     if (endloc < 0) {
         log_error("send_dhcp_cooked: attempt to send packet with no DHCP_END");
         goto out_fd;
     }
-    size_t payload_len = sizeof *payload - DHCP_OPTIONS_BUFSIZE - 1 - endloc;
+    size_t payload_len = sizeof *payload - sizeof payload->options - 1 - endloc;
     result = safe_write(fd, (const char *)payload, payload_len);
     if (result == -1)
         log_error("send_dhcp_cooked: write failed: %s", strerror(errno));
@@ -674,21 +673,17 @@ static struct dhcpmsg init_packet(char type, uint32_t xid)
         .options[0] = DHCP_END,
         .xid = xid,
     };
-    add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_MESSAGE_TYPE,
-                   type);
+    add_u32_option(&packet, DHCP_MESSAGE_TYPE, type);
     memcpy(packet.chaddr, client_config.arp, 6);
-    add_option_string(packet.options, DHCP_OPTIONS_BUFSIZE,
-                      client_config.clientid);
+    add_option_string(&packet, client_config.clientid);
     if (client_config.hostname)
-        add_option_string(packet.options, DHCP_OPTIONS_BUFSIZE,
-                          client_config.hostname);
+        add_option_string(&packet, client_config.hostname);
     struct vendor  {
         char vendor;
         char length;
         char str[sizeof "ndhc"];
     } vendor_id = { DHCP_VENDOR,  sizeof "ndhc" - 1, "ndhc"};
-    add_option_string(packet.options, DHCP_OPTIONS_BUFSIZE,
-                      (uint8_t *)&vendor_id);
+    add_option_string(&packet, (uint8_t *)&vendor_id);
     return packet;
 }
 
@@ -698,13 +693,11 @@ int send_discover(uint32_t xid, uint32_t requested)
 {
     struct dhcpmsg packet = init_packet(DHCPDISCOVER, xid);
     if (requested)
-        add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_REQUESTED_IP,
-                       requested);
+        add_u32_option(&packet, DHCP_REQUESTED_IP, requested);
 
     /* Request a RFC-specified max size to work around buggy servers. */
-    add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE,
-                   DHCP_MAX_SIZE, htons(576));
-    add_option_request_list(packet.options, DHCP_OPTIONS_BUFSIZE);
+    add_u32_option(&packet, DHCP_MAX_SIZE, htons(576));
+    add_option_request_list(&packet);
     log_line("Sending discover...");
     return send_dhcp_raw(&packet);
 }
@@ -715,12 +708,10 @@ int send_selecting(uint32_t xid, uint32_t server, uint32_t requested)
     struct dhcpmsg packet = init_packet(DHCPREQUEST, xid);
     struct in_addr addr;
 
-    add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_REQUESTED_IP,
-                   requested);
-    add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_SERVER_ID,
-                   server);
+    add_u32_option(&packet, DHCP_REQUESTED_IP, requested);
+    add_u32_option(&packet, DHCP_SERVER_ID, server);
 
-    add_option_request_list(packet.options, DHCP_OPTIONS_BUFSIZE);
+    add_option_request_list(&packet);
     addr.s_addr = requested;
     log_line("Sending select for %s...", inet_ntoa(addr));
     return send_dhcp_raw(&packet);
@@ -732,7 +723,7 @@ int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr)
     struct dhcpmsg packet = init_packet(DHCPREQUEST, xid);
     packet.ciaddr = ciaddr;
 
-    add_option_request_list(packet.options, DHCP_OPTIONS_BUFSIZE);
+    add_option_request_list(&packet);
     log_line("Sending renew...");
     if (server)
         return send_dhcp_cooked(&packet, ciaddr, server);
@@ -746,9 +737,8 @@ int send_decline(uint32_t xid, uint32_t server, uint32_t requested)
     struct dhcpmsg packet = init_packet(DHCPDECLINE, xid);
 
     /* DHCPDECLINE uses "requested ip", not ciaddr, to store offered IP */
-    add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_REQUESTED_IP,
-                   requested);
-    add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_SERVER_ID, server);
+    add_u32_option(&packet, DHCP_REQUESTED_IP, requested);
+    add_u32_option(&packet, DHCP_SERVER_ID, server);
 
     log_line("Sending decline...");
     return send_dhcp_raw(&packet);
@@ -760,9 +750,8 @@ int send_release(uint32_t server, uint32_t ciaddr)
     struct dhcpmsg packet = init_packet(DHCPRELEASE, random_xid());
     packet.ciaddr = ciaddr;
 
-    add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_REQUESTED_IP,
-                   ciaddr);
-    add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_SERVER_ID, server);
+    add_u32_option(&packet, DHCP_REQUESTED_IP, ciaddr);
+    add_u32_option(&packet, DHCP_SERVER_ID, server);
 
     log_line("Sending release...");
     return send_dhcp_cooked(&packet, ciaddr, server);
