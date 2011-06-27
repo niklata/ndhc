@@ -47,8 +47,8 @@
 #include "options.h"
 #include "strl.h"
 
-/* Returns fd of new listen socket bound to @ip:@port on interface @inf
- * on success, or -1 on failure. */
+// Returns fd of new listen socket bound to @ip:@port on interface @inf
+// on success, or -1 on failure.
 static int create_udp_listen_socket(unsigned int ip, int port, char *inf)
 {
     log_line("Opening listen socket on 0x%08x:%d %s", ip, port, inf);
@@ -540,7 +540,7 @@ static void dhcp_ack_or_nak_packet(struct client_state_t *cs,
         } else {
             memcpy(&cs->lease, temp, 4);
             cs->lease = ntohl(cs->lease);
-            /* Enforce upper and lower bounds on lease. */
+            // Enforce upper and lower bounds on lease.
             cs->lease &= 0x0fffffff;
             if (cs->lease < RETRY_DELAY)
                 cs->lease = RETRY_DELAY;
@@ -581,7 +581,7 @@ void handle_packet(struct client_state_t *cs)
         len = get_packet(&packet, cs->listenFd);
     else if (cs->listenMode == LM_RAW)
         len = get_raw_packet(&packet, cs->listenFd);
-    else /* LM_NONE */
+    else // LM_NONE
         return;
 
     if (len < 0) {
@@ -636,7 +636,7 @@ void handle_packet(struct client_state_t *cs)
     }
 }
 
-/* Create a random xid */
+// Generate a 32-bit pseudorandom number
 uint32_t random_xid(void)
 {
     static int initialized;
@@ -662,7 +662,7 @@ uint32_t random_xid(void)
     return rand();
 }
 
-/* initialize a packet with the proper defaults */
+// Initialize a DHCP client packet that will be sent to a server
 static struct dhcpmsg init_packet(char type, uint32_t xid)
 {
     struct dhcpmsg packet = {
@@ -687,42 +687,37 @@ static struct dhcpmsg init_packet(char type, uint32_t xid)
     return packet;
 }
 
-/* Broadcast a DHCP discover packet to the network, with an optionally
- * requested IP */
+// Broadcast a DHCP discover packet to the network, with an optionally
+// requested IP
 int send_discover(uint32_t xid, uint32_t requested)
 {
     struct dhcpmsg packet = init_packet(DHCPDISCOVER, xid);
     if (requested)
         add_u32_option(&packet, DHCP_REQUESTED_IP, requested);
-
-    /* Request a RFC-specified max size to work around buggy servers. */
+    // Request a RFC-specified max size to work around buggy servers.
     add_u32_option(&packet, DHCP_MAX_SIZE, htons(576));
     add_option_request_list(&packet);
     log_line("Sending discover...");
     return send_dhcp_raw(&packet);
 }
 
-/* Broadcasts a DHCP request message */
+// Broadcasts a DHCP request message
 int send_selecting(uint32_t xid, uint32_t server, uint32_t requested)
 {
     struct dhcpmsg packet = init_packet(DHCPREQUEST, xid);
-    struct in_addr addr;
-
     add_u32_option(&packet, DHCP_REQUESTED_IP, requested);
     add_u32_option(&packet, DHCP_SERVER_ID, server);
-
     add_option_request_list(&packet);
-    addr.s_addr = requested;
+    struct in_addr addr = { .s_addr = requested };
     log_line("Sending select for %s...", inet_ntoa(addr));
     return send_dhcp_raw(&packet);
 }
 
-/* Unicasts or broadcasts a DHCP renew message */
+// Unicasts or broadcasts a DHCP renew message
 int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr)
 {
     struct dhcpmsg packet = init_packet(DHCPREQUEST, xid);
     packet.ciaddr = ciaddr;
-
     add_option_request_list(&packet);
     log_line("Sending renew...");
     if (server)
@@ -731,28 +726,24 @@ int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr)
         return send_dhcp_raw(&packet);
 }
 
-/* Broadcast a DHCP decline message */
+// Broadcast a DHCP decline message
 int send_decline(uint32_t xid, uint32_t server, uint32_t requested)
 {
     struct dhcpmsg packet = init_packet(DHCPDECLINE, xid);
-
-    /* DHCPDECLINE uses "requested ip", not ciaddr, to store offered IP */
+    // DHCPDECLINE uses "requested ip", not ciaddr, to store offered IP
     add_u32_option(&packet, DHCP_REQUESTED_IP, requested);
     add_u32_option(&packet, DHCP_SERVER_ID, server);
-
     log_line("Sending decline...");
     return send_dhcp_raw(&packet);
 }
 
-/* Unicasts a DHCP release message */
+// Unicasts a DHCP release message
 int send_release(uint32_t server, uint32_t ciaddr)
 {
     struct dhcpmsg packet = init_packet(DHCPRELEASE, random_xid());
     packet.ciaddr = ciaddr;
-
     add_u32_option(&packet, DHCP_REQUESTED_IP, ciaddr);
     add_u32_option(&packet, DHCP_SERVER_ID, server);
-
     log_line("Sending release...");
     return send_dhcp_cooked(&packet, ciaddr, server);
 }
