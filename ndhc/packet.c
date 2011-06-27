@@ -663,47 +663,40 @@ uint32_t random_xid(void)
     return rand();
 }
 
-/* Initializes dhcp packet header for a -client- packet. */
-static void init_header(struct dhcpmsg *packet, char type)
-{
-    memset(packet, 0, sizeof *packet);
-    packet->op = 1; // BOOTREQUEST (client)
-    packet->htype = 1; // ETH_10MB
-    packet->hlen = 6; // ETH_10MB_LEN
-    packet->cookie = htonl(DHCP_MAGIC);
-    packet->options[0] = DHCP_END;
-    add_u32_option(packet->options, DHCP_OPTIONS_BUFSIZE, DHCP_MESSAGE_TYPE,
-                   type);
-}
-
 /* initialize a packet with the proper defaults */
-static void init_packet(struct dhcpmsg *packet, char type)
+static struct dhcpmsg init_packet(char type, uint32_t xid)
 {
+    struct dhcpmsg packet = {
+        .op = 1, // BOOTREQUEST (client)
+        .htype = 1, // ETH_10MB
+        .hlen = 6, // ETH_10MB_LEN
+        .cookie = htonl(DHCP_MAGIC),
+        .options[0] = DHCP_END,
+        .xid = xid,
+    };
+    add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_MESSAGE_TYPE,
+                   type);
+    memcpy(packet.chaddr, client_config.arp, 6);
+    add_option_string(packet.options, DHCP_OPTIONS_BUFSIZE,
+                      client_config.clientid);
+    if (client_config.hostname)
+        add_option_string(packet.options, DHCP_OPTIONS_BUFSIZE,
+                          client_config.hostname);
     struct vendor  {
         char vendor;
         char length;
         char str[sizeof "ndhc"];
     } vendor_id = { DHCP_VENDOR,  sizeof "ndhc" - 1, "ndhc"};
-
-    init_header(packet, type);
-    memcpy(packet->chaddr, client_config.arp, 6);
-    add_option_string(packet->options, DHCP_OPTIONS_BUFSIZE,
-                      client_config.clientid);
-    if (client_config.hostname)
-        add_option_string(packet->options, DHCP_OPTIONS_BUFSIZE,
-                          client_config.hostname);
-    add_option_string(packet->options, DHCP_OPTIONS_BUFSIZE,
+    add_option_string(packet.options, DHCP_OPTIONS_BUFSIZE,
                       (uint8_t *)&vendor_id);
+    return packet;
 }
 
 /* Broadcast a DHCP discover packet to the network, with an optionally
  * requested IP */
 int send_discover(uint32_t xid, uint32_t requested)
 {
-    struct dhcpmsg packet;
-
-    init_packet(&packet, DHCPDISCOVER);
-    packet.xid = xid;
+    struct dhcpmsg packet = init_packet(DHCPDISCOVER, xid);
     if (requested)
         add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_REQUESTED_IP,
                        requested);
@@ -719,15 +712,13 @@ int send_discover(uint32_t xid, uint32_t requested)
 /* Broadcasts a DHCP request message */
 int send_selecting(uint32_t xid, uint32_t server, uint32_t requested)
 {
-    struct dhcpmsg packet;
+    struct dhcpmsg packet = init_packet(DHCPREQUEST, xid);
     struct in_addr addr;
-
-    init_packet(&packet, DHCPREQUEST);
-    packet.xid = xid;
 
     add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_REQUESTED_IP,
                    requested);
-    add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_SERVER_ID, server);
+    add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_SERVER_ID,
+                   server);
 
     add_option_request_list(packet.options, DHCP_OPTIONS_BUFSIZE);
     addr.s_addr = requested;
@@ -738,10 +729,7 @@ int send_selecting(uint32_t xid, uint32_t server, uint32_t requested)
 /* Unicasts or broadcasts a DHCP renew message */
 int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr)
 {
-    struct dhcpmsg packet;
-
-    init_packet(&packet, DHCPREQUEST);
-    packet.xid = xid;
+    struct dhcpmsg packet = init_packet(DHCPREQUEST, xid);
     packet.ciaddr = ciaddr;
 
     add_option_request_list(packet.options, DHCP_OPTIONS_BUFSIZE);
@@ -755,19 +743,8 @@ int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr)
 /* Broadcast a DHCP decline message */
 int send_decline(uint32_t xid, uint32_t server, uint32_t requested)
 {
-    struct dhcpmsg packet;
+    struct dhcpmsg packet = init_packet(DHCPDECLINE, xid);
 
-    /* Fill in: op, htype, hlen, cookie, chaddr, random xid fields,
-     * client-id option (unless -C), message type option:
-     */
-    init_packet(&packet, DHCPDECLINE);
-
-    /* RFC 2131 says DHCPDECLINE's xid is randomly selected by client,
-     * but in case the server is buggy and wants DHCPDECLINE's xid
-     * to match the xid which started entire handshake,
-     * we use the same xid we used in initial DHCPDISCOVER:
-     */
-    packet.xid = xid;
     /* DHCPDECLINE uses "requested ip", not ciaddr, to store offered IP */
     add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_REQUESTED_IP,
                    requested);
@@ -780,10 +757,7 @@ int send_decline(uint32_t xid, uint32_t server, uint32_t requested)
 /* Unicasts a DHCP release message */
 int send_release(uint32_t server, uint32_t ciaddr)
 {
-    struct dhcpmsg packet;
-
-    init_packet(&packet, DHCPRELEASE);
-    packet.xid = random_xid();
+    struct dhcpmsg packet = init_packet(DHCPRELEASE, random_xid());
     packet.ciaddr = ciaddr;
 
     add_u32_option(packet.options, DHCP_OPTIONS_BUFSIZE, DHCP_REQUESTED_IP,
