@@ -74,4 +74,6 @@ void write_leasefile(struct in_addr ipnum)
     ret = safe_write(leasefilefd, ip, strlen(ip));
     if (ret == -1)
         log_warning("Failed to write ip to lease file.\n");
+    else
+        fsync(leasefilefd);
 }
