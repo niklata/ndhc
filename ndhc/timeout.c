@@ -43,6 +43,7 @@ static void init_selecting_timeout(struct client_state_t *cs)
         if (cs->init) {
             if (client_config.background_if_no_lease) {
                 log_line("No lease, going to background.");
+                cs->init = 0;
                 background(cs);
             } else if (client_config.abort_if_no_lease) {
                 log_line("No lease, failing.");
