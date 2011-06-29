@@ -302,7 +302,7 @@ static int create_raw_socket(struct sockaddr_ll *sa,
 
     // Ignoring error since kernel may lack support for BPF.
     if (filter_prog && (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER,
-                        &filter_prog, sizeof filter_prog) >= 0))
+                        filter_prog, sizeof *filter_prog) >= 0))
         log_line("Attached filter to raw socket fd %d", fd);
 
     int opt = 1;
