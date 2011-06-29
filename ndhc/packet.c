@@ -48,55 +48,46 @@
 #include "strl.h"
 #include "random.h"
 
-// Returns fd of new listen socket bound to @ip:@port on interface @inf
-// on success, or -1 on failure.
-static int create_udp_listen_socket(unsigned int ip, int port, char *inf)
+// Returns fd of new udp socket bound on success, or -1 on failure.
+static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
 {
-    log_line("Opening listen socket on 0x%08x:%d %s", ip, port, inf);
-
     int fd;
     if ((fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
-        log_error("create_udp_listen_socket: socket failed: %s",
-                  strerror(errno));
+        log_error("create_udp_socket: socket failed: %s", strerror(errno));
         goto out;
     }
 
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt) == -1) {
-        log_error("create_udp_listen_socket: set reuse addr failed: %s",
-                  strerror(errno));
-        goto out_fd;
-    }
-    if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &opt, sizeof opt) == -1) {
-        log_error("create_udp_listen_socket: set broadcast failed: %s",
+        log_error("create_udp_socket: set reuse addr failed: %s",
                   strerror(errno));
         goto out_fd;
     }
     if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) == -1) {
-        log_error("create_udp_listen_socket: set don't route failed: %s",
+        log_error("create_udp_socket: set don't route failed: %s",
                   strerror(errno));
         goto out_fd;
     }
     struct ifreq ifr;
     memset(&ifr, 0, sizeof (struct ifreq));
-    strlcpy(ifr.ifr_name, inf, IFNAMSIZ);
+    strlcpy(ifr.ifr_name, iface, IFNAMSIZ);
     if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
-        log_error("create_udp_listen_socket: set bind to device failed: %s",
+        log_error("create_udp_socket: set bind to device failed: %s",
                   strerror(errno));
         goto out_fd;
     }
     if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
-        log_error("create_udp_listen_socket: set non-blocking failed: %s",
+        log_error("create_udp_socket: set non-blocking failed: %s",
                   strerror(errno));
         goto out_fd;
     }
 
-    struct sockaddr_in addr = {
+    struct sockaddr_in sa = {
         .sin_family = AF_INET,
         .sin_port = htons(port),
         .sin_addr.s_addr = ip,
     };
-    if (bind(fd, (struct sockaddr *)&addr, sizeof(struct sockaddr)) == -1)
+    if (bind(fd, (struct sockaddr *)&sa, sizeof sa) == -1)
         goto out_fd;
 
     return fd;
@@ -106,101 +97,76 @@ static int create_udp_listen_socket(unsigned int ip, int port, char *inf)
     return -1;
 }
 
-static int create_raw_listen_socket(int ifindex)
+// Returns fd of new listen socket bound to @ip:@port on interface @inf
+// on success, or -1 on failure.
+static int create_udp_listen_socket(unsigned int ip, int port, char *inf)
 {
-    /*
-     * Comment:
-     *   I've selected not to see LL header, so BPF doesn't see it, too.
-     *   The filter may also pass non-IP and non-ARP packets, but we do
-     *   a more complete check when receiving the message in userspace.
-     * and filter shamelessly stolen from:
-     *   http://www.flamewarmaster.de/software/dhcpclient/
-     *
-     *  Copyright: 2006, 2007 Stefan Rompf <sux@loplof.de>.
-     *  License: GPL v2.
-     */
-#define SERVER_AND_CLIENT_PORTS  ((67 << 16) + 68)
-    static const struct sock_filter filter_instr[] = {
-        /* check for udp */
-        BPF_STMT(BPF_LD|BPF_B|BPF_ABS, 9),
-        BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, IPPROTO_UDP, 2, 0),     /* L5, L1, is UDP? */
-        /* ugly check for arp on ethernet-like and IPv4 */
-        BPF_STMT(BPF_LD|BPF_W|BPF_ABS, 2),                      /* L1: */
-        BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, 0x08000604, 3, 4),      /* L3, L4 */
-        /* skip IP header */
-        BPF_STMT(BPF_LDX|BPF_B|BPF_MSH, 0),                     /* L5: */
-        /* check udp source and destination ports */
-        BPF_STMT(BPF_LD|BPF_W|BPF_IND, 0),
-        BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, SERVER_AND_CLIENT_PORTS, 0, 1),/* L3, L4 */
-        /* returns */
-        BPF_STMT(BPF_RET|BPF_K, 0x0fffffff ),                   /* L3: pass */
-        BPF_STMT(BPF_RET|BPF_K, 0),                             /* L4: reject */
-    };
-    static const struct sock_fprog filter_prog = {
-        .len = sizeof(filter_instr) / sizeof(filter_instr[0]),
-        /* casting const away: */
-        .filter = (struct sock_filter *) filter_instr,
-    };
+    log_line("Opening listen socket on 0x%08x:%d %s", ip, port, inf);
 
-    log_line("Opening raw socket on ifindex %d", ifindex);
-
-    int fd;
-    if ((fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IP))) < 0) {
-        log_error("create_raw_listen_socket: socket failed: %s",
-                  strerror(errno));
-        goto out;
-    }
-
-    // Ignoring error since kernel may lack support for BPF.
-    if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &filter_prog,
-                   sizeof filter_prog) >= 0)
-        log_line("Attached filter to raw socket fd %d", fd);
+    int fd = create_udp_socket(ip, port, inf);
+    if (fd == -1)
+        return -1;
 
     int opt = 1;
-    if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) == -1) {
-        log_error("create_raw_listen_socket: failed to set don't route: %s",
+    if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &opt, sizeof opt) == -1) {
+        log_error("create_udp_listen_socket: set broadcast failed: %s",
                   strerror(errno));
-        goto out_fd;
+        close(fd);
+        return -1;
     }
-    if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
-        log_error("create_raw_listen_socket: set non-blocking failed: %s",
-                  strerror(errno));
-        goto out_fd;
-    }
-    struct sockaddr_ll sock = {
-        .sll_family = AF_PACKET,
-        .sll_protocol = htons(ETH_P_IP),
-        .sll_ifindex = ifindex,
-    };
-    if (bind(fd, (struct sockaddr *)&sock, sizeof(sock)) < 0) {
-        log_error("create_raw_listen_socket: bind failed: %s",
-                  strerror(errno));
-        goto out_fd;
-    }
+
     return fd;
-out_fd:
+}
+
+// Broadcast a DHCP message using a UDP socket.
+static int send_dhcp_cooked(struct dhcpmsg *payload, uint32_t source_ip,
+                            uint32_t dest_ip)
+{
+    int ret = -1;
+    int fd = create_udp_socket(source_ip, DHCP_CLIENT_PORT,
+                               client_config.interface);
+    if (fd == -1)
+        goto out;
+
+    struct sockaddr_in raddr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(DHCP_SERVER_PORT),
+        .sin_addr.s_addr = dest_ip,
+    };
+    if (connect(fd, (struct sockaddr *)&raddr, sizeof(struct sockaddr)) == -1) {
+        log_error("send_dhcp_cooked: connect failed: %s", strerror(errno));
+        goto out_fd;
+    }
+
+    ssize_t endloc = get_end_option_idx(payload);
+    if (endloc < 0) {
+        log_error("send_dhcp_cooked: attempt to send packet with no DHCP_END");
+        goto out_fd;
+    }
+    size_t payload_len =
+        sizeof *payload - (sizeof payload->options - 1 - endloc);
+    ret = safe_write(fd, (const char *)payload, payload_len);
+    if (ret == -1)
+        log_error("send_dhcp_cooked: write failed: %s", strerror(errno));
+  out_fd:
     close(fd);
-out:
-    return -1;
+  out:
+    return ret;
 }
 
 // Read a packet from a cooked socket.  Returns -1 on fatal error, -2 on
 // transient error.
-static int get_packet(struct dhcpmsg *packet, int fd)
+static int get_cooked_packet(struct dhcpmsg *packet, int fd)
 {
-    int bytes;
-
     memset(packet, 0, sizeof *packet);
-    bytes = safe_read(fd, (char *)packet, sizeof *packet);
+    int bytes = safe_read(fd, (char *)packet, sizeof *packet);
     if (bytes == -1) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return -2;
         log_line("Read on listen socket failed: %s", strerror(errno));
         return -1;
     }
-
     log_line("Received a packet via cooked socket.");
-
     return bytes;
 }
 
@@ -325,44 +291,113 @@ static int get_raw_packet(struct dhcpmsg *payload, int fd)
     return l;
 }
 
-// Broadcast a DHCP message using a raw socket.
-static int send_dhcp_raw(struct dhcpmsg *payload)
+static int create_raw_socket(struct sockaddr_ll *sa,
+                             const struct sock_fprog *filter_prog)
 {
-    int fd, r = -1;
-
+    int fd;
     if ((fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IP))) < 0) {
-        log_error("send_dhcp_raw: socket failed: %s", strerror(errno));
+        log_error("create_raw_socket: socket failed: %s", strerror(errno));
         goto out;
     }
+
+    // Ignoring error since kernel may lack support for BPF.
+    if (filter_prog && (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER,
+                        &filter_prog, sizeof filter_prog) >= 0))
+        log_line("Attached filter to raw socket fd %d", fd);
+
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) == -1) {
-        log_error("send_dhcp_raw: failed to set don't route: %s",
+        log_error("create_raw_socket: failed to set don't route: %s",
                   strerror(errno));
         goto out_fd;
     }
     if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
-        log_error("send_dhcp_raw: set non-blocking failed: %s",
+        log_error("create_raw_socket: set non-blocking failed: %s",
                   strerror(errno));
         goto out_fd;
     }
-    struct sockaddr_ll dest = {
+    if (bind(fd, (struct sockaddr *)sa, sizeof *sa) < 0) {
+        log_error("create_raw_socket: bind failed: %s", strerror(errno));
+        goto out_fd;
+    }
+    return fd;
+out_fd:
+    close(fd);
+out:
+    return -1;
+}
+
+static int create_raw_listen_socket(int ifindex)
+{
+    /*
+     * Comment:
+     *   I've selected not to see LL header, so BPF doesn't see it, too.
+     *   The filter may also pass non-IP and non-ARP packets, but we do
+     *   a more complete check when receiving the message in userspace.
+     * and filter shamelessly stolen from:
+     *   http://www.flamewarmaster.de/software/dhcpclient/
+     *
+     *  Copyright: 2006, 2007 Stefan Rompf <sux@loplof.de>.
+     *  License: GPL v2.
+     */
+#define SERVER_AND_CLIENT_PORTS  ((67 << 16) + 68)
+    static const struct sock_filter filter_instr[] = {
+        /* check for udp */
+        BPF_STMT(BPF_LD|BPF_B|BPF_ABS, 9),
+        BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, IPPROTO_UDP, 2, 0),     /* L5, L1, is UDP? */
+        /* ugly check for arp on ethernet-like and IPv4 */
+        BPF_STMT(BPF_LD|BPF_W|BPF_ABS, 2),                      /* L1: */
+        BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, 0x08000604, 3, 4),      /* L3, L4 */
+        /* skip IP header */
+        BPF_STMT(BPF_LDX|BPF_B|BPF_MSH, 0),                     /* L5: */
+        /* check udp source and destination ports */
+        BPF_STMT(BPF_LD|BPF_W|BPF_IND, 0),
+        BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, SERVER_AND_CLIENT_PORTS, 0, 1),/* L3, L4 */
+        /* returns */
+        BPF_STMT(BPF_RET|BPF_K, 0x0fffffff ),                   /* L3: pass */
+        BPF_STMT(BPF_RET|BPF_K, 0),                             /* L4: reject */
+    };
+    static const struct sock_fprog filter_prog = {
+        .len = sizeof(filter_instr) / sizeof(filter_instr[0]),
+        /* casting const away: */
+        .filter = (struct sock_filter *) filter_instr,
+    };
+
+    log_line("Opening raw socket on ifindex %d", ifindex);
+
+    struct sockaddr_ll sa = {
+        .sll_family = AF_PACKET,
+        .sll_protocol = htons(ETH_P_IP),
+        .sll_ifindex = ifindex,
+    };
+    int fd = create_raw_socket(&sa, &filter_prog);
+    if (fd == -1)
+        return -1;
+    return fd;
+}
+
+// Broadcast a DHCP message using a raw socket.
+static int send_dhcp_raw(struct dhcpmsg *payload)
+{
+    int ret = -1;
+    struct sockaddr_ll da = {
         .sll_family = AF_PACKET,
         .sll_protocol = htons(ETH_P_IP),
         .sll_ifindex = client_config.ifindex,
         .sll_halen = 6,
     };
-    memcpy(dest.sll_addr, "\xff\xff\xff\xff\xff\xff", 6);
-    if (bind(fd, (struct sockaddr *)&dest, sizeof(struct sockaddr_ll)) < 0) {
-        log_error("send_dhcp_raw: bind failed: %s", strerror(errno));
-        goto out_fd;
-    }
+    memcpy(da.sll_addr, "\xff\xff\xff\xff\xff\xff", 6);
+    int fd = create_raw_socket(&da, NULL);
+    if (fd == -1)
+        return ret;
 
     // Send packets that are as short as possible, since some servers are buggy
     // and drop packets that are longer than 562 bytes.
     ssize_t endloc = get_end_option_idx(payload);
     if (endloc < 0) {
         log_error("send_dhcp_raw: attempt to send packet with no DHCP_END");
-        goto out_fd;
+        close(fd);
+        return ret;
     }
     size_t padding = sizeof payload->options - 1 - endloc;
     size_t iud_len = sizeof(struct ip_udp_dhcp_packet) - padding;
@@ -396,85 +431,12 @@ static int send_dhcp_raw(struct dhcpmsg *payload)
     iudmsg.udp.check = net_checksum_add(udpcs, phcs);
     iudmsg.ip.check = net_checksum(&iudmsg.ip, sizeof iudmsg.ip);
 
-    r = safe_sendto(fd, (const char *)&iudmsg, iud_len, 0,
-                    (struct sockaddr *)&dest, sizeof dest);
-    if (r == -1)
+    ret = safe_sendto(fd, (const char *)&iudmsg, iud_len, 0,
+                      (struct sockaddr *)&da, sizeof da);
+    if (ret == -1)
         log_error("send_dhcp_raw: sendto failed: %s", strerror(errno));
-  out_fd:
     close(fd);
-  out:
-    return r;
-}
-
-// Broadcast a DHCP message using a UDP socket.
-static int send_dhcp_cooked(struct dhcpmsg *payload, uint32_t source_ip,
-                            uint32_t dest_ip)
-{
-    int fd, result = -1;
-
-    if ((fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
-        log_error("send_dhcp_cooked: socket failed: %s", strerror(errno));
-        goto out;
-    }
-
-    int opt = 1;
-    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt) == -1) {
-        log_error("send_dhcp_cooked: set reuse addr failed: %s",
-                  strerror(errno));
-        goto out_fd;
-    }
-    if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) == -1) {
-        log_error("send_dhcp_cooked: failed to set don't route: %s",
-                  strerror(errno));
-        goto out_fd;
-    }
-    struct ifreq ifr;
-    memset(&ifr, 0, sizeof (struct ifreq));
-    strlcpy(ifr.ifr_name, client_config.interface, IFNAMSIZ);
-    if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
-        log_error("send_dhcp_cooked: set bind to device failed: %s",
-                  strerror(errno));
-        goto out_fd;
-    }
-    if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
-        log_error("send_dhcp_cooked: set non-blocking failed: %s",
-                  strerror(errno));
-        goto out_fd;
-    }
-
-    struct sockaddr_in laddr = {
-        .sin_family = AF_INET,
-        .sin_port = htons(DHCP_CLIENT_PORT),
-        .sin_addr.s_addr = source_ip,
-    };
-    if (bind(fd, (struct sockaddr *)&laddr, sizeof(struct sockaddr)) == -1) {
-        log_error("send_dhcp_cooked: bind failed: %s", strerror(errno));
-        goto out_fd;
-    }
-
-    struct sockaddr_in raddr = {
-        .sin_family = AF_INET,
-        .sin_port = htons(DHCP_SERVER_PORT),
-        .sin_addr.s_addr = dest_ip,
-    };
-    if (connect(fd, (struct sockaddr *)&raddr, sizeof(struct sockaddr)) == -1) {
-        log_error("send_dhcp_cooked: connect failed: %s", strerror(errno));
-        goto out_fd;
-    }
-
-    ssize_t endloc = get_end_option_idx(payload);
-    if (endloc < 0) {
-        log_error("send_dhcp_cooked: attempt to send packet with no DHCP_END");
-        goto out_fd;
-    }
-    size_t payload_len = sizeof *payload - sizeof payload->options - 1 - endloc;
-    result = safe_write(fd, (const char *)payload, payload_len);
-    if (result == -1)
-        log_error("send_dhcp_cooked: write failed: %s", strerror(errno));
-  out_fd:
-    close(fd);
-  out:
-    return result;
+    return ret;
 }
 
 // Switch listen socket between raw (if-bound), kernel (ip-bound), and none
@@ -579,7 +541,7 @@ void handle_packet(struct client_state_t *cs)
     ssize_t optlen;
 
     if (cs->listenMode == LM_KERNEL)
-        len = get_packet(&packet, cs->listenFd);
+        len = get_cooked_packet(&packet, cs->listenFd);
     else if (cs->listenMode == LM_RAW)
         len = get_raw_packet(&packet, cs->listenFd);
     else // LM_NONE
@@ -683,8 +645,8 @@ int send_selecting(uint32_t xid, uint32_t server, uint32_t requested)
     add_u32_option(&packet, DHCP_REQUESTED_IP, requested);
     add_u32_option(&packet, DHCP_SERVER_ID, server);
     add_option_request_list(&packet);
-    struct in_addr addr = { .s_addr = requested };
-    log_line("Sending select for %s...", inet_ntoa(addr));
+    log_line("Sending select for %s...",
+             inet_ntoa((struct in_addr){.s_addr = requested}));
     return send_dhcp_raw(&packet);
 }
 
