@@ -302,13 +302,14 @@ void handle_arp_response(struct client_state_t *cs)
             arpreply_offset += r;
     }
 
-    if (arpreply_offset < ARP_MSG_SIZE) {
-        log_warning("arp: Received short ARP message -- ignoring");
+
+    if (arpreply_offset < ARP_MSG_SIZE)
+        return;
+
+    if (!arp_validate(&arpreply)) {
+        arpreply_clear();
         return;
     }
-
-    if (!arp_validate(&arpreply))
-        return;
 
     ++arp_packet_num;
     switch (cs->dhcpState) {
