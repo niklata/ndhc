@@ -75,43 +75,61 @@ static void bound_timeout(struct client_state_t *cs)
     renewing_timeout(cs);
 }
 
+static void lease_timedout(struct client_state_t *cs)
+{
+    cs->dhcpState = DS_SELECTING;
+    log_line("Lease lost, entering init state.");
+    ifchange(NULL, IFCHANGE_DECONFIG);
+    cs->timeout = 0;
+    cs->packetNum = 0;
+    change_listen_mode(cs, LM_RAW);
+}
+
 // Triggered when a DHCP renew request has been sent and no reply has been
 // received within the response wait time.  This function is also directly
 // called by bound_timeout() when it is time to renew a lease before it
 // expires.  Check to see if the lease is still valid, and if it is, send
 // a unicast DHCP renew packet.  If it is not, then change to the REBINDING
-// state to get a new lease.
+// state to send broadcast queries.
 static void renewing_timeout(struct client_state_t *cs)
 {
-    if ((cs->rebindTime - cs->renewTime) <= (cs->lease / 14400 + 1)) {
-        cs->dhcpState = DS_REBINDING;
-        cs->timeout = (cs->rebindTime - cs->renewTime) * 1000;
-        log_line("Entering rebinding state.");
-    } else {
-        send_renew(cs->xid, cs->serverAddr, cs->requestedIP);
-        cs->renewTime = ((cs->rebindTime - cs->renewTime) >> 1) + cs->renewTime;
-        cs->timeout = (cs->renewTime * 1000) - (curms() - cs->leaseStartTime);
+    long long ct = curms();
+    long long rbt = cs->leaseStartTime + cs->rebindTime * 1000;
+    if (ct < rbt) {
+        long long wt = (rbt - ct) / 2;
+        if (wt >= 30000)
+            send_renew(cs->xid, cs->serverAddr, cs->requestedIP);
+        else
+            wt = rbt - ct;
+        cs->timeout = wt;
+        return;
     }
+    long long elt = cs->leaseStartTime + cs->lease * 1000;
+    if (ct < elt) {
+        cs->dhcpState = DS_REBINDING;
+        cs->timeout = elt - ct / 2;
+        log_line("Entering rebinding state.");
+    } else
+        lease_timedout(cs);
 }
 
+// Triggered when a DHCP rebind request has been sent and no reply has been
+// received within the response wait time.  Check to see if the lease is still
+// valid, and if it is, send a broadcast DHCP renew packet.  If it is not, then
+// change to the SELECTING state to get a new lease.
 static void rebinding_timeout(struct client_state_t *cs)
 {
-    /* Either set a new rebindTime, or enter INIT state */
-    if ((cs->lease - cs->rebindTime) <= (cs->lease / 14400 + 1)) {
-        /* timed out, enter init state */
-        cs->dhcpState = DS_SELECTING;
-        log_line("Lease lost, entering init state.");
-        ifchange(NULL, IFCHANGE_DECONFIG);
-        cs->timeout = 0;
-        cs->packetNum = 0;
-        change_listen_mode(cs, LM_RAW);
-    } else {
-        /* send a request packet */
-        send_renew(cs->xid, 0, cs->requestedIP); /* broadcast */
-
-        cs->rebindTime = ((cs->lease - cs->rebindTime) >> 1) + cs->rebindTime;
-        cs->timeout = (cs->rebindTime * 1000) - (curms() - cs->leaseStartTime);
-    }
+    long long ct = curms();
+    long long elt = cs->leaseStartTime + cs->lease * 1000;
+    if (ct < elt) {
+        long long wt = (elt - ct) / 2;
+        if (wt >= 30000)
+            send_renew(cs->xid, 0, cs->requestedIP);
+        else
+            wt = elt - ct;
+        cs->timeout = wt;
+    } else
+        lease_timedout(cs);
 }
 
 static void released_timeout(struct client_state_t *cs)
