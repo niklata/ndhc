@@ -85,13 +85,14 @@ out:
     return -1;
 }
 
-void arp_close_fd(struct client_state_t *cs)
+int arp_close_fd(struct client_state_t *cs)
 {
     if (cs->arpFd == -1)
-        return;
+        return 0;
     epoll_del(cs, cs->arpFd);
     close(cs->arpFd);
     cs->arpFd = -1;
+    return 1;
 }
 
 // Returns 0 on success, -1 on failure.

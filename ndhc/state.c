@@ -260,31 +260,32 @@ static void frelease(struct client_state_t *cs)
     cs->timeout = -1;
 }
 
-// XXX: DS_ARP_CHECK_GW? Also split this up?
 static void frenew(struct client_state_t *cs)
 {
     log_line("Forcing a DHCP renew...");
   retry:
     switch (cs->dhcpState) {
         case DS_BOUND:
+        case DS_BOUND_GW_CHECK:
+            arp_close_fd(cs);
+            cs->dhcpState = DS_RENEWING;
             change_listen_mode(cs, LM_KERNEL);
+            send_renew(cs->xid, cs->serverAddr, cs->requestedIP);
+            break;
         case DS_ARP_CHECK:
             // Cancel arp ping in progress and treat as previous state.
-            epoll_del(cs, cs->arpFd);
-            close(cs->arpFd);
-            cs->arpFd = -1;
-            cs->dhcpState = cs->arpPrevState;
+            if (arp_close_fd(cs))
+                cs->dhcpState = cs->arpPrevState;
             goto retry;
-        case DS_REQUESTING:
         case DS_RELEASED:
             change_listen_mode(cs, LM_RAW);
             cs->dhcpState = DS_SELECTING;
             break;
         case DS_RENEWING:
         case DS_REBINDING:
-        case DS_SELECTING:
-        default:
             break;
+        default:
+            return;
     }
     cs->packetNum = 0;
     cs->timeout = 0;
