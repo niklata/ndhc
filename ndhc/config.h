@@ -27,19 +27,6 @@
 #define RETRY_DELAY 30 /* time in seconds to delay after sending NUMPACKETS */
 
 enum {
-    DS_NULL = 0,
-    DS_INIT_SELECTING,
-    DS_REQUESTING,
-    DS_BOUND,
-    DS_RENEWING,
-    DS_REBINDING,
-    DS_ARP_GW_CHECK,
-    DS_ARP_CHECK,
-    DS_RENEW_REQUESTED,
-    DS_RELEASED
-};
-
-enum {
     LM_NONE = 0,
     LM_KERNEL,
     LM_RAW

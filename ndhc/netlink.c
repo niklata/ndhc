@@ -113,7 +113,7 @@ static void takedown_if(struct client_state_t *cs)
     log_line("nl: taking down interface");
     // Same as packet.c: line 258
     ifchange(NULL, IFCHANGE_DECONFIG);
-    cs->dhcpState = DS_INIT_SELECTING;
+    cs->dhcpState = DS_SELECTING;
     cs->timeout = 0;
     cs->requestedIP = 0;
     cs->packetNum = 0;
@@ -157,7 +157,7 @@ static void nl_handlemsg(struct nlmsghdr *msg, unsigned int len,
                                 if (cs->dhcpState == DS_BOUND) {
                                     if (arp_gw_check(cs) == -1)
                                         log_warning("arp_gw_check could not make arp socket, assuming lease is still OK");
-                                } else if (cs->dhcpState != DS_INIT_SELECTING)
+                                } else if (cs->dhcpState != DS_SELECTING)
                                     takedown_if(cs);
                             }
                         } else {

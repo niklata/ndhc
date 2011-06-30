@@ -39,6 +39,7 @@
 #include <errno.h>
 
 #include "packet.h"
+#include "state.h"
 #include "arp.h"
 #include "ifchange.h"
 #include "sys.h"
@@ -470,69 +471,6 @@ void change_listen_mode(struct client_state_t *cs, int new_mode)
              new_mode == LM_RAW ? "raw" : "cooked");
 }
 
-static void init_selecting_packet(struct client_state_t *cs,
-                                  struct dhcpmsg *packet,
-                                  uint8_t *message)
-{
-    uint8_t *temp = NULL;
-    ssize_t optlen;
-    if (*message == DHCPOFFER) {
-        if ((temp = get_option_data(packet, DHCP_SERVER_ID, &optlen))) {
-            memcpy(&cs->serverAddr, temp, 4);
-            cs->xid = packet->xid;
-            cs->requestedIP = packet->yiaddr;
-            cs->dhcpState = DS_REQUESTING;
-            cs->timeout = 0;
-            cs->packetNum = 0;
-        } else {
-            log_line("No server ID in message");
-        }
-    }
-}
-
-static void dhcp_ack_or_nak_packet(struct client_state_t *cs,
-                                   struct dhcpmsg *packet,
-                                   uint8_t *message)
-{
-    uint8_t *temp = NULL;
-    ssize_t optlen;
-    if (*message == DHCPACK) {
-        if (!(temp = get_option_data(packet, DHCP_LEASE_TIME, &optlen))) {
-            log_line("No lease time received, assuming 1h.");
-            cs->lease = 60 * 60;
-        } else {
-            memcpy(&cs->lease, temp, 4);
-            cs->lease = ntohl(cs->lease);
-            // Enforce upper and lower bounds on lease.
-            cs->lease &= 0x0fffffff;
-            if (cs->lease < RETRY_DELAY)
-                cs->lease = RETRY_DELAY;
-        }
-
-        // Can transition from DS_ARP_CHECK to DS_BOUND or DS_INIT_SELECTING.
-        if (arp_check(cs, packet) == -1) {
-            log_warning("arp_check failed to make arp socket, retrying lease");
-            ifchange(NULL, IFCHANGE_DECONFIG);
-            cs->dhcpState = DS_INIT_SELECTING;
-            cs->timeout = 30000;
-            cs->requestedIP = 0;
-            cs->packetNum = 0;
-            change_listen_mode(cs, LM_RAW);
-        }
-
-    } else if (*message == DHCPNAK) {
-        log_line("Received DHCP NAK.");
-        ifchange(packet, IFCHANGE_NAK);
-        if (cs->dhcpState != DS_REQUESTING)
-            ifchange(NULL, IFCHANGE_DECONFIG);
-        cs->dhcpState = DS_INIT_SELECTING;
-        cs->timeout = 3000;
-        cs->requestedIP = 0;
-        cs->packetNum = 0;
-        change_listen_mode(cs, LM_RAW);
-    }
-}
-
 void handle_packet(struct client_state_t *cs)
 {
     uint8_t *message = NULL;
@@ -578,25 +516,7 @@ void handle_packet(struct client_state_t *cs)
         return;
     }
 
-    switch (cs->dhcpState) {
-        case DS_INIT_SELECTING:
-            init_selecting_packet(cs, &packet, message);
-            break;
-        case DS_ARP_CHECK:
-            // We ignore dhcp packets for now.  This state will
-            // be changed by the callback for arp ping.
-            break;
-        case DS_RENEW_REQUESTED:
-        case DS_REQUESTING:
-        case DS_RENEWING:
-        case DS_REBINDING:
-            dhcp_ack_or_nak_packet(cs, &packet, message);
-            break;
-        case DS_BOUND:
-        case DS_RELEASED:
-        default:
-            break;
-    }
+    packet_action(cs, &packet, message);
 }
 
 // Initialize a DHCP client packet that will be sent to a server

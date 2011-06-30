@@ -25,12 +25,12 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <stdlib.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <signal.h>
 #include <time.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <sys/epoll.h>
 #include <sys/signalfd.h>
 #include <net/if.h>
@@ -40,9 +40,9 @@
 
 #include "ndhc-defines.h"
 #include "config.h"
+#include "state.h"
 #include "options.h"
 #include "packet.h"
-#include "timeout.h"
 #include "sys.h"
 #include "ifchange.h"
 #include "arp.h"
@@ -60,8 +60,8 @@
 #define VERSION "1.0"
 
 struct client_state_t cs = {
-    .dhcpState = DS_INIT_SELECTING,
-    .arpPrevState = DS_NULL,
+    .dhcpState = DS_SELECTING,
+    .arpPrevState = DS_SELECTING,
     .ifsPrevState = IFS_NONE,
     .listenMode = LM_NONE,
     .packetNum = 0,
@@ -120,72 +120,6 @@ static void show_usage(void)
     exit(EXIT_SUCCESS);
 }
 
-/* perform a renew */
-static void force_renew(void)
-{
-    log_line("Performing a DHCP renew...");
-  retry:
-    switch (cs.dhcpState) {
-        case DS_BOUND:
-            change_listen_mode(&cs, LM_KERNEL);
-        case DS_ARP_CHECK:
-            // Cancel arp ping in progress and treat as previous state.
-            epoll_del(&cs, cs.arpFd);
-            close(cs.arpFd);
-            cs.arpFd = -1;
-            cs.dhcpState = cs.arpPrevState;
-            goto retry;
-        case DS_RENEWING:
-        case DS_REBINDING:
-            cs.dhcpState = DS_RENEW_REQUESTED;
-            break;
-        case DS_RENEW_REQUESTED: /* impatient are we? fine, square 1 */
-            ifchange(NULL, IFCHANGE_DECONFIG);
-        case DS_REQUESTING:
-        case DS_RELEASED:
-            change_listen_mode(&cs, LM_RAW);
-            cs.dhcpState = DS_INIT_SELECTING;
-            break;
-        case DS_INIT_SELECTING:
-        default:
-            break;
-    }
-
-    /* start things over */
-    cs.packetNum = 0;
-
-    /* Kill any timeouts because the user wants this to hurry along */
-    cs.timeout = 0;
-}
-
-
-/* perform a release */
-static void force_release(void)
-{
-    struct in_addr temp_saddr, temp_raddr;
-
-    /* send release packet */
-    if (cs.dhcpState == DS_BOUND || cs.dhcpState == DS_RENEWING ||
-        cs.dhcpState == DS_REBINDING || cs.dhcpState == DS_ARP_CHECK) {
-        temp_saddr.s_addr = cs.serverAddr;
-        temp_raddr.s_addr = cs.requestedIP;
-        log_line("Unicasting a release of %s to %s.",
-                 inet_ntoa(temp_raddr), inet_ntoa(temp_saddr));
-        send_release(cs.serverAddr, cs.requestedIP); /* unicast */
-        ifchange(NULL, IFCHANGE_DECONFIG);
-    }
-    log_line("Entering released state.");
-
-    if (cs.dhcpState == DS_ARP_CHECK) {
-        epoll_del(&cs, cs.arpFd);
-        close(cs.arpFd);
-        cs.arpFd = -1;
-    }
-    change_listen_mode(&cs, LM_NONE);
-    cs.dhcpState = DS_RELEASED;
-    cs.timeout = -1;
-}
-
 static void signal_dispatch()
 {
     int t, off = 0;
@@ -203,10 +137,10 @@ static void signal_dispatch()
     }
     switch (si.ssi_signo) {
         case SIGUSR1:
-            force_renew();
+            force_renew_action(&cs);
             break;
         case SIGUSR2:
-            force_release();
+            force_release_action(&cs);
             break;
         case SIGTERM:
             log_line("Received SIGTERM.  Exiting gracefully.");
@@ -228,7 +162,7 @@ static void do_work(void)
     setup_signals(&cs);
     epoll_add(&cs, cs.nlFd);
     change_listen_mode(&cs, LM_RAW);
-    handle_timeout(&cs);
+    timeout_action(&cs);
 
     for (;;) {
         last_awake = curms();
@@ -257,7 +191,7 @@ static void do_work(void)
         cs.timeout -= timeout_delta;
         if (cs.timeout <= 0) {
             cs.timeout = 0;
-            handle_timeout(&cs);
+            timeout_action(&cs);
         }
     }
 }

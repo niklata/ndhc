@@ -30,6 +30,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include "arp.h"
+#include "state.h"
 #include "packet.h"
 #include "sys.h"
 #include "ifchange.h"
@@ -180,7 +181,7 @@ static void arp_failed(struct client_state_t *cs)
 
     if (cs->arpPrevState != DS_REQUESTING)
         ifchange(NULL, IFCHANGE_DECONFIG);
-    cs->dhcpState = DS_INIT_SELECTING;
+    cs->dhcpState = DS_SELECTING;
     cs->requestedIP = 0;
     cs->timeout = 0;
     cs->packetNum = 0;
@@ -194,7 +195,7 @@ void arp_gw_failed(struct client_state_t *cs)
 
     // Same as packet.c: line 258
     ifchange(NULL, IFCHANGE_DECONFIG);
-    cs->dhcpState = DS_INIT_SELECTING;
+    cs->dhcpState = DS_SELECTING;
     cs->oldTimeout = 0;
     cs->timeout = 0;
     cs->requestedIP = 0;

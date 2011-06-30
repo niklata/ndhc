@@ -23,7 +23,7 @@
 #ifndef NK_NETLINK_H_
 #define NK_NETLINK_H_
 
-#include "config.h"
+#include "state.h"
 
 int nl_open(struct client_state_t *cs);
 void nl_close(struct client_state_t *cs);
