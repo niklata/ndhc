@@ -53,7 +53,7 @@ static int delay_timeout(int numpackets)
     char tot[] = { 4, 8, 16, 32, 64 };
     if (numpackets < sizeof tot)
         to = tot[numpackets];
-    return to;
+    return to * 1000;
 }
 
 // Triggered after a DHCP lease request packet has been sent and no reply has
