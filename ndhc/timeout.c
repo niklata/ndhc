@@ -30,12 +30,15 @@
 #include "random.h"
 
 #define DELAY_SEC (((RETRY_DELAY - (RETRY_DELAY / NUMPACKETS)) / NUMPACKETS) + 1)
+// Triggered after a DHCP discover packet has been sent and no reply has
+// been received within the response wait time.  If we've not exceeded the
+// maximum number of discover retransmits, then send another packet and wait
+// again.  Otherwise, background or fail.
 static void init_selecting_timeout(struct client_state_t *cs)
 {
     if (cs->packetNum < NUMPACKETS) {
         if (cs->packetNum == 0)
             cs->xid = libc_random_u32();
-        /* broadcast */
         send_discover(cs->xid, cs->requestedIP);
         cs->timeout = DELAY_SEC * (cs->packetNum + 1) * 1000;
         cs->packetNum++;
@@ -50,7 +53,6 @@ static void init_selecting_timeout(struct client_state_t *cs)
                 exit(EXIT_FAILURE);
             }
         }
-        /* wait to try again */
         cs->packetNum = 0;
         cs->timeout = RETRY_DELAY * 1000;
     }
@@ -65,7 +67,6 @@ static void renew_requested_timeout(struct client_state_t *cs)
         cs->timeout = ((cs->packetNum == NUMPACKETS - 1) ? 10 : 2) * 1000;
         cs->packetNum++;
     } else {
-        /* timed out, go back to init state */
         ifchange(NULL, IFCHANGE_DECONFIG);
         cs->dhcpState = DS_INIT_SELECTING;
         cs->timeout = 0;
@@ -74,15 +75,17 @@ static void renew_requested_timeout(struct client_state_t *cs)
     }
 }
 
+// Triggered after a DHCP lease request packet has been sent and no reply has
+// been received within the response wait time.  If we've not exceeded the
+// maximum number of request retransmits, then send another packet and wait
+// again.  Otherwise, return to the DHCP initialization state.
 static void requesting_timeout(struct client_state_t *cs)
 {
     if (cs->packetNum < NUMPACKETS) {
-        /* send broadcast request packet */
         send_selecting(cs->xid, cs->serverAddr, cs->requestedIP);
         cs->timeout = ((cs->packetNum == NUMPACKETS - 1) ? 10 : 2) * 1000;
         cs->packetNum++;
     } else {
-        /* timed out, go back to init state */
         cs->dhcpState = DS_INIT_SELECTING;
         cs->timeout = 0;
         cs->packetNum = 0;
@@ -90,26 +93,29 @@ static void requesting_timeout(struct client_state_t *cs)
     }
 }
 
+// Triggered when a DHCP renew request has been sent and no reply has been
+// received within the response wait time.  This function is also directly
+// called by bound_timeout() when it is time to renew a lease before it
+// expires.  Check to see if the lease is still valid, and if it is, send
+// a unicast DHCP renew packet.  If it is not, then change to the REBINDING
+// state to get a new lease.
 static void renewing_timeout(struct client_state_t *cs)
 {
-    /* Either set a new T1, or enter DS_REBINDING state */
     if ((cs->t2 - cs->t1) <= (cs->lease / 14400 + 1)) {
-        /* timed out, enter rebinding state */
         cs->dhcpState = DS_REBINDING;
         cs->timeout = (cs->t2 - cs->t1) * 1000;
         log_line("Entering rebinding state.");
     } else {
-        /* send a request packet */
-        send_renew(cs->xid, cs->serverAddr, cs->requestedIP); /* unicast */
-
+        send_renew(cs->xid, cs->serverAddr, cs->requestedIP);
         cs->t1 = ((cs->t2 - cs->t1) >> 1) + cs->t1;
         cs->timeout = (cs->t1 * 1000) - (curms() - cs->leaseStartTime);
     }
 }
 
+// Triggered when the lease has been held for a significant fraction of its
+// total time, and it is time to renew the lease so that it is not lost.
 static void bound_timeout(struct client_state_t *cs)
 {
-    /* Lease is starting to run out, time to enter renewing state */
     cs->dhcpState = DS_RENEWING;
     change_listen_mode(cs, LM_KERNEL);
     log_line("Entering renew state.");
@@ -136,7 +142,7 @@ static void rebinding_timeout(struct client_state_t *cs)
     }
 }
 
-/* Handle epoll timeout expiring */
+// Handle epoll timeout expiring
 void handle_timeout(struct client_state_t *cs)
 {
     switch (cs->dhcpState) {
