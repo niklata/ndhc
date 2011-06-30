@@ -43,7 +43,6 @@ dhcp_state_t dhcp_states[] = {
     { an_packet, rebinding_timeout, frenew, nfrelease},      // REBINDING
     { 0, arp_gw_failed, frenew, frelease},                   // ARP_GW_CHECK XXX
     { 0, arp_success, frenew, anfrelease},                   // ARP_CHECK
-    { an_packet, requesting_timeout, frenew, frelease},      // RENEW_REQUESTED
     { 0, released_timeout, frenew, frelease},                // RELEASED
     { 0, 0, 0, 0},                                           // NUM_STATES
 };
@@ -55,10 +54,7 @@ dhcp_state_t dhcp_states[] = {
 static void requesting_timeout(struct client_state_t *cs)
 {
     if (cs->packetNum < NUMPACKETS) {
-        if (cs->dhcpState == DS_RENEW_REQUESTED)
-            send_renew(cs->xid, cs->serverAddr, cs->requestedIP);
-        else
-            send_selecting(cs->xid, cs->serverAddr, cs->requestedIP);
+        send_selecting(cs->xid, cs->serverAddr, cs->requestedIP);
         cs->timeout = ((cs->packetNum == NUMPACKETS - 1) ? 10 : 2) * 1000;
         cs->packetNum++;
     } else {
@@ -241,7 +237,7 @@ static void frelease(struct client_state_t *cs)
 // XXX: DS_ARP_CHECK_GW? Also split this up?
 static void frenew(struct client_state_t *cs)
 {
-    log_line("Performing a DHCP renew...");
+    log_line("Forcing a DHCP renew...");
   retry:
     switch (cs->dhcpState) {
         case DS_BOUND:
@@ -253,22 +249,17 @@ static void frenew(struct client_state_t *cs)
             cs->arpFd = -1;
             cs->dhcpState = cs->arpPrevState;
             goto retry;
-        case DS_RENEWING:
-        case DS_REBINDING:
-            cs->dhcpState = DS_RENEW_REQUESTED;
-            break;
-        case DS_RENEW_REQUESTED: /* impatient are we? fine, square 1 */
-            ifchange(NULL, IFCHANGE_DECONFIG);
         case DS_REQUESTING:
         case DS_RELEASED:
             change_listen_mode(cs, LM_RAW);
             cs->dhcpState = DS_SELECTING;
             break;
+        case DS_RENEWING:
+        case DS_REBINDING:
         case DS_SELECTING:
         default:
             break;
     }
-    // Start over
     cs->packetNum = 0;
     cs->timeout = 0;
 }
