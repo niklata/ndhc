@@ -204,16 +204,10 @@ void arp_gw_failed(struct client_state_t *cs)
 
 void arp_success(struct client_state_t *cs)
 {
-    struct in_addr temp_addr;
-
     arp_close_fd(cs);
+    cs->timeout = (cs->renewTime * 1000) - (curms() - cs->leaseStartTime);
 
-    cs->t1 = cs->lease >> 1;
-    cs->t2 = (cs->lease * 0x7) >> 3; // T2 = lease * 0.875
-    cs->timeout = cs->t1 * 1000;
-    cs->leaseStartTime = curms();
-
-    temp_addr.s_addr = arp_dhcp_packet.yiaddr;
+    struct in_addr temp_addr = {.s_addr = arp_dhcp_packet.yiaddr};
     log_line("arp: Lease of %s obtained, lease time %ld",
              inet_ntoa(temp_addr), cs->lease);
     cs->requestedIP = arp_dhcp_packet.yiaddr;

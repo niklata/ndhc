@@ -50,7 +50,7 @@ struct client_state_t {
     int epollFd, signalFd, listenFd, arpFd, nlFd;
     int timeout, oldTimeout;
     uint32_t requestedIP, serverAddr, routerAddr;
-    uint32_t lease, t1, t2, xid;
+    uint32_t lease, renewTime, rebindTime, xid;
     uint8_t routerArp[6];
     uint8_t init;
 };

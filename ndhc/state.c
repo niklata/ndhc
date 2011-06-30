@@ -83,21 +83,21 @@ static void bound_timeout(struct client_state_t *cs)
 // state to get a new lease.
 static void renewing_timeout(struct client_state_t *cs)
 {
-    if ((cs->t2 - cs->t1) <= (cs->lease / 14400 + 1)) {
+    if ((cs->rebindTime - cs->renewTime) <= (cs->lease / 14400 + 1)) {
         cs->dhcpState = DS_REBINDING;
-        cs->timeout = (cs->t2 - cs->t1) * 1000;
+        cs->timeout = (cs->rebindTime - cs->renewTime) * 1000;
         log_line("Entering rebinding state.");
     } else {
         send_renew(cs->xid, cs->serverAddr, cs->requestedIP);
-        cs->t1 = ((cs->t2 - cs->t1) >> 1) + cs->t1;
-        cs->timeout = (cs->t1 * 1000) - (curms() - cs->leaseStartTime);
+        cs->renewTime = ((cs->rebindTime - cs->renewTime) >> 1) + cs->renewTime;
+        cs->timeout = (cs->renewTime * 1000) - (curms() - cs->leaseStartTime);
     }
 }
 
 static void rebinding_timeout(struct client_state_t *cs)
 {
-    /* Either set a new T2, or enter INIT state */
-    if ((cs->lease - cs->t2) <= (cs->lease / 14400 + 1)) {
+    /* Either set a new rebindTime, or enter INIT state */
+    if ((cs->lease - cs->rebindTime) <= (cs->lease / 14400 + 1)) {
         /* timed out, enter init state */
         cs->dhcpState = DS_SELECTING;
         log_line("Lease lost, entering init state.");
@@ -109,8 +109,8 @@ static void rebinding_timeout(struct client_state_t *cs)
         /* send a request packet */
         send_renew(cs->xid, 0, cs->requestedIP); /* broadcast */
 
-        cs->t2 = ((cs->lease - cs->t2) >> 1) + cs->t2;
-        cs->timeout = (cs->t2 * 1000) - (curms() - cs->leaseStartTime);
+        cs->rebindTime = ((cs->lease - cs->rebindTime) >> 1) + cs->rebindTime;
+        cs->timeout = (cs->rebindTime * 1000) - (curms() - cs->leaseStartTime);
     }
 }
 
@@ -122,20 +122,24 @@ static void released_timeout(struct client_state_t *cs)
 static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
                       uint8_t *message)
 {
-    uint8_t *temp = NULL;
-    ssize_t optlen;
     if (*message == DHCPACK) {
+        uint8_t *temp = NULL;
+        ssize_t optlen;
+        cs->leaseStartTime = curms();
         if (!(temp = get_option_data(packet, DHCP_LEASE_TIME, &optlen))) {
             log_line("No lease time received, assuming 1h.");
             cs->lease = 60 * 60;
         } else {
             memcpy(&cs->lease, temp, 4);
             cs->lease = ntohl(cs->lease);
-            // Enforce upper and lower bounds on lease.
             cs->lease &= 0x0fffffff;
             if (cs->lease < RETRY_DELAY)
                 cs->lease = RETRY_DELAY;
         }
+        // Always use RFC2131 'default' values.  It's not worth validating
+        // the remote server values, if they even exist, for sanity.
+        cs->renewTime = cs->lease >> 1;
+        cs->rebindTime = (cs->lease * 0x7) >> 3; // * 0.875
 
         // Can transition from DS_ARP_CHECK to DS_BOUND or DS_SELECTING.
         if (arp_check(cs, packet) == -1) {
@@ -164,9 +168,9 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
 static void selecting_packet(struct client_state_t *cs, struct dhcpmsg *packet,
                              uint8_t *message)
 {
-    uint8_t *temp = NULL;
-    ssize_t optlen;
     if (*message == DHCPOFFER) {
+        uint8_t *temp = NULL;
+        ssize_t optlen;
         if ((temp = get_option_data(packet, DHCP_SERVER_ID, &optlen))) {
             memcpy(&cs->serverAddr, temp, 4);
             cs->xid = packet->xid;
