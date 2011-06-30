@@ -23,6 +23,7 @@ static void renewing_timeout(struct client_state_t *cs);
 static void rebinding_timeout(struct client_state_t *cs);
 static void renew_requested_timeout(struct client_state_t *cs);
 static void released_timeout(struct client_state_t *cs);
+static void anfrelease(struct client_state_t *cs);
 static void nfrelease(struct client_state_t *cs);
 static void frelease(struct client_state_t *cs);
 static void frenew(struct client_state_t *cs);
@@ -43,7 +44,7 @@ dhcp_state_t dhcp_states[] = {
     { an_packet, renewing_timeout, frenew, nfrelease},       // RENEWING
     { an_packet, rebinding_timeout, frenew, nfrelease},      // REBINDING
     { 0, arp_gw_failed, frenew, frelease},                   // ARP_GW_CHECK XXX
-    { 0, arp_success, frenew, nfrelease},                    // ARP_CHECK
+    { 0, arp_success, frenew, anfrelease},                   // ARP_CHECK
     { an_packet, renew_requested_timeout, frenew, frelease}, // RENEW_REQUESTED
     { 0, released_timeout, frenew, frelease},                // RELEASED
     { 0, 0, 0, 0},                                           // NUM_STATES
@@ -228,12 +229,17 @@ static void selecting_timeout(struct client_state_t *cs)
 }
 #undef DELAY_SEC
 
+static void anfrelease(struct client_state_t *cs)
+{
+    arp_close_fd(cs);
+    nfrelease(cs);
+}
+
 static void nfrelease(struct client_state_t *cs)
 {
-    struct in_addr temp_saddr = { .s_addr = cs->serverAddr };
-    struct in_addr temp_raddr = { .s_addr = cs->requestedIP };
     log_line("Unicasting a release of %s to %s.",
-             inet_ntoa(temp_raddr), inet_ntoa(temp_saddr));
+             inet_ntoa((struct in_addr){.s_addr=cs->requestedIP}),
+             inet_ntoa((struct in_addr){.s_addr=cs->serverAddr}));
     send_release(cs->serverAddr, cs->requestedIP);
     ifchange(NULL, IFCHANGE_DECONFIG);
     frelease(cs);
@@ -242,11 +248,6 @@ static void nfrelease(struct client_state_t *cs)
 static void frelease(struct client_state_t *cs)
 {
     log_line("Entering released state.");
-    if (cs->dhcpState == DS_ARP_CHECK) {
-        epoll_del(cs, cs->arpFd);
-        close(cs->arpFd);
-        cs->arpFd = -1;
-    }
     change_listen_mode(cs, LM_NONE);
     cs->dhcpState = DS_RELEASED;
     cs->timeout = -1;

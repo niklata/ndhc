@@ -85,7 +85,7 @@ out:
     return -1;
 }
 
-static void arp_close_fd(struct client_state_t *cs)
+void arp_close_fd(struct client_state_t *cs)
 {
     if (cs->arpFd == -1)
         return;
