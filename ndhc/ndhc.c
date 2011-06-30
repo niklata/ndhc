@@ -121,7 +121,7 @@ static void show_usage(void)
 }
 
 /* perform a renew */
-static void perform_renew(void)
+static void force_renew(void)
 {
     log_line("Performing a DHCP renew...");
   retry:
@@ -160,7 +160,7 @@ static void perform_renew(void)
 
 
 /* perform a release */
-static void perform_release(void)
+static void force_release(void)
 {
     struct in_addr temp_saddr, temp_raddr;
 
@@ -203,10 +203,10 @@ static void signal_dispatch()
     }
     switch (si.ssi_signo) {
         case SIGUSR1:
-            perform_renew();
+            force_renew();
             break;
         case SIGUSR2:
-            perform_release();
+            force_release();
             break;
         case SIGTERM:
             log_line("Received SIGTERM.  Exiting gracefully.");
