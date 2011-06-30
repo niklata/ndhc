@@ -21,7 +21,6 @@ static void requesting_timeout(struct client_state_t *cs);
 static void bound_timeout(struct client_state_t *cs);
 static void renewing_timeout(struct client_state_t *cs);
 static void rebinding_timeout(struct client_state_t *cs);
-static void renew_requested_timeout(struct client_state_t *cs);
 static void released_timeout(struct client_state_t *cs);
 static void anfrelease(struct client_state_t *cs);
 static void nfrelease(struct client_state_t *cs);
@@ -36,7 +35,6 @@ typedef struct {
     void (*force_release_fn)(struct client_state_t *cs);
 } dhcp_state_t;
 
-// packet, timeout, renew, release
 dhcp_state_t dhcp_states[] = {
     { selecting_packet, selecting_timeout, 0, frelease},     // SELECTING
     { an_packet, requesting_timeout, frenew, frelease},      // REQUESTING
@@ -45,7 +43,7 @@ dhcp_state_t dhcp_states[] = {
     { an_packet, rebinding_timeout, frenew, nfrelease},      // REBINDING
     { 0, arp_gw_failed, frenew, frelease},                   // ARP_GW_CHECK XXX
     { 0, arp_success, frenew, anfrelease},                   // ARP_CHECK
-    { an_packet, renew_requested_timeout, frenew, frelease}, // RENEW_REQUESTED
+    { an_packet, requesting_timeout, frenew, frelease},      // RENEW_REQUESTED
     { 0, released_timeout, frenew, frelease},                // RELEASED
     { 0, 0, 0, 0},                                           // NUM_STATES
 };
@@ -57,7 +55,10 @@ dhcp_state_t dhcp_states[] = {
 static void requesting_timeout(struct client_state_t *cs)
 {
     if (cs->packetNum < NUMPACKETS) {
-        send_selecting(cs->xid, cs->serverAddr, cs->requestedIP);
+        if (cs->dhcpState == DS_RENEW_REQUESTED)
+            send_renew(cs->xid, cs->serverAddr, cs->requestedIP);
+        else
+            send_selecting(cs->xid, cs->serverAddr, cs->requestedIP);
         cs->timeout = ((cs->packetNum == NUMPACKETS - 1) ? 10 : 2) * 1000;
         cs->packetNum++;
     } else {
@@ -114,22 +115,6 @@ static void rebinding_timeout(struct client_state_t *cs)
 
         cs->t2 = ((cs->lease - cs->t2) >> 1) + cs->t2;
         cs->timeout = (cs->t2 * 1000) - (curms() - cs->leaseStartTime);
-    }
-}
-
-static void renew_requested_timeout(struct client_state_t *cs)
-{
-    if (cs->packetNum < NUMPACKETS) {
-        /* send unicast request packet */
-        send_renew(cs->xid, cs->serverAddr, cs->requestedIP);
-        cs->timeout = ((cs->packetNum == NUMPACKETS - 1) ? 10 : 2) * 1000;
-        cs->packetNum++;
-    } else {
-        ifchange(NULL, IFCHANGE_DECONFIG);
-        cs->dhcpState = DS_SELECTING;
-        cs->timeout = 0;
-        cs->packetNum = 0;
-        change_listen_mode(cs, LM_RAW);
     }
 }
 
