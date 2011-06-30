@@ -41,7 +41,7 @@ dhcp_state_t dhcp_states[] = {
     { 0, bound_timeout, frenew, nfrelease},                  // BOUND
     { an_packet, renewing_timeout, frenew, nfrelease},       // RENEWING
     { an_packet, rebinding_timeout, frenew, nfrelease},      // REBINDING
-    { 0, arp_gw_failed, frenew, frelease},                   // ARP_GW_CHECK XXX
+    { 0, arp_gw_failed, frenew, anfrelease},                 // BOUND_GW_CHECK
     { 0, arp_success, frenew, anfrelease},                   // ARP_CHECK
     { 0, released_timeout, frenew, frelease},                // RELEASED
     { 0, 0, 0, 0},                                           // NUM_STATES

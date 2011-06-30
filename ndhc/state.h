@@ -10,7 +10,7 @@ typedef enum {
     DS_BOUND,
     DS_RENEWING,
     DS_REBINDING,
-    DS_ARP_GW_CHECK,
+    DS_BOUND_GW_CHECK,
     DS_ARP_CHECK,
     DS_RELEASED,
     DS_NUM_STATES,

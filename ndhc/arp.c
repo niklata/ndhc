@@ -153,7 +153,7 @@ int arp_gw_check(struct client_state_t *cs)
     if (arpping(cs, cs->routerAddr) == -1)
         return -1;
     cs->arpPrevState = cs->dhcpState;
-    cs->dhcpState = DS_ARP_GW_CHECK;
+    cs->dhcpState = DS_BOUND_GW_CHECK;
     cs->oldTimeout = cs->timeout;
     cs->timeout = 2000;
     memset(&arp_dhcp_packet, 0, sizeof (struct dhcpmsg));
@@ -193,7 +193,6 @@ void arp_gw_failed(struct client_state_t *cs)
     log_line("arp: Gateway appears to have changed, getting new lease");
     arp_close_fd(cs);
 
-    // Same as packet.c: line 258
     ifchange(NULL, IFCHANGE_DECONFIG);
     cs->dhcpState = DS_SELECTING;
     cs->oldTimeout = 0;
@@ -295,7 +294,7 @@ void handle_arp_response(struct client_state_t *cs)
             log_error("arp: ARP response read failed: %s", strerror(errno));
             switch (cs->dhcpState) {
                 case DS_ARP_CHECK: arp_failed(cs); break;
-                case DS_ARP_GW_CHECK: arp_gw_failed(cs); break;
+                case DS_BOUND_GW_CHECK: arp_gw_failed(cs); break;
                 case DS_BOUND: break; // keep trying for finding gw mac
                 default: break;
             }
@@ -327,7 +326,7 @@ void handle_arp_response(struct client_state_t *cs)
             arpreply_clear();
         }
         break;
-    case DS_ARP_GW_CHECK:
+    case DS_BOUND_GW_CHECK:
         if (!memcmp(arpreply.sip4, &cs->routerAddr, 4)) {
             // Success only if the router/gw MAC matches stored value
             if (!memcmp(cs->routerArp, arpreply.smac, 6))
