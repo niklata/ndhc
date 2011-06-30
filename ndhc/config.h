@@ -23,9 +23,6 @@
 
 #include <stdint.h>
 
-#define NUMPACKETS 3 /* number of packets to send before delay */
-#define RETRY_DELAY 30 /* time in seconds to delay after sending NUMPACKETS */
-
 enum {
     LM_NONE = 0,
     LM_KERNEL,

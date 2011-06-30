@@ -47,15 +47,24 @@ dhcp_state_t dhcp_states[] = {
     { 0, 0, 0, 0},                                           // NUM_STATES
 };
 
+static int delay_timeout(int numpackets)
+{
+    int to = 64;
+    char tot[] = { 4, 8, 16, 32, 64 };
+    if (numpackets < sizeof tot)
+        to = tot[numpackets];
+    return to;
+}
+
 // Triggered after a DHCP lease request packet has been sent and no reply has
 // been received within the response wait time.  If we've not exceeded the
 // maximum number of request retransmits, then send another packet and wait
 // again.  Otherwise, return to the DHCP initialization state.
 static void requesting_timeout(struct client_state_t *cs)
 {
-    if (cs->packetNum < NUMPACKETS) {
+    if (cs->packetNum < 5) {
         send_selecting(cs->xid, cs->serverAddr, cs->requestedIP);
-        cs->timeout = ((cs->packetNum == NUMPACKETS - 1) ? 10 : 2) * 1000;
+        cs->timeout = delay_timeout(cs->packetNum);
         cs->packetNum++;
     } else {
         cs->dhcpState = DS_SELECTING;
@@ -151,8 +160,10 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
             memcpy(&cs->lease, temp, 4);
             cs->lease = ntohl(cs->lease);
             cs->lease &= 0x0fffffff;
-            if (cs->lease < RETRY_DELAY)
-                cs->lease = RETRY_DELAY;
+            if (cs->lease < 60) {
+                log_warning("Server sent lease of <1m.  Forcing lease to 1m.");
+                cs->lease = 60;
+            }
         }
         // Always use RFC2131 'default' values.  It's not worth validating
         // the remote server values, if they even exist, for sanity.
@@ -202,35 +213,28 @@ static void selecting_packet(struct client_state_t *cs, struct dhcpmsg *packet,
     }
 }
 
-#define DELAY_SEC (((RETRY_DELAY - (RETRY_DELAY / NUMPACKETS)) / NUMPACKETS) + 1)
 // Triggered after a DHCP discover packet has been sent and no reply has
 // been received within the response wait time.  If we've not exceeded the
 // maximum number of discover retransmits, then send another packet and wait
 // again.  Otherwise, background or fail.
 static void selecting_timeout(struct client_state_t *cs)
 {
-    if (cs->packetNum < NUMPACKETS) {
-        if (cs->packetNum == 0)
-            cs->xid = libc_random_u32();
-        send_discover(cs->xid, cs->requestedIP);
-        cs->timeout = DELAY_SEC * (cs->packetNum + 1) * 1000;
-        cs->packetNum++;
-    } else {
-        if (cs->init) {
-            if (client_config.background_if_no_lease) {
-                log_line("No lease, going to background.");
-                cs->init = 0;
-                background(cs);
-            } else if (client_config.abort_if_no_lease) {
-                log_line("No lease, failing.");
-                exit(EXIT_FAILURE);
-            }
+    if (cs->packetNum == 0)
+        cs->xid = libc_random_u32();
+    send_discover(cs->xid, cs->requestedIP);
+    cs->timeout = delay_timeout(cs->packetNum);
+    cs->packetNum++;
+    if (cs->init && cs->packetNum >= 2) {
+        if (client_config.background_if_no_lease) {
+            log_line("No lease, going to background.");
+            cs->init = 0;
+            background(cs);
+        } else if (client_config.abort_if_no_lease) {
+            log_line("No lease, failing.");
+            exit(EXIT_FAILURE);
         }
-        cs->packetNum = 0;
-        cs->timeout = RETRY_DELAY * 1000;
     }
 }
-#undef DELAY_SEC
 
 static void anfrelease(struct client_state_t *cs)
 {
