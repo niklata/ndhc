@@ -50,25 +50,17 @@ static int arp_packet_num;
 static int arp_open_fd(struct client_state_t *cs)
 {
     static const struct sock_filter sf_arp[] = {
-        // Verify that the frame has ethernet protocol type of ARP.
-        BPF_STMT(BPF_LD + BPF_H + BPF_ABS, 12),
-        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETH_P_ARP, 1, 0),
+        // Verify that the frame has ethernet protocol type of ARP
+        // and that the ARP hardware type field indicates Ethernet.
+        BPF_STMT(BPF_LD + BPF_W + BPF_ABS, 12),
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, (ETH_P_ARP << 16) | ARPHRD_ETHER,
+                 1, 0),
         BPF_STMT(BPF_RET + BPF_K, 0),
-        // Verify that the ARP hardware type field indicates Ethernet.
-        BPF_STMT(BPF_LD + BPF_H + BPF_ABS, 14),
-        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ARPHRD_ETHER, 1, 0),
-        BPF_STMT(BPF_RET + BPF_K, 0),
-        // Verify that the ARP protocol type field indicates IP.
-        BPF_STMT(BPF_LD + BPF_H + BPF_ABS, 16),
-        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETH_P_IP, 1, 0),
-        BPF_STMT(BPF_RET + BPF_K, 0),
-        // Verify that the ARP hardware address length field is 6.
-        BPF_STMT(BPF_LD + BPF_B + BPF_ABS, 18),
-        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 6, 1, 0),
-        BPF_STMT(BPF_RET + BPF_K, 0),
-        // Verify that the ARP protocol address length field is 4.
-        BPF_STMT(BPF_LD + BPF_B + BPF_ABS, 19),
-        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 4, 1, 0),
+        // Verify that the ARP protocol type field indicates IP, the ARP
+        // hardware address length field is 6, and the ARP protocol address
+        // length field is 4.
+        BPF_STMT(BPF_LD + BPF_W + BPF_ABS, 16),
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, (ETH_P_IP << 16) | 0x0604, 1, 0),
         BPF_STMT(BPF_RET + BPF_K, 0),
         // Sanity tests passed, so send all possible data.
         BPF_STMT(BPF_RET + BPF_K, 0x0fffffff),
