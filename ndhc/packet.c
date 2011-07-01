@@ -106,8 +106,6 @@ static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
 // on success, or -1 on failure.
 static int create_udp_listen_socket(struct client_state_t *cs, char *inf)
 {
-    log_line("Opening listen socket on 0x%08x:%d %s", INADDR_ANY,
-             DHCP_CLIENT_PORT, inf);
     int fd = create_udp_socket(INADDR_ANY, DHCP_CLIENT_PORT, inf);
     if (fd == -1)
         return -1;
@@ -169,7 +167,6 @@ static int get_cooked_packet(struct dhcpmsg *packet, int fd)
         log_line("Read on listen socket failed: %s", strerror(errno));
         return -1;
     }
-    log_line("Received a packet via cooked socket.");
     return bytes;
 }
 
@@ -297,8 +294,6 @@ static int get_raw_packet(struct client_state_t *cs, struct dhcpmsg *payload)
 
     size_t l = ntohs(packet.ip.tot_len) - sizeof packet.ip - sizeof packet.udp; 
     memcpy(payload, &packet.data, l);
-
-    log_line("Received a packet via raw socket.");
     return l;
 }
 
@@ -313,10 +308,9 @@ static int create_raw_socket(struct client_state_t *cs, struct sockaddr_ll *sa,
 
     if (cs) {
         if (filter_prog && (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER,
-                            filter_prog, sizeof *filter_prog) != -1)) {
+                            filter_prog, sizeof *filter_prog) != -1))
             cs->using_dhcp_bpf = 1;
-            log_line("Attached filter to raw socket fd %d", fd);
-        } else
+        else
             cs->using_dhcp_bpf = 0;
     }
 
@@ -379,8 +373,6 @@ static int create_raw_listen_socket(struct client_state_t *cs, int ifindex)
         .len = sizeof sf_dhcp / sizeof sf_dhcp[0],
         .filter = (struct sock_filter *)sf_dhcp,
     };
-
-    log_line("Opening raw socket on ifindex %d", ifindex);
     struct sockaddr_ll sa = {
         .sll_family = AF_PACKET,
         .sll_protocol = htons(ETH_P_IP),
@@ -538,6 +530,7 @@ void handle_packet(struct client_state_t *cs)
 
     if (!validate_dhcp_packet(cs, len, &packet, &message))
         return;
+    log_line("Received a reply.");
     packet_action(cs, &packet, message);
 }
 

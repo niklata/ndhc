@@ -82,8 +82,6 @@ static int arp_open_fd(struct client_state_t *cs)
 
     using_arp_bpf = setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &sfp_arp,
                                sizeof sfp_arp) != -1;
-    if (using_arp_bpf)
-        log_line("Attached filter to raw ARP socket fd %d", fd);
 
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &opt, sizeof opt) == -1) {

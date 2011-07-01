@@ -236,7 +236,6 @@ static void copy_ifdata(struct nlmsghdr *msg, void **args)
                 if (!strncmp(client_config.interface,
                              (char *)RTA_DATA(rta), RTA_PAYLOAD(rta))) {
                     client_config.ifindex = ifinfo->ifi_index;
-                    log_line("adapter index %d", ifinfo->ifi_index);
                     found |= 1;
                 }
                 break;
@@ -246,10 +245,6 @@ static void copy_ifdata(struct nlmsghdr *msg, void **args)
                 /* We can only handle ethernet like devices with 6 octet MAC */
                 if (RTA_PAYLOAD(rta) == 6) {
                     memcpy(client_config.arp, RTA_DATA(rta), 6);
-                    log_line("adapter hardware address %02x:%02x:%02x:%02x:%02x:%02x",
-                             client_config.arp[0], client_config.arp[1],
-                             client_config.arp[2], client_config.arp[3],
-                             client_config.arp[4], client_config.arp[5]);
                     found |= 2;
                 }
                 break;
