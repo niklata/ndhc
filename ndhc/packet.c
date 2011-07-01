@@ -266,13 +266,12 @@ static int get_raw_packet_validate_bpf(struct ip_udp_dhcp_packet *packet)
 
 // Read a packet from a raw socket.  Returns -1 on fatal error, -2 on
 // transient error.
-static int get_raw_packet(struct client_state_t *cs, struct dhcpmsg *payload,
-                          int fd)
+static int get_raw_packet(struct client_state_t *cs, struct dhcpmsg *payload)
 {
     struct ip_udp_dhcp_packet packet;
     memset(&packet, 0, sizeof packet);
 
-    ssize_t inc = safe_read(fd, (char *)&packet, sizeof packet);
+    ssize_t inc = safe_read(cs->listenFd, (char *)&packet, sizeof packet);
     if (inc == -1) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return -2;
@@ -500,12 +499,10 @@ void handle_packet(struct client_state_t *cs)
     struct dhcpmsg packet;
     ssize_t optlen;
 
-    if (cs->listenMode == LM_COOKED)
-        len = get_cooked_packet(&packet, cs->listenFd);
-    else if (cs->listenMode == LM_RAW)
-        len = get_raw_packet(cs, &packet, cs->listenFd);
-    else // LM_NONE
+    if (cs->listenMode == LM_NONE)
         return;
+    len = cs->listenMode == LM_RAW ?
+        get_raw_packet(cs, &packet) : get_cooked_packet(&packet, cs->listenFd);
 
     if (len < 0) {
         // Transient issue handled by packet collection functions.
