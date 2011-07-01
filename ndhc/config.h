@@ -24,12 +24,6 @@
 #include <stdint.h>
 
 enum {
-    LM_NONE = 0,
-    LM_KERNEL,
-    LM_RAW
-};
-
-enum {
     IFS_NONE = 0,
     IFS_UP,
     IFS_DOWN,

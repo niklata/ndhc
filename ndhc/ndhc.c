@@ -63,7 +63,7 @@ struct client_state_t cs = {
     .dhcpState = DS_SELECTING,
     .arpPrevState = DS_SELECTING,
     .ifsPrevState = IFS_NONE,
-    .listenMode = LM_NONE,
+    .listenMode = 0,
     .packetNum = 0,
     .xid = 0,
     .timeout = 0,
@@ -161,7 +161,7 @@ static void do_work(void)
         suicide("epoll_create1 failed");
     setup_signals(&cs);
     epoll_add(&cs, cs.nlFd);
-    change_listen_mode(&cs, LM_RAW);
+    set_listen_raw(&cs);
     timeout_action(&cs);
 
     for (;;) {

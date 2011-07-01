@@ -75,7 +75,9 @@ struct udp_dhcp_packet {
     struct dhcpmsg data;
 };
 
-void change_listen_mode(struct client_state_t *cs, int new_mode);
+void set_listen_raw(struct client_state_t *cs);
+void set_listen_cooked(struct client_state_t *cs);
+void set_listen_none(struct client_state_t *cs);
 void handle_packet(struct client_state_t *cs);
 int send_discover(uint32_t xid, uint32_t requested);
 int send_selecting(uint32_t xid, uint32_t server, uint32_t requested);

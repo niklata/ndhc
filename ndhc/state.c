@@ -70,7 +70,7 @@ static void requesting_timeout(struct client_state_t *cs)
         cs->dhcpState = DS_SELECTING;
         cs->timeout = 0;
         cs->packetNum = 0;
-        change_listen_mode(cs, LM_RAW);
+        set_listen_raw(cs);
     }
 }
 
@@ -79,7 +79,7 @@ static void requesting_timeout(struct client_state_t *cs)
 static void bound_timeout(struct client_state_t *cs)
 {
     cs->dhcpState = DS_RENEWING;
-    change_listen_mode(cs, LM_KERNEL);
+    set_listen_cooked(cs);
     log_line("Entering renew state.");
     renewing_timeout(cs);
 }
@@ -91,7 +91,7 @@ static void lease_timedout(struct client_state_t *cs)
     ifchange(NULL, IFCHANGE_DECONFIG);
     cs->timeout = 0;
     cs->packetNum = 0;
-    change_listen_mode(cs, LM_RAW);
+    set_listen_raw(cs);
 }
 
 // Triggered when a DHCP renew request has been sent and no reply has been
@@ -178,7 +178,7 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
             cs->timeout = 30000;
             cs->requestedIP = 0;
             cs->packetNum = 0;
-            change_listen_mode(cs, LM_RAW);
+            set_listen_raw(cs);
         }
 
     } else if (*message == DHCPNAK) {
@@ -190,7 +190,7 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
         cs->timeout = 3000;
         cs->requestedIP = 0;
         cs->packetNum = 0;
-        change_listen_mode(cs, LM_RAW);
+        set_listen_raw(cs);
     }
 }
 
@@ -255,7 +255,7 @@ static void nfrelease(struct client_state_t *cs)
 static void frelease(struct client_state_t *cs)
 {
     log_line("Entering released state.");
-    change_listen_mode(cs, LM_NONE);
+    set_listen_none(cs);
     cs->dhcpState = DS_RELEASED;
     cs->timeout = -1;
 }
@@ -269,7 +269,7 @@ static void frenew(struct client_state_t *cs)
         case DS_BOUND_GW_CHECK:
             arp_close_fd(cs);
             cs->dhcpState = DS_RENEWING;
-            change_listen_mode(cs, LM_KERNEL);
+            set_listen_cooked(cs);
             send_renew(cs->xid, cs->serverAddr, cs->requestedIP);
             break;
         case DS_ARP_CHECK:
@@ -278,7 +278,7 @@ static void frenew(struct client_state_t *cs)
                 cs->dhcpState = cs->arpPrevState;
             goto retry;
         case DS_RELEASED:
-            change_listen_mode(cs, LM_RAW);
+            set_listen_raw(cs);
             cs->dhcpState = DS_SELECTING;
             break;
         case DS_RENEWING:

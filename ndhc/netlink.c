@@ -117,7 +117,7 @@ static void takedown_if(struct client_state_t *cs)
     cs->timeout = 0;
     cs->requestedIP = 0;
     cs->packetNum = 0;
-    change_listen_mode(cs, LM_RAW);
+    set_listen_raw(cs);
 }
 
 // Decode netlink messages and process them

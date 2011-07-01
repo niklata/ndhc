@@ -186,7 +186,7 @@ static void arp_failed(struct client_state_t *cs)
     cs->requestedIP = 0;
     cs->timeout = 0;
     cs->packetNum = 0;
-    change_listen_mode(cs, LM_RAW);
+    set_listen_raw(cs);
 }
 
 void arp_gw_failed(struct client_state_t *cs)
@@ -200,7 +200,7 @@ void arp_gw_failed(struct client_state_t *cs)
     cs->timeout = 0;
     cs->requestedIP = 0;
     cs->packetNum = 0;
-    change_listen_mode(cs, LM_RAW);
+    set_listen_raw(cs);
 }
 
 void arp_success(struct client_state_t *cs)
@@ -218,7 +218,7 @@ void arp_success(struct client_state_t *cs)
              ((cs->arpPrevState == DS_RENEWING ||
                cs->arpPrevState == DS_REBINDING)
               ? IFCHANGE_RENEW : IFCHANGE_BOUND));
-    change_listen_mode(cs, LM_NONE);
+    set_listen_none(cs);
     write_leasefile(temp_addr);
     if (client_config.quit_after_lease)
         exit(EXIT_SUCCESS);

@@ -49,6 +49,12 @@
 #include "strl.h"
 #include "random.h"
 
+typedef enum {
+    LM_NONE = 0,
+    LM_COOKED,
+    LM_RAW
+} listen_mode_t;
+
 // Returns fd of new udp socket bound on success, or -1 on failure.
 static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
 {
@@ -433,7 +439,7 @@ static int send_dhcp_raw(struct dhcpmsg *payload)
 }
 
 // Switch listen socket between raw (if-bound), kernel (ip-bound), and none
-void change_listen_mode(struct client_state_t *cs, int new_mode)
+static void change_listen_mode(struct client_state_t *cs, int new_mode)
 {
     cs->listenMode = new_mode;
     if (cs->listenFd >= 0) {
@@ -441,7 +447,7 @@ void change_listen_mode(struct client_state_t *cs, int new_mode)
         close(cs->listenFd);
         cs->listenFd = -1;
     }
-    if (new_mode != (LM_RAW || LM_KERNEL)) {
+    if (new_mode != (LM_RAW || LM_COOKED)) {
         log_line("Stopped listening for DHCP packets.");
         return;
     }
@@ -457,6 +463,21 @@ void change_listen_mode(struct client_state_t *cs, int new_mode)
              new_mode == LM_RAW ? "raw" : "cooked");
 }
 
+void set_listen_raw(struct client_state_t *cs)
+{
+    change_listen_mode(cs, LM_RAW);
+}
+
+void set_listen_cooked(struct client_state_t *cs)
+{
+    change_listen_mode(cs, LM_COOKED);
+}
+
+void set_listen_none(struct client_state_t *cs)
+{
+    change_listen_mode(cs, LM_NONE);
+}
+
 void handle_packet(struct client_state_t *cs)
 {
     uint8_t *message = NULL;
@@ -464,7 +485,7 @@ void handle_packet(struct client_state_t *cs)
     struct dhcpmsg packet;
     ssize_t optlen;
 
-    if (cs->listenMode == LM_KERNEL)
+    if (cs->listenMode == LM_COOKED)
         len = get_cooked_packet(&packet, cs->listenFd);
     else if (cs->listenMode == LM_RAW)
         len = get_raw_packet(&packet, cs->listenFd);
