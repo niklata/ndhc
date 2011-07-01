@@ -42,6 +42,7 @@ struct client_state_t {
     int timeout, oldTimeout;
     uint32_t requestedIP, serverAddr, routerAddr;
     uint32_t lease, renewTime, rebindTime, xid;
+    int using_dhcp_bpf;
     uint8_t routerArp[6];
     uint8_t init;
 };

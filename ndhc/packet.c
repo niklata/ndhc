@@ -104,7 +104,7 @@ static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
 
 // Returns fd of new listen socket bound to @ip:@port on interface @inf
 // on success, or -1 on failure.
-static int create_udp_listen_socket(unsigned int ip, int port, char *inf)
+static int create_udp_listen_socket(struct client_state_t *cs, unsigned int ip, int port, char *inf)
 {
     log_line("Opening listen socket on 0x%08x:%d %s", ip, port, inf);
     int fd = create_udp_socket(ip, port, inf);
@@ -238,9 +238,36 @@ static int udp_checksum(struct ip_udp_dhcp_packet *packet)
     return cs == 0;
 }
 
+static int get_raw_packet_validate_bpf(struct ip_udp_dhcp_packet *packet)
+{
+    if (packet->ip.version != IPVERSION) {
+        log_line("IP version is not IPv4");
+        return 0;
+    }
+    if (packet->ip.ihl != sizeof packet->ip >> 2) {
+        log_line("IP header length incorrect");
+        return 0;
+    }
+    if (packet->ip.protocol != IPPROTO_UDP) {
+        log_line("IP header is not UDP: %d", packet->ip.protocol);
+        return 0;
+    }
+    if (ntohs(packet->udp.dest) != DHCP_CLIENT_PORT) {
+        log_line("UDP destination port incorrect: %d", ntohs(packet->udp.dest));
+        return 0;
+    }
+    if (ntohs(packet->udp.len) !=
+        ntohs(packet->ip.tot_len) - sizeof packet->ip) {
+        log_line("UDP header length incorrect");
+        return 0;
+    }
+    return 1;
+}
+
 // Read a packet from a raw socket.  Returns -1 on fatal error, -2 on
 // transient error.
-static int get_raw_packet(struct dhcpmsg *payload, int fd)
+static int get_raw_packet(struct client_state_t *cs, struct dhcpmsg *payload,
+                          int fd)
 {
     struct ip_udp_dhcp_packet packet;
     memset(&packet, 0, sizeof packet);
@@ -256,31 +283,13 @@ static int get_raw_packet(struct dhcpmsg *payload, int fd)
     if (inc > ntohs(packet.ip.tot_len))
         log_line("Discarded extra bytes after reading a single UDP datagram.");
 
-    if (packet.ip.protocol != IPPROTO_UDP) {
-        log_line("IP header is not UDP: %d", packet.ip.protocol);
+    if (!cs->using_dhcp_bpf && !get_raw_packet_validate_bpf(&packet))
         return -2;
-    }
-    if (packet.ip.version != IPVERSION) {
-        log_line("IP version is not IPv4");
-        return -2;
-    }
-    if (packet.ip.ihl != sizeof packet.ip >> 2) {
-        log_line("IP header length incorrect");
-        return -2;
-    }
+
     if (!ip_checksum(&packet)) {
         log_line("IP header checksum incorrect");
         return -2;
     }
-    if (ntohs(packet.udp.dest) != DHCP_CLIENT_PORT) {
-        log_line("UDP destination port incorrect: %d", ntohs(packet.udp.dest));
-        return -2;
-    }
-    if (ntohs(packet.udp.len) != ntohs(packet.ip.tot_len) - sizeof packet.ip) {
-        log_line("UDP header length incorrect");
-        return -2;
-    }
-
     if (packet.udp.check && !udp_checksum(&packet)) {
         log_error("Packet with bad UDP checksum received, ignoring");
         return -2;
@@ -293,7 +302,7 @@ static int get_raw_packet(struct dhcpmsg *payload, int fd)
     return l;
 }
 
-static int create_raw_socket(struct sockaddr_ll *sa,
+static int create_raw_socket(struct client_state_t *cs, struct sockaddr_ll *sa,
                              const struct sock_fprog *filter_prog)
 {
     int fd;
@@ -302,10 +311,14 @@ static int create_raw_socket(struct sockaddr_ll *sa,
         goto out;
     }
 
-    // Ignoring error since kernel may lack support for BPF.
-    if (filter_prog && (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER,
-                        filter_prog, sizeof *filter_prog) >= 0))
-        log_line("Attached filter to raw socket fd %d", fd);
+    if (cs) {
+        if (filter_prog && (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER,
+                            filter_prog, sizeof *filter_prog) != -1)) {
+            cs->using_dhcp_bpf = 1;
+            log_line("Attached filter to raw socket fd %d", fd);
+        } else
+            cs->using_dhcp_bpf = 0;
+    }
 
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) == -1) {
@@ -329,13 +342,13 @@ out:
     return -1;
 }
 
-static int create_raw_listen_socket(int ifindex)
+static int create_raw_listen_socket(struct client_state_t *cs, int ifindex)
 {
     static const struct sock_filter sf_dhcp[] = {
-        // Verify that the packet has a valid IPv4 version nibble.
+        // Verify that the packet has a valid IPv4 version nibble and
+        // that no IP options are defined.
         BPF_STMT(BPF_LD + BPF_B + BPF_ABS, 0),
-        BPF_STMT(BPF_ALU + BPF_AND + BPF_K, 0xf0),
-        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x40, 1, 0),
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x45, 1, 0),
         BPF_STMT(BPF_RET + BPF_K, 0),
         // Verify that the IP header has a protocol number indicating UDP.
         BPF_STMT(BPF_LD + BPF_B + BPF_ABS, 9),
@@ -348,8 +361,18 @@ static int create_raw_listen_socket(int ifindex)
         BPF_STMT(BPF_LD + BPF_W + BPF_IND, 0),
         BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, (67 << 16) + 68, 1, 0),
         BPF_STMT(BPF_RET + BPF_K, 0),
-        // Pass the number of octets that are specified in the IPv4 header.
+        // Get the UDP length field and store it in X.
+        BPF_STMT(BPF_LD + BPF_H + BPF_IND, 4),
+        BPF_STMT(BPF_MISC + BPF_TAX, 0),
+        // Get the IPv4 length field and store it in A and M[0].
         BPF_STMT(BPF_LD + BPF_H + BPF_ABS, 2),
+        BPF_STMT(BPF_ST, 0),
+        // Verify that UDP length = IP length - IP header size
+        BPF_STMT(BPF_ALU + BPF_SUB + BPF_K, 20),
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_X, 0, 1, 0),
+        BPF_STMT(BPF_RET + BPF_K, 0),
+        // Pass the number of octets that are specified in the IPv4 header.
+        BPF_STMT(BPF_LD + BPF_MEM, 0),
         BPF_STMT(BPF_RET + BPF_A, 0),
     };
     static const struct sock_fprog sfp_dhcp = {
@@ -363,7 +386,7 @@ static int create_raw_listen_socket(int ifindex)
         .sll_protocol = htons(ETH_P_IP),
         .sll_ifindex = ifindex,
     };
-    return create_raw_socket(&sa, &sfp_dhcp);
+    return create_raw_socket(cs, &sa, &sfp_dhcp);
 }
 
 // Broadcast a DHCP message using a raw socket.
@@ -377,7 +400,7 @@ static int send_dhcp_raw(struct dhcpmsg *payload)
         .sll_halen = 6,
     };
     memcpy(da.sll_addr, "\xff\xff\xff\xff\xff\xff", 6);
-    int fd = create_raw_socket(&da, NULL);
+    int fd = create_raw_socket(NULL, &da, NULL);
     if (fd == -1)
         return ret;
 
@@ -443,8 +466,8 @@ static void change_listen_mode(struct client_state_t *cs, int new_mode)
         return;
     }
     cs->listenFd = new_mode == LM_RAW ?
-        create_raw_listen_socket(client_config.ifindex) :
-        create_udp_listen_socket(INADDR_ANY, DHCP_CLIENT_PORT,
+        create_raw_listen_socket(cs, client_config.ifindex) :
+        create_udp_listen_socket(cs, INADDR_ANY, DHCP_CLIENT_PORT,
                                  client_config.interface);
     if (cs->listenFd < 0) {
         log_error("FATAL: couldn't listen on socket: %s.", strerror(errno));
@@ -480,7 +503,7 @@ void handle_packet(struct client_state_t *cs)
     if (cs->listenMode == LM_COOKED)
         len = get_cooked_packet(&packet, cs->listenFd);
     else if (cs->listenMode == LM_RAW)
-        len = get_raw_packet(&packet, cs->listenFd);
+        len = get_raw_packet(cs, &packet, cs->listenFd);
     else // LM_NONE
         return;
 
