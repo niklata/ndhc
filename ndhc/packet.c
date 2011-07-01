@@ -57,7 +57,6 @@ static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
         log_error("create_udp_socket: socket failed: %s", strerror(errno));
         goto out;
     }
-
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt) == -1) {
         log_error("create_udp_socket: set reuse addr failed: %s",
@@ -103,11 +102,9 @@ static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
 static int create_udp_listen_socket(unsigned int ip, int port, char *inf)
 {
     log_line("Opening listen socket on 0x%08x:%d %s", ip, port, inf);
-
     int fd = create_udp_socket(ip, port, inf);
     if (fd == -1)
         return -1;
-
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &opt, sizeof opt) == -1) {
         log_error("create_udp_listen_socket: set broadcast failed: %s",
@@ -115,7 +112,6 @@ static int create_udp_listen_socket(unsigned int ip, int port, char *inf)
         close(fd);
         return -1;
     }
-
     return fd;
 }
 
@@ -365,16 +361,12 @@ static int create_raw_listen_socket(int ifindex)
     };
 
     log_line("Opening raw socket on ifindex %d", ifindex);
-
     struct sockaddr_ll sa = {
         .sll_family = AF_PACKET,
         .sll_protocol = htons(ETH_P_IP),
         .sll_ifindex = ifindex,
     };
-    int fd = create_raw_socket(&sa, &filter_prog);
-    if (fd == -1)
-        return -1;
-    return fd;
+    return create_raw_socket(&sa, &filter_prog);
 }
 
 // Broadcast a DHCP message using a raw socket.
@@ -449,19 +441,13 @@ void change_listen_mode(struct client_state_t *cs, int new_mode)
         close(cs->listenFd);
         cs->listenFd = -1;
     }
-    switch (new_mode) {
-        case LM_NONE:
-            log_line("Stopped listening for DHCP packets.");
-            return;
-        case LM_RAW:
-            cs->listenFd = create_raw_listen_socket(client_config.ifindex);
-            break;
-        case LM_KERNEL:
-            cs->listenFd =
-                create_udp_listen_socket(INADDR_ANY, DHCP_CLIENT_PORT,
-                                         client_config.interface);
-            break;
+    if (new_mode != (LM_RAW || LM_KERNEL)) {
+        log_line("Stopped listening for DHCP packets.");
+        return;
     }
+    cs->listenFd = LM_RAW ? create_raw_listen_socket(client_config.ifindex) :
+        create_udp_listen_socket(INADDR_ANY, DHCP_CLIENT_PORT,
+                                 client_config.interface);
     if (cs->listenFd < 0) {
         log_error("FATAL: couldn't listen on socket: %s.", strerror(errno));
         exit(EXIT_FAILURE);
@@ -489,7 +475,6 @@ void handle_packet(struct client_state_t *cs)
         // Transient issue handled by packet collection functions.
         if (len == -2 || (len == -1 && errno == EINTR))
             return;
-
         log_error("Error when reading from listening socket: %s.  Reopening listening socket.",
                   strerror(errno));
         change_listen_mode(cs, cs->listenMode);
@@ -499,18 +484,15 @@ void handle_packet(struct client_state_t *cs)
         log_line("Packet is too short to contain magic cookie. Ignoring.");
         return;
     }
-
     if (ntohl(packet.cookie) != DHCP_MAGIC) {
         log_line("Packet with bad magic number. Ignoring.");
         return;
     }
-
     if (packet.xid != cs->xid) {
         log_line("Packet XID %lx does not equal our XID %lx.  Ignoring.",
                  packet.xid, cs->xid);
         return;
     }
-
     if (!(message = get_option_data(&packet, DHCP_MESSAGE_TYPE, &optlen))) {
         log_line("Packet does not specify a DHCP message type. Ignoring.");
         return;
