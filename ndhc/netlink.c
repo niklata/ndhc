@@ -42,6 +42,14 @@
 
 #define NLMSG_RECVSIZE 8192
 
+enum {
+    IFS_NONE = 0,
+    IFS_UP,
+    IFS_DOWN,
+    IFS_SHUT,
+    IFS_REMOVED
+};
+
 static unsigned int nl_seq;
 
 /* internal callback handling */
@@ -115,7 +123,7 @@ static void takedown_if(struct client_state_t *cs)
     ifchange(NULL, IFCHANGE_DECONFIG);
     cs->dhcpState = DS_SELECTING;
     cs->timeout = 0;
-    cs->requestedIP = 0;
+    cs->clientAddr = 0;
     cs->packetNum = 0;
     set_listen_raw(cs);
 }

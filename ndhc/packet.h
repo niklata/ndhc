@@ -79,10 +79,11 @@ void set_listen_raw(struct client_state_t *cs);
 void set_listen_cooked(struct client_state_t *cs);
 void set_listen_none(struct client_state_t *cs);
 void handle_packet(struct client_state_t *cs);
-int send_discover(uint32_t xid, uint32_t requested);
-int send_selecting(uint32_t xid, uint32_t server, uint32_t requested);
-int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr);
-int send_decline(uint32_t xid, uint32_t server, uint32_t requested);
-int send_release(uint32_t server, uint32_t ciaddr);
+int send_discover(struct client_state_t *cs);
+int send_selecting(struct client_state_t *cs);
+int send_renew(struct client_state_t *cs);
+int send_rebind(struct client_state_t *cs);
+int send_decline(struct client_state_t *cs, uint32_t server);
+int send_release(struct client_state_t *cs);
 
 #endif

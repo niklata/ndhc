@@ -23,14 +23,6 @@
 
 #include <stdint.h>
 
-enum {
-    IFS_NONE = 0,
-    IFS_UP,
-    IFS_DOWN,
-    IFS_SHUT,
-    IFS_REMOVED
-};
-
 struct client_state_t {
     unsigned long long leaseStartTime;
     int dhcpState;
@@ -40,7 +32,7 @@ struct client_state_t {
     int packetNum;
     int epollFd, signalFd, listenFd, arpFd, nlFd;
     int timeout, oldTimeout;
-    uint32_t requestedIP, serverAddr, routerAddr;
+    uint32_t clientAddr, serverAddr, routerAddr;
     uint32_t lease, renewTime, rebindTime, xid;
     int using_dhcp_bpf;
     uint8_t routerArp[6];

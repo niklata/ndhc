@@ -60,9 +60,6 @@
 #define VERSION "1.0"
 
 struct client_state_t cs = {
-    .dhcpState = DS_SELECTING,
-    .arpPrevState = DS_SELECTING,
-    .ifsPrevState = IFS_NONE,
     .init = 1,
     .epollFd = -1,
     .signalFd = -1,
@@ -75,8 +72,6 @@ struct client_state_t cs = {
 struct client_config_t client_config = {
     /* Default options. */
     .interface = "eth0",
-    .clientid = NULL,
-    .hostname = NULL,
     .arp = "\0\0\0\0\0\0",
 };
 
@@ -252,7 +247,7 @@ int main(int argc, char **argv)
                 client_config.quit_after_lease = 1;
                 break;
             case 'r':
-                cs.requestedIP = inet_addr(optarg);
+                cs.clientAddr = inet_addr(optarg);
                 break;
             case 'u':
                 pwd = getpwnam(optarg);

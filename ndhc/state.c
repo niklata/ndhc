@@ -63,7 +63,7 @@ static int delay_timeout(int numpackets)
 static void requesting_timeout(struct client_state_t *cs)
 {
     if (cs->packetNum < 5) {
-        send_selecting(cs->xid, cs->serverAddr, cs->requestedIP);
+        send_selecting(cs);
         cs->timeout = delay_timeout(cs->packetNum);
         cs->packetNum++;
     } else {
@@ -107,7 +107,7 @@ static void renewing_timeout(struct client_state_t *cs)
     if (ct < rbt) {
         long long wt = (rbt - ct) / 2;
         if (wt >= 30000)
-            send_renew(cs->xid, cs->serverAddr, cs->requestedIP);
+            send_renew(cs);
         else
             wt = rbt - ct;
         cs->timeout = wt;
@@ -133,7 +133,7 @@ static void rebinding_timeout(struct client_state_t *cs)
     if (ct < elt) {
         long long wt = (elt - ct) / 2;
         if (wt >= 30000)
-            send_renew(cs->xid, 0, cs->requestedIP);
+            send_rebind(cs);
         else
             wt = elt - ct;
         cs->timeout = wt;
@@ -176,7 +176,7 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
             ifchange(NULL, IFCHANGE_DECONFIG);
             cs->dhcpState = DS_SELECTING;
             cs->timeout = 30000;
-            cs->requestedIP = 0;
+            cs->clientAddr = 0;
             cs->packetNum = 0;
             set_listen_raw(cs);
         }
@@ -188,7 +188,7 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
             ifchange(NULL, IFCHANGE_DECONFIG);
         cs->dhcpState = DS_SELECTING;
         cs->timeout = 3000;
-        cs->requestedIP = 0;
+        cs->clientAddr = 0;
         cs->packetNum = 0;
         set_listen_raw(cs);
     }
@@ -203,7 +203,7 @@ static void selecting_packet(struct client_state_t *cs, struct dhcpmsg *packet,
         if ((temp = get_option_data(packet, DHCP_SERVER_ID, &optlen))) {
             memcpy(&cs->serverAddr, temp, 4);
             cs->xid = packet->xid;
-            cs->requestedIP = packet->yiaddr;
+            cs->clientAddr = packet->yiaddr;
             cs->dhcpState = DS_REQUESTING;
             cs->timeout = 0;
             cs->packetNum = 0;
@@ -221,7 +221,7 @@ static void selecting_timeout(struct client_state_t *cs)
 {
     if (cs->packetNum == 0)
         cs->xid = libc_random_u32();
-    send_discover(cs->xid, cs->requestedIP);
+    send_discover(cs);
     cs->timeout = delay_timeout(cs->packetNum);
     cs->packetNum++;
     if (cs->init && cs->packetNum >= 2) {
@@ -245,9 +245,9 @@ static void anfrelease(struct client_state_t *cs)
 static void nfrelease(struct client_state_t *cs)
 {
     log_line("Unicasting a release of %s to %s.",
-             inet_ntoa((struct in_addr){.s_addr=cs->requestedIP}),
+             inet_ntoa((struct in_addr){.s_addr=cs->clientAddr}),
              inet_ntoa((struct in_addr){.s_addr=cs->serverAddr}));
-    send_release(cs->serverAddr, cs->requestedIP);
+    send_release(cs);
     ifchange(NULL, IFCHANGE_DECONFIG);
     frelease(cs);
 }
@@ -270,7 +270,7 @@ static void frenew(struct client_state_t *cs)
             arp_close_fd(cs);
             cs->dhcpState = DS_RENEWING;
             set_listen_cooked(cs);
-            send_renew(cs->xid, cs->serverAddr, cs->requestedIP);
+            send_renew(cs);
             break;
         case DS_ARP_CHECK:
             // Cancel arp ping in progress and treat as previous state.

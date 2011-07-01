@@ -92,5 +92,6 @@ ssize_t get_end_option_idx(struct dhcpmsg *packet);
 size_t add_option_string(struct dhcpmsg *packet, uint8_t *optstr);
 size_t add_u32_option(struct dhcpmsg *packet, uint8_t code, uint32_t data);
 void add_option_request_list(struct dhcpmsg *packet);
+void add_option_vendor_string(struct dhcpmsg *packet);
 
 #endif

@@ -204,12 +204,12 @@ static void arp_failed(struct client_state_t *cs)
 {
     log_line("arp: Offered address is in use -- declining");
     arp_close_fd(cs);
-    send_decline(cs->xid, cs->serverAddr, arp_dhcp_packet.yiaddr);
+    send_decline(cs, arp_dhcp_packet.yiaddr);
 
     if (cs->arpPrevState != DS_REQUESTING)
         ifchange(NULL, IFCHANGE_DECONFIG);
     cs->dhcpState = DS_SELECTING;
-    cs->requestedIP = 0;
+    cs->clientAddr = 0;
     cs->timeout = 0;
     cs->packetNum = 0;
     set_listen_raw(cs);
@@ -224,7 +224,7 @@ void arp_gw_failed(struct client_state_t *cs)
     cs->dhcpState = DS_SELECTING;
     cs->oldTimeout = 0;
     cs->timeout = 0;
-    cs->requestedIP = 0;
+    cs->clientAddr = 0;
     cs->packetNum = 0;
     set_listen_raw(cs);
 }
@@ -237,7 +237,7 @@ void arp_success(struct client_state_t *cs)
     struct in_addr temp_addr = {.s_addr = arp_dhcp_packet.yiaddr};
     log_line("arp: Lease of %s obtained, lease time %ld",
              inet_ntoa(temp_addr), cs->lease);
-    cs->requestedIP = arp_dhcp_packet.yiaddr;
+    cs->clientAddr = arp_dhcp_packet.yiaddr;
     cs->dhcpState = DS_BOUND;
     cs->init = 0;
     ifchange(&arp_dhcp_packet,

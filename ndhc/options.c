@@ -308,3 +308,14 @@ void add_option_request_list(struct dhcpmsg *packet)
     reqdata[1] = j - 2;
     add_option_string(packet, reqdata);
 }
+
+void add_option_vendor_string(struct dhcpmsg *packet)
+{
+    struct vendor  {
+        char vendor;
+        char length;
+        char str[sizeof "ndhc"];
+    } vendor_id = { DHCP_VENDOR,  sizeof "ndhc" - 1, "ndhc"};
+    add_option_string(packet, (uint8_t *)&vendor_id);
+}
+
