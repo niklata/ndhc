@@ -3,7 +3,6 @@
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  * (c) 2001 Russ Dill <Russ.Dill@asu.edu>
- * Kernel BPF filter is (c) 2006, 2007 Stefan Rompf <sux@loplof.de>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -332,38 +331,30 @@ out:
 
 static int create_raw_listen_socket(int ifindex)
 {
-    /*
-     * Comment:
-     *   I've selected not to see LL header, so BPF doesn't see it, too.
-     *   The filter may also pass non-IP and non-ARP packets, but we do
-     *   a more complete check when receiving the message in userspace.
-     * and filter shamelessly stolen from:
-     *   http://www.flamewarmaster.de/software/dhcpclient/
-     *
-     *  Copyright: 2006, 2007 Stefan Rompf <sux@loplof.de>.
-     *  License: GPL v2.
-     */
-#define SERVER_AND_CLIENT_PORTS  ((67 << 16) + 68)
-    static const struct sock_filter filter_instr[] = {
-        /* check for udp */
-        BPF_STMT(BPF_LD|BPF_B|BPF_ABS, 9),
-        BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, IPPROTO_UDP, 2, 0),     /* L5, L1, is UDP? */
-        /* ugly check for arp on ethernet-like and IPv4 */
-        BPF_STMT(BPF_LD|BPF_W|BPF_ABS, 2),                      /* L1: */
-        BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, 0x08000604, 3, 4),      /* L3, L4 */
-        /* skip IP header */
-        BPF_STMT(BPF_LDX|BPF_B|BPF_MSH, 0),                     /* L5: */
-        /* check udp source and destination ports */
-        BPF_STMT(BPF_LD|BPF_W|BPF_IND, 0),
-        BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, SERVER_AND_CLIENT_PORTS, 0, 1),/* L3, L4 */
-        /* returns */
-        BPF_STMT(BPF_RET|BPF_K, 0x0fffffff ),                   /* L3: pass */
-        BPF_STMT(BPF_RET|BPF_K, 0),                             /* L4: reject */
+    static const struct sock_filter sf_dhcp[] = {
+        // Verify that the packet has a valid IPv4 version nibble.
+        BPF_STMT(BPF_LD + BPF_B + BPF_ABS, 0),
+        BPF_STMT(BPF_ALU + BPF_AND + BPF_K, 0xf0),
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x40, 1, 0),
+        BPF_STMT(BPF_RET + BPF_K, 0),
+        // Verify that the IP header has a protocol number indicating UDP.
+        BPF_STMT(BPF_LD + BPF_B + BPF_ABS, 9),
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, IPPROTO_UDP, 1, 0),
+        BPF_STMT(BPF_RET + BPF_K, 0),
+        // Packet is UDP.  Advance X past the IP header.
+        BPF_STMT(BPF_LDX + BPF_B + BPF_MSH, 0),
+        // Verify that the UDP client and server ports match that of the
+        // IANA-assigned DHCP ports.
+        BPF_STMT(BPF_LD + BPF_W + BPF_IND, 0),
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, (67 << 16) + 68, 1, 0),
+        BPF_STMT(BPF_RET + BPF_K, 0),
+        // Pass the number of octets that are specified in the IPv4 header.
+        BPF_STMT(BPF_LD + BPF_H + BPF_ABS, 2),
+        BPF_STMT(BPF_RET + BPF_A, 0),
     };
-    static const struct sock_fprog filter_prog = {
-        .len = sizeof(filter_instr) / sizeof(filter_instr[0]),
-        /* casting const away: */
-        .filter = (struct sock_filter *) filter_instr,
+    static const struct sock_fprog sfp_dhcp = {
+        .len = sizeof sf_dhcp / sizeof sf_dhcp[0],
+        .filter = (struct sock_filter *)sf_dhcp,
     };
 
     log_line("Opening raw socket on ifindex %d", ifindex);
@@ -372,7 +363,7 @@ static int create_raw_listen_socket(int ifindex)
         .sll_protocol = htons(ETH_P_IP),
         .sll_ifindex = ifindex,
     };
-    return create_raw_socket(&sa, &filter_prog);
+    return create_raw_socket(&sa, &sfp_dhcp);
 }
 
 // Broadcast a DHCP message using a raw socket.
