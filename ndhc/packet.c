@@ -492,12 +492,35 @@ void set_listen_none(struct client_state_t *cs)
     change_listen_mode(cs, LM_NONE);
 }
 
+static int validate_dhcp_packet(struct client_state_t *cs, int len,
+                                struct dhcpmsg *packet, uint8_t **msg)
+{
+    ssize_t optlen;
+    if (len < sizeof *packet - sizeof packet->options) {
+        log_line("Packet is too short to contain magic cookie. Ignoring.");
+        return 0;
+    }
+    if (ntohl(packet->cookie) != DHCP_MAGIC) {
+        log_line("Packet with bad magic number. Ignoring.");
+        return 0;
+    }
+    if (packet->xid != cs->xid) {
+        log_line("Packet XID %lx does not equal our XID %lx.  Ignoring.",
+                 packet->xid, cs->xid);
+        return 0;
+    }
+    if (!(*msg = get_option_data(packet, DHCP_MESSAGE_TYPE, &optlen))) {
+        log_line("Packet does not specify a DHCP message type. Ignoring.");
+        return 0;
+    }
+    return 1;
+}
+
 void handle_packet(struct client_state_t *cs)
 {
     uint8_t *message = NULL;
     int len;
     struct dhcpmsg packet;
-    ssize_t optlen;
 
     if (cs->listenMode == LM_NONE)
         return;
@@ -508,29 +531,13 @@ void handle_packet(struct client_state_t *cs)
         // Transient issue handled by packet collection functions.
         if (len == -2 || (len == -1 && errno == EINTR))
             return;
-        log_error("Error when reading from listening socket: %s.  Reopening listening socket.",
+        log_error("Error reading from listening socket: %s.  Reopening.",
                   strerror(errno));
         change_listen_mode(cs, cs->listenMode);
     }
 
-    if (len < sizeof packet - sizeof packet.options) {
-        log_line("Packet is too short to contain magic cookie. Ignoring.");
+    if (!validate_dhcp_packet(cs, len, &packet, &message))
         return;
-    }
-    if (ntohl(packet.cookie) != DHCP_MAGIC) {
-        log_line("Packet with bad magic number. Ignoring.");
-        return;
-    }
-    if (packet.xid != cs->xid) {
-        log_line("Packet XID %lx does not equal our XID %lx.  Ignoring.",
-                 packet.xid, cs->xid);
-        return;
-    }
-    if (!(message = get_option_data(&packet, DHCP_MESSAGE_TYPE, &optlen))) {
-        log_line("Packet does not specify a DHCP message type. Ignoring.");
-        return;
-    }
-
     packet_action(cs, &packet, message);
 }
 
