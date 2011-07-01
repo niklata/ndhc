@@ -46,6 +46,7 @@ static struct arpMsg arpreply;
 static int arpreply_offset;
 static struct dhcpmsg arp_dhcp_packet;
 static int arp_packet_num;
+static int using_arp_bpf;
 
 static int arp_open_fd(struct client_state_t *cs)
 {
@@ -79,9 +80,9 @@ static int arp_open_fd(struct client_state_t *cs)
         goto out;
     }
 
-    // Ignoring error since kernel may lack support for BPF.
-    if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &sfp_arp,
-                   sizeof sfp_arp) >= 0)
+    using_arp_bpf = setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &sfp_arp,
+                               sizeof sfp_arp) != -1;
+    if (using_arp_bpf)
         log_line("Attached filter to raw ARP socket fd %d", fd);
 
     int opt = 1;
@@ -262,13 +263,10 @@ static void arp_gw_success(struct client_state_t *cs)
     cs->dhcpState = cs->arpPrevState;
 }
 
-// Note that this function will see all ARP traffic on the interface.
-// Therefore the validation shouldn't be noisy, and should silently
-// reject non-malformed ARP packets that are irrelevant.
-static int arp_validate(struct arpMsg *am)
+// ARP validation functions that will be performed by the BPF if it is
+// installed.
+static int arp_validate_bpf(struct arpMsg *am)
 {
-    if (!am)
-        return 0;
     if (am->h_proto != htons(ETH_P_ARP)) {
         log_warning("arp: IP header does not indicate ARP protocol");
         return 0;
@@ -289,19 +287,22 @@ static int arp_validate(struct arpMsg *am)
         log_warning("arp: ARP protocol address length invalid");
         return 0;
     }
-    if (am->operation != htons(ARPOP_REPLY)) {
-        /* log_warning("arp: ARP operation type is not 'reply': %x", */
-        /*             ntohs(am->operation)); */
+    return 1;
+}
+
+// Note that this function will see all ARP traffic on the interface.
+// Therefore the validation shouldn't be noisy, and should silently
+// reject non-malformed ARP packets that are irrelevant.
+static int arp_validate(struct arpMsg *am)
+{
+    if (!using_arp_bpf && !arp_validate_bpf(am))
         return 0;
-    }
-    if (memcmp(am->h_dest, client_config.arp, 6)) {
-        /* log_warning("arp: Ethernet destination does not equal our MAC"); */
+    if (am->operation != htons(ARPOP_REPLY))
         return 0;
-    }
-    if (memcmp(am->dmac, client_config.arp, 6)) {
-        /* log_warning("arp: ARP destination does not equal our MAC"); */
+    if (memcmp(am->h_dest, client_config.arp, 6))
         return 0;
-    }
+    if (memcmp(am->dmac, client_config.arp, 6))
+        return 0;
     return 1;
 }
 
