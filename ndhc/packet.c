@@ -447,11 +447,12 @@ static void change_listen_mode(struct client_state_t *cs, int new_mode)
         close(cs->listenFd);
         cs->listenFd = -1;
     }
-    if (new_mode != (LM_RAW || LM_COOKED)) {
+    if (new_mode == LM_NONE) {
         log_line("Stopped listening for DHCP packets.");
         return;
     }
-    cs->listenFd = LM_RAW ? create_raw_listen_socket(client_config.ifindex) :
+    cs->listenFd = new_mode == LM_RAW ?
+        create_raw_listen_socket(client_config.ifindex) :
         create_udp_listen_socket(INADDR_ANY, DHCP_CLIENT_PORT,
                                  client_config.interface);
     if (cs->listenFd < 0) {

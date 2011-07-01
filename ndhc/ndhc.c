@@ -63,19 +63,7 @@ struct client_state_t cs = {
     .dhcpState = DS_SELECTING,
     .arpPrevState = DS_SELECTING,
     .ifsPrevState = IFS_NONE,
-    .listenMode = 0,
-    .packetNum = 0,
-    .xid = 0,
-    .timeout = 0,
     .init = 1,
-    .oldTimeout = 0,
-    .leaseStartTime = 0,
-    .requestedIP = 0,
-    .serverAddr = 0,
-    .routerAddr = 0,
-    .lease = 0,
-    .renewTime = 0,
-    .rebindTime = 0,
     .epollFd = -1,
     .signalFd = -1,
     .listenFd = -1,
@@ -86,14 +74,9 @@ struct client_state_t cs = {
 
 struct client_config_t client_config = {
     /* Default options. */
-    .abort_if_no_lease = 0,
-    .foreground = 0,
-    .quit_after_lease = 0,
-    .background_if_no_lease = 0,
     .interface = "eth0",
     .clientid = NULL,
     .hostname = NULL,
-    .ifindex = 0,
     .arp = "\0\0\0\0\0\0",
 };
 
