@@ -20,7 +20,7 @@
 #ifndef OPTIONS_H_
 #define OPTIONS_H_
 
-#include "packet.h"
+#include "dhcp.h"
 
 /* DHCP option codes (partial list) */
 #define DHCP_PADDING            0x00

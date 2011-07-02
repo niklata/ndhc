@@ -42,7 +42,7 @@
 #include "config.h"
 #include "state.h"
 #include "options.h"
-#include "packet.h"
+#include "dhcp.h"
 #include "sys.h"
 #include "ifchange.h"
 #include "arp.h"

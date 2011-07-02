@@ -32,7 +32,7 @@
 
 #include "options.h"
 #include "config.h"
-#include "packet.h"
+#include "dhcp.h"
 #include "options.h"
 #include "arp.h"
 #include "log.h"

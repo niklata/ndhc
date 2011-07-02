@@ -32,7 +32,7 @@
 #include <errno.h>
 #include "arp.h"
 #include "state.h"
-#include "packet.h"
+#include "dhcp.h"
 #include "sys.h"
 #include "ifchange.h"
 #include "leasefile.h"

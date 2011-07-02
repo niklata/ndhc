@@ -28,7 +28,7 @@
 #include <net/if_arp.h>
 
 #include "config.h"
-#include "packet.h"
+#include "dhcp.h"
 
 struct arpMsg {
     /* Ethernet header */

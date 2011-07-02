@@ -2,7 +2,7 @@
 #define NDHC_STATE_H_
 
 #include "config.h"
-#include "packet.h"
+#include "dhcp.h"
 
 typedef enum {
     DS_SELECTING = 0,

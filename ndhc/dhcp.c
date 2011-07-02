@@ -35,7 +35,7 @@
 #include <time.h>
 #include <errno.h>
 
-#include "packet.h"
+#include "dhcp.h"
 #include "state.h"
 #include "arp.h"
 #include "ifchange.h"

@@ -21,7 +21,7 @@
 #ifndef IFCHANGE_H_
 #define IFCHANGE_H_
 
-#include "packet.h"
+#include "dhcp.h"
 
 enum {
     IFCHANGE_DECONFIG = 0,
