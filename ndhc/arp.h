@@ -31,22 +31,22 @@
 #include "dhcp.h"
 
 struct arpMsg {
-    /* Ethernet header */
-    uint8_t  h_dest[6];     /* 00 destination ether addr */
-    uint8_t  h_source[6];   /* 06 source ether addr */
-    uint16_t h_proto;       /* 0c packet type ID field */
+    // Ethernet header
+    uint8_t  h_dest[6];     // 00 destination ether addr
+    uint8_t  h_source[6];   // 06 source ether addr
+    uint16_t h_proto;       // 0c packet type ID field
 
-    /* ARP packet */
-    uint16_t htype;         /* 0e hardware type (must be ARPHRD_ETHER) */
-    uint16_t ptype;         /* 10 protocol type (must be ETH_P_IP) */
-    uint8_t  hlen;          /* 12 hardware address length (must be 6) */
-    uint8_t  plen;          /* 13 protocol address length (must be 4) */
-    uint16_t operation;     /* 14 ARP opcode */
-    uint8_t  smac[6];       /* 16 sender's hardware address */
-    uint8_t  sip4[4];       /* 1c sender's IP address */
-    uint8_t  dmac[6];       /* 20 target's hardware address */
-    uint8_t  dip4[4];       /* 26 target's IP address */
-    uint8_t  pad[18];       /* 2a pad for min. ethernet payload (60 bytes) */
+    // ARP packet
+    uint16_t htype;         // 0e hardware type (must be ARPHRD_ETHER)
+    uint16_t ptype;         // 10 protocol type (must be ETH_P_IP)
+    uint8_t  hlen;          // 12 hardware address length (must be 6)
+    uint8_t  plen;          // 13 protocol address length (must be 4)
+    uint16_t operation;     // 14 ARP opcode
+    uint8_t  smac[6];       // 16 sender's hardware address
+    uint8_t  sip4[4];       // 1c sender's IP address
+    uint8_t  dmac[6];       // 20 target's hardware address
+    uint8_t  dip4[4];       // 26 target's IP address
+    uint8_t  pad[18];       // 2a pad for min. ethernet payload (60 bytes)
 };
 
 int arp_close_fd(struct client_state_t *cs);

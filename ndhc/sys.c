@@ -57,7 +57,7 @@ void background(struct client_state_t *cs)
 {
     static char called;
     if (!called) {
-        called = 1;  /* Do not fork again. */
+        called = 1;  // Do not fork again.
         if (daemon(0, 0) == -1) {
             perror("fork");
             exit(EXIT_SUCCESS);

@@ -69,7 +69,6 @@ struct client_state_t cs = {
 };
 
 struct client_config_t client_config = {
-    /* Default options. */
     .interface = "eth0",
     .arp = "\0\0\0\0\0\0",
 };
@@ -200,7 +199,6 @@ int main(int argc, char **argv)
         {0, 0, 0, 0}
     };
 
-    /* get options */
     while (1) {
         int option_index = 0;
         c = getopt_long(argc, argv, "c:fbp:H:h:i:np:l:qr:u:C:vV:", arg_options,

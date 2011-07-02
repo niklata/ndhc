@@ -84,12 +84,12 @@ static void sleep_if(struct client_state_t *cs)
     cs->timeout = -1;
 }
 
-static int data_attr_cb(const struct nlattr *attr, void *data)
+static int nl_process_msgs_attr(const struct nlattr *attr, void *data)
 {
     const struct nlattr **tb = data;
     int type = mnl_attr_get_type(attr);
 
-    /* skip unsupported attribute in user-space */
+    // skip unsupported attribute in user-space
     if (mnl_attr_type_valid(attr, IFLA_MAX) < 0)
         return MNL_CB_OK;
     switch (type) {
@@ -114,7 +114,7 @@ static void get_if_index_and_mac(const struct nlmsghdr *nlh,
                                  struct ifinfomsg *ifm,
                                  const struct nlattr **tb)
 {
-    mnl_attr_parse(nlh, sizeof(*ifm), data_attr_cb, tb);
+    mnl_attr_parse(nlh, sizeof *ifm, nl_process_msgs_attr, tb);
     if (!tb[IFLA_IFNAME])
         return;
     if (!strcmp(client_config.interface, mnl_attr_get_str(tb[IFLA_IFNAME]))) {
@@ -135,7 +135,7 @@ static void get_if_index_and_mac(const struct nlmsghdr *nlh,
     }
 }
 
-static int data_cb(const struct nlmsghdr *nlh, void *data)
+static int nl_process_msgs(const struct nlmsghdr *nlh, void *data)
 {
     struct nlattr *tb[IFLA_MAX+1] = {0};
     struct ifinfomsg *ifm = mnl_nlmsg_get_payload(nlh);
@@ -204,7 +204,7 @@ void handle_nl_message(struct client_state_t *cs)
     assert(cs->nlFd != -1);
     do {
         ret = mnl_socket_recvfrom(mls, buf, sizeof buf);
-        ret = mnl_cb_run(buf, ret, 0, 0, data_cb, cs);
+        ret = mnl_cb_run(buf, ret, 0, 0, nl_process_msgs, cs);
     } while (ret > 0);
     if (ret == -1)
         log_line("nl callback function returned error: %s", strerror(errno));

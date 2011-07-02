@@ -43,8 +43,8 @@
 extern struct client_state_t cs;
 static char router_set;
 
-/* Fill buf with the ifchd command text of option 'option'. */
-/* Returns 0 if successful, -1 if nothing was filled in. */
+// Fill buf with the ifchd command text of option 'option'.
+// Returns 0 if successful, -1 if nothing was filled in.
 static int ifchd_cmd(char *buf, size_t buflen, uint8_t *option, ssize_t optlen,
                      uint8_t code)
 {
