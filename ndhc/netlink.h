@@ -22,6 +22,14 @@
 
 #include "state.h"
 
+enum {
+    IFS_NONE = 0,
+    IFS_UP,
+    IFS_DOWN,
+    IFS_SHUT,
+    IFS_REMOVED
+};
+
 int nl_open(struct client_state_t *cs);
 void handle_nl_message(struct client_state_t *cs);
 int nl_getifdata(const char *ifname, struct client_state_t *cs);

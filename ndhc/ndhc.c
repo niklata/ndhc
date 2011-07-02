@@ -304,7 +304,8 @@ int main(int argc, char **argv)
             "cap_net_bind_service,cap_net_broadcast,cap_net_raw=ep");
     drop_root(uid, gid);
 
-    ifchange(NULL, IFCHANGE_DECONFIG);
+    if (cs.ifsPrevState != IFS_UP)
+        ifchange(NULL, IFCHANGE_DECONFIG);
 
     do_work();
     return EXIT_SUCCESS; // Never reached.

@@ -40,14 +40,6 @@
 #include "arp.h"
 #include "log.h"
 
-enum {
-    IFS_NONE = 0,
-    IFS_UP,
-    IFS_DOWN,
-    IFS_SHUT,
-    IFS_REMOVED
-};
-
 static struct mnl_socket *mls;
 
 static void nl_close(struct client_state_t *cs)
