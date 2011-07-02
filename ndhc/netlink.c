@@ -72,9 +72,9 @@ int nl_open(struct client_state_t *cs)
     return -1;
 }
 
-static void takedown_if(struct client_state_t *cs)
+static void restart_if(struct client_state_t *cs)
 {
-    log_line("nl: taking down interface");
+    log_line("nl: %s back, querying for new lease", client_config.interface);
     // XXX: Same as packet.c - merge somehow?
     ifchange(NULL, IFCHANGE_DECONFIG);
     cs->dhcpState = DS_SELECTING;
@@ -82,6 +82,14 @@ static void takedown_if(struct client_state_t *cs)
     cs->clientAddr = 0;
     cs->packetNum = 0;
     set_listen_raw(cs);
+}
+
+static void sleep_if(struct client_state_t *cs)
+{
+    arp_close_fd(cs);
+    set_listen_none(cs);
+    cs->dhcpState = DS_RELEASED;
+    cs->timeout = -1;
 }
 
 static int data_attr_cb(const struct nlattr *attr, void *data)
@@ -135,8 +143,6 @@ static void get_if_index_and_mac(const struct nlmsghdr *nlh,
     }
 }
 
-// XXX: Rather than exit, go into RELEASE state until a new hardware event
-// forces wakeup.
 static int data_cb(const struct nlmsghdr *nlh, void *data)
 {
     struct nlattr *tb[IFLA_MAX+1] = {0};
@@ -149,7 +155,9 @@ static int data_cb(const struct nlmsghdr *nlh, void *data)
                 get_if_index_and_mac(nlh, ifm, (const struct nlattr **)tb);
             if (ifm->ifi_index != client_config.ifindex)
                 break;
+            // IFF_UP corresponds to ifconfig down or ifconfig up.
             if (ifm->ifi_flags & IFF_UP) {
+                // IFF_RUNNING is the hardware carrier.
                 if (ifm->ifi_flags & IFF_RUNNING) {
                     if (cs->ifsPrevState != IFS_UP) {
                         cs->ifsPrevState = IFS_UP;
@@ -162,25 +170,23 @@ static int data_cb(const struct nlmsghdr *nlh, void *data)
                             else
                                 log_line("nl: interface back, revalidating lease");
                         // If we don't have a lease, state -> SELECTING.
-                        } else if (cs->dhcpState != DS_SELECTING) {
-                            log_line("nl: interface back, querying for new lease");
-                            takedown_if(cs);
-                        }
+                        } else if (cs->dhcpState != DS_SELECTING)
+                            restart_if(cs);
                     }
                 } else {
+                    // No hardware carrier.
                     if (cs->ifsPrevState != IFS_DOWN) {
-                        // Interface was marked up but not running.
-                        // Get a new lease from scratch.
+                        log_line("Interface carrier down.  Going to sleep.");
                         cs->ifsPrevState = IFS_DOWN;
-                        takedown_if(cs);
+                        sleep_if(cs);
                     }
                 }
             } else {
-                // No hardware carrier.
+                // User shut down the interface.
                 if (cs->ifsPrevState != IFS_SHUT) {
+                    log_line("Interface shut down.  Going to sleep.");
                     cs->ifsPrevState = IFS_SHUT;
-                    log_line("Interface shut down; exiting.");
-                    exit(EXIT_SUCCESS);
+                    sleep_if(cs);
                 }
             }
             break;
