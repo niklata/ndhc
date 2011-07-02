@@ -60,8 +60,8 @@ struct dhcpmsg {
     uint8_t chaddr[16];  // Client MAC address
     uint8_t sname[64];   // Server host name (optional); null-terminated string
     uint8_t file[128];   // boot file name, null-terminated string
-    uint32_t cookie;
-    uint8_t options[308]; /* 312 - cookie */
+    uint32_t cookie;     // Magic number cookie that starts DHCP options
+    uint8_t options[308]; // Size of options excluding the cookie.
 };
 
 struct ip_udp_dhcp_packet {

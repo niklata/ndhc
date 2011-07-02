@@ -227,7 +227,7 @@ size_t add_option_string(struct dhcpmsg *packet, uint8_t code, char *str,
         return 0;
     }
 
-    size_t end = get_end_option_idx(packet);
+    ssize_t end = get_end_option_idx(packet);
     if (end == -1) {
         log_warning("add_option_string: Buffer has no DHCP_END marker");
         return 0;
@@ -243,30 +243,70 @@ size_t add_option_string(struct dhcpmsg *packet, uint8_t code, char *str,
     return len;
 }
 
-// XXX: length=1 and length=2 will fail if data is big-endian.
-size_t add_u32_option(struct dhcpmsg *packet, uint8_t code, uint32_t data)
+static ssize_t add_option_check(struct dhcpmsg *packet, uint8_t code,
+                                uint8_t rlen)
 {
     size_t length = option_length(code);
-
-    if (!length) {
-        log_warning("add_u32_option: option code 0x%02x has 0 length", code);
-        return 0;
+    if (length != rlen) {
+        log_warning("add_u%01u_option: length mismatch code=0x%02x len=%01u",
+                    rlen*8, code, length);
+        return -1;
     }
-    size_t end = get_end_option_idx(packet);
+    ssize_t end = get_end_option_idx(packet);
     if (end == -1) {
-        log_warning("add_u32_option: Buffer has no DHCP_END marker");
-        return 0;
+        log_warning("add_u%01u_option: Buffer has no DHCP_END marker", rlen*8);
+        return -1;
     }
-    if (end + 2 + length >= sizeof packet->options) {
-        log_warning("add_u32_option: No space for option 0x%02x", code);
-        return 0;
+    if (end + 2 + rlen >= sizeof packet->options) {
+        log_warning("add_u%01u_option: No space for option 0x%02x",
+                    rlen*8, code);
+        return -1;
     }
+    return end;
+}
+
+size_t add_u8_option(struct dhcpmsg *packet, uint8_t code, uint8_t data)
+{
+    ssize_t end = add_option_check(packet, code, 1);
+    if (end < 0)
+        return 0;
     packet->options[end] = code;
-    packet->options[end+1] = length;
-    // XXX: this is broken: it's alignment-safe, but the endianness is wrong
-    memcpy(packet->options + end + 2, &data, length);
-    packet->options[end+length+2] = DHCP_END;
-    return length+2;
+    packet->options[end+1] = 1;
+    packet->options[end+2] = data;
+    packet->options[end+3] = DHCP_END;
+    return 3;
+}
+
+// Data should be in network byte order.
+size_t add_u16_option(struct dhcpmsg *packet, uint8_t code, uint16_t data)
+{
+    ssize_t end = add_option_check(packet, code, 2);
+    if (end < 0)
+        return 0;
+    uint8_t *dp = (uint8_t *)&data;
+    packet->options[end] = code;
+    packet->options[end+1] = 2;
+    packet->options[end+2] = dp[0];
+    packet->options[end+3] = dp[1];
+    packet->options[end+4] = DHCP_END;
+    return 4;
+}
+
+// Data should be in network byte order.
+size_t add_u32_option(struct dhcpmsg *packet, uint8_t code, uint32_t data)
+{
+    ssize_t end = add_option_check(packet, code, 4);
+    if (end < 0)
+        return 0;
+    uint8_t *dp = (uint8_t *)&data;
+    packet->options[end] = code;
+    packet->options[end+1] = 4;
+    packet->options[end+2] = dp[0];
+    packet->options[end+3] = dp[1];
+    packet->options[end+4] = dp[2];
+    packet->options[end+5] = dp[3];
+    packet->options[end+6] = DHCP_END;
+    return 6;
 }
 
 // Add a paramater request list for stubborn DHCP servers

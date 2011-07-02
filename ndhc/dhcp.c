@@ -569,7 +569,7 @@ static struct dhcpmsg init_packet(char type, uint32_t xid)
         .options[0] = DHCP_END,
         .xid = xid,
     };
-    add_u32_option(&packet, DHCP_MESSAGE_TYPE, type);
+    add_u8_option(&packet, DHCP_MESSAGE_TYPE, type);
     memcpy(packet.chaddr, client_config.arp, 6);
     add_option_clientid(&packet);
     add_option_hostname(&packet);
@@ -581,7 +581,7 @@ int send_discover(struct client_state_t *cs)
     struct dhcpmsg packet = init_packet(DHCPDISCOVER, cs->xid);
     if (cs->clientAddr)
         add_u32_option(&packet, DHCP_REQUESTED_IP, cs->clientAddr);
-    add_u32_option(&packet, DHCP_MAX_SIZE,
+    add_u16_option(&packet, DHCP_MAX_SIZE,
                    htons(sizeof(struct ip_udp_dhcp_packet)));
     add_option_request_list(&packet);
     add_option_vendor(&packet);
@@ -594,7 +594,7 @@ int send_selecting(struct client_state_t *cs)
     struct dhcpmsg packet = init_packet(DHCPREQUEST, cs->xid);
     add_u32_option(&packet, DHCP_REQUESTED_IP, cs->clientAddr);
     add_u32_option(&packet, DHCP_SERVER_ID, cs->serverAddr);
-    add_u32_option(&packet, DHCP_MAX_SIZE,
+    add_u16_option(&packet, DHCP_MAX_SIZE,
                    htons(sizeof(struct ip_udp_dhcp_packet)));
     add_option_request_list(&packet);
     add_option_vendor(&packet);
@@ -607,7 +607,7 @@ int send_renew(struct client_state_t *cs)
 {
     struct dhcpmsg packet = init_packet(DHCPREQUEST, cs->xid);
     packet.ciaddr = cs->clientAddr;
-    add_u32_option(&packet, DHCP_MAX_SIZE,
+    add_u16_option(&packet, DHCP_MAX_SIZE,
                    htons(sizeof(struct ip_udp_dhcp_packet)));
     add_option_request_list(&packet);
     add_option_vendor(&packet);
@@ -620,7 +620,7 @@ int send_rebind(struct client_state_t *cs)
     struct dhcpmsg packet = init_packet(DHCPREQUEST, cs->xid);
     packet.ciaddr = cs->clientAddr;
     add_u32_option(&packet, DHCP_REQUESTED_IP, cs->clientAddr);
-    add_u32_option(&packet, DHCP_MAX_SIZE,
+    add_u16_option(&packet, DHCP_MAX_SIZE,
                    htons(sizeof(struct ip_udp_dhcp_packet)));
     add_option_request_list(&packet);
     add_option_vendor(&packet);
