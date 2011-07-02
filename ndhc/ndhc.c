@@ -314,7 +314,5 @@ int main(int argc, char **argv)
     ifchange(NULL, IFCHANGE_DECONFIG);
 
     do_work();
-
-    nl_close(&cs);
-    return EXIT_SUCCESS;
+    return EXIT_SUCCESS; // Never reached.
 }

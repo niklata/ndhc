@@ -1,9 +1,6 @@
 /* netlink.h - netlink physical link notification handling and info retrieval
  *
  * (c) 2011 Nicholas J. Kain <njkain at gmail dot com>
- * (c) 2006-2007 Stefan Rompf <sux@loplof.de>
- *
- * This code was largely taken from Stefan Rompf's dhcpclient.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,8 +23,6 @@
 #include "state.h"
 
 int nl_open(struct client_state_t *cs);
-void nl_close(struct client_state_t *cs);
-void nl_queryifstatus(int ifidx, struct client_state_t *cs);
 void handle_nl_message(struct client_state_t *cs);
 int nl_getifdata(const char *ifname, struct client_state_t *cs);
 
