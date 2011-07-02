@@ -135,7 +135,6 @@ static int arpping(struct client_state_t *cs, uint32_t test_ip)
         .plen = 4,
         .operation = htons(ARPOP_REQUEST),
     };
-    memset(arp.h_dest, 0xff, 6);
     memcpy(arp.h_source, client_config.arp, 6);
     memcpy(arp.smac, client_config.arp, 6);
     memcpy(arp.dip4, &test_ip, sizeof test_ip);
@@ -154,6 +153,40 @@ static int arpping(struct client_state_t *cs, uint32_t test_ip)
         return -1;
     }
     arp_packet_num = 0;
+    return 0;
+}
+
+static int arp_announcement(struct client_state_t *cs)
+{
+    if (arp_open_fd(cs) == -1)
+        return -1;
+
+    struct arpMsg arp = {
+        .h_proto = htons(ETH_P_ARP),
+        .htype = htons(ARPHRD_ETHER),
+        .ptype = htons(ETH_P_IP),
+        .hlen = 6,
+        .plen = 4,
+        .operation = htons(ARPOP_REQUEST),
+    };
+    memcpy(arp.h_source, client_config.arp, 6);
+    memcpy(arp.smac, client_config.arp, 6);
+    memcpy(arp.sip4, &cs->clientAddr, 4);
+    memcpy(arp.dip4, &cs->clientAddr, 4);
+
+    struct sockaddr_ll addr = {
+        .sll_family = AF_PACKET,
+        .sll_ifindex = client_config.ifindex,
+        .sll_halen = 6,
+    };
+    memcpy(addr.sll_addr, client_config.arp, 6);
+
+    if (safe_sendto(cs->arpFd, (const char *)&arp, sizeof arp,
+                    0, (struct sockaddr *)&addr, sizeof addr) < 0) {
+        log_error("arp: announcement sendto failed: %s", strerror(errno));
+        arp_close_fd(cs);
+        return -1;
+    }
     return 0;
 }
 
@@ -231,6 +264,7 @@ void arp_gw_failed(struct client_state_t *cs)
 
 void arp_success(struct client_state_t *cs)
 {
+    arp_announcement(cs);
     arp_close_fd(cs);
     cs->timeout = (cs->renewTime * 1000) - (curms() - cs->leaseStartTime);
 
@@ -255,6 +289,7 @@ void arp_success(struct client_state_t *cs)
 static void arp_gw_success(struct client_state_t *cs)
 {
     log_line("arp: Gateway seems unchanged");
+    arp_announcement(cs);
     arp_close_fd(cs);
 
     cs->timeout = cs->oldTimeout;
