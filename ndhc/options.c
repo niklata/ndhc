@@ -24,7 +24,6 @@
 
 #include "options.h"
 #include "log.h"
-#include "malloc.h"
 
 struct dhcp_option {
     char name[10];
@@ -123,35 +122,6 @@ static size_t sizeof_option(uint8_t code, size_t datalen)
     return 2 + datalen;
 }
 
-uint8_t *alloc_option(uint8_t code, uint8_t *optdata, size_t datalen)
-{
-    uint8_t *buf;
-    size_t len = sizeof_option(code, datalen);
-    buf = xmalloc(len);
-    if (!optdata)
-        datalen = 0;
-    if ((code == DHCP_PADDING || code == DHCP_END) && len >= 1) {
-        buf[0] = code;
-    } else if (datalen <= 255 && len >= 2 + datalen) {
-        buf[0] = code;
-        buf[1] = datalen;
-        memcpy(buf + 2, optdata, datalen);
-    }
-    return buf;
-}
-
-// This is tricky -- the data must be prefixed by one byte indicating the
-// type of ARP MAC address (1 for ethernet) or 0 for a purely symbolic
-// identifier.
-uint8_t *alloc_dhcp_client_id_option(uint8_t type, uint8_t *idstr,
-                                     size_t idstrlen)
-{
-    uint8_t data[idstrlen + 1];
-    data[0] = type;
-    memcpy(data + 1, idstr, idstrlen);
-    return alloc_option(DHCP_CLIENT_ID, data, sizeof data);
-}
-
 // Worker function for get_option_data().  Optlen will be set to the length
 // of the option data.
 static uint8_t *do_get_option_data(uint8_t *buf, ssize_t buflen, int code,
@@ -248,74 +218,66 @@ ssize_t get_end_option_idx(struct dhcpmsg *packet)
 
 // add an option string to the options (an option string contains an option
 // code, length, then data)
-size_t add_option_string(struct dhcpmsg *packet, uint8_t *optstr)
+size_t add_option_string(struct dhcpmsg *packet, uint8_t code, char *str,
+                         size_t slen)
 {
-    size_t end = get_end_option_idx(packet);
-    size_t datalen = optstr[1];
+    size_t len = sizeof_option(code, slen);
+    if (slen > 255 || len != slen + 2) {
+        log_warning("add_option_string: Length checks failed.");
+        return 0;
+    }
 
+    size_t end = get_end_option_idx(packet);
     if (end == -1) {
         log_warning("add_option_string: Buffer has no DHCP_END marker");
         return 0;
     }
-    // end position + optstr length + option code/length + end option
-    if (end + datalen + 2 + 1 >= sizeof packet->options) {
-        log_warning("add_option_string: No space for option 0x%02x", optstr[0]);
+    if (end + len >= sizeof packet->options) {
+        log_warning("add_option_string: No space for option 0x%02x", code);
         return 0;
     }
-    memcpy(packet->options + end, optstr, datalen + 2);
-    packet->options[end + datalen + 2] = DHCP_END;
-    return datalen + 2;
+    packet->options[end] = code;
+    packet->options[end+1] = slen;
+    memcpy(packet->options + end + 2, str, slen);
+    packet->options[end+len] = DHCP_END;
+    return len;
 }
 
+// XXX: length=1 and length=2 will fail if data is big-endian.
 size_t add_u32_option(struct dhcpmsg *packet, uint8_t code, uint32_t data)
 {
-    int length = 0;
-    uint8_t option[6];
-
-    length = option_length(code);
-
-    option[0] = code;
-    option[1] = length;
+    size_t length = option_length(code);
 
     if (!length) {
         log_warning("add_u32_option: option code 0x%02x has 0 length", code);
         return 0;
     }
-
-    if (length == 1) {
-        uint8_t t = (uint8_t)data;
-        memcpy(option + 2, &t, 1);
-    } else if (length == 2) {
-        uint16_t t = (uint16_t)data;
-        memcpy(option + 2, &t, 2);
-    } else if (length == 4) {
-        uint32_t t = (uint32_t)data;
-        memcpy(option + 2, &t, 4);
+    size_t end = get_end_option_idx(packet);
+    if (end == -1) {
+        log_warning("add_u32_option: Buffer has no DHCP_END marker");
+        return 0;
     }
-    return add_option_string(packet, option);
+    if (end + 2 + length >= sizeof packet->options) {
+        log_warning("add_u32_option: No space for option 0x%02x", code);
+        return 0;
+    }
+    packet->options[end] = code;
+    packet->options[end+1] = length;
+    // XXX: this is broken: it's alignment-safe, but the endianness is wrong
+    memcpy(packet->options + end + 2, &data, length);
+    packet->options[end+length+2] = DHCP_END;
+    return length+2;
 }
 
 // Add a paramater request list for stubborn DHCP servers
-void add_option_request_list(struct dhcpmsg *packet)
+size_t add_option_request_list(struct dhcpmsg *packet)
 {
     uint8_t reqdata[256];
-    reqdata[0] = DHCP_PARAM_REQ;
-    int j = 2;
+    size_t j = 0;
     for (int i = 0; options[i].code; i++) {
         if (options[i].type & OPTION_REQ)
             reqdata[j++] = options[i].code;
     }
-    reqdata[1] = j - 2;
-    add_option_string(packet, reqdata);
-}
-
-void add_option_vendor_string(struct dhcpmsg *packet)
-{
-    struct vendor  {
-        char vendor;
-        char length;
-        char str[sizeof "ndhc"];
-    } vendor_id = { DHCP_VENDOR,  sizeof "ndhc" - 1, "ndhc"};
-    add_option_string(packet, (uint8_t *)&vendor_id);
+    return add_option_string(packet, DHCP_PARAM_REQ, (char *)reqdata, j);
 }
 

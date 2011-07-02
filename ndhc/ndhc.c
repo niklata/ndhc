@@ -54,7 +54,6 @@
 #include "cap.h"
 #include "strl.h"
 #include "pidfile.h"
-#include "malloc.h"
 #include "io.h"
 
 #define VERSION "1.0"
@@ -177,7 +176,7 @@ static void do_work(void)
 int main(int argc, char **argv)
 {
     char chroot_dir[MAX_PATH_LENGTH] = "";
-    int c, len;
+    int c;
     struct passwd *pwd;
     uid_t uid = 0;
     gid_t gid = 0;
@@ -188,32 +187,30 @@ int main(int argc, char **argv)
         {"pidfile",     required_argument,  0, 'p'},
         {"leasefile",   required_argument,  0, 'l'},
         {"hostname",    required_argument,  0, 'H'},
-        {"hostname",    required_argument,      0, 'h'},
+        {"hostname",    required_argument,  0, 'h'},
         {"interface",   required_argument,  0, 'i'},
         {"now",         no_argument,        0, 'n'},
-        {"quit",    no_argument,        0, 'q'},
-        {"request", required_argument,  0, 'r'},
-        {"version", no_argument,        0, 'v'},
-        {"user",        required_argument,      0, 'u'},
-        {"chroot",      required_argument,      0, 'C'},
-        {"help",    no_argument,        0, '?'},
+        {"quit",        no_argument,        0, 'q'},
+        {"request",     required_argument,  0, 'r'},
+        {"version",     no_argument,        0, 'v'},
+        {"vendorid",    required_argument,  0, 'V'},
+        {"user",        required_argument,  0, 'u'},
+        {"chroot",      required_argument,  0, 'C'},
+        {"help",        no_argument,        0, '?'},
         {0, 0, 0, 0}
     };
 
     /* get options */
     while (1) {
         int option_index = 0;
-        c = getopt_long(argc, argv, "c:fbp:H:h:i:np:l:qr:u:C:v", arg_options,
+        c = getopt_long(argc, argv, "c:fbp:H:h:i:np:l:qr:u:C:vV:", arg_options,
                         &option_index);
         if (c == -1) break;
 
         switch (c) {
             case 'c':
-                len = strlen(optarg) > 64 ? 64 : strlen(optarg);
-                if (client_config.clientid)
-                    free(client_config.clientid);
-                client_config.clientid =
-                    alloc_dhcp_client_id_option(0, (uint8_t *)optarg, len);
+                strlcpy(client_config.clientid, optarg,
+                        sizeof client_config.clientid);
                 break;
             case 'f':
                 client_config.foreground = 1;
@@ -231,11 +228,8 @@ int main(int argc, char **argv)
                 break;
             case 'h':
             case 'H':
-                len = strlen(optarg) > 64 ? 64 : strlen(optarg);
-                if (client_config.hostname)
-                    free(client_config.hostname);
-                client_config.hostname =
-                    alloc_option(DHCP_HOST_NAME, (uint8_t *)optarg, len);
+                strlcpy(client_config.hostname, optarg,
+                        sizeof client_config.hostname);
                 break;
             case 'i':
                 client_config.interface = optarg;
@@ -266,6 +260,10 @@ int main(int argc, char **argv)
                 printf("ndhc, version " VERSION "\n\n");
                 exit(EXIT_SUCCESS);
                 break;
+            case 'V':
+                strlcpy(client_config.vendor, optarg,
+                        sizeof client_config.vendor);
+                break;
             default:
                 show_usage();
         }
@@ -288,11 +286,6 @@ int main(int argc, char **argv)
     if (nl_getifdata(client_config.interface, &cs) < 0) {
         log_line("FATAL - failed to get interface MAC and index");
         exit(EXIT_FAILURE);
-    }
-
-    if (!client_config.clientid) {
-        client_config.clientid =
-            alloc_dhcp_client_id_option(1, client_config.arp, 6);
     }
 
     open_leasefile();

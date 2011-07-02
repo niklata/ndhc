@@ -533,6 +533,31 @@ void handle_packet(struct client_state_t *cs)
     packet_action(cs, &packet, message);
 }
 
+static void add_option_vendor(struct dhcpmsg *packet)
+{
+    size_t len = strlen(client_config.vendor);
+    if (len)
+        add_option_string(packet, DHCP_VENDOR, client_config.vendor, len);
+    else
+        add_option_string(packet, DHCP_VENDOR, "ndhc", sizeof "ndhc" - 1);
+}
+
+static void add_option_clientid(struct dhcpmsg *packet)
+{
+    size_t len = strlen(client_config.clientid);
+    if (len)
+        add_option_string(packet, DHCP_CLIENT_ID, client_config.clientid, len);
+    else
+        add_option_string(packet, DHCP_CLIENT_ID, (char *)client_config.arp, 6);
+}
+
+static void add_option_hostname(struct dhcpmsg *packet)
+{
+    size_t len = strlen(client_config.hostname);
+    if (len)
+        add_option_string(packet, DHCP_HOST_NAME, client_config.hostname, len);
+}
+
 // Initialize a DHCP client packet that will be sent to a server
 static struct dhcpmsg init_packet(char type, uint32_t xid)
 {
@@ -546,9 +571,8 @@ static struct dhcpmsg init_packet(char type, uint32_t xid)
     };
     add_u32_option(&packet, DHCP_MESSAGE_TYPE, type);
     memcpy(packet.chaddr, client_config.arp, 6);
-    add_option_string(&packet, client_config.clientid);
-    if (client_config.hostname)
-        add_option_string(&packet, client_config.hostname);
+    add_option_clientid(&packet);
+    add_option_hostname(&packet);
     return packet;
 }
 
@@ -560,7 +584,7 @@ int send_discover(struct client_state_t *cs)
     add_u32_option(&packet, DHCP_MAX_SIZE,
                    htons(sizeof(struct ip_udp_dhcp_packet)));
     add_option_request_list(&packet);
-    add_option_vendor_string(&packet);
+    add_option_vendor(&packet);
     log_line("Sending discover...");
     return send_dhcp_raw(&packet);
 }
@@ -573,7 +597,7 @@ int send_selecting(struct client_state_t *cs)
     add_u32_option(&packet, DHCP_MAX_SIZE,
                    htons(sizeof(struct ip_udp_dhcp_packet)));
     add_option_request_list(&packet);
-    add_option_vendor_string(&packet);
+    add_option_vendor(&packet);
     log_line("Sending select for %s...",
              inet_ntoa((struct in_addr){.s_addr = cs->clientAddr}));
     return send_dhcp_raw(&packet);
@@ -586,7 +610,7 @@ int send_renew(struct client_state_t *cs)
     add_u32_option(&packet, DHCP_MAX_SIZE,
                    htons(sizeof(struct ip_udp_dhcp_packet)));
     add_option_request_list(&packet);
-    add_option_vendor_string(&packet);
+    add_option_vendor(&packet);
     log_line("Sending renew...");
     return send_dhcp_cooked(&packet, cs->clientAddr, cs->serverAddr);
 }
@@ -599,7 +623,7 @@ int send_rebind(struct client_state_t *cs)
     add_u32_option(&packet, DHCP_MAX_SIZE,
                    htons(sizeof(struct ip_udp_dhcp_packet)));
     add_option_request_list(&packet);
-    add_option_vendor_string(&packet);
+    add_option_vendor(&packet);
     log_line("Sending rebind...");
     return send_dhcp_raw(&packet);
 }
