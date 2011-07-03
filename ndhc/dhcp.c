@@ -1,5 +1,5 @@
 /* packet.c - send and react to DHCP message packets
- * Time-stamp: <2011-06-11 11:15:09 njk>
+ * Time-stamp: <2011-07-03 05:31:57 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -545,15 +545,20 @@ static void add_option_vendor(struct dhcpmsg *packet)
 static void add_option_clientid(struct dhcpmsg *packet)
 {
     char buf[sizeof client_config.clientid + 1];
+    size_t len = 6;
     buf[0] = 1; // Ethernet MAC
-    size_t len = strlen(client_config.clientid);
-    if (len) {
+    if (!client_config.clientid_mac) {
+        size_t slen = strlen(client_config.clientid);
+        if (!slen) {
+            memcpy(buf+1, client_config.arp, len);
+        } else {
+            buf[0] = 0; // Not a hardware address
+            len = slen;
+            memcpy(buf+1, client_config.clientid, slen);
+        }
+    } else
         memcpy(buf+1, client_config.clientid, len);
-    } else {
-        len = 6;
-        memcpy(buf+1, client_config.arp, len);
-    }
-    add_option_string(packet, DHCP_CLIENT_ID, buf, len + 1);
+    add_option_string(packet, DHCP_CLIENT_ID, buf, len+1);
 }
 
 static void add_option_hostname(struct dhcpmsg *packet)

@@ -1,5 +1,5 @@
 /* ndhc.c - DHCP client
- * Time-stamp: <2011-06-11 11:13:32 njk>
+ * Time-stamp: <2011-07-03 05:33:42 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -28,6 +28,7 @@
 #include <signal.h>
 #include <time.h>
 #include <string.h>
+#include <ctype.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -126,6 +127,29 @@ static void signal_dispatch()
     }
 }
 
+static int get_clientid_mac_string(char *str, size_t slen)
+{
+    if (slen != 17)
+        return 0;
+    if (str[2] == ':' && str[5] == ':' && str[8] == ':' && str[11] == ':' &&
+        str[14] == ':' &&
+        isxdigit(str[0]) && isxdigit(str[1]) && isxdigit(str[3]) &&
+        isxdigit(str[4]) && isxdigit(str[6]) && isxdigit(str[7]) &&
+        isxdigit(str[9]) && isxdigit(str[10]) && isxdigit(str[12]) &&
+        isxdigit(str[13]) && isxdigit(str[15]) && isxdigit(str[16]))
+    {
+        client_config.clientid[0] = strtol(str, NULL, 16);
+        client_config.clientid[1] = strtol(str+3, NULL, 16);
+        client_config.clientid[2] = strtol(str+6, NULL, 16);
+        client_config.clientid[3] = strtol(str+9, NULL, 16);
+        client_config.clientid[4] = strtol(str+12, NULL, 16);
+        client_config.clientid[5] = strtol(str+15, NULL, 16);
+        client_config.clientid[6] = '\0';
+        return 1;
+    }
+    return 0;
+}
+
 static void do_work(void)
 {
     struct epoll_event events[3];
@@ -181,6 +205,7 @@ int main(int argc, char **argv)
     gid_t gid = 0;
     static struct option arg_options[] = {
         {"clientid",    required_argument,  0, 'c'},
+        {"mac-clientid",required_argument,  0, 'm'},
         {"foreground",  no_argument,        0, 'f'},
         {"background",  no_argument,        0, 'b'},
         {"pidfile",     required_argument,  0, 'p'},
@@ -201,7 +226,7 @@ int main(int argc, char **argv)
 
     while (1) {
         int option_index = 0;
-        c = getopt_long(argc, argv, "c:fbp:H:h:i:np:l:qr:u:C:vV:", arg_options,
+        c = getopt_long(argc, argv, "c:m:fbp:H:h:i:np:l:qr:u:C:vV:", arg_options,
                         &option_index);
         if (c == -1) break;
 
@@ -209,6 +234,12 @@ int main(int argc, char **argv)
             case 'c':
                 strlcpy(client_config.clientid, optarg,
                         sizeof client_config.clientid);
+                break;
+            case 'm':
+                if (!get_clientid_mac_string(optarg, strlen(optarg)))
+                    suicide("clientid %s is not a valid ethernet MAC", optarg);
+                else
+                    client_config.clientid_mac = 1;
                 break;
             case 'f':
                 client_config.foreground = 1;

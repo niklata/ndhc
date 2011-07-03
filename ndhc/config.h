@@ -1,5 +1,5 @@
 /* config.h - internal configuration and state for ndhc
- * Time-stamp: <2011-03-31 01:38:03 nk>
+ * Time-stamp: <2011-07-03 05:10:18 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -44,6 +44,7 @@ struct client_config_t {
     char quit_after_lease;       // Quit after obtaining lease
     char abort_if_no_lease;      // Abort if no lease
     char background_if_no_lease; // Fork to background if no lease
+    char clientid_mac;           // If true, then the clientid is a MAC addr
     char *interface;             // The name of the interface to use
     char clientid[64];           // Optional client id to use
     char hostname[64];           // Optional hostname to use
