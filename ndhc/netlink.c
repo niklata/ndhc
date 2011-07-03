@@ -31,6 +31,7 @@
 #include <fcntl.h>
 #include <time.h>
 #include <errno.h>
+#include <poll.h>
 
 #include "netlink.h"
 #include "ifchange.h"
@@ -192,12 +193,13 @@ int nl_getifdata(const char *ifname, struct client_state_t *cs)
                sizeof addr) == -1)
         return -1;
 
-    // This is rather ugly, but hey!
-    if (fcntl(cs->nlFd, F_SETFL, fcntl(cs->nlFd, F_GETFL) & ~O_NONBLOCK) == -1)
-        suicide("nl_getifdata: failed to remove O_NONBLOCK");
-    handle_nl_message(cs);
-    if (fcntl(cs->nlFd, F_SETFL, fcntl(cs->nlFd, F_GETFL) | O_NONBLOCK) == -1)
-        suicide("nl_getifdata: failed to restore O_NONBLOCK");
+    for (int pr = 0; !pr;) {
+        pr = poll(&((struct pollfd){.fd=cs->nlFd,.events=POLLIN}), 1, -1);
+        if (pr == 1)
+            handle_nl_message(cs);
+        else if (pr == -1)
+            suicide("nl: poll failed");
+    }
     return 0;
 }
 
