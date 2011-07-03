@@ -1,5 +1,5 @@
 /* ndhc.c - DHCP client
- * Time-stamp: <2011-07-03 05:43:58 njk>
+ * Time-stamp: <2011-07-03 17:19:25 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -47,6 +47,7 @@
 #include "sys.h"
 #include "ifchange.h"
 #include "arp.h"
+#include "nl.h"
 #include "netlink.h"
 #include "leasefile.h"
 
@@ -308,7 +309,7 @@ int main(int argc, char **argv)
         write_pid(pidfile);
     }
 
-    if (nl_open(&cs) < 0) {
+    if ((cs.nlFd = nl_open(NETLINK_ROUTE, RTMGRP_LINK, &nlportid)) < 0) {
         log_line("FATAL - failed to open netlink socket");
         exit(EXIT_FAILURE);
     }

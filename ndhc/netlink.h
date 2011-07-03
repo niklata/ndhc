@@ -20,6 +20,7 @@
 #ifndef NK_NETLINK_H_
 #define NK_NETLINK_H_
 
+#include <linux/rtnetlink.h>
 #include "state.h"
 
 enum {
@@ -30,7 +31,8 @@ enum {
     IFS_REMOVED
 };
 
-int nl_open(struct client_state_t *cs);
+extern int nlportid;
+
 void handle_nl_message(struct client_state_t *cs);
 int nl_getifdata(const char *ifname, struct client_state_t *cs);
 

@@ -21,8 +21,6 @@
 #include <assert.h>
 #include <asm/types.h>
 #include <sys/socket.h>
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
 #include <unistd.h>
 #include <net/if.h>
 #include <stdio.h>
@@ -32,37 +30,16 @@
 #include <sys/select.h>
 #include <fcntl.h>
 #include <time.h>
-#include <libmnl/libmnl.h>
 #include <errno.h>
 
 #include "netlink.h"
 #include "ifchange.h"
 #include "arp.h"
 #include "log.h"
+#include "nl.h"
 
-static struct mnl_socket *mls;
-
-static void nl_close(struct client_state_t *cs)
-{
-    mnl_socket_close(mls);
-    cs->nlFd = -1;
-}
-
-int nl_open(struct client_state_t *cs)
-{
-    assert(cs->nlFd == -1);
-    if ((mls = mnl_socket_open(NETLINK_ROUTE)) == (struct mnl_socket *)-1)
-        return -1;
-    cs->nlFd = mnl_socket_get_fd(mls);
-    if (fcntl(cs->nlFd, F_SETFD, FD_CLOEXEC))
-        goto err_close;
-    if (mnl_socket_bind(mls, RTMGRP_LINK, 0))
-        goto err_close;
-    return 0;
-  err_close:
-    nl_close(cs);
-    return -1;
-}
+static char nlbuf[8192];
+int nlportid;
 
 static void restart_if(struct client_state_t *cs)
 {
@@ -84,50 +61,34 @@ static void sleep_if(struct client_state_t *cs)
     cs->timeout = -1;
 }
 
-static int nl_process_msgs_attr(const struct nlattr *attr, void *data)
-{
-    const struct nlattr **tb = data;
-    int type = mnl_attr_get_type(attr);
 
-    // skip unsupported attribute in user-space
-    if (mnl_attr_type_valid(attr, IFLA_MAX) < 0)
-        return MNL_CB_OK;
-    switch (type) {
-        case IFLA_IFNAME:
-            if (mnl_attr_validate(attr, MNL_TYPE_STRING) < 0) {
-                log_warning("nl: IFLA_IFNAME failed validation.");
-                return MNL_CB_ERROR;
-            }
-            break;
-        case IFLA_ADDRESS:
-            if (mnl_attr_validate(attr, MNL_TYPE_STRING) < 0) {
-                log_warning("nl: IFLA_ADDRESS failed validation.");
-                return MNL_CB_ERROR;
-            }
-            break;
-    }
+static int nlrtattr_assign(struct nlattr *attr, int type, void *data)
+{
+    struct nlattr **tb = data;
+    if (type >= IFLA_MAX)
+        return 0;
     tb[type] = attr;
-    return MNL_CB_OK;
+    return 0;
 }
 
 static void get_if_index_and_mac(const struct nlmsghdr *nlh,
-                                 struct ifinfomsg *ifm,
-                                 const struct nlattr **tb)
+                                 struct ifinfomsg *ifm)
 {
-    mnl_attr_parse(nlh, sizeof *ifm, nl_process_msgs_attr, tb);
+    struct nlattr *tb[IFLA_MAX] = {0};
+    nl_attr_parse(nlh, sizeof *ifm, nlrtattr_assign, tb);
     if (!tb[IFLA_IFNAME])
         return;
-    if (!strcmp(client_config.interface, mnl_attr_get_str(tb[IFLA_IFNAME]))) {
+    if (!strcmp(client_config.interface, nlattr_get_data(tb[IFLA_IFNAME]))) {
         client_config.ifindex = ifm->ifi_index;
         if (!tb[IFLA_ADDRESS])
             suicide("FATAL: adapter %s lacks a hardware address");
-        int maclen = mnl_attr_get_len(tb[IFLA_ADDRESS]) - 4;
+        int maclen = nlattr_get_len(tb[IFLA_ADDRESS]) - 4;
         if (maclen != 6)
             suicide("FATAL: adapter hardware address length should be 6, but is %u",
                     maclen);
 
         const unsigned char *mac =
-            (unsigned char *)mnl_attr_get_str(tb[IFLA_ADDRESS]);
+            (unsigned char *)nlattr_get_data(tb[IFLA_ADDRESS]);
         log_line("%s hardware address %x:%x:%x:%x:%x:%x",
                  client_config.interface,
                  mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
@@ -137,14 +98,13 @@ static void get_if_index_and_mac(const struct nlmsghdr *nlh,
 
 static int nl_process_msgs(const struct nlmsghdr *nlh, void *data)
 {
-    struct nlattr *tb[IFLA_MAX+1] = {0};
-    struct ifinfomsg *ifm = mnl_nlmsg_get_payload(nlh);
+    struct ifinfomsg *ifm = nlmsg_get_data(nlh);
     struct client_state_t *cs = data;
 
     switch(nlh->nlmsg_type) {
         case RTM_NEWLINK:
             if (!client_config.ifindex)
-                get_if_index_and_mac(nlh, ifm, (const struct nlattr **)tb);
+                get_if_index_and_mac(nlh, ifm);
             if (ifm->ifi_index != client_config.ifindex)
                 break;
             // IFF_UP corresponds to ifconfig down or ifconfig up.
@@ -194,41 +154,50 @@ static int nl_process_msgs(const struct nlmsghdr *nlh, void *data)
         default:
             break;
     }
-    return MNL_CB_OK;
+    return 1;
 }
 
 void handle_nl_message(struct client_state_t *cs)
 {
-    char buf[MNL_SOCKET_BUFFER_SIZE];
-    int ret;
+    ssize_t ret;
     assert(cs->nlFd != -1);
     do {
-        ret = mnl_socket_recvfrom(mls, buf, sizeof buf);
-        ret = mnl_cb_run(buf, ret, 0, 0, nl_process_msgs, cs);
+        ret = nl_recv_buf(cs->nlFd, nlbuf, sizeof nlbuf);
+        if (ret == -1)
+            break;
+        if (nl_foreach_nlmsg(nlbuf, ret, nlportid, nl_process_msgs, cs) == -1)
+            break;
     } while (ret > 0);
-    if (ret == -1)
-        log_line("nl callback function returned error: %s", strerror(errno));
 }
 
 int nl_getifdata(const char *ifname, struct client_state_t *cs)
 {
-    char buf[MNL_SOCKET_BUFFER_SIZE];
-    struct nlmsghdr *nlh;
+    char buf[8192];
+    struct nlmsghdr *nlh = (struct nlmsghdr *)buf;
     struct ifinfomsg *ifinfo;
-    unsigned int seq;
+    size_t msgsize = NLMSG_HDRLEN + NLMSG_ALIGN(sizeof *ifinfo);
 
-    nlh = mnl_nlmsg_put_header(buf);
+    memset(buf, 0, msgsize);
+    nlh->nlmsg_len = msgsize;
     nlh->nlmsg_type = RTM_GETLINK;
     nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_ROOT;
-    nlh->nlmsg_seq = seq = time(NULL);
-
-    ifinfo = mnl_nlmsg_put_extra_header(nlh, sizeof(struct ifinfomsg));
+    nlh->nlmsg_seq = time(NULL);
+    ifinfo = (struct ifinfomsg *)((char *)buf + NLMSG_HDRLEN);
     ifinfo->ifi_family = AF_UNSPEC;
 
-    if (mnl_socket_sendto(mls, nlh, nlh->nlmsg_len) < 0)
+    struct sockaddr_nl addr = {
+        .nl_family = AF_NETLINK,
+    };
+    if (sendto(cs->nlFd, buf, nlh->nlmsg_len, 0, (struct sockaddr *)&addr,
+               sizeof addr) == -1)
         return -1;
 
+    // This is rather ugly, but hey!
+    if (fcntl(cs->nlFd, F_SETFL, fcntl(cs->nlFd, F_GETFL) & ~O_NONBLOCK) == -1)
+        suicide("nl_getifdata: failed to remove O_NONBLOCK");
     handle_nl_message(cs);
+    if (fcntl(cs->nlFd, F_SETFL, fcntl(cs->nlFd, F_GETFL) | O_NONBLOCK) == -1)
+        suicide("nl_getifdata: failed to restore O_NONBLOCK");
     return 0;
 }
 
