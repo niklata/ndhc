@@ -1,5 +1,5 @@
 /* packet.c - send and react to DHCP message packets
- * Time-stamp: <2011-07-03 06:03:14 njk>
+ * Time-stamp: <2011-07-03 18:53:28 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -118,11 +118,10 @@ static int create_udp_listen_socket(struct client_state_t *cs, char *inf)
 }
 
 // Broadcast a DHCP message using a UDP socket.
-static int send_dhcp_cooked(struct dhcpmsg *payload, uint32_t source_ip,
-                            uint32_t dest_ip)
+static int send_dhcp_cooked(struct client_state_t *cs, struct dhcpmsg *payload)
 {
     int ret = -1;
-    int fd = create_udp_socket(source_ip, DHCP_CLIENT_PORT,
+    int fd = create_udp_socket(cs->clientAddr, DHCP_CLIENT_PORT,
                                client_config.interface);
     if (fd == -1)
         goto out;
@@ -130,7 +129,7 @@ static int send_dhcp_cooked(struct dhcpmsg *payload, uint32_t source_ip,
     struct sockaddr_in raddr = {
         .sin_family = AF_INET,
         .sin_port = htons(DHCP_SERVER_PORT),
-        .sin_addr.s_addr = dest_ip,
+        .sin_addr.s_addr = cs->serverAddr,
     };
     if (connect(fd, (struct sockaddr *)&raddr, sizeof(struct sockaddr)) == -1) {
         log_error("send_dhcp_cooked: connect failed: %s", strerror(errno));
@@ -387,6 +386,7 @@ static int send_dhcp_raw(struct dhcpmsg *payload)
     struct sockaddr_ll da = {
         .sll_family = AF_PACKET,
         .sll_protocol = htons(ETH_P_IP),
+        .sll_pkttype = PACKET_BROADCAST,
         .sll_ifindex = client_config.ifindex,
         .sll_halen = 6,
     };
@@ -624,7 +624,7 @@ int send_renew(struct client_state_t *cs)
     add_option_vendor(&packet);
     add_option_hostname(&packet);
     log_line("Sending renew...");
-    return send_dhcp_cooked(&packet, cs->clientAddr, cs->serverAddr);
+    return send_dhcp_cooked(cs, &packet);
 }
 
 int send_rebind(struct client_state_t *cs)
@@ -657,6 +657,6 @@ int send_release(struct client_state_t *cs)
     add_u32_option(&packet, DHCP_REQUESTED_IP, cs->clientAddr);
     add_u32_option(&packet, DHCP_SERVER_ID, cs->serverAddr);
     log_line("Sending release...");
-    return send_dhcp_cooked(&packet, cs->clientAddr, cs->serverAddr);
+    return send_dhcp_cooked(cs, &packet);
 }
 

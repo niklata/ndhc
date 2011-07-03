@@ -219,11 +219,6 @@ static void selecting_packet(struct client_state_t *cs, struct dhcpmsg *packet,
 // again.  Otherwise, background or fail.
 static void selecting_timeout(struct client_state_t *cs)
 {
-    if (cs->packetNum == 0)
-        cs->xid = libc_random_u32();
-    send_discover(cs);
-    cs->timeout = delay_timeout(cs->packetNum);
-    cs->packetNum++;
     if (cs->init && cs->packetNum >= 2) {
         if (client_config.background_if_no_lease) {
             log_line("No lease, going to background.");
@@ -234,6 +229,11 @@ static void selecting_timeout(struct client_state_t *cs)
             exit(EXIT_FAILURE);
         }
     }
+    if (cs->packetNum == 0)
+        cs->xid = libc_random_u32();
+    send_discover(cs);
+    cs->timeout = delay_timeout(cs->packetNum);
+    cs->packetNum++;
 }
 
 static void anfrelease(struct client_state_t *cs)
