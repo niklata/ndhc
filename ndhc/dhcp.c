@@ -1,5 +1,5 @@
 /* packet.c - send and react to DHCP message packets
- * Time-stamp: <2011-07-03 05:31:57 njk>
+ * Time-stamp: <2011-07-03 06:03:14 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -582,7 +582,6 @@ static struct dhcpmsg init_packet(char type, uint32_t xid)
     add_u8_option(&packet, DHCP_MESSAGE_TYPE, type);
     memcpy(packet.chaddr, client_config.arp, 6);
     add_option_clientid(&packet);
-    add_option_hostname(&packet);
     return packet;
 }
 
@@ -595,6 +594,7 @@ int send_discover(struct client_state_t *cs)
                    htons(sizeof(struct ip_udp_dhcp_packet)));
     add_option_request_list(&packet);
     add_option_vendor(&packet);
+    add_option_hostname(&packet);
     log_line("Sending discover...");
     return send_dhcp_raw(&packet);
 }
@@ -608,6 +608,7 @@ int send_selecting(struct client_state_t *cs)
                    htons(sizeof(struct ip_udp_dhcp_packet)));
     add_option_request_list(&packet);
     add_option_vendor(&packet);
+    add_option_hostname(&packet);
     log_line("Sending select for %s...",
              inet_ntoa((struct in_addr){.s_addr = cs->clientAddr}));
     return send_dhcp_raw(&packet);
@@ -621,6 +622,7 @@ int send_renew(struct client_state_t *cs)
                    htons(sizeof(struct ip_udp_dhcp_packet)));
     add_option_request_list(&packet);
     add_option_vendor(&packet);
+    add_option_hostname(&packet);
     log_line("Sending renew...");
     return send_dhcp_cooked(&packet, cs->clientAddr, cs->serverAddr);
 }
@@ -634,6 +636,7 @@ int send_rebind(struct client_state_t *cs)
                    htons(sizeof(struct ip_udp_dhcp_packet)));
     add_option_request_list(&packet);
     add_option_vendor(&packet);
+    add_option_hostname(&packet);
     log_line("Sending rebind...");
     return send_dhcp_raw(&packet);
 }
