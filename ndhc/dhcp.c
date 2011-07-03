@@ -544,11 +544,16 @@ static void add_option_vendor(struct dhcpmsg *packet)
 
 static void add_option_clientid(struct dhcpmsg *packet)
 {
+    char buf[sizeof client_config.clientid + 1];
+    buf[0] = 1; // Ethernet MAC
     size_t len = strlen(client_config.clientid);
-    if (len)
-        add_option_string(packet, DHCP_CLIENT_ID, client_config.clientid, len);
-    else
-        add_option_string(packet, DHCP_CLIENT_ID, (char *)client_config.arp, 6);
+    if (len) {
+        memcpy(buf+1, client_config.clientid, len);
+    } else {
+        len = 6;
+        memcpy(buf+1, client_config.arp, len);
+    }
+    add_option_string(packet, DHCP_CLIENT_ID, buf, len + 1);
 }
 
 static void add_option_hostname(struct dhcpmsg *packet)
