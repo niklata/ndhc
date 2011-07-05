@@ -1,5 +1,5 @@
 /* ndhc.c - DHCP client
- * Time-stamp: <2011-07-05 11:14:03 njk>
+ * Time-stamp: <2011-07-05 11:18:03 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -81,17 +81,19 @@ static void show_usage(void)
 "Usage: ndhc [OPTIONS]\n\n"
 "  -c, --clientid=CLIENTID         Client identifier\n"
 "  -h, --hostname=HOSTNAME         Client hostname\n"
+"  -V, --vendorid=VENDORID         Client vendor identification string\n"
 "  -f, --foreground                Do not fork after getting lease\n"
 "  -b, --background                Fork to background if lease cannot be\n"
 "                                  immediately negotiated.\n"
-"  -p, --pidfile                   File to which the pid will be written\n"
+"  -p, --pidfile=FILE              File to which the pid will be written\n"
+"  -l, --leasefile=FILE            File to which the lease IP will be written\n"
 "  -i, --interface=INTERFACE       Interface to use (default: eth0)\n"
 "  -n, --now                       Exit with failure if lease cannot be\n"
 "                                  immediately negotiated.\n"
 "  -q, --quit                      Quit after obtaining lease\n"
 "  -r, --request=IP                IP address to request (default: none)\n"
-"  -u, --user                      Change privileges to this user\n"
-"  -C, --chroot                    Chroot to this directory\n"
+"  -u, --user=USER                 Change privileges to this user\n"
+"  -C, --chroot=DIR                Chroot to this directory\n"
 "  -v, --version                   Display version\n"
            );
     exit(EXIT_SUCCESS);
