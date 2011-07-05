@@ -1,5 +1,5 @@
 /* ndhc.c - DHCP client
- * Time-stamp: <2011-07-04 20:49:48 njk>
+ * Time-stamp: <2011-07-05 11:14:03 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -80,8 +80,7 @@ static void show_usage(void)
     printf(
 "Usage: ndhc [OPTIONS]\n\n"
 "  -c, --clientid=CLIENTID         Client identifier\n"
-"  -H, --hostname=HOSTNAME         Client hostname\n"
-"  -h                              Alias for -H\n"
+"  -h, --hostname=HOSTNAME         Client hostname\n"
 "  -f, --foreground                Do not fork after getting lease\n"
 "  -b, --background                Fork to background if lease cannot be\n"
 "                                  immediately negotiated.\n"
@@ -92,7 +91,7 @@ static void show_usage(void)
 "  -q, --quit                      Quit after obtaining lease\n"
 "  -r, --request=IP                IP address to request (default: none)\n"
 "  -u, --user                      Change privileges to this user\n"
-"  -C, --chroot                    Directory to which udhcp should chroot\n"
+"  -C, --chroot                    Chroot to this directory\n"
 "  -v, --version                   Display version\n"
            );
     exit(EXIT_SUCCESS);
@@ -214,7 +213,6 @@ int main(int argc, char **argv)
         {"background",  no_argument,        0, 'b'},
         {"pidfile",     required_argument,  0, 'p'},
         {"leasefile",   required_argument,  0, 'l'},
-        {"hostname",    required_argument,  0, 'H'},
         {"hostname",    required_argument,  0, 'h'},
         {"interface",   required_argument,  0, 'i'},
         {"now",         no_argument,        0, 'n'},
@@ -230,7 +228,7 @@ int main(int argc, char **argv)
 
     while (1) {
         int option_index = 0;
-        c = getopt_long(argc, argv, "c:fbp:H:h:i:np:l:qr:u:C:vV:", arg_options,
+        c = getopt_long(argc, argv, "c:fbp:h:i:np:l:qr:u:C:vV:", arg_options,
                         &option_index);
         if (c == -1) break;
 
@@ -257,7 +255,6 @@ int main(int argc, char **argv)
                 set_leasefile(optarg);
                 break;
             case 'h':
-            case 'H':
                 strlcpy(client_config.hostname, optarg,
                         sizeof client_config.hostname);
                 break;
