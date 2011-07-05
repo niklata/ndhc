@@ -24,9 +24,8 @@ static void rebinding_timeout(struct client_state_t *cs);
 static void released_timeout(struct client_state_t *cs);
 static void collision_check_timeout(struct client_state_t *cs);
 static void bound_gw_check_timeout(struct client_state_t *cs);
-static void anfrelease(struct client_state_t *cs);
-static void nfrelease(struct client_state_t *cs);
-static void frelease(struct client_state_t *cs);
+static void xmit_release(struct client_state_t *cs);
+static void print_release(struct client_state_t *cs);
 static void frenew(struct client_state_t *cs);
 
 typedef struct {
@@ -38,15 +37,15 @@ typedef struct {
 } dhcp_state_t;
 
 dhcp_state_t dhcp_states[] = {
-    { selecting_packet, selecting_timeout, 0, frelease}, // SELECTING
-    { an_packet, requesting_timeout, 0, frelease},       // REQUESTING
-    { 0, bound_timeout, frenew, nfrelease},              // BOUND
-    { an_packet, renewing_timeout, 0, nfrelease},        // RENEWING
-    { an_packet, rebinding_timeout, 0, nfrelease},       // REBINDING
-    { 0, bound_gw_check_timeout, 0, anfrelease},         // BOUND_GW_CHECK
-    { 0, collision_check_timeout, 0, anfrelease},        // COLLISION_CHECK
-    { 0, released_timeout, frenew, frelease},            // RELEASED
-    { 0, 0, 0, 0},                                       // NUM_STATES
+    { selecting_packet, selecting_timeout, 0, print_release}, // SELECTING
+    { an_packet, requesting_timeout, 0, print_release},       // REQUESTING
+    { 0, bound_timeout, frenew, xmit_release},                // BOUND
+    { an_packet, renewing_timeout, 0, xmit_release},          // RENEWING
+    { an_packet, rebinding_timeout, 0, xmit_release},         // REBINDING
+    { 0, bound_gw_check_timeout, 0, xmit_release},            // BOUND_GW_CHECK
+    { 0, collision_check_timeout, 0, xmit_release},          // COLLISION_CHECK
+    { 0, released_timeout, frenew, 0},                       // RELEASED
+    { 0, 0, 0, 0},                                           // NUM_STATES
 };
 
 static unsigned int num_dhcp_requests;
@@ -70,6 +69,18 @@ void reinit_selecting(struct client_state_t *cs, int timeout)
     num_dhcp_requests = 0;
     arp_reset_send_stats();
     set_listen_raw(cs);
+}
+
+static void set_released(struct client_state_t *cs)
+{
+    ifchange_deconfig();
+    arp_close_fd(cs);
+    cs->dhcpState = DS_RELEASED;
+    cs->timeout = -1;
+    cs->clientAddr = 0;
+    num_dhcp_requests = 0;
+    arp_reset_send_stats();
+    set_listen_none(cs);
 }
 
 // Triggered after a DHCP lease request packet has been sent and no reply has
@@ -246,35 +257,25 @@ static void selecting_timeout(struct client_state_t *cs)
     num_dhcp_requests++;
 }
 
-static void anfrelease(struct client_state_t *cs)
-{
-    arp_close_fd(cs);
-    nfrelease(cs);
-}
-
-static void nfrelease(struct client_state_t *cs)
+static void xmit_release(struct client_state_t *cs)
 {
     log_line("Unicasting a release of %s to %s.",
              inet_ntoa((struct in_addr){.s_addr=cs->clientAddr}),
              inet_ntoa((struct in_addr){.s_addr=cs->serverAddr}));
     send_release(cs);
-    ifchange_deconfig();
-    frelease(cs);
+    print_release(cs);
 }
 
-static void frelease(struct client_state_t *cs)
+static void print_release(struct client_state_t *cs)
 {
     log_line("Entering released state.");
-    set_listen_none(cs);
-    cs->dhcpState = DS_RELEASED;
-    cs->timeout = -1;
-    arp_reset_send_stats();
+    set_released(cs);
 }
 
 static void frenew(struct client_state_t *cs)
 {
-    log_line("Forcing a DHCP renew...");
     if (cs->dhcpState == DS_BOUND) {
+        log_line("Forcing a DHCP renew...");
         cs->dhcpState = DS_RENEWING;
         set_listen_cooked(cs);
         send_renew(cs);
@@ -302,13 +303,7 @@ void ifup_action(struct client_state_t *cs)
 void ifdown_action(struct client_state_t *cs)
 {
     log_line("Interface shut down.  Going to sleep.");
-    arp_close_fd(cs);
-    arp_reset_send_stats();
-    set_listen_none(cs);
-    cs->dhcpState = DS_RELEASED;
-    cs->timeout = -1;
-    cs->clientAddr = 0;
-    num_dhcp_requests = 0;
+    set_released(cs);
 }
 
 void ifnocarrier_action(struct client_state_t *cs)
