@@ -48,6 +48,8 @@ dhcp_state_t dhcp_states[] = {
     { 0, 0, 0, 0},                                           // NUM_STATES
 };
 
+static unsigned int num_dhcp_requests;
+
 static int delay_timeout(int numpackets)
 {
     int to = 64;
@@ -63,7 +65,7 @@ void reinit_selecting(struct client_state_t *cs, int timeout)
     cs->dhcpState = DS_SELECTING;
     cs->timeout = timeout;
     cs->clientAddr = 0;
-    cs->packetNum = 0;
+    num_dhcp_requests = 0;
     arp_reset_send_stats();
     set_listen_raw(cs);
 
@@ -75,10 +77,10 @@ void reinit_selecting(struct client_state_t *cs, int timeout)
 // again.  Otherwise, return to the DHCP initialization state.
 static void requesting_timeout(struct client_state_t *cs)
 {
-    if (cs->packetNum < 5) {
+    if (num_dhcp_requests < 5) {
         send_selecting(cs);
-        cs->timeout = delay_timeout(cs->packetNum);
-        cs->packetNum++;
+        cs->timeout = delay_timeout(num_dhcp_requests);
+        num_dhcp_requests++;
     } else
         reinit_selecting(cs, 0);
 }
@@ -208,7 +210,7 @@ static void selecting_packet(struct client_state_t *cs, struct dhcpmsg *packet,
             cs->clientAddr = packet->yiaddr;
             cs->dhcpState = DS_REQUESTING;
             cs->timeout = 0;
-            cs->packetNum = 0;
+            num_dhcp_requests = 0;
         } else {
             log_line("No server ID in message");
         }
@@ -221,7 +223,7 @@ static void selecting_packet(struct client_state_t *cs, struct dhcpmsg *packet,
 // again.  Otherwise, background or fail.
 static void selecting_timeout(struct client_state_t *cs)
 {
-    if (cs->init && cs->packetNum >= 2) {
+    if (cs->init && num_dhcp_requests >= 2) {
         if (client_config.background_if_no_lease) {
             log_line("No lease, going to background.");
             cs->init = 0;
@@ -231,11 +233,11 @@ static void selecting_timeout(struct client_state_t *cs)
             exit(EXIT_FAILURE);
         }
     }
-    if (cs->packetNum == 0)
+    if (num_dhcp_requests == 0)
         cs->xid = libc_random_u32();
     send_discover(cs);
-    cs->timeout = delay_timeout(cs->packetNum);
-    cs->packetNum++;
+    cs->timeout = delay_timeout(num_dhcp_requests);
+    num_dhcp_requests++;
 }
 
 static void anfrelease(struct client_state_t *cs)
@@ -284,7 +286,7 @@ static void frenew(struct client_state_t *cs)
         default:
             return;
     }
-    cs->packetNum = 0; // XXX necessary?
+    num_dhcp_requests = 0;
     cs->timeout = 0;
 }
 
@@ -314,7 +316,7 @@ void ifdown_action(struct client_state_t *cs)
     cs->dhcpState = DS_RELEASED;
     cs->timeout = -1;
     cs->clientAddr = 0;
-    cs->packetNum = 0;
+    num_dhcp_requests = 0;
 }
 
 void ifnocarrier_action(struct client_state_t *cs)

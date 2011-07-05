@@ -1,5 +1,5 @@
 /* config.h - internal configuration and state for ndhc
- * Time-stamp: <2011-07-03 05:10:18 njk>
+ * Time-stamp: <2011-07-05 15:43:16 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -29,7 +29,6 @@ struct client_state_t {
     int arpPrevState;
     int ifsPrevState;
     int listenMode;
-    int packetNum;
     int epollFd, signalFd, listenFd, arpFd, nlFd;
     int timeout, oldTimeout;
     uint32_t clientAddr, serverAddr, routerAddr;
