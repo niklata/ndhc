@@ -1,5 +1,5 @@
 /* ndhc.c - DHCP client
- * Time-stamp: <2011-07-05 12:54:15 njk>
+ * Time-stamp: <2011-07-05 13:04:13 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -289,7 +289,6 @@ int main(int argc, char **argv)
                 strlcpy(chroot_dir, optarg, sizeof chroot_dir);
                 break;
             case 'd':
-                log_line("DEBUG: relentless defense enabled");
                 arp_relentless_def = 1;
                 break;
             case 'v':

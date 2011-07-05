@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-07-05 12:49:09 njk>
+ * Time-stamp: <2011-07-05 13:04:10 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -201,39 +201,30 @@ out:
 static void arp_switch_state(struct client_state_t *cs, arp_state_t state)
 {
     arp_state_t prev_state = arpState;
-    log_line("DEBUG: arp_switch_state: called.");
     if (arpState == state || arpState >= AS_MAX)
         return;
-    log_line("DEBUG: arp_switch_state: passed valid state change test");
     arpState = state;
     arp_stats[arpState].ts = 0;
     arp_stats[arpState].count = 0;
-    log_line("DEBUG: arp_switch_state: state = %u", state);
     if (arpState == AS_NONE) {
         arp_close_fd(cs);
         return;
     }
     if (cs->arpFd == -1) {
-        log_line("DEBUG: arp_switch_state: opening arpFd");
         if (arp_open_fd(cs) == -1)
             suicide("arp: failed to open arpFd when changing state to %u",
                     arpState);
-        log_line("DEBUG: arp_switch_state: opened arpFd");
         if (arpState != AS_DEFENSE)
             arp_set_bpf_basic(cs->arpFd);
-        log_line("DEBUG: arp_switch_state: installed filters");
     }
     if (arpState == AS_DEFENSE) {
-        log_line("DEBUG: arp_switch_state: changed to DEFENSE filter");
         arp_set_bpf_defense(cs, cs->arpFd);
         return;
     }
     if (prev_state == AS_DEFENSE) {
-        log_line("DEBUG: arp_switch_state: removed DEFENSE filter");
         arp_set_bpf_basic(cs->arpFd);
         return;
     }
-    log_line("DEBUG: arp_switch_state: leaving.");
 }
 
 int arp_close_fd(struct client_state_t *cs)
@@ -502,7 +493,6 @@ void arp_retransmit(struct client_state_t *cs)
     }
     if (curms() < arp_stats[arpState].ts + ARP_RETRANS_DELAY)
         return;
-    log_line("DEBUG: retransmission timeout in arp state %u", arpState);
     switch (arpState) {
         case AS_GW_CHECK:
             log_line("arp: Still waiting for gateway to reply to arp ping...");
@@ -550,7 +540,6 @@ static void arp_do_defense(struct client_state_t *cs)
 void handle_arp_response(struct client_state_t *cs)
 {
     int r = 0;
-    log_line("DEBUG: handle_arp_response called");
     if (arpreply_offset < sizeof arpreply) {
         r = safe_read(cs->arpFd, (char *)&arpreply + arpreply_offset,
                           sizeof arpreply - arpreply_offset);
@@ -566,17 +555,14 @@ void handle_arp_response(struct client_state_t *cs)
         } else
             arpreply_offset += r;
     }
-    log_line("DEBUG: Received %u bytes.", r);
 
     if (r <= 0) {
         arp_retransmit(cs);
         return;
     }
-    log_line("DEBUG: Did not retransmit.");
 
     if (arpreply_offset < ARP_MSG_SIZE)
         return;
-    log_line("DEBUG: Gathered a full ARP packet.");
 
     // Emulate the BPF filters if they are not in use.
     if (!using_arp_bpf) {
@@ -585,7 +571,6 @@ void handle_arp_response(struct client_state_t *cs)
         if (arpState == AS_DEFENSE && !arp_validate_bpf_defense(cs, &arpreply))
             return;
     }
-    log_line("DEBUG: Passed the emulated BPF filters.");
 
     switch (arpState) {
     case AS_COLLISION_CHECK:
@@ -611,7 +596,6 @@ void handle_arp_response(struct client_state_t *cs)
         }
         break;
     case AS_GW_QUERY:
-        log_line("DEBUG: Doing work for AS_GW_QUERY state.");
         if (arp_is_query_reply(&arpreply) &&
             !memcmp(arpreply.sip4, &cs->routerAddr, 4)) {
             cs->timeout = cs->oldTimeout;
@@ -623,7 +607,6 @@ void handle_arp_response(struct client_state_t *cs)
             arp_switch_state(cs, AS_DEFENSE);
             break;
         }
-        log_line("DEBUG: Was not a reply from GW.  Checking for defense.");
         if (!arp_validate_bpf_defense(cs, &arpreply))
             break;
     case AS_DEFENSE:
@@ -633,6 +616,5 @@ void handle_arp_response(struct client_state_t *cs)
         log_error("handle_arp_response: called in invalid state %u", arpState);
         arp_close_fd(cs);
     }
-    log_line("DEBUG: Leaving handle_arp_response.");
     arpreply_clear();
 }
