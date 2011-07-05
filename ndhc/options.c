@@ -1,5 +1,5 @@
 /* options.c - DHCP options handling
- * Time-stamp: <2011-07-04 21:37:34 njk>
+ * Time-stamp: <2011-07-05 16:11:32 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -167,6 +167,7 @@ static uint8_t *do_get_option_data(uint8_t *buf, ssize_t buflen, int code,
     return NULL;
 }
 
+// XXX: Never concatenates options.  If this is added, refer to RFC3396.
 // Get an option with bounds checking (warning, result is not aligned)
 // optlen will be equal to the length of the option data.
 uint8_t *get_option_data(struct dhcpmsg *packet, int code, ssize_t *optlen)

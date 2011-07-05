@@ -38,15 +38,15 @@ typedef struct {
 } dhcp_state_t;
 
 dhcp_state_t dhcp_states[] = {
-    { selecting_packet, selecting_timeout, 0, frelease},     // SELECTING
-    { an_packet, requesting_timeout, frenew, frelease},      // REQUESTING
-    { 0, bound_timeout, frenew, nfrelease},                  // BOUND
-    { an_packet, renewing_timeout, frenew, nfrelease},       // RENEWING
-    { an_packet, rebinding_timeout, frenew, nfrelease},      // REBINDING
-    { 0, bound_gw_check_timeout, frenew, anfrelease},        // BOUND_GW_CHECK
-    { 0, collision_check_timeout, frenew, anfrelease},       // COLLISION_CHECK
-    { 0, released_timeout, frenew, frelease},                // RELEASED
-    { 0, 0, 0, 0},                                           // NUM_STATES
+    { selecting_packet, selecting_timeout, 0, frelease}, // SELECTING
+    { an_packet, requesting_timeout, 0, frelease},       // REQUESTING
+    { 0, bound_timeout, frenew, nfrelease},              // BOUND
+    { an_packet, renewing_timeout, 0, nfrelease},        // RENEWING
+    { an_packet, rebinding_timeout, 0, nfrelease},       // REBINDING
+    { 0, bound_gw_check_timeout, 0, anfrelease},         // BOUND_GW_CHECK
+    { 0, collision_check_timeout, 0, anfrelease},        // COLLISION_CHECK
+    { 0, released_timeout, frenew, frelease},            // RELEASED
+    { 0, 0, 0, 0},                                       // NUM_STATES
 };
 
 static unsigned int num_dhcp_requests;
@@ -274,26 +274,12 @@ static void frelease(struct client_state_t *cs)
 static void frenew(struct client_state_t *cs)
 {
     log_line("Forcing a DHCP renew...");
-    switch (cs->dhcpState) {
-        case DS_BOUND:
-            cs->dhcpState = DS_RENEWING;
-            set_listen_cooked(cs);
-            send_renew(cs);
-            break;
-        case DS_RELEASED:
-            set_listen_raw(cs);
-            cs->dhcpState = DS_SELECTING;
-            break;
-        case DS_BOUND_GW_CHECK:
-        case DS_COLLISION_CHECK:
-        case DS_RENEWING:
-        case DS_REBINDING:
-            break;
-        default:
-            return;
-    }
-    num_dhcp_requests = 0;
-    cs->timeout = 0;
+    if (cs->dhcpState == DS_BOUND) {
+        cs->dhcpState = DS_RENEWING;
+        set_listen_cooked(cs);
+        send_renew(cs);
+    } else if (cs->dhcpState == DS_RELEASED)
+        reinit_selecting(cs, 0);
 }
 
 void ifup_action(struct client_state_t *cs)
