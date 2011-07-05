@@ -1,5 +1,5 @@
 /* options.c - DHCP options handling
- * Time-stamp: <2011-03-30 18:29:18 nk>
+ * Time-stamp: <2011-07-04 21:37:34 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -162,7 +162,7 @@ static uint8_t *do_get_option_data(uint8_t *buf, ssize_t buflen, int code,
         }
         buf += buf[1] + 2;
     }
-    log_warning("Bad dhcp data: unmarked end of options field");
+    // End of options field was unmarked: no option data
     *optlen = 0;
     return NULL;
 }

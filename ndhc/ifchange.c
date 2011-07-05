@@ -1,5 +1,5 @@
 /* ifchange.c - functions to call the interface change daemon
- * Time-stamp: <2011-07-04 20:48:03 njk>
+ * Time-stamp: <2011-07-04 21:35:02 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -38,6 +38,8 @@
 #include "log.h"
 #include "io.h"
 #include "ifchange.h"
+
+static struct dhcpmsg cfg_packet;
 
 // Fill buf with the ifchd command text of option 'option'.
 // Returns 0 if successful, -1 if nothing was filled in.
@@ -168,14 +170,16 @@ void ifchange_deconfig(void)
     snprintf(buf, sizeof buf, "ip:0.0.0.0:");
     sockwrite(sockfd, buf, strlen(buf));
 
+    memset(&cfg_packet, 0, sizeof cfg_packet);
+
     close(sockfd);
 }
 
 static void send_cmd(int sockfd, struct dhcpmsg *packet, uint8_t code)
 {
     char buf[256];
-    uint8_t *optdata;
-    ssize_t optlen;
+    uint8_t *optdata, *olddata;
+    ssize_t optlen, oldlen;
 
     if (!packet)
         return;
@@ -184,6 +188,9 @@ static void send_cmd(int sockfd, struct dhcpmsg *packet, uint8_t code)
     optdata = get_option_data(packet, code, &optlen);
     if (!optlen)
         return;
+    olddata = get_option_data(&cfg_packet, code, &oldlen);
+    if (oldlen == optlen && !memcmp(optdata, olddata, optlen))
+            return;
     if (ifchd_cmd(buf, sizeof buf, optdata, optlen, code) == -1)
         return;
     sockwrite(sockfd, buf, strlen(buf));
@@ -215,6 +222,8 @@ void ifchange_bind(struct dhcpmsg *packet)
     send_cmd(sockfd, packet, DHCP_MTU);
     send_cmd(sockfd, packet, DHCP_BROADCAST);
     send_cmd(sockfd, packet, DHCP_WINS_SERVER);
+
+    memcpy(&cfg_packet, packet, sizeof cfg_packet);
 
     close(sockfd);
 }
