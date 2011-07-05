@@ -11,7 +11,7 @@ typedef enum {
     DS_RENEWING,
     DS_REBINDING,
     DS_BOUND_GW_CHECK,
-    DS_ARP_CHECK,
+    DS_COLLISION_CHECK,
     DS_RELEASED,
     DS_NUM_STATES,
 } dhcp_states_t;

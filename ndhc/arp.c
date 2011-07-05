@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-07-04 22:51:19 njk>
+ * Time-stamp: <2011-07-04 22:57:35 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -316,7 +316,7 @@ int arp_check(struct client_state_t *cs, struct dhcpmsg *packet)
     if (arp_ip_anon_ping(cs, arp_dhcp_packet.yiaddr) == -1)
         return -1;
     cs->arpPrevState = cs->dhcpState;
-    cs->dhcpState = DS_ARP_CHECK;
+    cs->dhcpState = DS_COLLISION_CHECK;
     cs->timeout = 2000;
     memcpy(&arp_dhcp_packet, packet, sizeof (struct dhcpmsg));
     arpreply_clear();
@@ -378,8 +378,6 @@ void arp_success(struct client_state_t *cs)
     cs->dhcpState = DS_BOUND;
     cs->init = 0;
     if (cs->arpPrevState == DS_RENEWING || cs->arpPrevState == DS_REBINDING) {
-        // XXX We need to be smarter about this and only issue an ifchange if
-        // the lease has actually changed.
         ifchange_bind(&arp_dhcp_packet);
         arp_switch_state(cs, AS_DEFENSE);
     } else {
@@ -475,7 +473,7 @@ void handle_arp_response(struct client_state_t *cs)
                 case AS_COLLISION_CHECK: arp_failed(cs); break;
                 case AS_GW_CHECK: arp_gw_failed(cs); break;
                 default:
-                    // XXX: close and re-open the FD in ALL cases
+                    arp_reopen_fd(cs);
                     break;
             }
         } else

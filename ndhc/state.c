@@ -42,7 +42,7 @@ dhcp_state_t dhcp_states[] = {
     { an_packet, renewing_timeout, frenew, nfrelease},       // RENEWING
     { an_packet, rebinding_timeout, frenew, nfrelease},      // REBINDING
     { 0, arp_gw_failed, frenew, anfrelease},                 // BOUND_GW_CHECK
-    { 0, arp_success, frenew, anfrelease},                   // ARP_CHECK
+    { 0, arp_success, frenew, anfrelease},                   // COLLISION_CHECK
     { 0, released_timeout, frenew, frelease},                // RELEASED
     { 0, 0, 0, 0},                                           // NUM_STATES
 };
@@ -173,7 +173,7 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
         cs->renewTime = cs->lease >> 1;
         cs->rebindTime = (cs->lease * 0x7) >> 3; // * 0.875
 
-        // Can transition from DS_ARP_CHECK to DS_BOUND or DS_SELECTING.
+        // Can transition from DS_COLLISION_CHECK to DS_BOUND or DS_SELECTING.
         if (arp_check(cs, packet) == -1) {
             log_warning("arp_check failed to make arp socket, retrying lease");
             reinit_selecting(cs, 3000);
@@ -263,7 +263,7 @@ static void frenew(struct client_state_t *cs)
             set_listen_cooked(cs);
             send_renew(cs);
             break;
-        case DS_ARP_CHECK:
+        case DS_COLLISION_CHECK:
             // Cancel arp ping in progress and treat as previous state.
             if (arp_close_fd(cs))
                 cs->dhcpState = cs->arpPrevState;
