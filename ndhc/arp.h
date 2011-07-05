@@ -1,11 +1,7 @@
 /* arp.h - functions to call the interface change daemon
- * Time-stamp: <2011-05-31 11:11:02 njk>
+ * Time-stamp: <2011-07-04 18:52:07 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
- *
- * Originally derived from busybox's udhcpc variant, which in turn was...
- * Mostly stolen from: dhcpcd - DHCP client daemon
- * by Yoichi Hariguchi <yoichi@fore.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,8 +17,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#ifndef ARPPING_H_
-#define ARPPING_H_
+#ifndef ARP_H_
+#define ARP_H_
 
 #include <stdint.h>
 #include <net/if_arp.h>
@@ -52,9 +48,8 @@ struct arpMsg {
 int arp_close_fd(struct client_state_t *cs);
 int arp_check(struct client_state_t *cs, struct dhcpmsg *packet);
 int arp_gw_check(struct client_state_t *cs);
-int arp_get_gw_hwaddr(struct client_state_t *cs);
 void arp_success(struct client_state_t *cs);
 void arp_gw_failed(struct client_state_t *cs);
 void handle_arp_response(struct client_state_t *cs);
 
-#endif /* ARPPING_H_ */
+#endif /* ARP_H_ */

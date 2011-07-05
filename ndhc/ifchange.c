@@ -1,5 +1,5 @@
 /* ifchange.c - functions to call the interface change daemon
- * Time-stamp: <2011-05-01 19:04:06 njk>
+ * Time-stamp: <2011-07-04 18:50:59 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -38,10 +38,6 @@
 #include "log.h"
 #include "io.h"
 #include "ifchange.h"
-
-// For access to routerAddr and nothing else.
-extern struct client_state_t cs;
-static char router_set;
 
 // Fill buf with the ifchd command text of option 'option'.
 // Returns 0 if successful, -1 if nothing was filled in.
@@ -86,12 +82,6 @@ static int ifchd_cmd(char *buf, size_t buflen, uint8_t *option, ssize_t optlen,
     for(;;) {
         switch (type) {
             case OPTION_IP: {
-                // This is a bit of a layering violation, but it's necessary
-                // for verifying gateway existence by ARP when link returns.
-                if (code == DHCP_ROUTER) {
-                    memcpy(&cs.routerAddr, option, 4);
-                    router_set = 1;
-                }
                 if (inet_ntop(AF_INET, option, buf, buflen - (buf - obuf) - 1))
                     buf += strlen(buf);
                 break;
@@ -192,6 +182,8 @@ static void send_cmd(int sockfd, struct dhcpmsg *packet, uint8_t code)
 
     memset(buf, '\0', sizeof buf);
     optdata = get_option_data(packet, code, &optlen);
+    if (!optlen)
+        return;
     if (ifchd_cmd(buf, sizeof buf, optdata, optlen, code) == -1)
         return;
     sockwrite(sockfd, buf, strlen(buf));
@@ -215,7 +207,6 @@ static void bound_if(struct dhcpmsg *packet, int mode)
     snprintf(buf, sizeof buf, "ip:%s:", ip);
     sockwrite(sockfd, buf, strlen(buf));
 
-    router_set = 0;
     send_cmd(sockfd, packet, DHCP_SUBNET);
     send_cmd(sockfd, packet, DHCP_ROUTER);
     send_cmd(sockfd, packet, DHCP_DNS_SERVER);
@@ -226,12 +217,6 @@ static void bound_if(struct dhcpmsg *packet, int mode)
     send_cmd(sockfd, packet, DHCP_WINS_SERVER);
 
     close(sockfd);
-    if (mode == IFCHANGE_BOUND && router_set == 1) {
-        if (arp_get_gw_hwaddr(&cs) == -1) {
-            log_warning("arp_get_gw_hwaddr failed to make arp socket; setting gw mac=ff:ff:ff:ff:ff:ff");
-            memset(&cs.routerAddr, 0xff, 4);
-        }
-    }
 }
 
 void ifchange(struct dhcpmsg *packet, int mode)
