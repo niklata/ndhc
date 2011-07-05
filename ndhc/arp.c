@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-07-05 15:54:06 njk>
+ * Time-stamp: <2011-07-05 16:00:42 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -402,7 +402,6 @@ static int arp_get_gw_hwaddr(struct client_state_t *cs)
 static void arp_failed(struct client_state_t *cs)
 {
     log_line("arp: Offered address is in use -- declining");
-    arp_close_fd(cs);
     send_decline(cs, arp_dhcp_packet.yiaddr);
     reinit_selecting(cs, total_conflicts < MAX_CONFLICTS ?
                      0 : RATE_LIMIT_INTERVAL);
@@ -411,7 +410,6 @@ static void arp_failed(struct client_state_t *cs)
 static void arp_gw_failed(struct client_state_t *cs)
 {
     log_line("arp: Gateway appears to have changed, getting new lease.");
-    arp_close_fd(cs);
     cs->oldTimeout = 0;
     reinit_selecting(cs, 0);
 }
@@ -586,7 +584,6 @@ static void arp_do_defense(struct client_state_t *cs)
         arp_announcement(cs);
     } else if (!arp_relentless_def) {
         log_line("arp: Conflicting peer is persistent.  Requesting new lease.");
-        arp_close_fd(cs);
         send_release(cs);
         reinit_selecting(cs, 0);
     } else {

@@ -63,13 +63,13 @@ static int delay_timeout(int numpackets)
 void reinit_selecting(struct client_state_t *cs, int timeout)
 {
     ifchange_deconfig();
+    arp_close_fd(cs);
     cs->dhcpState = DS_SELECTING;
     cs->timeout = timeout;
     cs->clientAddr = 0;
     num_dhcp_requests = 0;
     arp_reset_send_stats();
     set_listen_raw(cs);
-
 }
 
 // Triggered after a DHCP lease request packet has been sent and no reply has
