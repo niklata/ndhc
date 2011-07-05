@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-07-04 20:49:18 njk>
+ * Time-stamp: <2011-07-04 22:32:29 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -181,6 +181,44 @@ out:
     return -1;
 }
 
+static void arp_switch_state(struct client_state_t *cs, arp_state_t state)
+{
+    arp_state_t prev_state = arpState;
+    log_line("DEBUG: arp_switch_state: called.");
+    if (arpState == state || arpState >= AS_MAX)
+        return;
+    log_line("DEBUG: arp_switch_state: passed valid state change test");
+    arpState = state;
+    arp_stats[arpState].ts = 0;
+    arp_stats[arpState].count = 0;
+    log_line("DEBUG: arp_switch_state: state = %u", state);
+    if (arpState == AS_NONE) {
+        arp_close_fd(cs);
+        return;
+    }
+    if (cs->arpFd == -1) {
+        log_line("DEBUG: arp_switch_state: opening arpFd");
+        if (arp_open_fd(cs) == -1)
+            suicide("arp: failed to open arpFd when changing state to %u",
+                    arpState);
+        log_line("DEBUG: arp_switch_state: opened arpFd");
+        if (arpState != AS_DEFENSE)
+            arp_set_bpf_basic(cs->arpFd);
+        log_line("DEBUG: arp_switch_state: installed filters");
+    }
+    if (arpState == AS_DEFENSE) {
+        log_line("DEBUG: arp_switch_state: changed to DEFENSE filter");
+        arp_set_bpf_defense(cs, cs->arpFd);
+        return;
+    }
+    if (prev_state == AS_DEFENSE) {
+        log_line("DEBUG: arp_switch_state: removed DEFENSE filter");
+        arp_set_bpf_basic(cs->arpFd);
+        return;
+    }
+    log_line("DEBUG: arp_switch_state: leaving.");
+}
+
 int arp_close_fd(struct client_state_t *cs)
 {
     if (cs->arpFd == -1)
@@ -192,6 +230,19 @@ int arp_close_fd(struct client_state_t *cs)
     return 1;
 }
 
+static int arp_reopen_fd(struct client_state_t *cs)
+{
+    arp_state_t prev_state = arpState;
+    arp_close_fd(cs);
+    if (arp_open_fd(cs) == -1) {
+        log_warning("arp_reopen_fd: Failed to open.  Something is very wrong.");
+        log_warning("arp_reopen_fd: Client will still run, but functionality will be degraded.");
+        return -1;
+    }
+    arp_switch_state(cs, prev_state);
+    return 0;
+}
+
 static int arp_send(struct client_state_t *cs, struct arpMsg *arp)
 {
     struct sockaddr_ll addr = {
@@ -201,10 +252,15 @@ static int arp_send(struct client_state_t *cs, struct arpMsg *arp)
     };
     memcpy(addr.sll_addr, client_config.arp, 6);
 
+    if (cs->arpFd == -1) {
+        log_warning("arp_send: Send attempted when no ARP fd is open.");
+        return -1;
+    }
+
     if (safe_sendto(cs->arpFd, (const char *)arp, sizeof *arp,
                     0, (struct sockaddr *)&addr, sizeof addr) < 0) {
         log_error("arp: sendto failed: %s", strerror(errno));
-        arp_close_fd(cs);
+        arp_reopen_fd(cs);
         return -1;
     }
     arp_stats[arpState].count++;
@@ -253,44 +309,6 @@ static void arpreply_clear()
     arpreply_offset = 0;
 }
 
-static void arp_switch_state(struct client_state_t *cs, arp_state_t state)
-{
-    arp_state_t prev_state = arpState;
-    log_line("DEBUG: arp_switch_state: called.");
-    if (arpState == state || arpState >= AS_MAX)
-        return;
-    log_line("DEBUG: arp_switch_state: passed valid state change test");
-    arpState = state;
-    arp_stats[arpState].ts = 0;
-    arp_stats[arpState].count = 0;
-    log_line("DEBUG: arp_switch_state: state = %u", state);
-    if (arpState == AS_NONE) {
-        arp_close_fd(cs);
-        return;
-    }
-    if (cs->arpFd == -1) {
-        log_line("DEBUG: arp_switch_state: opening arpFd");
-        if (arp_open_fd(cs) == -1)
-            suicide("arp: failed to open arpFd when changing state to %u",
-                    arpState);
-        log_line("DEBUG: arp_switch_state: opened arpFd");
-        if (arpState != AS_DEFENSE)
-            arp_set_bpf_basic(cs->arpFd);
-        log_line("DEBUG: arp_switch_state: installed filters");
-    }
-    if (arpState == AS_DEFENSE) {
-        log_line("DEBUG: arp_switch_state: changed to DEFENSE filter");
-        arp_set_bpf_defense(cs, cs->arpFd);
-        return;
-    }
-    if (prev_state == AS_DEFENSE) {
-        log_line("DEBUG: arp_switch_state: removed DEFENSE filter");
-        arp_set_bpf_basic(cs->arpFd);
-        return;
-    }
-    log_line("DEBUG: arp_switch_state: leaving.");
-}
-
 // Callable from DS_SELECTING, DS_RENEWING, or DS_REBINDING via an_packet()
 int arp_check(struct client_state_t *cs, struct dhcpmsg *packet)
 {
@@ -305,7 +323,7 @@ int arp_check(struct client_state_t *cs, struct dhcpmsg *packet)
     return 0;
 }
 
-// Callable only from DS_BOUND via netlink.c:nl_process_msgs().
+// Callable only from DS_BOUND via state.c:ifup_action().
 int arp_gw_check(struct client_state_t *cs)
 {
     arp_switch_state(cs, AS_GW_CHECK);
@@ -554,8 +572,7 @@ void handle_arp_response(struct client_state_t *cs)
         log_line("DEBUG: TODO actually do work!");
         break;
     default:
-        log_error("handle_arp_response: called in invalid state 0x%02x",
-                  cs->dhcpState);
+        log_error("handle_arp_response: called in invalid state %u", arpState);
         arp_close_fd(cs);
     }
     log_line("DEBUG: Leaving handle_arp_response.");
