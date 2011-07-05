@@ -1,5 +1,5 @@
 /* ndhc.c - DHCP client
- * Time-stamp: <2011-07-05 11:18:03 njk>
+ * Time-stamp: <2011-07-05 12:54:15 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -94,6 +94,8 @@ static void show_usage(void)
 "  -r, --request=IP                IP address to request (default: none)\n"
 "  -u, --user=USER                 Change privileges to this user\n"
 "  -C, --chroot=DIR                Chroot to this directory\n"
+"  -d, --relentless-defense        Never back off in defending IP against\n"
+"                                  conflicting hosts (servers only)\n"
 "  -v, --version                   Display version\n"
            );
     exit(EXIT_SUCCESS);
@@ -220,17 +222,18 @@ int main(int argc, char **argv)
         {"now",         no_argument,        0, 'n'},
         {"quit",        no_argument,        0, 'q'},
         {"request",     required_argument,  0, 'r'},
-        {"version",     no_argument,        0, 'v'},
         {"vendorid",    required_argument,  0, 'V'},
         {"user",        required_argument,  0, 'u'},
         {"chroot",      required_argument,  0, 'C'},
+        {"relentless-defense", no_argument, 0, 'd'},
+        {"version",     no_argument,        0, 'v'},
         {"help",        no_argument,        0, '?'},
         {0, 0, 0, 0}
     };
 
     while (1) {
         int option_index = 0;
-        c = getopt_long(argc, argv, "c:fbp:h:i:np:l:qr:u:C:vV:", arg_options,
+        c = getopt_long(argc, argv, "c:fbp:h:i:np:l:qr:V:u:C:dv", arg_options,
                         &option_index);
         if (c == -1) break;
 
@@ -284,6 +287,10 @@ int main(int argc, char **argv)
                 break;
             case 'C':
                 strlcpy(chroot_dir, optarg, sizeof chroot_dir);
+                break;
+            case 'd':
+                log_line("DEBUG: relentless defense enabled");
+                arp_relentless_def = 1;
                 break;
             case 'v':
                 printf("ndhc, version " VERSION "\n\n");

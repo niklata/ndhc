@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-07-05 11:06:00 njk>
+ * Time-stamp: <2011-07-05 12:49:09 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -43,6 +43,18 @@
 #define ARP_MSG_SIZE 0x2a
 #define ARP_RETRANS_DELAY 5000 // ms
 
+// From RFC5227
+#define PROBE_WAIT 1000            // initial random delay
+#define PROBE_NUM 3                // number of probe packets
+#define PROBE_MIN 1000             // minimum delay until repeated probe
+#define PROBE_MAX 2000             // maximum delay until repeated probe
+#define ANNOUNCE_WAIT 2000         // delay before announcing
+#define ANNOUNCE_NUM 2             // number of Announcement packets
+#define ANNOUNCE_INTERVAL 2000     // time between Announcement packets
+#define MAX_CONFLICTS 10           // max conflicts before rate-limiting
+#define RATE_LIMIT_INTERVAL 60000  // delay between successive attempts
+#define DEFEND_INTERVAL 10000      // minimum interval between defensive ARPs
+
 typedef enum {
     AS_NONE = 0,        // Nothing to react to wrt ARP
     AS_COLLISION_CHECK, // Checking to see if another host has our IP before
@@ -61,6 +73,11 @@ struct arp_stats {
 };
 static struct arp_stats arp_stats[AS_MAX-1];
 static int using_arp_bpf; // Is a BPF installed on the ARP socket?
+int arp_relentless_def; // Don't give up defense no matter what.
+static long long last_conflict_ts; // TS of the last conflicting ARP seen.
+static long long pending_def_ts; // TS of the upcoming defense ARP send.
+static long long last_def_ts; // TS of the most recent defense ARP sent.
+static int def_old_oldTimeout; // Old value of cs->oldTimeout.
 
 static struct arpMsg arpreply;
 static int arpreply_offset;
@@ -384,6 +401,10 @@ void arp_success(struct client_state_t *cs)
     cs->clientAddr = arp_dhcp_packet.yiaddr;
     cs->dhcpState = DS_BOUND;
     cs->init = 0;
+    last_conflict_ts = 0;
+    pending_def_ts = 0;
+    last_def_ts = 0;
+    def_old_oldTimeout = 0;
     ifchange_bind(&arp_dhcp_packet);
     if (cs->arpPrevState == DS_RENEWING || cs->arpPrevState == DS_REBINDING) {
         arp_switch_state(cs, AS_DEFENSE);
@@ -468,6 +489,17 @@ static int arp_is_query_reply(struct arpMsg *am)
 // Perform retransmission if necessary.
 void arp_retransmit(struct client_state_t *cs)
 {
+    if (pending_def_ts) {
+        log_line("arp: Defending our lease IP.");
+        pending_def_ts = 0;
+        last_def_ts = curms();
+        arp_announcement(cs);
+        if (def_old_oldTimeout) {
+            cs->timeout = cs->oldTimeout;
+            cs->oldTimeout = def_old_oldTimeout;
+            def_old_oldTimeout = 0;
+        }
+    }
     if (curms() < arp_stats[arpState].ts + ARP_RETRANS_DELAY)
         return;
     log_line("DEBUG: retransmission timeout in arp state %u", arpState);
@@ -488,6 +520,31 @@ void arp_retransmit(struct client_state_t *cs)
         default:
             break;
     }
+}
+
+static void arp_do_defense(struct client_state_t *cs)
+{
+    log_line("arp: detected a peer attempting to use our IP!");
+    long long cur_conflict_ts = curms();
+    if (!last_conflict_ts ||
+        cur_conflict_ts - last_conflict_ts < DEFEND_INTERVAL) {
+        log_line("arp: Defending our lease IP.");
+        last_def_ts = cur_conflict_ts;
+        arp_announcement(cs);
+    } else if (!arp_relentless_def) {
+        log_line("arp: Conflicting peer is persistent.  Requesting new lease.");
+        send_release(cs);
+        reinit_selecting(cs, 0);
+    } else {
+        pending_def_ts = last_def_ts + DEFEND_INTERVAL;
+        long long def_xmit_ts = pending_def_ts - cur_conflict_ts;
+        if (!cs->timeout || cs->timeout > def_xmit_ts) {
+            def_old_oldTimeout = cs->oldTimeout;
+            cs->oldTimeout = cs->timeout;
+            cs->timeout = def_xmit_ts;
+        }
+    }
+    last_conflict_ts = cur_conflict_ts;
 }
 
 void handle_arp_response(struct client_state_t *cs)
@@ -570,9 +627,7 @@ void handle_arp_response(struct client_state_t *cs)
         if (!arp_validate_bpf_defense(cs, &arpreply))
             break;
     case AS_DEFENSE:
-        log_line("arp: detected a peer attempting to use our IP!");
-        // XXX: actually do work...
-        log_line("DEBUG: TODO actually do work!");
+        arp_do_defense(cs);
         break;
     default:
         log_error("handle_arp_response: called in invalid state %u", arpState);
