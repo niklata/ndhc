@@ -56,6 +56,17 @@ static int delay_timeout(int numpackets)
     return to * 1000;
 }
 
+static void reinit_selecting(struct client_state_t *cs, int timeout)
+{
+    ifchange_deconfig();
+    cs->dhcpState = DS_SELECTING;
+    cs->timeout = timeout;
+    cs->clientAddr = 0;
+    cs->packetNum = 0;
+    set_listen_raw(cs);
+
+}
+
 // Triggered after a DHCP lease request packet has been sent and no reply has
 // been received within the response wait time.  If we've not exceeded the
 // maximum number of request retransmits, then send another packet and wait
@@ -66,12 +77,8 @@ static void requesting_timeout(struct client_state_t *cs)
         send_selecting(cs);
         cs->timeout = delay_timeout(cs->packetNum);
         cs->packetNum++;
-    } else {
-        cs->dhcpState = DS_SELECTING;
-        cs->timeout = 0;
-        cs->packetNum = 0;
-        set_listen_raw(cs);
-    }
+    } else
+        reinit_selecting(cs, 0);
 }
 
 // Triggered when the lease has been held for a significant fraction of its
@@ -86,12 +93,8 @@ static void bound_timeout(struct client_state_t *cs)
 
 static void lease_timedout(struct client_state_t *cs)
 {
-    cs->dhcpState = DS_SELECTING;
     log_line("Lease lost, entering init state.");
-    ifchange_deconfig();
-    cs->timeout = 0;
-    cs->packetNum = 0;
-    set_listen_raw(cs);
+    reinit_selecting(cs, 0);
 }
 
 // Triggered when a DHCP renew request has been sent and no reply has been
@@ -173,22 +176,12 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
         // Can transition from DS_ARP_CHECK to DS_BOUND or DS_SELECTING.
         if (arp_check(cs, packet) == -1) {
             log_warning("arp_check failed to make arp socket, retrying lease");
-            ifchange_deconfig();
-            cs->dhcpState = DS_SELECTING;
-            cs->timeout = 30000;
-            cs->clientAddr = 0;
-            cs->packetNum = 0;
-            set_listen_raw(cs);
+            reinit_selecting(cs, 3000);
         }
 
     } else if (*message == DHCPNAK) {
         log_line("Received DHCP NAK.");
-        ifchange_deconfig();
-        cs->dhcpState = DS_SELECTING;
-        cs->timeout = 3000;
-        cs->clientAddr = 0;
-        cs->packetNum = 0;
-        set_listen_raw(cs);
+        reinit_selecting(cs, 3000);
     }
 }
 
@@ -287,6 +280,47 @@ static void frenew(struct client_state_t *cs)
     }
     cs->packetNum = 0;
     cs->timeout = 0;
+}
+
+static void restart_if(struct client_state_t *cs)
+{
+    log_line("nl: %s back, querying for new lease", client_config.interface);
+    reinit_selecting(cs, 0);
+}
+
+static void sleep_if(struct client_state_t *cs)
+{
+    arp_close_fd(cs);
+    set_listen_none(cs);
+    cs->dhcpState = DS_RELEASED;
+    cs->timeout = -1;
+}
+
+void ifup_action(struct client_state_t *cs)
+{
+    // If we have a lease, then check to see
+    // if our gateway is still valid (via ARP).
+    // If it fails, state -> SELECTING.
+    if (cs->dhcpState == DS_BOUND) {
+        if (arp_gw_check(cs) == -1)
+            log_warning("nl: arp_gw_check could not make arp socket, assuming lease is still OK");
+        else
+            log_line("nl: interface back, revalidating lease");
+        // If we don't have a lease, state -> SELECTING.
+    } else if (cs->dhcpState != DS_SELECTING)
+        restart_if(cs);
+}
+
+void ifdown_action(struct client_state_t *cs)
+{
+    log_line("Interface shut down.  Going to sleep.");
+    sleep_if(cs);
+}
+
+void ifnocarrier_action(struct client_state_t *cs)
+{
+    log_line("Interface carrier down.  Going to sleep.");
+    sleep_if(cs);
 }
 
 void packet_action(struct client_state_t *cs, struct dhcpmsg *packet,

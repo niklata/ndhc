@@ -21,47 +21,20 @@
 #include <assert.h>
 #include <asm/types.h>
 #include <sys/socket.h>
-#include <unistd.h>
 #include <net/if.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <strings.h>
 #include <string.h>
-#include <sys/select.h>
-#include <fcntl.h>
 #include <time.h>
 #include <errno.h>
 #include <poll.h>
 
 #include "netlink.h"
-#include "ifchange.h"
-#include "arp.h"
 #include "log.h"
 #include "nl.h"
+#include "state.h"
 
 static char nlbuf[8192];
 int nlportid;
-
-static void restart_if(struct client_state_t *cs)
-{
-    log_line("nl: %s back, querying for new lease", client_config.interface);
-    // XXX: Same as packet.c - merge somehow?
-    ifchange_deconfig();
-    cs->dhcpState = DS_SELECTING;
-    cs->timeout = 0;
-    cs->clientAddr = 0;
-    cs->packetNum = 0;
-    set_listen_raw(cs);
-}
-
-static void sleep_if(struct client_state_t *cs)
-{
-    arp_close_fd(cs);
-    set_listen_none(cs);
-    cs->dhcpState = DS_RELEASED;
-    cs->timeout = -1;
-}
-
 
 static int nlrtattr_assign(struct nlattr *attr, int type, void *data)
 {
@@ -114,33 +87,17 @@ static int nl_process_msgs(const struct nlmsghdr *nlh, void *data)
                 if (ifm->ifi_flags & IFF_RUNNING) {
                     if (cs->ifsPrevState != IFS_UP) {
                         cs->ifsPrevState = IFS_UP;
-                        // If we have a lease, then check to see
-                        // if our gateway is still valid (via ARP).
-                        // If it fails, state -> SELECTING.
-                        if (cs->dhcpState == DS_BOUND) {
-                            if (arp_gw_check(cs) == -1)
-                                log_warning("nl: arp_gw_check could not make arp socket, assuming lease is still OK");
-                            else
-                                log_line("nl: interface back, revalidating lease");
-                        // If we don't have a lease, state -> SELECTING.
-                        } else if (cs->dhcpState != DS_SELECTING)
-                            restart_if(cs);
+                        ifup_action(cs);
                     }
-                } else {
-                    // No hardware carrier.
-                    if (cs->ifsPrevState != IFS_DOWN) {
-                        log_line("Interface carrier down.  Going to sleep.");
-                        cs->ifsPrevState = IFS_DOWN;
-                        sleep_if(cs);
-                    }
+                } else if (cs->ifsPrevState != IFS_DOWN) {
+                    // Interface configured, but no hardware carrier.
+                    cs->ifsPrevState = IFS_DOWN;
+                    ifnocarrier_action(cs);
                 }
-            } else {
+            } else if (cs->ifsPrevState != IFS_SHUT) {
                 // User shut down the interface.
-                if (cs->ifsPrevState != IFS_SHUT) {
-                    log_line("Interface shut down.  Going to sleep.");
-                    cs->ifsPrevState = IFS_SHUT;
-                    sleep_if(cs);
-                }
+                cs->ifsPrevState = IFS_SHUT;
+                ifdown_action(cs);
             }
             break;
         case RTM_DELLINK:

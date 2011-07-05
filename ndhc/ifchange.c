@@ -1,5 +1,5 @@
 /* ifchange.c - functions to call the interface change daemon
- * Time-stamp: <2011-07-04 21:35:02 njk>
+ * Time-stamp: <2011-07-04 22:03:35 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -39,7 +39,8 @@
 #include "io.h"
 #include "ifchange.h"
 
-static struct dhcpmsg cfg_packet;
+static int cfg_deconfig; // Set if the interface has already been deconfigured.
+static struct dhcpmsg cfg_packet; // Copy of the current configuration packet.
 
 // Fill buf with the ifchd command text of option 'option'.
 // Returns 0 if successful, -1 if nothing was filled in.
@@ -162,6 +163,9 @@ void ifchange_deconfig(void)
     int sockfd;
     char buf[256];
 
+    if (cfg_deconfig)
+        return;
+
     sockfd = open_ifch();
 
     snprintf(buf, sizeof buf, "interface:%s:", client_config.interface);
@@ -170,6 +174,7 @@ void ifchange_deconfig(void)
     snprintf(buf, sizeof buf, "ip:0.0.0.0:");
     sockwrite(sockfd, buf, strlen(buf));
 
+    cfg_deconfig = 1;
     memset(&cfg_packet, 0, sizeof cfg_packet);
 
     close(sockfd);
@@ -223,6 +228,7 @@ void ifchange_bind(struct dhcpmsg *packet)
     send_cmd(sockfd, packet, DHCP_BROADCAST);
     send_cmd(sockfd, packet, DHCP_WINS_SERVER);
 
+    cfg_deconfig = 0;
     memcpy(&cfg_packet, packet, sizeof cfg_packet);
 
     close(sockfd);

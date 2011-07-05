@@ -21,5 +21,10 @@ void packet_action(struct client_state_t *cs, struct dhcpmsg *packet,
 void timeout_action(struct client_state_t *cs);
 void force_renew_action(struct client_state_t *cs);
 void force_release_action(struct client_state_t *cs);
+
+void ifup_action(struct client_state_t *cs);
+void ifnocarrier_action(struct client_state_t *cs);
+void ifdown_action(struct client_state_t *cs);
+
 #endif
 
