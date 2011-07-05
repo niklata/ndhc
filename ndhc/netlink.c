@@ -46,7 +46,7 @@ static void restart_if(struct client_state_t *cs)
 {
     log_line("nl: %s back, querying for new lease", client_config.interface);
     // XXX: Same as packet.c - merge somehow?
-    ifchange(NULL, IFCHANGE_DECONFIG);
+    ifchange_deconfig();
     cs->dhcpState = DS_SELECTING;
     cs->timeout = 0;
     cs->clientAddr = 0;

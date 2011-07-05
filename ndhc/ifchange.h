@@ -1,5 +1,5 @@
 /* ifchange.h - functions to call the interface change daemon
- * Time-stamp: <2011-03-31 03:44:18 nk>
+ * Time-stamp: <2011-07-04 20:47:58 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -21,15 +21,7 @@
 #ifndef IFCHANGE_H_
 #define IFCHANGE_H_
 
-#include "dhcp.h"
-
-enum {
-    IFCHANGE_DECONFIG = 0,
-    IFCHANGE_BOUND = 1,
-    IFCHANGE_RENEW = 2,
-    IFCHANGE_NAK = 4
-};
-
-void ifchange(struct dhcpmsg *packet, int mode);
+void ifchange_bind(struct dhcpmsg *packet);
+void ifchange_deconfig(void);
 
 #endif

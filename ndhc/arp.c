@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-07-04 20:17:51 njk>
+ * Time-stamp: <2011-07-04 20:49:18 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -291,6 +291,7 @@ static void arp_switch_state(struct client_state_t *cs, arp_state_t state)
     log_line("DEBUG: arp_switch_state: leaving.");
 }
 
+// Callable from DS_SELECTING, DS_RENEWING, or DS_REBINDING via an_packet()
 int arp_check(struct client_state_t *cs, struct dhcpmsg *packet)
 {
     arp_switch_state(cs, AS_COLLISION_CHECK);
@@ -304,6 +305,7 @@ int arp_check(struct client_state_t *cs, struct dhcpmsg *packet)
     return 0;
 }
 
+// Callable only from DS_BOUND via netlink.c:nl_process_msgs().
 int arp_gw_check(struct client_state_t *cs)
 {
     arp_switch_state(cs, AS_GW_CHECK);
@@ -338,7 +340,7 @@ static void arp_failed(struct client_state_t *cs)
     send_decline(cs, arp_dhcp_packet.yiaddr);
 
     if (cs->arpPrevState != DS_REQUESTING)
-        ifchange(NULL, IFCHANGE_DECONFIG);
+        ifchange_deconfig();
     cs->dhcpState = DS_SELECTING;
     cs->clientAddr = 0;
     cs->timeout = 0;
@@ -351,7 +353,7 @@ void arp_gw_failed(struct client_state_t *cs)
     log_line("arp: Gateway appears to have changed, getting new lease");
     arp_close_fd(cs);
 
-    ifchange(NULL, IFCHANGE_DECONFIG);
+    ifchange_deconfig();
     cs->dhcpState = DS_SELECTING;
     cs->oldTimeout = 0;
     cs->timeout = 0;
@@ -371,13 +373,15 @@ void arp_success(struct client_state_t *cs)
     cs->dhcpState = DS_BOUND;
     cs->init = 0;
     if (cs->arpPrevState == DS_RENEWING || cs->arpPrevState == DS_REBINDING) {
-        ifchange(&arp_dhcp_packet, IFCHANGE_RENEW); // XXX when does this happen?
+        // XXX We need to be smarter about this and only issue an ifchange if
+        // the lease has actually changed.
+        ifchange_bind(&arp_dhcp_packet);
         arp_switch_state(cs, AS_DEFENSE);
     } else {
         ssize_t ol;
         uint8_t *od;
         od = get_option_data(&arp_dhcp_packet, DHCP_ROUTER, &ol);
-        ifchange(&arp_dhcp_packet, IFCHANGE_BOUND);
+        ifchange_bind(&arp_dhcp_packet);
         if (ol == 4) {
             memcpy(&cs->routerAddr, od, 4);
             arp_get_gw_hwaddr(cs);

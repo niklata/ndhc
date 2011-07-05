@@ -1,5 +1,5 @@
 /* ndhc.c - DHCP client
- * Time-stamp: <2011-07-03 17:19:25 njk>
+ * Time-stamp: <2011-07-04 20:49:48 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -335,7 +335,7 @@ int main(int argc, char **argv)
     drop_root(uid, gid);
 
     if (cs.ifsPrevState != IFS_UP)
-        ifchange(NULL, IFCHANGE_DECONFIG);
+        ifchange_deconfig();
 
     do_work();
     return EXIT_SUCCESS; // Never reached.

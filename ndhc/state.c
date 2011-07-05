@@ -88,7 +88,7 @@ static void lease_timedout(struct client_state_t *cs)
 {
     cs->dhcpState = DS_SELECTING;
     log_line("Lease lost, entering init state.");
-    ifchange(NULL, IFCHANGE_DECONFIG);
+    ifchange_deconfig();
     cs->timeout = 0;
     cs->packetNum = 0;
     set_listen_raw(cs);
@@ -173,7 +173,7 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
         // Can transition from DS_ARP_CHECK to DS_BOUND or DS_SELECTING.
         if (arp_check(cs, packet) == -1) {
             log_warning("arp_check failed to make arp socket, retrying lease");
-            ifchange(NULL, IFCHANGE_DECONFIG);
+            ifchange_deconfig();
             cs->dhcpState = DS_SELECTING;
             cs->timeout = 30000;
             cs->clientAddr = 0;
@@ -183,9 +183,7 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
 
     } else if (*message == DHCPNAK) {
         log_line("Received DHCP NAK.");
-        ifchange(packet, IFCHANGE_NAK);
-        if (cs->dhcpState != DS_REQUESTING)
-            ifchange(NULL, IFCHANGE_DECONFIG);
+        ifchange_deconfig();
         cs->dhcpState = DS_SELECTING;
         cs->timeout = 3000;
         cs->clientAddr = 0;
@@ -248,7 +246,7 @@ static void nfrelease(struct client_state_t *cs)
              inet_ntoa((struct in_addr){.s_addr=cs->clientAddr}),
              inet_ntoa((struct in_addr){.s_addr=cs->serverAddr}));
     send_release(cs);
-    ifchange(NULL, IFCHANGE_DECONFIG);
+    ifchange_deconfig();
     frelease(cs);
 }
 

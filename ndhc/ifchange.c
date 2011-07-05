@@ -1,5 +1,5 @@
 /* ifchange.c - functions to call the interface change daemon
- * Time-stamp: <2011-07-04 18:50:59 njk>
+ * Time-stamp: <2011-07-04 20:48:03 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -155,7 +155,7 @@ static void sockwrite(int fd, const char *buf, size_t count)
         log_line("sent to ifchd: %s", buf);
 }
 
-static void deconfig_if(void)
+void ifchange_deconfig(void)
 {
     int sockfd;
     char buf[256];
@@ -189,7 +189,7 @@ static void send_cmd(int sockfd, struct dhcpmsg *packet, uint8_t code)
     sockwrite(sockfd, buf, strlen(buf));
 }
 
-static void bound_if(struct dhcpmsg *packet, int mode)
+void ifchange_bind(struct dhcpmsg *packet)
 {
     int sockfd;
     char buf[256];
@@ -218,25 +218,3 @@ static void bound_if(struct dhcpmsg *packet, int mode)
 
     close(sockfd);
 }
-
-void ifchange(struct dhcpmsg *packet, int mode)
-{
-    switch (mode) {
-        case IFCHANGE_DECONFIG:
-            deconfig_if();
-            break;
-        case IFCHANGE_BOUND:
-            bound_if(packet, mode);
-            break;
-        case IFCHANGE_RENEW:
-            bound_if(packet, mode);
-            break;
-        case IFCHANGE_NAK:
-            deconfig_if();
-            break;
-        default:
-            log_error("invalid ifchange mode: %d", mode);
-            break;
-    }
-}
-
