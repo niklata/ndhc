@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-07-04 20:03:04 njk>
+ * Time-stamp: <2011-07-04 20:17:51 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -211,60 +211,41 @@ static int arp_send(struct client_state_t *cs, struct arpMsg *arp)
     return 0;
 }
 
+#define BASE_ARPMSG() struct arpMsg arp = {                             \
+        .h_proto = htons(ETH_P_ARP),                                    \
+        .htype = htons(ARPHRD_ETHER),                                   \
+        .ptype = htons(ETH_P_IP),                                       \
+        .hlen = 6, .plen = 4,                                           \
+        .operation = htons(ARPOP_REQUEST), };                           \
+    memcpy(arp.h_source, client_config.arp, 6);                         \
+    memset(arp.h_dest, 0xff, 6);                                        \
+    memcpy(arp.smac, client_config.arp, 6)
+
 // Returns 0 on success, -1 on failure.
 static int arp_ping(struct client_state_t *cs, uint32_t test_ip)
 {
-    struct arpMsg arp = {
-        .h_proto = htons(ETH_P_ARP),
-        .htype = htons(ARPHRD_ETHER),
-        .ptype = htons(ETH_P_IP),
-        .hlen = 6,
-        .plen = 4,
-        .operation = htons(ARPOP_REQUEST),
-    };
-    memcpy(arp.h_source, client_config.arp, 6);
-    memset(arp.h_dest, 0xff, 6);
-    memcpy(arp.smac, client_config.arp, 6);
-    memcpy(arp.dip4, &test_ip, sizeof test_ip);
+    BASE_ARPMSG();
     memcpy(arp.sip4, &cs->clientAddr, sizeof cs->clientAddr);
+    memcpy(arp.dip4, &test_ip, sizeof test_ip);
     return arp_send(cs, &arp);
 }
 
 // Returns 0 on success, -1 on failure.
 static int arp_ip_anon_ping(struct client_state_t *cs, uint32_t test_ip)
 {
-    struct arpMsg arp = {
-        .h_proto = htons(ETH_P_ARP),
-        .htype = htons(ARPHRD_ETHER),
-        .ptype = htons(ETH_P_IP),
-        .hlen = 6,
-        .plen = 4,
-        .operation = htons(ARPOP_REQUEST),
-    };
-    memcpy(arp.h_source, client_config.arp, 6);
-    memset(arp.h_dest, 0xff, 6);
-    memcpy(arp.smac, client_config.arp, 6);
+    BASE_ARPMSG();
     memcpy(arp.dip4, &test_ip, sizeof test_ip);
     return arp_send(cs, &arp);
 }
 
 static int arp_announcement(struct client_state_t *cs)
 {
-    struct arpMsg arp = {
-        .h_proto = htons(ETH_P_ARP),
-        .htype = htons(ARPHRD_ETHER),
-        .ptype = htons(ETH_P_IP),
-        .hlen = 6,
-        .plen = 4,
-        .operation = htons(ARPOP_REQUEST),
-    };
-    memcpy(arp.h_source, client_config.arp, 6);
-    memset(arp.h_dest, 0xff, 6);
-    memcpy(arp.smac, client_config.arp, 6);
+    BASE_ARPMSG();
     memcpy(arp.sip4, &cs->clientAddr, 4);
     memcpy(arp.dip4, &cs->clientAddr, 4);
     return arp_send(cs, &arp);
 }
+#undef BASE_ARPMSG
 
 static void arpreply_clear()
 {
@@ -552,12 +533,12 @@ void handle_arp_response(struct client_state_t *cs)
         log_line("DEBUG: Doing work for AS_GW_QUERY state.");
         if (arp_is_query_reply(&arpreply) &&
             !memcmp(arpreply.sip4, &cs->routerAddr, 4)) {
-            arp_switch_state(cs, AS_DEFENSE);
             memcpy(cs->routerArp, arpreply.smac, 6);
             log_line("arp: Gateway hardware address %02x:%02x:%02x:%02x:%02x:%02x",
                      cs->routerArp[0], cs->routerArp[1],
                      cs->routerArp[2], cs->routerArp[3],
                      cs->routerArp[4], cs->routerArp[5]);
+            arp_switch_state(cs, AS_DEFENSE);
             break;
         }
         log_line("DEBUG: Was not a reply from GW.  Checking for defense.");
