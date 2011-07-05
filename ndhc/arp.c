@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-07-05 15:37:02 njk>
+ * Time-stamp: <2011-07-05 15:54:06 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -408,17 +408,21 @@ static void arp_failed(struct client_state_t *cs)
                      0 : RATE_LIMIT_INTERVAL);
 }
 
-void arp_gw_failed(struct client_state_t *cs)
+static void arp_gw_failed(struct client_state_t *cs)
+{
+    log_line("arp: Gateway appears to have changed, getting new lease.");
+    arp_close_fd(cs);
+    cs->oldTimeout = 0;
+    reinit_selecting(cs, 0);
+}
+
+static int act_if_arp_gw_failed(struct client_state_t *cs)
 {
     if (arp_send_stats[ASEND_GW_PING].count >= gw_check_init_pingcount + 3) {
-        log_line("arp: Gateway appears to have changed, getting new lease");
-        arp_close_fd(cs);
-        cs->oldTimeout = 0;
-        reinit_selecting(cs, 0);
-        return;
+        arp_gw_failed(cs);
+        return 1;
     }
-    cs->timeout = ARP_RETRANS_DELAY + 250;
-    arp_retransmit(cs);
+    return 0;
 }
 
 void arp_success(struct client_state_t *cs)
@@ -535,6 +539,8 @@ void arp_retransmit(struct client_state_t *cs)
         }
     }
     if (arpState == AS_GW_CHECK || arpState == AS_GW_QUERY) {
+        if (arpState == AS_GW_CHECK && act_if_arp_gw_failed(cs))
+            return;
         long long cms = curms();
         long long rtts = arp_send_stats[ASEND_GW_PING].ts + ARP_RETRANS_DELAY;
         if (cms < rtts) {

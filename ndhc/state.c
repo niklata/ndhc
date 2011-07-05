@@ -23,6 +23,7 @@ static void renewing_timeout(struct client_state_t *cs);
 static void rebinding_timeout(struct client_state_t *cs);
 static void released_timeout(struct client_state_t *cs);
 static void collision_check_timeout(struct client_state_t *cs);
+static void bound_gw_check_timeout(struct client_state_t *cs);
 static void anfrelease(struct client_state_t *cs);
 static void nfrelease(struct client_state_t *cs);
 static void frelease(struct client_state_t *cs);
@@ -42,7 +43,7 @@ dhcp_state_t dhcp_states[] = {
     { 0, bound_timeout, frenew, nfrelease},                  // BOUND
     { an_packet, renewing_timeout, frenew, nfrelease},       // RENEWING
     { an_packet, rebinding_timeout, frenew, nfrelease},      // REBINDING
-    { 0, arp_gw_failed, frenew, anfrelease},                 // BOUND_GW_CHECK
+    { 0, bound_gw_check_timeout, frenew, anfrelease},        // BOUND_GW_CHECK
     { 0, collision_check_timeout, frenew, anfrelease},       // COLLISION_CHECK
     { 0, released_timeout, frenew, frelease},                // RELEASED
     { 0, 0, 0, 0},                                           // NUM_STATES
@@ -158,6 +159,11 @@ static void released_timeout(struct client_state_t *cs)
 }
 
 static void collision_check_timeout(struct client_state_t *cs)
+{
+    arp_retransmit(cs);
+}
+
+static void bound_gw_check_timeout(struct client_state_t *cs)
 {
     arp_retransmit(cs);
 }
@@ -294,8 +300,8 @@ void ifup_action(struct client_state_t *cs)
 {
     // If we have a lease, check to see if our gateway is still valid via ARP.
     // If it fails, state -> SELECTING.
-    // XXX what about RENEWING and REBINDING??
-    if (cs->dhcpState == DS_BOUND) {
+    if (cs->dhcpState == DS_BOUND || cs->dhcpState == DS_RENEWING ||
+        cs->dhcpState == DS_REBINDING) {
         if (arp_gw_check(cs) == -1)
             log_warning("nl: arp_gw_check could not make arp socket, assuming lease is still OK");
         else
