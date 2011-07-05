@@ -36,9 +36,18 @@ the ability to service multiple client requests simultaneously; a single ifchd
 is sufficient for multiple ndhc clients.  Only exotic setups should require
 this functionality, but it does exist.
 
-Note that ndhc does not support the entire DHCP client protocol.  Only the
-minimum necessary featureset is implemented.  This behavior should be familiar
-to anyone who has used software that purports to be be secure.
+Note that ndhc does not support the entire DHCP client protocol.  Notably, DHCP
+options concatenation and IPv4 Link Local Addressing as defined in RFC3927 are
+not and will not be supported.
+
+On the other hand, ndhc fully implements RFC5227's address conflict detection
+and defense.  Great care is taken to ensure that address conflicts will be
+detected, and ndhc also has extensive support for address defense.  Care is
+taken to prevent unintentional ARP flooding under any circumstance.
+
+ndhc also monitors hardware link status via netlink events and reacts
+appropriately when interface carrier status changes or an interface is
+explicitly deconfigured.
 
 USAGE
 -----

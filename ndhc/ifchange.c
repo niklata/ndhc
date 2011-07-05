@@ -1,5 +1,5 @@
 /* ifchange.c - functions to call the interface change daemon
- * Time-stamp: <2011-07-04 22:03:35 njk>
+ * Time-stamp: <2011-07-05 19:22:50 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  *
@@ -37,6 +37,7 @@
 #include "arp.h"
 #include "log.h"
 #include "io.h"
+#include "strl.h"
 #include "ifchange.h"
 
 static int cfg_deconfig; // Set if the interface has already been deconfigured.
@@ -154,8 +155,6 @@ static void sockwrite(int fd, const char *buf, size_t count)
 {
     if (safe_write(fd, buf, count) == -1)
         log_error("sockwrite: write failed: %s", strerror(errno));
-    else
-        log_line("sent to ifchd: %s", buf);
 }
 
 void ifchange_deconfig(void)
@@ -168,10 +167,9 @@ void ifchange_deconfig(void)
 
     sockfd = open_ifch();
 
-    snprintf(buf, sizeof buf, "interface:%s:", client_config.interface);
-    sockwrite(sockfd, buf, strlen(buf));
-
-    snprintf(buf, sizeof buf, "ip:0.0.0.0:");
+    snprintf(buf, sizeof buf, "interface:%s:ip:0.0.0.0:",
+             client_config.interface);
+    log_line("sent to ifchd: ip:0.0.0.0:");
     sockwrite(sockfd, buf, strlen(buf));
 
     cfg_deconfig = 1;
@@ -180,56 +178,67 @@ void ifchange_deconfig(void)
     close(sockfd);
 }
 
-static void send_cmd(int sockfd, struct dhcpmsg *packet, uint8_t code)
+static size_t send_client_ip(char *out, size_t olen, struct dhcpmsg *packet)
+{
+    char ip[32], ipb[64];
+    if (!memcmp(&packet->yiaddr, &cfg_packet.yiaddr, sizeof packet->yiaddr))
+        return 0;
+    inet_ntop(AF_INET, &packet->yiaddr, ip, sizeof ip);
+    snprintf(ipb, sizeof ipb, "ip:%s:", ip);
+    strlcat(out, ipb, olen);
+    log_line("sent to ifchd: %s", ipb);
+    return strlen(ipb);
+}
+
+static size_t send_cmd(char *out, size_t olen, struct dhcpmsg *packet,
+                       uint8_t code)
 {
     char buf[256];
     uint8_t *optdata, *olddata;
     ssize_t optlen, oldlen;
 
     if (!packet)
-        return;
+        return 0;
 
     memset(buf, '\0', sizeof buf);
     optdata = get_option_data(packet, code, &optlen);
     if (!optlen)
-        return;
+        return 0;
     olddata = get_option_data(&cfg_packet, code, &oldlen);
     if (oldlen == optlen && !memcmp(optdata, olddata, optlen))
-            return;
+        return 0;
     if (ifchd_cmd(buf, sizeof buf, optdata, optlen, code) == -1)
-        return;
-    sockwrite(sockfd, buf, strlen(buf));
+        return 0;
+    strlcat(out, buf, olen);
+    log_line("sent to ifchd: %s", buf);
+    return strlen(buf);
 }
 
 void ifchange_bind(struct dhcpmsg *packet)
 {
+    char buf[2048];
     int sockfd;
-    char buf[256];
-    char ip[32];
+    int tbs = 0;
 
     if (!packet)
         return;
 
-    sockfd = open_ifch();
-
     snprintf(buf, sizeof buf, "interface:%s:", client_config.interface);
-    sockwrite(sockfd, buf, strlen(buf));
-
-    inet_ntop(AF_INET, &packet->yiaddr, ip, sizeof ip);
-    snprintf(buf, sizeof buf, "ip:%s:", ip);
-    sockwrite(sockfd, buf, strlen(buf));
-
-    send_cmd(sockfd, packet, DHCP_SUBNET);
-    send_cmd(sockfd, packet, DHCP_ROUTER);
-    send_cmd(sockfd, packet, DHCP_DNS_SERVER);
-    send_cmd(sockfd, packet, DHCP_HOST_NAME);
-    send_cmd(sockfd, packet, DHCP_DOMAIN_NAME);
-    send_cmd(sockfd, packet, DHCP_MTU);
-    send_cmd(sockfd, packet, DHCP_BROADCAST);
-    send_cmd(sockfd, packet, DHCP_WINS_SERVER);
+    tbs |= send_client_ip(buf, sizeof buf, packet);
+    tbs |= send_cmd(buf, sizeof buf, packet, DHCP_SUBNET);
+    tbs |= send_cmd(buf, sizeof buf, packet, DHCP_ROUTER);
+    tbs |= send_cmd(buf, sizeof buf, packet, DHCP_DNS_SERVER);
+    tbs |= send_cmd(buf, sizeof buf, packet, DHCP_HOST_NAME);
+    tbs |= send_cmd(buf, sizeof buf, packet, DHCP_DOMAIN_NAME);
+    tbs |= send_cmd(buf, sizeof buf, packet, DHCP_MTU);
+    tbs |= send_cmd(buf, sizeof buf, packet, DHCP_BROADCAST);
+    tbs |= send_cmd(buf, sizeof buf, packet, DHCP_WINS_SERVER);
+    if (tbs) {
+        sockfd = open_ifch();
+        sockwrite(sockfd, buf, strlen(buf));
+        close(sockfd);
+    }
 
     cfg_deconfig = 0;
     memcpy(&cfg_packet, packet, sizeof cfg_packet);
-
-    close(sockfd);
 }
