@@ -85,6 +85,10 @@ static void requesting_timeout(struct client_state_t *cs)
 // total time, and it is time to renew the lease so that it is not lost.
 static void bound_timeout(struct client_state_t *cs)
 {
+    arp_retransmit(cs);
+
+    if (curms() < cs->leaseStartTime + cs->renewTime * 1000)
+        return;
     cs->dhcpState = DS_RENEWING;
     set_listen_cooked(cs);
     log_line("Entering renew state.");

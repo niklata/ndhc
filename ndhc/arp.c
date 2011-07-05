@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-07-04 22:57:35 njk>
+ * Time-stamp: <2011-07-05 11:06:00 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -332,7 +332,7 @@ int arp_gw_check(struct client_state_t *cs)
     cs->arpPrevState = cs->dhcpState;
     cs->dhcpState = DS_BOUND_GW_CHECK;
     cs->oldTimeout = cs->timeout;
-    cs->timeout = 2000;
+    cs->timeout = ARP_RETRANS_DELAY + 250;
     memset(&arp_dhcp_packet, 0, sizeof (struct dhcpmsg));
     arpreply_clear();
     return 0;
@@ -346,6 +346,8 @@ static int arp_get_gw_hwaddr(struct client_state_t *cs)
     log_line("arp: Searching for gw address...");
     if (arp_ping(cs, cs->routerAddr) == -1)
         return -1;
+    cs->oldTimeout = cs->timeout;
+    cs->timeout = ARP_RETRANS_DELAY + 250;
     memset(&arp_dhcp_packet, 0, sizeof (struct dhcpmsg));
     arpreply_clear();
     return 0;
@@ -361,10 +363,15 @@ static void arp_failed(struct client_state_t *cs)
 
 void arp_gw_failed(struct client_state_t *cs)
 {
-    log_line("arp: Gateway appears to have changed, getting new lease");
-    arp_close_fd(cs);
-    cs->oldTimeout = 0;
-    reinit_selecting(cs, 0);
+    if (arp_stats[arpState].count >= 3) {
+        log_line("arp: Gateway appears to have changed, getting new lease");
+        arp_close_fd(cs);
+        cs->oldTimeout = 0;
+        reinit_selecting(cs, 0);
+        return;
+    }
+    cs->timeout = ARP_RETRANS_DELAY + 250;
+    arp_retransmit(cs);
 }
 
 void arp_success(struct client_state_t *cs)
@@ -377,14 +384,12 @@ void arp_success(struct client_state_t *cs)
     cs->clientAddr = arp_dhcp_packet.yiaddr;
     cs->dhcpState = DS_BOUND;
     cs->init = 0;
+    ifchange_bind(&arp_dhcp_packet);
     if (cs->arpPrevState == DS_RENEWING || cs->arpPrevState == DS_REBINDING) {
-        ifchange_bind(&arp_dhcp_packet);
         arp_switch_state(cs, AS_DEFENSE);
     } else {
         ssize_t ol;
-        uint8_t *od;
-        od = get_option_data(&arp_dhcp_packet, DHCP_ROUTER, &ol);
-        ifchange_bind(&arp_dhcp_packet);
+        uint8_t *od = get_option_data(&arp_dhcp_packet, DHCP_ROUTER, &ol);
         if (ol == 4) {
             memcpy(&cs->routerAddr, od, 4);
             arp_get_gw_hwaddr(cs);
@@ -460,6 +465,31 @@ static int arp_is_query_reply(struct arpMsg *am)
     return 1;
 }
 
+// Perform retransmission if necessary.
+void arp_retransmit(struct client_state_t *cs)
+{
+    if (curms() < arp_stats[arpState].ts + ARP_RETRANS_DELAY)
+        return;
+    log_line("DEBUG: retransmission timeout in arp state %u", arpState);
+    switch (arpState) {
+        case AS_GW_CHECK:
+            log_line("arp: Still waiting for gateway to reply to arp ping...");
+            arp_ping(cs, cs->routerAddr);
+            cs->timeout = ARP_RETRANS_DELAY + 250;
+            break;
+        case AS_GW_QUERY:
+            log_line("arp: Still looking for gateway hardware address...");
+            arp_ping(cs, cs->routerAddr);
+            cs->timeout = ARP_RETRANS_DELAY + 250;
+            break;
+        case AS_COLLISION_CHECK:
+            // XXX: send some additional checks after BOUND is set just to
+            // be safe?
+        default:
+            break;
+    }
+}
+
 void handle_arp_response(struct client_state_t *cs)
 {
     int r = 0;
@@ -481,21 +511,8 @@ void handle_arp_response(struct client_state_t *cs)
     }
     log_line("DEBUG: Received %u bytes.", r);
 
-    // Perform retransmission if necessary.
-    if (r <= 0 && curms() >= arp_stats[arpState].ts + ARP_RETRANS_DELAY) {
-        log_line("DEBUG: retransmission timeout in arp state %u", arpState);
-        switch (arpState) {
-        case AS_COLLISION_CHECK: break;
-        case AS_GW_CHECK:
-            log_line("arp: Still waiting for gateway to reply to arp ping...");
-            arp_ping(cs, cs->routerAddr);
-            break;
-        case AS_GW_QUERY:
-            log_line("arp: Still looking for gateway hardware address...");
-            arp_ping(cs, cs->routerAddr);
-        default:
-            break;
-        }
+    if (r <= 0) {
+        arp_retransmit(cs);
         return;
     }
     log_line("DEBUG: Did not retransmit.");
@@ -540,6 +557,7 @@ void handle_arp_response(struct client_state_t *cs)
         log_line("DEBUG: Doing work for AS_GW_QUERY state.");
         if (arp_is_query_reply(&arpreply) &&
             !memcmp(arpreply.sip4, &cs->routerAddr, 4)) {
+            cs->timeout = cs->oldTimeout;
             memcpy(cs->routerArp, arpreply.smac, 6);
             log_line("arp: Gateway hardware address %02x:%02x:%02x:%02x:%02x:%02x",
                      cs->routerArp[0], cs->routerArp[1],
