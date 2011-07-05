@@ -1,5 +1,5 @@
 /* arp.h - functions to call the interface change daemon
- * Time-stamp: <2011-07-05 12:54:21 njk>
+ * Time-stamp: <2011-07-05 13:49:59 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -47,6 +47,7 @@ struct arpMsg {
 
 extern int arp_relentless_def;
 
+void arp_reset_send_stats(void);
 int arp_close_fd(struct client_state_t *cs);
 int arp_check(struct client_state_t *cs, struct dhcpmsg *packet);
 int arp_gw_check(struct client_state_t *cs);

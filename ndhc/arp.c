@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-07-05 13:04:10 njk>
+ * Time-stamp: <2011-07-05 15:37:02 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -66,22 +66,46 @@ typedef enum {
     AS_MAX,
 } arp_state_t;
 
+typedef enum {
+    ASEND_COLLISION_CHECK,
+    ASEND_GW_PING,
+    ASEND_ANNOUNCE,
+    ASEND_MAX,
+} arp_send_t;
+
 static arp_state_t arpState;
 struct arp_stats {
     long long ts;
     int count;
 };
-static struct arp_stats arp_stats[AS_MAX-1];
+static struct arp_stats arp_send_stats[ASEND_MAX];
 static int using_arp_bpf; // Is a BPF installed on the ARP socket?
+
 int arp_relentless_def; // Don't give up defense no matter what.
 static long long last_conflict_ts; // TS of the last conflicting ARP seen.
 static long long pending_def_ts; // TS of the upcoming defense ARP send.
-static long long last_def_ts; // TS of the most recent defense ARP sent.
 static int def_old_oldTimeout; // Old value of cs->oldTimeout.
+
+static int gw_check_init_pingcount; // Initial count of ASEND_GW_PING when
+                                    // AS_GW_CHECK was entered.
+
+static long long collision_check_init_ts; // Initial ts when COLLISION_CHECK
+                                          // was entered.
+static uint16_t probe_wait_time; // Time to wait for a COLLISION_CHECK reply.
+static unsigned int total_conflicts; // Total number of address conflicts on
+                                     // the interface.  Never decreases.
 
 static struct arpMsg arpreply;
 static int arpreply_offset;
 static struct dhcpmsg arp_dhcp_packet; // Used only for AS_COLLISION_CHECK
+
+void arp_reset_send_stats(void)
+{
+    for (int i = 0; i < ASEND_MAX; ++i) {
+        arp_send_stats[i].ts = 0;
+        arp_send_stats[i].count = 0;
+    }
+}
 
 static void arp_set_bpf_basic(int fd)
 {
@@ -204,8 +228,6 @@ static void arp_switch_state(struct client_state_t *cs, arp_state_t state)
     if (arpState == state || arpState >= AS_MAX)
         return;
     arpState = state;
-    arp_stats[arpState].ts = 0;
-    arp_stats[arpState].count = 0;
     if (arpState == AS_NONE) {
         arp_close_fd(cs);
         return;
@@ -271,7 +293,6 @@ static int arp_send(struct client_state_t *cs, struct arpMsg *arp)
         arp_reopen_fd(cs);
         return -1;
     }
-    arp_stats[arpState].count++;
     return 0;
 }
 
@@ -291,7 +312,11 @@ static int arp_ping(struct client_state_t *cs, uint32_t test_ip)
     BASE_ARPMSG();
     memcpy(arp.sip4, &cs->clientAddr, sizeof cs->clientAddr);
     memcpy(arp.dip4, &test_ip, sizeof test_ip);
-    return arp_send(cs, &arp);
+    if (arp_send(cs, &arp) == -1)
+        return -1;
+    arp_send_stats[ASEND_GW_PING].count++;
+    arp_send_stats[ASEND_GW_PING].ts = curms();
+    return 0;
 }
 
 // Returns 0 on success, -1 on failure.
@@ -299,7 +324,11 @@ static int arp_ip_anon_ping(struct client_state_t *cs, uint32_t test_ip)
 {
     BASE_ARPMSG();
     memcpy(arp.dip4, &test_ip, sizeof test_ip);
-    return arp_send(cs, &arp);
+    if (arp_send(cs, &arp) == -1)
+        return -1;
+    arp_send_stats[ASEND_COLLISION_CHECK].count++;
+    arp_send_stats[ASEND_COLLISION_CHECK].ts = curms();
+    return 0;
 }
 
 static int arp_announcement(struct client_state_t *cs)
@@ -307,7 +336,11 @@ static int arp_announcement(struct client_state_t *cs)
     BASE_ARPMSG();
     memcpy(arp.sip4, &cs->clientAddr, 4);
     memcpy(arp.dip4, &cs->clientAddr, 4);
-    return arp_send(cs, &arp);
+    if (arp_send(cs, &arp) == -1)
+        return -1;
+    arp_send_stats[ASEND_ANNOUNCE].count++;
+    arp_send_stats[ASEND_ANNOUNCE].ts = curms();
+    return 0;
 }
 #undef BASE_ARPMSG
 
@@ -321,11 +354,13 @@ static void arpreply_clear()
 int arp_check(struct client_state_t *cs, struct dhcpmsg *packet)
 {
     arp_switch_state(cs, AS_COLLISION_CHECK);
+    log_line("arp: Probing for hosts that may conflict with our lease...");
     if (arp_ip_anon_ping(cs, arp_dhcp_packet.yiaddr) == -1)
         return -1;
     cs->arpPrevState = cs->dhcpState;
     cs->dhcpState = DS_COLLISION_CHECK;
-    cs->timeout = 2000;
+    collision_check_init_ts = arp_send_stats[ASEND_COLLISION_CHECK].ts;
+    cs->timeout = probe_wait_time = PROBE_WAIT;
     memcpy(&arp_dhcp_packet, packet, sizeof (struct dhcpmsg));
     arpreply_clear();
     return 0;
@@ -334,9 +369,12 @@ int arp_check(struct client_state_t *cs, struct dhcpmsg *packet)
 // Callable only from DS_BOUND via state.c:ifup_action().
 int arp_gw_check(struct client_state_t *cs)
 {
-    arp_switch_state(cs, AS_GW_CHECK);
+    if (arpState == AS_GW_CHECK)  // Guard against state bounce.
+        return 0;
+    gw_check_init_pingcount = arp_send_stats[ASEND_GW_PING].count;
     if (arp_ping(cs, cs->routerAddr) == -1)
         return -1;
+    arp_switch_state(cs, AS_GW_CHECK);
     cs->arpPrevState = cs->dhcpState;
     cs->dhcpState = DS_BOUND_GW_CHECK;
     cs->oldTimeout = cs->timeout;
@@ -366,12 +404,13 @@ static void arp_failed(struct client_state_t *cs)
     log_line("arp: Offered address is in use -- declining");
     arp_close_fd(cs);
     send_decline(cs, arp_dhcp_packet.yiaddr);
-    reinit_selecting(cs, 0);
+    reinit_selecting(cs, total_conflicts < MAX_CONFLICTS ?
+                     0 : RATE_LIMIT_INTERVAL);
 }
 
 void arp_gw_failed(struct client_state_t *cs)
 {
-    if (arp_stats[arpState].count >= 3) {
+    if (arp_send_stats[ASEND_GW_PING].count >= gw_check_init_pingcount + 3) {
         log_line("arp: Gateway appears to have changed, getting new lease");
         arp_close_fd(cs);
         cs->oldTimeout = 0;
@@ -394,7 +433,6 @@ void arp_success(struct client_state_t *cs)
     cs->init = 0;
     last_conflict_ts = 0;
     pending_def_ts = 0;
-    last_def_ts = 0;
     def_old_oldTimeout = 0;
     ifchange_bind(&arp_dhcp_packet);
     if (cs->arpPrevState == DS_RENEWING || cs->arpPrevState == DS_REBINDING) {
@@ -477,13 +515,18 @@ static int arp_is_query_reply(struct arpMsg *am)
     return 1;
 }
 
+static int arp_gen_probe_wait(void)
+{
+    // This is not a uniform distribution but it doesn't matter here.
+    return PROBE_MIN + rand() % (PROBE_MAX - PROBE_MIN);
+}
+
 // Perform retransmission if necessary.
 void arp_retransmit(struct client_state_t *cs)
 {
     if (pending_def_ts) {
         log_line("arp: Defending our lease IP.");
         pending_def_ts = 0;
-        last_def_ts = curms();
         arp_announcement(cs);
         if (def_old_oldTimeout) {
             cs->timeout = cs->oldTimeout;
@@ -491,24 +534,39 @@ void arp_retransmit(struct client_state_t *cs)
             def_old_oldTimeout = 0;
         }
     }
-    if (curms() < arp_stats[arpState].ts + ARP_RETRANS_DELAY)
+    if (arpState == AS_GW_CHECK || arpState == AS_GW_QUERY) {
+        long long cms = curms();
+        long long rtts = arp_send_stats[ASEND_GW_PING].ts + ARP_RETRANS_DELAY;
+        if (cms < rtts) {
+            cs->timeout = rtts - cms;
+            return;
+        }
+        log_line(arpState == AS_GW_CHECK ?
+                 "arp: Still waiting for gateway to reply to arp ping..." :
+                 "arp: Still looking for gateway hardware address...");
+        if (arp_ping(cs, cs->routerAddr) == -1)
+            log_warning("arp: Failed to send ARP ping in retransmission.");
+        cs->timeout = ARP_RETRANS_DELAY;
         return;
-    switch (arpState) {
-        case AS_GW_CHECK:
-            log_line("arp: Still waiting for gateway to reply to arp ping...");
-            arp_ping(cs, cs->routerAddr);
-            cs->timeout = ARP_RETRANS_DELAY + 250;
-            break;
-        case AS_GW_QUERY:
-            log_line("arp: Still looking for gateway hardware address...");
-            arp_ping(cs, cs->routerAddr);
-            cs->timeout = ARP_RETRANS_DELAY + 250;
-            break;
-        case AS_COLLISION_CHECK:
-            // XXX: send some additional checks after BOUND is set just to
-            // be safe?
-        default:
-            break;
+    }
+    if (arpState == AS_COLLISION_CHECK) {
+        long long cms = curms();
+        if (cms >= collision_check_init_ts + ANNOUNCE_WAIT ||
+            arp_send_stats[ASEND_COLLISION_CHECK].count >= PROBE_NUM) {
+            arp_success(cs);
+            return;
+        }
+        long long rtts = arp_send_stats[ASEND_COLLISION_CHECK].ts +
+            probe_wait_time;
+        if (cms < rtts) {
+            cs->timeout = rtts - cms;
+            return;
+        }
+        log_line("arp: Probing for hosts that may conflict with our lease...");
+        if (arp_ip_anon_ping(cs, arp_dhcp_packet.yiaddr) == -1)
+            log_warning("arp: Failed to send ARP ping in retransmission.");
+        cs->timeout = probe_wait_time = arp_gen_probe_wait();
+        return;
     }
 }
 
@@ -519,14 +577,14 @@ static void arp_do_defense(struct client_state_t *cs)
     if (!last_conflict_ts ||
         cur_conflict_ts - last_conflict_ts < DEFEND_INTERVAL) {
         log_line("arp: Defending our lease IP.");
-        last_def_ts = cur_conflict_ts;
         arp_announcement(cs);
     } else if (!arp_relentless_def) {
         log_line("arp: Conflicting peer is persistent.  Requesting new lease.");
+        arp_close_fd(cs);
         send_release(cs);
         reinit_selecting(cs, 0);
     } else {
-        pending_def_ts = last_def_ts + DEFEND_INTERVAL;
+        pending_def_ts = arp_send_stats[ASEND_ANNOUNCE].ts + DEFEND_INTERVAL;
         long long def_xmit_ts = pending_def_ts - cur_conflict_ts;
         if (!cs->timeout || cs->timeout > def_xmit_ts) {
             def_old_oldTimeout = cs->oldTimeout;
@@ -534,6 +592,7 @@ static void arp_do_defense(struct client_state_t *cs)
             cs->timeout = def_xmit_ts;
         }
     }
+    total_conflicts++;
     last_conflict_ts = cur_conflict_ts;
 }
 
@@ -576,12 +635,13 @@ void handle_arp_response(struct client_state_t *cs)
     case AS_COLLISION_CHECK:
         if (!arp_is_query_reply(&arpreply))
             break;
-        if (!memcmp(arpreply.sip4, &arp_dhcp_packet.yiaddr, 4)) {
-            // Check to see if we replied to our own ARP query.
-            if (!memcmp(client_config.arp, arpreply.smac, 6))
-                arp_success(cs);
-            else
-                arp_failed(cs);
+        // If this packet was sent from our lease IP, and does not have a
+        // MAC address matching our own (the latter check guards against stupid
+        // hubs or repeaters), then it's a conflict and thus a failure.
+        if (!memcmp(arpreply.sip4, &arp_dhcp_packet.yiaddr, 4) &&
+            !memcmp(client_config.arp, arpreply.smac, 6)) {
+            total_conflicts++;
+            arp_failed(cs);
         }
         break;
     case AS_GW_CHECK:
@@ -605,6 +665,7 @@ void handle_arp_response(struct client_state_t *cs)
                      cs->routerArp[2], cs->routerArp[3],
                      cs->routerArp[4], cs->routerArp[5]);
             arp_switch_state(cs, AS_DEFENSE);
+            arp_announcement(cs);  // Do a second announcement.
             break;
         }
         if (!arp_validate_bpf_defense(cs, &arpreply))

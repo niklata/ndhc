@@ -22,6 +22,7 @@ static void bound_timeout(struct client_state_t *cs);
 static void renewing_timeout(struct client_state_t *cs);
 static void rebinding_timeout(struct client_state_t *cs);
 static void released_timeout(struct client_state_t *cs);
+static void collision_check_timeout(struct client_state_t *cs);
 static void anfrelease(struct client_state_t *cs);
 static void nfrelease(struct client_state_t *cs);
 static void frelease(struct client_state_t *cs);
@@ -42,7 +43,7 @@ dhcp_state_t dhcp_states[] = {
     { an_packet, renewing_timeout, frenew, nfrelease},       // RENEWING
     { an_packet, rebinding_timeout, frenew, nfrelease},      // REBINDING
     { 0, arp_gw_failed, frenew, anfrelease},                 // BOUND_GW_CHECK
-    { 0, arp_success, frenew, anfrelease},                   // COLLISION_CHECK
+    { 0, collision_check_timeout, frenew, anfrelease},       // COLLISION_CHECK
     { 0, released_timeout, frenew, frelease},                // RELEASED
     { 0, 0, 0, 0},                                           // NUM_STATES
 };
@@ -63,6 +64,7 @@ void reinit_selecting(struct client_state_t *cs, int timeout)
     cs->timeout = timeout;
     cs->clientAddr = 0;
     cs->packetNum = 0;
+    arp_reset_send_stats();
     set_listen_raw(cs);
 
 }
@@ -151,6 +153,11 @@ static void rebinding_timeout(struct client_state_t *cs)
 static void released_timeout(struct client_state_t *cs)
 {
     cs->timeout = -1;
+}
+
+static void collision_check_timeout(struct client_state_t *cs)
+{
+    arp_retransmit(cs);
 }
 
 static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
@@ -253,78 +260,66 @@ static void frelease(struct client_state_t *cs)
     set_listen_none(cs);
     cs->dhcpState = DS_RELEASED;
     cs->timeout = -1;
+    arp_reset_send_stats();
 }
 
 static void frenew(struct client_state_t *cs)
 {
     log_line("Forcing a DHCP renew...");
-  retry:
     switch (cs->dhcpState) {
         case DS_BOUND:
-        case DS_BOUND_GW_CHECK:
-            arp_close_fd(cs);
             cs->dhcpState = DS_RENEWING;
             set_listen_cooked(cs);
             send_renew(cs);
             break;
-        case DS_COLLISION_CHECK:
-            // Cancel arp ping in progress and treat as previous state.
-            if (arp_close_fd(cs))
-                cs->dhcpState = cs->arpPrevState;
-            goto retry;
         case DS_RELEASED:
             set_listen_raw(cs);
             cs->dhcpState = DS_SELECTING;
             break;
+        case DS_BOUND_GW_CHECK:
+        case DS_COLLISION_CHECK:
         case DS_RENEWING:
         case DS_REBINDING:
             break;
         default:
             return;
     }
-    cs->packetNum = 0;
+    cs->packetNum = 0; // XXX necessary?
     cs->timeout = 0;
-}
-
-static void restart_if(struct client_state_t *cs)
-{
-    log_line("nl: %s back, querying for new lease", client_config.interface);
-    reinit_selecting(cs, 0);
-}
-
-static void sleep_if(struct client_state_t *cs)
-{
-    arp_close_fd(cs);
-    set_listen_none(cs);
-    cs->dhcpState = DS_RELEASED;
-    cs->timeout = -1;
 }
 
 void ifup_action(struct client_state_t *cs)
 {
-    // If we have a lease, then check to see
-    // if our gateway is still valid (via ARP).
+    // If we have a lease, check to see if our gateway is still valid via ARP.
     // If it fails, state -> SELECTING.
+    // XXX what about RENEWING and REBINDING??
     if (cs->dhcpState == DS_BOUND) {
         if (arp_gw_check(cs) == -1)
             log_warning("nl: arp_gw_check could not make arp socket, assuming lease is still OK");
         else
             log_line("nl: interface back, revalidating lease");
         // If we don't have a lease, state -> SELECTING.
-    } else if (cs->dhcpState != DS_SELECTING)
-        restart_if(cs);
+    } else if (cs->dhcpState != DS_SELECTING) {
+        log_line("nl: %s back, querying for new lease", client_config.interface);
+        reinit_selecting(cs, 0);
+    }
 }
 
 void ifdown_action(struct client_state_t *cs)
 {
     log_line("Interface shut down.  Going to sleep.");
-    sleep_if(cs);
+    arp_close_fd(cs);
+    arp_reset_send_stats();
+    set_listen_none(cs);
+    cs->dhcpState = DS_RELEASED;
+    cs->timeout = -1;
+    cs->clientAddr = 0;
+    cs->packetNum = 0;
 }
 
 void ifnocarrier_action(struct client_state_t *cs)
 {
-    log_line("Interface carrier down.  Going to sleep.");
-    sleep_if(cs);
+    log_line("Interface carrier down.");
 }
 
 void packet_action(struct client_state_t *cs, struct dhcpmsg *packet,
