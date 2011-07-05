@@ -16,6 +16,8 @@ typedef enum {
     DS_NUM_STATES,
 } dhcp_states_t;
 
+void reinit_selecting(struct client_state_t *cs, int timeout);
+
 void packet_action(struct client_state_t *cs, struct dhcpmsg *packet,
                    uint8_t *message);
 void timeout_action(struct client_state_t *cs);

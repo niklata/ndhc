@@ -56,7 +56,7 @@ static int delay_timeout(int numpackets)
     return to * 1000;
 }
 
-static void reinit_selecting(struct client_state_t *cs, int timeout)
+void reinit_selecting(struct client_state_t *cs, int timeout)
 {
     ifchange_deconfig();
     cs->dhcpState = DS_SELECTING;

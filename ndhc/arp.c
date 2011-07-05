@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-07-04 22:32:29 njk>
+ * Time-stamp: <2011-07-04 22:51:19 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -356,28 +356,15 @@ static void arp_failed(struct client_state_t *cs)
     log_line("arp: Offered address is in use -- declining");
     arp_close_fd(cs);
     send_decline(cs, arp_dhcp_packet.yiaddr);
-
-    if (cs->arpPrevState != DS_REQUESTING)
-        ifchange_deconfig();
-    cs->dhcpState = DS_SELECTING;
-    cs->clientAddr = 0;
-    cs->timeout = 0;
-    cs->packetNum = 0;
-    set_listen_raw(cs);
+    reinit_selecting(cs, 0);
 }
 
 void arp_gw_failed(struct client_state_t *cs)
 {
     log_line("arp: Gateway appears to have changed, getting new lease");
     arp_close_fd(cs);
-
-    ifchange_deconfig();
-    cs->dhcpState = DS_SELECTING;
     cs->oldTimeout = 0;
-    cs->timeout = 0;
-    cs->clientAddr = 0;
-    cs->packetNum = 0;
-    set_listen_raw(cs);
+    reinit_selecting(cs, 0);
 }
 
 void arp_success(struct client_state_t *cs)
