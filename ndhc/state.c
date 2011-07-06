@@ -56,7 +56,7 @@ static int delay_timeout(int numpackets)
     char tot[] = { 4, 8, 16, 32, 64 };
     if (numpackets < sizeof tot)
         to = tot[numpackets];
-    return to * 1000;
+    return to * 1000 + rand() % 1000;
 }
 
 void reinit_selecting(struct client_state_t *cs, int timeout)
@@ -192,7 +192,7 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
         } else {
             memcpy(&cs->lease, temp, 4);
             cs->lease = ntohl(cs->lease);
-            cs->lease &= 0x0fffffff;
+            cs->lease &= 0x7fffffff;
             if (cs->lease < 60) {
                 log_warning("Server sent lease of <1m.  Forcing lease to 1m.");
                 cs->lease = 60;

@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-07-05 16:00:42 njk>
+ * Time-stamp: <2011-07-06 08:41:06 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -123,7 +123,7 @@ static void arp_set_bpf_basic(int fd)
         BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, (ETH_P_IP << 16) | 0x0604, 1, 0),
         BPF_STMT(BPF_RET + BPF_K, 0),
         // Sanity tests passed, so send all possible data.
-        BPF_STMT(BPF_RET + BPF_K, 0x0fffffff),
+        BPF_STMT(BPF_RET + BPF_K, 0x7fffffff),
     };
     static const struct sock_fprog sfp_arp = {
         .len = sizeof sf_arp / sizeof sf_arp[0],
@@ -164,13 +164,13 @@ static void arp_set_bpf_defense(struct client_state_t *cs, int fd)
         // be passed along.
         BPF_STMT(BPF_LD + BPF_W + BPF_ABS, 22),
         BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, mac4b, 1, 0),
-        BPF_STMT(BPF_RET + BPF_K, 0x0fffffff),
+        BPF_STMT(BPF_RET + BPF_K, 0x7fffffff),
         // If the last two bytes of the ARP packet source hardware address
         // do not equal our hardware address, then it's a conflict and should
         // be passed along.
         BPF_STMT(BPF_LD + BPF_H + BPF_ABS, 26),
         BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, mac2b, 1, 0),
-        BPF_STMT(BPF_RET + BPF_K, 0x0fffffff),
+        BPF_STMT(BPF_RET + BPF_K, 0x7fffffff),
         // Packet announces our IP address and hardware address, so it requires
         // no action.
         BPF_STMT(BPF_RET + BPF_K, 0),
