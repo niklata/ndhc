@@ -212,6 +212,11 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
                 log_warning("arp_check failed to make arp socket, retrying lease");
                 reinit_selecting(cs, 3000);
             }
+        } else {
+            cs->dhcpState = DS_BOUND;
+            cs->timeout = cs->renewTime * 1000;
+            arp_set_defense_mode(cs);
+            set_listen_none(cs);
         }
 
     } else if (*message == DHCPNAK) {

@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-07-06 09:18:58 njk>
+ * Time-stamp: <2011-07-06 11:39:23 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -417,6 +417,11 @@ static int act_if_arp_gw_failed(struct client_state_t *cs)
         return 1;
     }
     return 0;
+}
+
+void arp_set_defense_mode(struct client_state_t *cs)
+{
+    arp_switch_state(cs, AS_DEFENSE);
 }
 
 void arp_success(struct client_state_t *cs)
