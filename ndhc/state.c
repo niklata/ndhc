@@ -292,17 +292,19 @@ void ifup_action(struct client_state_t *cs)
 {
     // If we have a lease, check to see if our gateway is still valid via ARP.
     // If it fails, state -> SELECTING.
-    if (cs->dhcpState == DS_BOUND || cs->dhcpState == DS_RENEWING ||
-        cs->dhcpState == DS_REBINDING) {
-        if (arp_gw_check(cs) == -1)
-            log_warning("nl: arp_gw_check could not make arp socket, assuming lease is still OK");
-        else
+    if (cs->routerAddr && (cs->dhcpState == DS_BOUND ||
+                           cs->dhcpState == DS_RENEWING ||
+                           cs->dhcpState == DS_REBINDING)) {
+        if (arp_gw_check(cs) != -1) {
             log_line("nl: interface back, revalidating lease");
-        // If we don't have a lease, state -> SELECTING.
-    } else if (cs->dhcpState != DS_SELECTING) {
-        log_line("nl: %s back, querying for new lease", client_config.interface);
-        reinit_selecting(cs, 0);
+            return;
+        } else
+            log_warning("nl: arp_gw_check could not make arp socket");
     }
+    if (cs->dhcpState == DS_SELECTING)
+        return;
+    log_line("nl: %s back, querying for new lease", client_config.interface);
+    reinit_selecting(cs, 0);
 }
 
 void ifdown_action(struct client_state_t *cs)

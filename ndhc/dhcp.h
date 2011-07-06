@@ -1,5 +1,5 @@
 /* packet.h - send and react to DHCP message packets
- * Time-stamp: <2011-06-11 11:12:26 njk>
+ * Time-stamp: <2011-07-06 11:17:15 njk>
  *
  * (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
  * (c) 2001 Russ Dill <Russ.Dill@asu.edu>
@@ -51,7 +51,7 @@ struct dhcpmsg {
     uint16_t secs;   // Filled by client: seconds since client began address
                      // aquisition or renewal process.
     uint16_t flags;  // DHCP flags
-    uint32_t ciaddr; // Client IP: only filled in if client is inBOUND, RENEW,
+    uint32_t ciaddr; // Client IP: only filled in if client is in BOUND, RENEW,
                      // or REBINDING and can reply to ARP requests
     uint32_t yiaddr; // 'your' (client) IP address
     uint32_t siaddr; // IP address of next server to use in bootstrap; returned
