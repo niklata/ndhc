@@ -179,14 +179,15 @@ static void bound_gw_check_timeout(struct client_state_t *cs)
     arp_retransmit(cs);
 }
 
+// Can transition to DS_BOUND or DS_SELECTING.
 static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
                       uint8_t *message)
 {
     if (*message == DHCPACK) {
-        uint8_t *temp = NULL;
         ssize_t optlen;
+        uint8_t *temp = get_option_data(packet, DHCP_LEASE_TIME, &optlen);
         cs->leaseStartTime = curms();
-        if (!(temp = get_option_data(packet, DHCP_LEASE_TIME, &optlen))) {
+        if (!temp) {
             log_line("No lease time received, assuming 1h.");
             cs->lease = 60 * 60;
         } else {
@@ -203,10 +204,14 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
         cs->renewTime = cs->lease >> 1;
         cs->rebindTime = (cs->lease * 0x7) >> 3; // * 0.875
 
-        // Can transition from DS_COLLISION_CHECK to DS_BOUND or DS_SELECTING.
-        if (arp_check(cs, packet) == -1) {
-            log_warning("arp_check failed to make arp socket, retrying lease");
-            reinit_selecting(cs, 3000);
+        // Only check if we are either in the REQUESTING state, or if we
+        // have received a lease with a different IP than what we had before.
+        if (cs->dhcpState == DS_REQUESTING ||
+            memcmp(&packet->yiaddr, &cs->clientAddr, 4)) {
+            if (arp_check(cs, packet) == -1) {
+                log_warning("arp_check failed to make arp socket, retrying lease");
+                reinit_selecting(cs, 3000);
+            }
         }
 
     } else if (*message == DHCPNAK) {

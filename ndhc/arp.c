@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-07-06 08:41:06 njk>
+ * Time-stamp: <2011-07-06 09:18:58 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -95,9 +95,15 @@ static uint16_t probe_wait_time; // Time to wait for a COLLISION_CHECK reply.
 static unsigned int total_conflicts; // Total number of address conflicts on
                                      // the interface.  Never decreases.
 
+static struct dhcpmsg arp_dhcp_packet; // Used only for AS_COLLISION_CHECK
+
 static struct arpMsg arpreply;
 static int arpreply_offset;
-static struct dhcpmsg arp_dhcp_packet; // Used only for AS_COLLISION_CHECK
+static void arpreply_clear(void)
+{
+    memset(&arpreply, 0, sizeof arpreply);
+    arpreply_offset = 0;
+}
 
 void arp_reset_send_stats(void)
 {
@@ -215,6 +221,7 @@ static int arp_open_fd(struct client_state_t *cs)
 
     cs->arpFd = fd;
     epoll_add(cs, fd);
+    arpreply_clear();
     return 0;
 out_fd:
     close(fd);
@@ -344,15 +351,10 @@ static int arp_announcement(struct client_state_t *cs)
 }
 #undef BASE_ARPMSG
 
-static void arpreply_clear()
-{
-    memset(&arpreply, 0, sizeof arpreply);
-    arpreply_offset = 0;
-}
-
-// Callable from DS_SELECTING, DS_RENEWING, or DS_REBINDING via an_packet()
+// Callable from DS_REQUESTING, DS_RENEWING, or DS_REBINDING via an_packet()
 int arp_check(struct client_state_t *cs, struct dhcpmsg *packet)
 {
+    memcpy(&arp_dhcp_packet, packet, sizeof (struct dhcpmsg));
     arp_switch_state(cs, AS_COLLISION_CHECK);
     log_line("arp: Probing for hosts that may conflict with our lease...");
     if (arp_ip_anon_ping(cs, arp_dhcp_packet.yiaddr) == -1)
@@ -361,8 +363,6 @@ int arp_check(struct client_state_t *cs, struct dhcpmsg *packet)
     cs->dhcpState = DS_COLLISION_CHECK;
     collision_check_init_ts = arp_send_stats[ASEND_COLLISION_CHECK].ts;
     cs->timeout = probe_wait_time = PROBE_WAIT;
-    memcpy(&arp_dhcp_packet, packet, sizeof (struct dhcpmsg));
-    arpreply_clear();
     return 0;
 }
 
@@ -379,8 +379,6 @@ int arp_gw_check(struct client_state_t *cs)
     cs->dhcpState = DS_BOUND_GW_CHECK;
     cs->oldTimeout = cs->timeout;
     cs->timeout = ARP_RETRANS_DELAY + 250;
-    memset(&arp_dhcp_packet, 0, sizeof (struct dhcpmsg));
-    arpreply_clear();
     return 0;
 }
 
@@ -394,8 +392,6 @@ static int arp_get_gw_hwaddr(struct client_state_t *cs)
         return -1;
     cs->oldTimeout = cs->timeout;
     cs->timeout = ARP_RETRANS_DELAY + 250;
-    memset(&arp_dhcp_packet, 0, sizeof (struct dhcpmsg));
-    arpreply_clear();
     return 0;
 }
 
@@ -627,11 +623,11 @@ void handle_arp_response(struct client_state_t *cs)
         return;
 
     // Emulate the BPF filters if they are not in use.
-    if (!using_arp_bpf) {
-        if (!arp_validate_bpf(&arpreply))
-            return;
-        if (arpState == AS_DEFENSE && !arp_validate_bpf_defense(cs, &arpreply))
-            return;
+    if (!using_arp_bpf && (!arp_validate_bpf(&arpreply) ||
+                           (arpState == AS_DEFENSE &&
+                            !arp_validate_bpf_defense(cs, &arpreply)))) {
+        arpreply_clear();
+        return;
     }
 
     switch (arpState) {
