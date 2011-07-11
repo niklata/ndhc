@@ -179,7 +179,6 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
         } else {
             memcpy(&cs->lease, temp, 4);
             cs->lease = ntohl(cs->lease);
-            cs->lease &= 0x7fffffff;
             if (cs->lease < 60) {
                 log_warning("Server sent lease of <1m.  Forcing lease to 1m.");
                 cs->lease = 60;
@@ -188,7 +187,7 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
         // Always use RFC2131 'default' values.  It's not worth validating
         // the remote server values, if they even exist, for sanity.
         cs->renewTime = cs->lease >> 1;
-        cs->rebindTime = (cs->lease * 0x7) >> 3; // * 0.875
+        cs->rebindTime = (cs->lease >> 3) * 0x7; // * 0.875
 
         // Only check if we are either in the REQUESTING state, or if we
         // have received a lease with a different IP than what we had before.
