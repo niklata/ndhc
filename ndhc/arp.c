@@ -1,5 +1,5 @@
 /* arp.c - arp ping checking
- * Time-stamp: <2011-07-06 11:39:23 njk>
+ * Time-stamp: <2011-07-09 17:34:29 njk>
  *
  * Copyright 2010-2011 Nicholas J. Kain <njkain@gmail.com>
  *
@@ -524,8 +524,7 @@ static int arp_gen_probe_wait(void)
     return PROBE_MIN + rand() % (PROBE_MAX - PROBE_MIN);
 }
 
-// Perform retransmission if necessary.
-void arp_retransmit(struct client_state_t *cs)
+static void arp_defense_timeout(struct client_state_t *cs)
 {
     if (pending_def_ts) {
         log_line("arp: Defending our lease IP.");
@@ -537,42 +536,48 @@ void arp_retransmit(struct client_state_t *cs)
             def_old_oldTimeout = 0;
         }
     }
-    if (arpState == AS_GW_CHECK || arpState == AS_GW_QUERY) {
-        if (arpState == AS_GW_CHECK && act_if_arp_gw_failed(cs))
-            return;
-        long long cms = curms();
-        long long rtts = arp_send_stats[ASEND_GW_PING].ts + ARP_RETRANS_DELAY;
-        if (cms < rtts) {
-            cs->timeout = rtts - cms;
-            return;
-        }
-        log_line(arpState == AS_GW_CHECK ?
-                 "arp: Still waiting for gateway to reply to arp ping..." :
-                 "arp: Still looking for gateway hardware address...");
-        if (arp_ping(cs, cs->routerAddr) == -1)
-            log_warning("arp: Failed to send ARP ping in retransmission.");
-        cs->timeout = ARP_RETRANS_DELAY;
+}
+
+static void arp_check_timeout(struct client_state_t *cs)
+{
+    arp_defense_timeout(cs);
+
+    if (arpState == AS_GW_CHECK && act_if_arp_gw_failed(cs))
+        return;
+    long long cms = curms();
+    long long rtts = arp_send_stats[ASEND_GW_PING].ts + ARP_RETRANS_DELAY;
+    if (cms < rtts) {
+        cs->timeout = rtts - cms;
         return;
     }
-    if (arpState == AS_COLLISION_CHECK) {
-        long long cms = curms();
-        if (cms >= collision_check_init_ts + ANNOUNCE_WAIT ||
-            arp_send_stats[ASEND_COLLISION_CHECK].count >= PROBE_NUM) {
-            arp_success(cs);
-            return;
-        }
-        long long rtts = arp_send_stats[ASEND_COLLISION_CHECK].ts +
-            probe_wait_time;
-        if (cms < rtts) {
-            cs->timeout = rtts - cms;
-            return;
-        }
-        log_line("arp: Probing for hosts that may conflict with our lease...");
-        if (arp_ip_anon_ping(cs, arp_dhcp_packet.yiaddr) == -1)
-            log_warning("arp: Failed to send ARP ping in retransmission.");
-        cs->timeout = probe_wait_time = arp_gen_probe_wait();
+    log_line(arpState == AS_GW_CHECK ?
+             "arp: Still waiting for gateway to reply to arp ping..." :
+             "arp: Still looking for gateway hardware address...");
+    if (arp_ping(cs, cs->routerAddr) == -1)
+        log_warning("arp: Failed to send ARP ping in retransmission.");
+    cs->timeout = ARP_RETRANS_DELAY;
+}
+
+static void arp_collision_timeout(struct client_state_t *cs)
+{
+    arp_defense_timeout(cs);
+
+    long long cms = curms();
+    if (cms >= collision_check_init_ts + ANNOUNCE_WAIT ||
+        arp_send_stats[ASEND_COLLISION_CHECK].count >= PROBE_NUM) {
+        arp_success(cs);
         return;
     }
+    long long rtts = arp_send_stats[ASEND_COLLISION_CHECK].ts +
+        probe_wait_time;
+    if (cms < rtts) {
+        cs->timeout = rtts - cms;
+        return;
+    }
+    log_line("arp: Probing for hosts that may conflict with our lease...");
+    if (arp_ip_anon_ping(cs, arp_dhcp_packet.yiaddr) == -1)
+        log_warning("arp: Failed to send ARP ping in retransmission.");
+    cs->timeout = probe_wait_time = arp_gen_probe_wait();
 }
 
 static void arp_do_defense(struct client_state_t *cs)
@@ -600,6 +605,72 @@ static void arp_do_defense(struct client_state_t *cs)
     last_conflict_ts = cur_conflict_ts;
 }
 
+static void arp_do_gw_query(struct client_state_t *cs)
+{
+    if (arp_is_query_reply(&arpreply) &&
+        !memcmp(arpreply.sip4, &cs->routerAddr, 4)) {
+        cs->timeout = cs->oldTimeout;
+        memcpy(cs->routerArp, arpreply.smac, 6);
+        log_line("arp: Gateway hardware address %02x:%02x:%02x:%02x:%02x:%02x",
+                 cs->routerArp[0], cs->routerArp[1],
+                 cs->routerArp[2], cs->routerArp[3],
+                 cs->routerArp[4], cs->routerArp[5]);
+        arp_switch_state(cs, AS_DEFENSE);
+        arp_announcement(cs);  // Do a second announcement.
+        return;
+    }
+    if (!arp_validate_bpf_defense(cs, &arpreply))
+        return;
+    arp_do_defense(cs);
+}
+
+static void arp_do_collision_check(struct client_state_t *cs)
+{
+    if (!arp_is_query_reply(&arpreply))
+        return;
+    // If this packet was sent from our lease IP, and does not have a
+    // MAC address matching our own (the latter check guards against stupid
+    // hubs or repeaters), then it's a conflict and thus a failure.
+    if (!memcmp(arpreply.sip4, &arp_dhcp_packet.yiaddr, 4) &&
+        !memcmp(client_config.arp, arpreply.smac, 6)) {
+        total_conflicts++;
+        arp_failed(cs);
+    }
+}
+
+static void arp_do_gw_check(struct client_state_t *cs)
+{
+    if (!arp_is_query_reply(&arpreply))
+        return;
+    if (!memcmp(arpreply.sip4, &cs->routerAddr, 4)) {
+        // Success only if the router/gw MAC matches stored value
+        if (!memcmp(cs->routerArp, arpreply.smac, 6))
+            arp_gw_success(cs);
+        else
+            arp_gw_failed(cs);
+    }
+}
+
+static void arp_do_invalid(struct client_state_t *cs)
+{
+    log_error("handle_arp_response: called in invalid state %u", arpState);
+    arp_close_fd(cs);
+}
+
+typedef struct {
+    void (*packet_fn)(struct client_state_t *cs);
+    void (*timeout_fn)(struct client_state_t *cs);
+} arp_state_fn_t;
+
+static const arp_state_fn_t arp_states[] = {
+    { arp_do_invalid, 0 }, // AS_NONE
+    { arp_do_collision_check, arp_collision_timeout }, // AS_COLLISION_CHECK
+    { arp_do_gw_check, arp_check_timeout }, // AS_GW_CHECK
+    { arp_do_gw_query, arp_check_timeout }, // AS_GW_QUERY
+    { arp_do_defense, arp_defense_timeout }, // AS_DEFENSE
+    { arp_do_invalid, 0 }, // AS_MAX
+};
+
 void handle_arp_response(struct client_state_t *cs)
 {
     int r = 0;
@@ -620,7 +691,7 @@ void handle_arp_response(struct client_state_t *cs)
     }
 
     if (r <= 0) {
-        arp_retransmit(cs);
+        handle_arp_timeout(cs);
         return;
     }
 
@@ -635,51 +706,14 @@ void handle_arp_response(struct client_state_t *cs)
         return;
     }
 
-    switch (arpState) {
-    case AS_COLLISION_CHECK:
-        if (!arp_is_query_reply(&arpreply))
-            break;
-        // If this packet was sent from our lease IP, and does not have a
-        // MAC address matching our own (the latter check guards against stupid
-        // hubs or repeaters), then it's a conflict and thus a failure.
-        if (!memcmp(arpreply.sip4, &arp_dhcp_packet.yiaddr, 4) &&
-            !memcmp(client_config.arp, arpreply.smac, 6)) {
-            total_conflicts++;
-            arp_failed(cs);
-        }
-        break;
-    case AS_GW_CHECK:
-        if (!arp_is_query_reply(&arpreply))
-            break;
-        if (!memcmp(arpreply.sip4, &cs->routerAddr, 4)) {
-            // Success only if the router/gw MAC matches stored value
-            if (!memcmp(cs->routerArp, arpreply.smac, 6))
-                arp_gw_success(cs);
-            else
-                arp_gw_failed(cs);
-        }
-        break;
-    case AS_GW_QUERY:
-        if (arp_is_query_reply(&arpreply) &&
-            !memcmp(arpreply.sip4, &cs->routerAddr, 4)) {
-            cs->timeout = cs->oldTimeout;
-            memcpy(cs->routerArp, arpreply.smac, 6);
-            log_line("arp: Gateway hardware address %02x:%02x:%02x:%02x:%02x:%02x",
-                     cs->routerArp[0], cs->routerArp[1],
-                     cs->routerArp[2], cs->routerArp[3],
-                     cs->routerArp[4], cs->routerArp[5]);
-            arp_switch_state(cs, AS_DEFENSE);
-            arp_announcement(cs);  // Do a second announcement.
-            break;
-        }
-        if (!arp_validate_bpf_defense(cs, &arpreply))
-            break;
-    case AS_DEFENSE:
-        arp_do_defense(cs);
-        break;
-    default:
-        log_error("handle_arp_response: called in invalid state %u", arpState);
-        arp_close_fd(cs);
-    }
+    if (arp_states[arpState].packet_fn)
+        arp_states[arpState].packet_fn(cs);
     arpreply_clear();
+}
+
+// Perform retransmission if necessary.
+void handle_arp_timeout(struct client_state_t *cs)
+{
+    if (arp_states[arpState].timeout_fn)
+        arp_states[arpState].timeout_fn(cs);
 }

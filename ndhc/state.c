@@ -22,8 +22,6 @@ static void bound_timeout(struct client_state_t *cs);
 static void renewing_timeout(struct client_state_t *cs);
 static void rebinding_timeout(struct client_state_t *cs);
 static void released_timeout(struct client_state_t *cs);
-static void collision_check_timeout(struct client_state_t *cs);
-static void bound_gw_check_timeout(struct client_state_t *cs);
 static void xmit_release(struct client_state_t *cs);
 static void print_release(struct client_state_t *cs);
 static void frenew(struct client_state_t *cs);
@@ -36,14 +34,14 @@ typedef struct {
     void (*force_release_fn)(struct client_state_t *cs);
 } dhcp_state_t;
 
-dhcp_state_t dhcp_states[] = {
+static const dhcp_state_t dhcp_states[] = {
     { selecting_packet, selecting_timeout, 0, print_release}, // SELECTING
     { an_packet, requesting_timeout, 0, print_release},       // REQUESTING
     { 0, bound_timeout, frenew, xmit_release},                // BOUND
     { an_packet, renewing_timeout, 0, xmit_release},          // RENEWING
     { an_packet, rebinding_timeout, 0, xmit_release},         // REBINDING
-    { 0, bound_gw_check_timeout, 0, xmit_release},            // BOUND_GW_CHECK
-    { 0, collision_check_timeout, 0, xmit_release},          // COLLISION_CHECK
+    { 0, 0, 0, xmit_release},                                 // BOUND_GW_CHECK
+    { 0, 0, 0, xmit_release},                                // COLLISION_CHECK
     { 0, released_timeout, frenew, 0},                       // RELEASED
     { 0, 0, 0, 0},                                           // NUM_STATES
 };
@@ -101,8 +99,6 @@ static void requesting_timeout(struct client_state_t *cs)
 // total time, and it is time to renew the lease so that it is not lost.
 static void bound_timeout(struct client_state_t *cs)
 {
-    arp_retransmit(cs);
-
     if (curms() < cs->leaseStartTime + cs->renewTime * 1000)
         return;
     cs->dhcpState = DS_RENEWING;
@@ -139,7 +135,7 @@ static void renewing_timeout(struct client_state_t *cs)
     long long elt = cs->leaseStartTime + cs->lease * 1000;
     if (ct < elt) {
         cs->dhcpState = DS_REBINDING;
-        cs->timeout = elt - ct / 2;
+        cs->timeout = (elt - ct) / 2;
         log_line("Entering rebinding state.");
     } else
         lease_timedout(cs);
@@ -167,16 +163,6 @@ static void rebinding_timeout(struct client_state_t *cs)
 static void released_timeout(struct client_state_t *cs)
 {
     cs->timeout = -1;
-}
-
-static void collision_check_timeout(struct client_state_t *cs)
-{
-    arp_retransmit(cs);
-}
-
-static void bound_gw_check_timeout(struct client_state_t *cs)
-{
-    arp_retransmit(cs);
 }
 
 // Can transition to DS_BOUND or DS_SELECTING.
@@ -332,6 +318,7 @@ void packet_action(struct client_state_t *cs, struct dhcpmsg *packet,
 
 void timeout_action(struct client_state_t *cs)
 {
+    handle_arp_timeout(cs);
     if (dhcp_states[cs->dhcpState].timeout_fn)
         dhcp_states[cs->dhcpState].timeout_fn(cs);
 }
