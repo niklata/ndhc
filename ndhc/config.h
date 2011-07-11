@@ -30,7 +30,7 @@ struct client_state_t {
     int ifsPrevState;
     int listenMode;
     int epollFd, signalFd, listenFd, arpFd, nlFd;
-    int timeout, oldTimeout;
+    int dhcp_timeout;
     uint32_t clientAddr, serverAddr, routerAddr;
     uint32_t lease, renewTime, rebindTime, xid;
     int using_dhcp_bpf;

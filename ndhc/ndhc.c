@@ -162,7 +162,7 @@ static void do_work(void)
 {
     struct epoll_event events[3];
     long long last_awake, nowts;
-    int timeout_delta;
+    int timeout, timeout_delta;
 
     cs.epollFd = epoll_create1(0);
     if (cs.epollFd == -1)
@@ -170,17 +170,19 @@ static void do_work(void)
     setup_signals(&cs);
     epoll_add(&cs, cs.nlFd);
     set_listen_raw(&cs);
-    last_awake = curms();
-    timeout_action(&cs, last_awake);
+    nowts = curms();
+    goto jumpstart;
 
     for (;;) {
-        int r = epoll_wait(cs.epollFd, events, 3, cs.timeout);
+        log_line("DEBUG: before epoll_wait()");
+        int r = epoll_wait(cs.epollFd, events, 3, timeout);
         if (r == -1) {
             if (errno == EINTR)
                 continue;
             else
                 suicide("epoll_wait failed");
         }
+        log_line("DEBUG: after epoll_wait()");
         for (int i = 0; i < r; ++i) {
             int fd = events[i].data.fd;
             if (fd == cs.signalFd)
@@ -197,10 +199,35 @@ static void do_work(void)
 
         nowts = curms();
         timeout_delta = nowts - last_awake;
-        cs.timeout -= timeout_delta;
-        if (cs.timeout <= 0) {
-            cs.timeout = 0;
+
+        cs.dhcp_timeout -= timeout_delta;
+        if (cs.dhcp_timeout < 0)
+            cs.dhcp_timeout = 0;
+        arp_timeout_adj(timeout_delta);
+
+        int arp_timeout = get_arp_timeout();
+        log_line("DEBUG: arp_timeout = %d, dhcp_timeout = %d",
+                 arp_timeout, cs.dhcp_timeout);
+        if (arp_timeout == -1)
+            timeout = cs.dhcp_timeout;
+        else if (arp_timeout < cs.dhcp_timeout)
+            timeout = arp_timeout;
+        else
+            timeout = cs.dhcp_timeout;
+        
+        if (timeout <= 0) {
+jumpstart:
             timeout_action(&cs, nowts);
+
+            int arp_timeout = get_arp_timeout();
+            log_line("DEBUG: arp_timeout = %d, dhcp_timeout = %d",
+                     arp_timeout, cs.dhcp_timeout);
+            if (arp_timeout == -1)
+                timeout = cs.dhcp_timeout;
+            else if (arp_timeout < cs.dhcp_timeout)
+                timeout = arp_timeout;
+            else
+                timeout = cs.dhcp_timeout;
         }
         last_awake = nowts;
     }
