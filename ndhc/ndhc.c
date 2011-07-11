@@ -161,8 +161,8 @@ static int get_clientid_mac_string(char *str, size_t slen)
 static void do_work(void)
 {
     struct epoll_event events[3];
-    long long last_awake, nowts;
-    int timeout, timeout_delta;
+    long long nowts;
+    int timeout;
 
     cs.epollFd = epoll_create1(0);
     if (cs.epollFd == -1)
@@ -174,7 +174,6 @@ static void do_work(void)
     goto jumpstart;
 
     for (;;) {
-        log_line("DEBUG: before epoll_wait()");
         int r = epoll_wait(cs.epollFd, events, 3, timeout);
         if (r == -1) {
             if (errno == EINTR)
@@ -182,7 +181,6 @@ static void do_work(void)
             else
                 suicide("epoll_wait failed");
         }
-        log_line("DEBUG: after epoll_wait()");
         for (int i = 0; i < r; ++i) {
             int fd = events[i].data.fd;
             if (fd == cs.signalFd)
@@ -197,39 +195,31 @@ static void do_work(void)
                 suicide("epoll_wait: unknown fd");
         }
 
-        nowts = curms();
-        timeout_delta = nowts - last_awake;
+        for (;;) {
+            nowts = curms();
+            long long arp_wake_ts = arp_get_wake_ts();
+            long long dhcp_wake_ts = dhcp_get_wake_ts();
+            if (arp_wake_ts == -1) {
+                if (dhcp_wake_ts != -1) {
+                    timeout = dhcp_wake_ts - nowts;
+                    if (timeout < 0)
+                        timeout = 0;
+                } else
+                    timeout = -1;
+            } else {
+                // If dhcp_wake_ts is -1 then we want to sleep anyway.
+                timeout = (arp_wake_ts < dhcp_wake_ts ?
+                           arp_wake_ts : dhcp_wake_ts) - nowts;
+                if (timeout < 0)
+                    timeout = 0;
+            }
 
-        cs.dhcp_timeout -= timeout_delta;
-        if (cs.dhcp_timeout < 0)
-            cs.dhcp_timeout = 0;
-        arp_timeout_adj(timeout_delta);
-
-        int arp_timeout = get_arp_timeout();
-        log_line("DEBUG: arp_timeout = %d, dhcp_timeout = %d",
-                 arp_timeout, cs.dhcp_timeout);
-        if (arp_timeout == -1)
-            timeout = cs.dhcp_timeout;
-        else if (arp_timeout < cs.dhcp_timeout)
-            timeout = arp_timeout;
-        else
-            timeout = cs.dhcp_timeout;
-        
-        if (timeout <= 0) {
+            if (!timeout) {
 jumpstart:
-            timeout_action(&cs, nowts);
-
-            int arp_timeout = get_arp_timeout();
-            log_line("DEBUG: arp_timeout = %d, dhcp_timeout = %d",
-                     arp_timeout, cs.dhcp_timeout);
-            if (arp_timeout == -1)
-                timeout = cs.dhcp_timeout;
-            else if (arp_timeout < cs.dhcp_timeout)
-                timeout = arp_timeout;
-            else
-                timeout = cs.dhcp_timeout;
+                timeout_action(&cs, nowts);
+            } else
+                break;
         }
-        last_awake = nowts;
     }
 }
 

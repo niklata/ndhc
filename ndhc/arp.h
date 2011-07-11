@@ -55,7 +55,6 @@ void arp_set_defense_mode(struct client_state_t *cs);
 void arp_success(struct client_state_t *cs);
 void handle_arp_response(struct client_state_t *cs);
 void handle_arp_timeout(struct client_state_t *cs, long long nowts);
-int get_arp_timeout(void);
-void arp_timeout_adj(int off);
+long long arp_get_wake_ts(void);
 
 #endif /* ARP_H_ */

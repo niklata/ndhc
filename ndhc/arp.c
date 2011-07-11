@@ -67,7 +67,7 @@ typedef enum {
     AS_MAX,
 } arp_state_t;
 
-static int arp_timeout[AS_MAX] = { -1, -1, -1, -1, -1 };
+static long long arp_wake_ts[AS_MAX] = { -1, -1, -1, -1, -1 };
 
 typedef enum {
     ASEND_COLLISION_CHECK,
@@ -273,7 +273,7 @@ int arp_close_fd(struct client_state_t *cs)
 {
     arp_min_close_fd(cs);
     for (int i = 0; i < AS_MAX; ++i)
-        arp_timeout[i] = -1;
+        arp_wake_ts[i] = -1;
     return 1;
 }
 
@@ -372,7 +372,8 @@ int arp_check(struct client_state_t *cs, struct dhcpmsg *packet)
     cs->arpPrevState = cs->dhcpState;
     cs->dhcpState = DS_COLLISION_CHECK;
     arp_check_start_ts = arp_send_stats[ASEND_COLLISION_CHECK].ts;
-    arp_timeout[AS_COLLISION_CHECK] = probe_wait_time = PROBE_WAIT;
+    probe_wait_time = PROBE_WAIT;
+    arp_wake_ts[AS_COLLISION_CHECK] = arp_check_start_ts + probe_wait_time;
     return 0;
 }
 
@@ -387,7 +388,8 @@ int arp_gw_check(struct client_state_t *cs)
     arp_switch_state(cs, AS_GW_CHECK);
     cs->arpPrevState = cs->dhcpState;
     cs->dhcpState = DS_BOUND_GW_CHECK;
-    arp_timeout[AS_GW_CHECK] = ARP_RETRANS_DELAY + 250;
+    arp_wake_ts[AS_GW_CHECK] =
+        arp_send_stats[ASEND_GW_PING].ts + ARP_RETRANS_DELAY + 250;
     return 0;
 }
 
@@ -399,7 +401,8 @@ static int arp_get_gw_hwaddr(struct client_state_t *cs)
     log_line("arp: Searching for gw address...");
     if (arp_ping(cs, cs->routerAddr) == -1)
         return -1;
-    arp_timeout[AS_GW_QUERY] = ARP_RETRANS_DELAY + 250;
+    arp_wake_ts[AS_GW_QUERY] =
+        arp_send_stats[ASEND_GW_PING].ts + ARP_RETRANS_DELAY + 250;
     return 0;
 }
 
@@ -407,7 +410,7 @@ static void arp_failed(struct client_state_t *cs)
 {
     log_line("arp: Offered address is in use -- declining");
     send_decline(cs, arp_dhcp_packet.yiaddr);
-    arp_timeout[AS_COLLISION_CHECK] = -1;
+    arp_wake_ts[AS_COLLISION_CHECK] = -1;
     reinit_selecting(cs, total_conflicts < MAX_CONFLICTS ?
                      0 : RATE_LIMIT_INTERVAL);
 }
@@ -415,7 +418,7 @@ static void arp_failed(struct client_state_t *cs)
 static void arp_gw_failed(struct client_state_t *cs)
 {
     log_line("arp: Gateway appears to have changed, getting new lease.");
-    arp_timeout[AS_GW_CHECK] = -1;
+    arp_wake_ts[AS_GW_CHECK] = -1;
     reinit_selecting(cs, 0);
 }
 
@@ -435,8 +438,6 @@ void arp_set_defense_mode(struct client_state_t *cs)
 
 void arp_success(struct client_state_t *cs)
 {
-    cs->dhcp_timeout = (cs->renewTime * 1000) - (curms() - cs->leaseStartTime);
-
     struct in_addr temp_addr = {.s_addr = arp_dhcp_packet.yiaddr};
     log_line("arp: Lease of %s obtained, lease time %ld",
              inet_ntoa(temp_addr), cs->lease);
@@ -444,7 +445,7 @@ void arp_success(struct client_state_t *cs)
     cs->dhcpState = DS_BOUND;
     cs->init = 0;
     last_conflict_ts = 0;
-    arp_timeout[AS_COLLISION_CHECK] = -1;
+    arp_wake_ts[AS_COLLISION_CHECK] = -1;
     ifchange_bind(&arp_dhcp_packet);
     if (cs->arpPrevState == DS_RENEWING || cs->arpPrevState == DS_REBINDING) {
         arp_switch_state(cs, AS_DEFENSE);
@@ -472,7 +473,7 @@ static void arp_gw_success(struct client_state_t *cs)
     arp_switch_state(cs, AS_DEFENSE);
     arp_announcement(cs);
 
-    arp_timeout[AS_GW_CHECK] = -1;
+    arp_wake_ts[AS_GW_CHECK] = -1;
     cs->dhcpState = cs->arpPrevState;
 }
 
@@ -534,10 +535,10 @@ static int arp_gen_probe_wait(void)
 
 static void arp_defense_timeout(struct client_state_t *cs, long long nowts)
 {
-    if (arp_timeout[AS_DEFENSE] != -1) {
+    if (arp_wake_ts[AS_DEFENSE] != -1) {
         log_line("arp: Defending our lease IP.");
         arp_announcement(cs);
-        arp_timeout[AS_DEFENSE] = -1;
+        arp_wake_ts[AS_DEFENSE] = -1;
     }
 }
 
@@ -549,7 +550,7 @@ static void arp_check_timeout(struct client_state_t *cs, long long nowts)
         return;
     long long rtts = arp_send_stats[ASEND_GW_PING].ts + ARP_RETRANS_DELAY;
     if (nowts < rtts) {
-        arp_timeout[arpState] = rtts - nowts;
+        arp_wake_ts[arpState] = rtts;
         return;
     }
     log_line(arpState == AS_GW_CHECK ?
@@ -557,7 +558,8 @@ static void arp_check_timeout(struct client_state_t *cs, long long nowts)
              "arp: Still looking for gateway hardware address...");
     if (arp_ping(cs, cs->routerAddr) == -1)
         log_warning("arp: Failed to send ARP ping in retransmission.");
-    arp_timeout[arpState] = ARP_RETRANS_DELAY;
+    arp_wake_ts[arpState] =
+        arp_send_stats[ASEND_GW_PING].ts + ARP_RETRANS_DELAY;
 }
 
 static void arp_collision_timeout(struct client_state_t *cs, long long nowts)
@@ -572,19 +574,21 @@ static void arp_collision_timeout(struct client_state_t *cs, long long nowts)
     long long rtts = arp_send_stats[ASEND_COLLISION_CHECK].ts +
         probe_wait_time;
     if (nowts < rtts) {
-        arp_timeout[AS_COLLISION_CHECK] = rtts - nowts;
+        arp_wake_ts[AS_COLLISION_CHECK] = rtts;
         return;
     }
     if (arp_ip_anon_ping(cs, arp_dhcp_packet.yiaddr) == -1)
         log_warning("arp: Failed to send ARP ping in retransmission.");
-    arp_timeout[AS_COLLISION_CHECK] = probe_wait_time = arp_gen_probe_wait();
+    probe_wait_time = arp_gen_probe_wait();
+    arp_wake_ts[AS_COLLISION_CHECK] =
+        arp_send_stats[ASEND_COLLISION_CHECK].ts + probe_wait_time;
 }
 
 static void arp_do_defense(struct client_state_t *cs)
 {
     log_line("arp: detected a peer attempting to use our IP!");
     long long nowts = curms();
-    arp_timeout[AS_DEFENSE] = -1;
+    arp_wake_ts[AS_DEFENSE] = -1;
     if (!last_conflict_ts ||
         nowts - last_conflict_ts < DEFEND_INTERVAL) {
         log_line("arp: Defending our lease IP.");
@@ -594,8 +598,8 @@ static void arp_do_defense(struct client_state_t *cs)
         send_release(cs);
         reinit_selecting(cs, 0);
     } else {
-        arp_timeout[AS_DEFENSE] =
-            arp_send_stats[ASEND_ANNOUNCE].ts + DEFEND_INTERVAL - nowts;
+        arp_wake_ts[AS_DEFENSE] =
+            arp_send_stats[ASEND_ANNOUNCE].ts + DEFEND_INTERVAL;
     }
     total_conflicts++;
     last_conflict_ts = nowts;
@@ -605,7 +609,7 @@ static void arp_do_gw_query(struct client_state_t *cs)
 {
     if (arp_is_query_reply(&arpreply) &&
         !memcmp(arpreply.sip4, &cs->routerAddr, 4)) {
-        arp_timeout[AS_GW_QUERY] = -1;
+        arp_wake_ts[AS_GW_QUERY] = -1;
         memcpy(cs->routerArp, arpreply.smac, 6);
         log_line("arp: Gateway hardware address %02x:%02x:%02x:%02x:%02x:%02x",
                  cs->routerArp[0], cs->routerArp[1],
@@ -714,27 +718,15 @@ void handle_arp_timeout(struct client_state_t *cs, long long nowts)
         arp_states[arpState].timeout_fn(cs, nowts);
 }
 
-int get_arp_timeout(void)
+long long arp_get_wake_ts(void)
 {
-    int mt = INT_MAX;
+    long long mt = -1;
     for (int i = 0; i < AS_MAX; ++i) {
-        log_line("DEBUG: arp_timeout[%u] == %d", i, arp_timeout[i]);
-        if (arp_timeout[i] < mt && arp_timeout[i] >= 0)
-            mt = arp_timeout[i];
-    }
-    if (mt == INT_MAX)
-        return -1;
-    return mt;
-}
-
-void arp_timeout_adj(int off)
-{
-    for (int i = 0; i < AS_MAX; ++i) {
-        if (arp_timeout[i] == -1)
+        if (arp_wake_ts[i] == -1)
             continue;
-        arp_timeout[i] -= off;
-        if (arp_timeout[i] < 0)
-            arp_timeout[i] = 0;
+        if (mt == -1 || mt > arp_wake_ts[i])
+            mt = arp_wake_ts[i];
     }
+    return mt;
 }
 

@@ -12,6 +12,8 @@
 #include "sys.h"
 #include "random.h"
 
+static long long dhcp_wake_ts = -1;
+
 static void selecting_packet(struct client_state_t *cs, struct dhcpmsg *packet,
                              uint8_t *message);
 static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
@@ -62,7 +64,7 @@ void reinit_selecting(struct client_state_t *cs, int timeout)
     ifchange_deconfig();
     arp_close_fd(cs);
     cs->dhcpState = DS_SELECTING;
-    cs->dhcp_timeout = timeout;
+    dhcp_wake_ts = curms() + timeout;
     cs->clientAddr = 0;
     num_dhcp_requests = 0;
     arp_reset_send_stats();
@@ -74,7 +76,7 @@ static void set_released(struct client_state_t *cs)
     ifchange_deconfig();
     arp_close_fd(cs);
     cs->dhcpState = DS_RELEASED;
-    cs->dhcp_timeout = -1;
+    dhcp_wake_ts = -1;
     cs->clientAddr = 0;
     num_dhcp_requests = 0;
     arp_reset_send_stats();
@@ -89,7 +91,7 @@ static void requesting_timeout(struct client_state_t *cs, long long nowts)
 {
     if (num_dhcp_requests < 5) {
         send_selecting(cs);
-        cs->dhcp_timeout = delay_timeout(num_dhcp_requests);
+        dhcp_wake_ts = nowts + delay_timeout(num_dhcp_requests);
         num_dhcp_requests++;
     } else
         reinit_selecting(cs, 0);
@@ -101,7 +103,7 @@ static void bound_timeout(struct client_state_t *cs, long long nowts)
 {
     long long rnt = cs->leaseStartTime + cs->renewTime * 1000;
     if (nowts < rnt) {
-        cs->dhcp_timeout = rnt - nowts;
+        dhcp_wake_ts = rnt;
         return;
     }
     cs->dhcpState = DS_RENEWING;
@@ -126,21 +128,17 @@ static void renewing_timeout(struct client_state_t *cs, long long nowts)
 {
     long long rbt = cs->leaseStartTime + cs->rebindTime * 1000;
     if (nowts < rbt) {
-        long long wt = (rbt - nowts) / 2;
-        if (wt >= 30000)
-            send_renew(cs);
-        else
-            wt = rbt - nowts;
-        cs->dhcp_timeout = wt;
-        return;
-    }
-    long long elt = cs->leaseStartTime + cs->lease * 1000;
-    if (nowts < elt) {
+        if (rbt - nowts < 30000) {
+            dhcp_wake_ts = rbt;
+            return;
+        }
+        send_renew(cs);
+        dhcp_wake_ts = nowts + ((rbt - nowts) / 2);
+    } else {
         cs->dhcpState = DS_REBINDING;
-        cs->dhcp_timeout = (elt - nowts) / 2;
         log_line("Entering rebinding state.");
-    } else
-        lease_timedout(cs);
+        rebinding_timeout(cs, nowts);
+    }
 }
 
 // Triggered when a DHCP rebind request has been sent and no reply has been
@@ -151,19 +149,19 @@ static void rebinding_timeout(struct client_state_t *cs, long long nowts)
 {
     long long elt = cs->leaseStartTime + cs->lease * 1000;
     if (nowts < elt) {
-        long long wt = (elt - nowts) / 2;
-        if (wt >= 30000)
-            send_rebind(cs);
-        else
-            wt = elt - nowts;
-        cs->dhcp_timeout = wt;
+        if (elt - nowts < 30000) {
+            dhcp_wake_ts = elt;
+            return;
+        }
+        send_rebind(cs);
+        dhcp_wake_ts = nowts + ((elt - nowts) / 2);
     } else
         lease_timedout(cs);
 }
 
 static void released_timeout(struct client_state_t *cs, long long nowts)
 {
-    cs->dhcp_timeout = -1;
+    dhcp_wake_ts = -1;
 }
 
 // Can transition to DS_BOUND or DS_SELECTING.
@@ -189,6 +187,7 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
         // the remote server values, if they even exist, for sanity.
         cs->renewTime = cs->lease >> 1;
         cs->rebindTime = (cs->lease >> 3) * 0x7; // * 0.875
+        dhcp_wake_ts = cs->leaseStartTime + cs->renewTime * 1000;
 
         // Only check if we are either in the REQUESTING state, or if we
         // have received a lease with a different IP than what we had before.
@@ -200,7 +199,6 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
             }
         } else {
             cs->dhcpState = DS_BOUND;
-            cs->dhcp_timeout = cs->renewTime * 1000;
             arp_set_defense_mode(cs);
             set_listen_none(cs);
         }
@@ -222,7 +220,7 @@ static void selecting_packet(struct client_state_t *cs, struct dhcpmsg *packet,
             cs->xid = packet->xid;
             cs->clientAddr = packet->yiaddr;
             cs->dhcpState = DS_REQUESTING;
-            cs->dhcp_timeout = 0;
+            dhcp_wake_ts = curms();
             num_dhcp_requests = 0;
         } else {
             log_line("No server ID in message");
@@ -249,7 +247,7 @@ static void selecting_timeout(struct client_state_t *cs, long long nowts)
     if (num_dhcp_requests == 0)
         cs->xid = libc_random_u32();
     send_discover(cs);
-    cs->dhcp_timeout = delay_timeout(num_dhcp_requests);
+    dhcp_wake_ts = nowts + delay_timeout(num_dhcp_requests);
     num_dhcp_requests++;
 }
 
@@ -333,5 +331,10 @@ void force_release_action(struct client_state_t *cs)
 {
     if (dhcp_states[cs->dhcpState].force_release_fn)
         dhcp_states[cs->dhcpState].force_release_fn(cs);
+}
+
+long long dhcp_get_wake_ts(void)
+{
+    return dhcp_wake_ts;
 }
 
