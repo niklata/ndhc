@@ -464,9 +464,11 @@ void arp_set_defense_mode(struct client_state_t *cs)
 
 void arp_success(struct client_state_t *cs)
 {
+    char clibuf[INET_ADDRSTRLEN];
     struct in_addr temp_addr = {.s_addr = arp_dhcp_packet.yiaddr};
+    inet_ntop(AF_INET, &temp_addr, clibuf, sizeof clibuf);
     log_line("Lease of %s obtained.  Lease time is %ld seconds.",
-             inet_ntoa(temp_addr), cs->lease);
+             clibuf, cs->lease);
     cs->clientAddr = arp_dhcp_packet.yiaddr;
     cs->dhcpState = DS_BOUND;
     cs->init = 0;

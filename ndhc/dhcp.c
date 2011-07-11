@@ -596,6 +596,7 @@ int send_discover(struct client_state_t *cs)
 
 int send_selecting(struct client_state_t *cs)
 {
+    char clibuf[INET_ADDRSTRLEN];
     struct dhcpmsg packet = init_packet(DHCPREQUEST, cs->xid);
     add_u32_option(&packet, DHCP_REQUESTED_IP, cs->clientAddr);
     add_u32_option(&packet, DHCP_SERVER_ID, cs->serverAddr);
@@ -604,8 +605,9 @@ int send_selecting(struct client_state_t *cs)
     add_option_request_list(&packet);
     add_option_vendor(&packet);
     add_option_hostname(&packet);
-    log_line("Sending select for %s...",
-             inet_ntoa((struct in_addr){.s_addr = cs->clientAddr}));
+    inet_ntop(AF_INET, &(struct in_addr){.s_addr = cs->clientAddr},
+              clibuf, sizeof clibuf);
+    log_line("Sending select for %s...", clibuf);
     return send_dhcp_raw(&packet);
 }
 

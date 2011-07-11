@@ -174,10 +174,13 @@ static int validate_serverid(struct client_state_t *cs, struct dhcpmsg *packet,
         return 0;
     }
     if (memcmp(&cs->serverAddr, temp, 4)) {
+        char svrbuf[INET_ADDRSTRLEN];
         uint32_t iptmp;
         memcpy(&iptmp, temp, 4);
+        inet_ntop(AF_INET, &(struct in_addr){.s_addr=iptmp},
+                  svrbuf, sizeof svrbuf);
         log_line("Received %s with an unexpected server id: %s.  Ignoring it.",
-                 typemsg, inet_ntoa((struct in_addr){.s_addr=iptmp}));
+                 typemsg, svrbuf);
         return 0;
     }
     return 1;
@@ -214,8 +217,10 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
         // have received a lease with a different IP than what we had before.
         if (cs->dhcpState == DS_REQUESTING ||
             memcmp(&packet->yiaddr, &cs->clientAddr, 4)) {
-            log_line("Accepted a firm offer for %s.  Validating...",
-                     inet_ntoa((struct in_addr){.s_addr=cs->clientAddr}));
+            char clibuf[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->clientAddr},
+                      clibuf, sizeof clibuf);
+            log_line("Accepted a firm offer for %s.  Validating...", clibuf);
             if (arp_check(cs, packet) == -1) {
                 log_warning("Failed to make arp socket.  Searching for new lease...");
                 reinit_selecting(cs, 3000);
@@ -242,15 +247,20 @@ static void selecting_packet(struct client_state_t *cs, struct dhcpmsg *packet,
         uint8_t *temp = NULL;
         ssize_t optlen;
         if ((temp = get_option_data(packet, DHCP_SERVER_ID, &optlen))) {
+            char clibuf[INET_ADDRSTRLEN];
+            char svrbuf[INET_ADDRSTRLEN];
             memcpy(&cs->serverAddr, temp, 4);
             cs->xid = packet->xid;
             cs->clientAddr = packet->yiaddr;
             cs->dhcpState = DS_REQUESTING;
             dhcp_wake_ts = curms();
             num_dhcp_requests = 0;
+            inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->clientAddr},
+                      clibuf, sizeof clibuf);
+            inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->serverAddr},
+                      svrbuf, sizeof svrbuf);
             log_line("Received an offer of %s from server %s.",
-                     inet_ntoa((struct in_addr){.s_addr=cs->clientAddr}),
-                     inet_ntoa((struct in_addr){.s_addr=cs->serverAddr}));
+                     clibuf, svrbuf);
         } else {
             log_line("Invalid offer received: it didn't have a server id.");
         }
@@ -282,9 +292,13 @@ static void selecting_timeout(struct client_state_t *cs, long long nowts)
 
 static void xmit_release(struct client_state_t *cs)
 {
-    log_line("Unicasting a release of %s to %s.",
-             inet_ntoa((struct in_addr){.s_addr=cs->clientAddr}),
-             inet_ntoa((struct in_addr){.s_addr=cs->serverAddr}));
+    char clibuf[INET_ADDRSTRLEN];
+    char svrbuf[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->clientAddr},
+              clibuf, sizeof clibuf);
+    inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->serverAddr},
+              svrbuf, sizeof svrbuf);
+    log_line("Unicasting a release of %s to %s.", clibuf, svrbuf);
     send_release(cs);
     print_release(cs);
 }
