@@ -99,6 +99,9 @@ static unsigned int total_conflicts; // Total number of address conflicts on
 
 static struct dhcpmsg arp_dhcp_packet; // Used only for AS_COLLISION_CHECK
 
+static char arp_router_has_replied;
+static char arp_server_has_replied;
+
 static struct arpMsg arpreply;
 static int arpreply_offset;
 static void arpreply_clear(void)
@@ -383,8 +386,15 @@ int arp_gw_check(struct client_state_t *cs)
     if (arpState == AS_GW_CHECK)  // Guard against state bounce.
         return 0;
     gw_check_init_pingcount = arp_send_stats[ASEND_GW_PING].count;
-    if (arp_ping(cs, cs->routerAddr) == -1)
+    arp_server_has_replied = 0;
+    if (arp_ping(cs, cs->serverAddr) == -1)
         return -1;
+    if (cs->routerAddr) {
+        arp_router_has_replied = 0;
+        if (arp_ping(cs, cs->routerAddr) == -1)
+            return -1;
+    } else
+        arp_router_has_replied = 1;
     arp_switch_state(cs, AS_GW_CHECK);
     cs->arpPrevState = cs->dhcpState;
     cs->dhcpState = DS_BOUND_GW_CHECK;
@@ -398,9 +408,19 @@ static int arp_get_gw_hwaddr(struct client_state_t *cs)
     if (cs->dhcpState != DS_BOUND)
         log_error("arp_get_gw_hwaddr: called when state != DS_BOUND");
     arp_switch_state(cs, AS_GW_QUERY);
-    log_line("arp: Searching for gw address...");
-    if (arp_ping(cs, cs->routerAddr) == -1)
+    if (cs->routerAddr)
+        log_line("arp: Searching for dhcp server and gw addresses...");
+    else
+        log_line("arp: Searching for dhcp server address...");
+    cs->got_server_arp = 0;
+    if (arp_ping(cs, cs->serverAddr) == -1)
         return -1;
+    if (cs->routerAddr) {
+        cs->got_router_arp = 0;
+        if (arp_ping(cs, cs->routerAddr) == -1)
+            return -1;
+    } else
+        cs->got_router_arp = 1;
     arp_wake_ts[AS_GW_QUERY] =
         arp_send_stats[ASEND_GW_PING].ts + ARP_RETRANS_DELAY + 250;
     return 0;
@@ -417,14 +437,19 @@ static void arp_failed(struct client_state_t *cs)
 
 static void arp_gw_failed(struct client_state_t *cs)
 {
-    log_line("arp: Gateway appears to have changed, getting new lease.");
     arp_wake_ts[AS_GW_CHECK] = -1;
     reinit_selecting(cs, 0);
 }
 
 static int act_if_arp_gw_failed(struct client_state_t *cs)
 {
-    if (arp_send_stats[ASEND_GW_PING].count >= gw_check_init_pingcount + 3) {
+    if (arp_send_stats[ASEND_GW_PING].count >= gw_check_init_pingcount + 6) {
+        if (arp_router_has_replied && !arp_server_has_replied)
+            log_line("arp: DHCP server didn't reply.  Getting new lease.");
+        else if (!arp_router_has_replied && arp_server_has_replied)
+            log_line("arp: Gateway didn't reply.  Getting new lease.");
+        else
+            log_line("arp: DHCP server and gateway didn't reply.  Getting new lease.");
         arp_gw_failed(cs);
         return 1;
     }
@@ -454,9 +479,9 @@ void arp_success(struct client_state_t *cs)
         uint8_t *od = get_option_data(&arp_dhcp_packet, DHCP_ROUTER, &ol);
         if (ol == 4) {
             memcpy(&cs->routerAddr, od, 4);
-            arp_get_gw_hwaddr(cs);
         } else
-            arp_switch_state(cs, AS_DEFENSE);
+            cs->routerAddr = 0;
+        arp_get_gw_hwaddr(cs);
     }
     set_listen_none(cs);
     write_leasefile(temp_addr);
@@ -469,7 +494,7 @@ void arp_success(struct client_state_t *cs)
 
 static void arp_gw_success(struct client_state_t *cs)
 {
-    log_line("arp: Gateway seems unchanged");
+    log_line("arp: Network seems unchanged");
     arp_switch_state(cs, AS_DEFENSE);
     arp_announcement(cs);
 
@@ -542,23 +567,51 @@ static void arp_defense_timeout(struct client_state_t *cs, long long nowts)
     }
 }
 
-static void arp_check_timeout(struct client_state_t *cs, long long nowts)
+static void arp_gw_check_timeout(struct client_state_t *cs, long long nowts)
 {
     arp_defense_timeout(cs, nowts);
 
-    if (arpState == AS_GW_CHECK && act_if_arp_gw_failed(cs))
+    if (act_if_arp_gw_failed(cs))
         return;
     long long rtts = arp_send_stats[ASEND_GW_PING].ts + ARP_RETRANS_DELAY;
     if (nowts < rtts) {
-        arp_wake_ts[arpState] = rtts;
+        arp_wake_ts[AS_GW_CHECK] = rtts;
         return;
     }
-    log_line(arpState == AS_GW_CHECK ?
-             "arp: Still waiting for gateway to reply to arp ping..." :
-             "arp: Still looking for gateway hardware address...");
-    if (arp_ping(cs, cs->routerAddr) == -1)
-        log_warning("arp: Failed to send ARP ping in retransmission.");
-    arp_wake_ts[arpState] =
+    if (!arp_router_has_replied) {
+        log_line("arp: Still waiting for gateway to reply to arp ping...");
+        if (arp_ping(cs, cs->routerAddr) == -1)
+            log_warning("arp: Failed to send ARP ping in retransmission.");
+    }
+    if (!arp_server_has_replied) {
+        log_line("arp: Still waiting for DHCP server to reply to arp ping...");
+        if (arp_ping(cs, cs->serverAddr) == -1)
+            log_warning("arp: Failed to send ARP ping in retransmission.");
+    }
+    arp_wake_ts[AS_GW_CHECK] =
+        arp_send_stats[ASEND_GW_PING].ts + ARP_RETRANS_DELAY;
+}
+
+static void arp_gw_query_timeout(struct client_state_t *cs, long long nowts)
+{
+    arp_defense_timeout(cs, nowts);
+
+    long long rtts = arp_send_stats[ASEND_GW_PING].ts + ARP_RETRANS_DELAY;
+    if (nowts < rtts) {
+        arp_wake_ts[AS_GW_QUERY] = rtts;
+        return;
+    }
+    if (!cs->got_router_arp) {
+        log_line("arp: Still looking for gateway hardware address...");
+        if (arp_ping(cs, cs->routerAddr) == -1)
+            log_warning("arp: Failed to send ARP ping in retransmission.");
+    }
+    if (!cs->got_server_arp) {
+        log_line("arp: Still looking for DHCP server hardware address...");
+        if (arp_ping(cs, cs->serverAddr) == -1)
+            log_warning("arp: Failed to send ARP ping in retransmission.");
+    }
+    arp_wake_ts[AS_GW_QUERY] =
         arp_send_stats[ASEND_GW_PING].ts + ARP_RETRANS_DELAY;
 }
 
@@ -586,6 +639,12 @@ static void arp_collision_timeout(struct client_state_t *cs, long long nowts)
 
 static void arp_do_defense(struct client_state_t *cs)
 {
+    // Even though the BPF will usually catch this case, sometimes there are
+    // packets still in the socket buffer that arrived before the defense
+    // BPF was installed, so it's necessary to check here.
+    if (!arp_validate_bpf_defense(cs, &arpreply))
+        return;
+
     log_line("arp: detected a peer attempting to use our IP!");
     long long nowts = curms();
     arp_wake_ts[AS_DEFENSE] = -1;
@@ -605,22 +664,44 @@ static void arp_do_defense(struct client_state_t *cs)
     last_conflict_ts = nowts;
 }
 
+static void arp_do_gw_query_done(struct client_state_t *cs)
+{
+    arp_wake_ts[AS_GW_QUERY] = -1;
+    arp_switch_state(cs, AS_DEFENSE);
+    arp_announcement(cs);  // Do a second announcement.
+}
+
 static void arp_do_gw_query(struct client_state_t *cs)
 {
-    if (arp_is_query_reply(&arpreply) &&
-        !memcmp(arpreply.sip4, &cs->routerAddr, 4)) {
-        arp_wake_ts[AS_GW_QUERY] = -1;
+    if (!arp_is_query_reply(&arpreply)) {
+        arp_do_defense(cs);
+        return;
+    }
+    if (!memcmp(arpreply.sip4, &cs->routerAddr, 4)) {
         memcpy(cs->routerArp, arpreply.smac, 6);
         log_line("arp: Gateway hardware address %02x:%02x:%02x:%02x:%02x:%02x",
                  cs->routerArp[0], cs->routerArp[1],
                  cs->routerArp[2], cs->routerArp[3],
                  cs->routerArp[4], cs->routerArp[5]);
-        arp_switch_state(cs, AS_DEFENSE);
-        arp_announcement(cs);  // Do a second announcement.
+        cs->got_router_arp = 1;
+        if (cs->routerAddr == cs->serverAddr)
+            goto server_is_router;
+        if (cs->got_server_arp)
+            arp_do_gw_query_done(cs);
         return;
     }
-    if (!arp_validate_bpf_defense(cs, &arpreply))
+    if (!memcmp(arpreply.sip4, &cs->serverAddr, 4)) {
+server_is_router:
+        memcpy(cs->serverArp, arpreply.smac, 6);
+        log_line("arp: DHCP Server hardware address %02x:%02x:%02x:%02x:%02x:%02x",
+                 cs->serverArp[0], cs->serverArp[1],
+                 cs->serverArp[2], cs->serverArp[3],
+                 cs->serverArp[4], cs->serverArp[5]);
+        cs->got_server_arp = 1;
+        if (cs->got_router_arp)
+            arp_do_gw_query_done(cs);
         return;
+    }
     arp_do_defense(cs);
 }
 
@@ -644,10 +725,29 @@ static void arp_do_gw_check(struct client_state_t *cs)
         return;
     if (!memcmp(arpreply.sip4, &cs->routerAddr, 4)) {
         // Success only if the router/gw MAC matches stored value
-        if (!memcmp(cs->routerArp, arpreply.smac, 6))
-            arp_gw_success(cs);
-        else
+        if (!memcmp(cs->routerArp, arpreply.smac, 6)) {
+            arp_router_has_replied = 1;
+            if (cs->routerAddr == cs->serverAddr)
+                goto server_is_router;
+            if (arp_server_has_replied)
+                arp_gw_success(cs);
+        } else {
+            log_line("arp: Gateway is different.  Getting a new lease.");
             arp_gw_failed(cs);
+        }
+        return;
+    }
+    if (!memcmp(arpreply.sip4, &cs->serverAddr, 4)) {
+server_is_router:
+        // Success only if the server MAC matches stored value
+        if (!memcmp(cs->serverArp, arpreply.smac, 6)) {
+            arp_server_has_replied = 1;
+            if (arp_router_has_replied)
+                arp_gw_success(cs);
+        } else {
+            log_line("arp: DHCP server is different.  Getting a new lease.");
+            arp_gw_failed(cs);
+        }
     }
 }
 
@@ -665,8 +765,8 @@ typedef struct {
 static const arp_state_fn_t arp_states[] = {
     { arp_do_invalid, 0 }, // AS_NONE
     { arp_do_collision_check, arp_collision_timeout }, // AS_COLLISION_CHECK
-    { arp_do_gw_check, arp_check_timeout }, // AS_GW_CHECK
-    { arp_do_gw_query, arp_check_timeout }, // AS_GW_QUERY
+    { arp_do_gw_check, arp_gw_check_timeout }, // AS_GW_CHECK
+    { arp_do_gw_query, arp_gw_query_timeout }, // AS_GW_QUERY
     { arp_do_defense, arp_defense_timeout }, // AS_DEFENSE
     { arp_do_invalid, 0 }, // AS_MAX
 };

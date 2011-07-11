@@ -68,6 +68,7 @@ struct client_state_t cs = {
     .arpFd = -1,
     .nlFd = -1,
     .routerArp = "\0\0\0\0\0\0",
+    .serverArp = "\0\0\0\0\0\0",
 };
 
 struct client_config_t client_config = {

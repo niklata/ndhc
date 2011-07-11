@@ -32,9 +32,8 @@ struct client_state_t {
     int epollFd, signalFd, listenFd, arpFd, nlFd;
     uint32_t clientAddr, serverAddr, routerAddr;
     uint32_t lease, renewTime, rebindTime, xid;
-    int using_dhcp_bpf;
-    uint8_t routerArp[6];
-    uint8_t init;
+    uint8_t routerArp[6], serverArp[6];
+    uint8_t using_dhcp_bpf, init, got_router_arp, got_server_arp;
 };
 
 struct client_config_t {

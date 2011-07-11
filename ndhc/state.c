@@ -12,8 +12,6 @@
 #include "sys.h"
 #include "random.h"
 
-static long long dhcp_wake_ts = -1;
-
 static void selecting_packet(struct client_state_t *cs, struct dhcpmsg *packet,
                              uint8_t *message);
 static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
@@ -49,6 +47,7 @@ static const dhcp_state_t dhcp_states[] = {
 };
 
 static unsigned int num_dhcp_requests;
+static long long dhcp_wake_ts = -1;
 
 static int delay_timeout(int numpackets)
 {
@@ -59,27 +58,32 @@ static int delay_timeout(int numpackets)
     return to * 1000 + rand() % 1000;
 }
 
-void reinit_selecting(struct client_state_t *cs, int timeout)
+static void reinit_shared_deconfig(struct client_state_t *cs)
 {
     ifchange_deconfig();
     arp_close_fd(cs);
-    cs->dhcpState = DS_SELECTING;
-    dhcp_wake_ts = curms() + timeout;
     cs->clientAddr = 0;
     num_dhcp_requests = 0;
+    cs->got_router_arp = 0;
+    cs->got_server_arp = 0;
+    memset(&cs->routerArp, 0, sizeof cs->routerArp);
+    memset(&cs->serverArp, 0, sizeof cs->serverArp);
     arp_reset_send_stats();
+}
+
+void reinit_selecting(struct client_state_t *cs, int timeout)
+{
+    reinit_shared_deconfig(cs);
+    cs->dhcpState = DS_SELECTING;
+    dhcp_wake_ts = curms() + timeout;
     set_listen_raw(cs);
 }
 
 static void set_released(struct client_state_t *cs)
 {
-    ifchange_deconfig();
-    arp_close_fd(cs);
+    reinit_shared_deconfig(cs);
     cs->dhcpState = DS_RELEASED;
     dhcp_wake_ts = -1;
-    cs->clientAddr = 0;
-    num_dhcp_requests = 0;
-    arp_reset_send_stats();
     set_listen_none(cs);
 }
 
