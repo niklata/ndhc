@@ -173,7 +173,7 @@ void perform_ip(int idx, char *str)
         return;
     if (!is_permitted(ifnam[idx]))
         return;
-    if (!inet_aton(str, &ipaddr))
+    if (!inet_pton(AF_INET, str, &ipaddr))
         return;
     if (set_if_flag(idx, (IFF_UP | IFF_RUNNING)))
         return;
@@ -208,7 +208,7 @@ void perform_subnet(int idx, char *str)
         return;
     if (!is_permitted(ifnam[idx]))
         return;
-    if (!inet_aton(str, &subnet))
+    if (!inet_pton(AF_INET, str, &subnet))
         return;
 
     strlcpy(ifrt.ifr_name, ifnam[idx], IFNAMSIZ);
@@ -245,7 +245,7 @@ void perform_router(int idx, char *str)
         return;
     if (!is_permitted(ifnam[idx]))
         return;
-    if (!inet_aton(str, &router))
+    if (!inet_pton(AF_INET, str, &router))
         return;
 
     memset(&rt, 0, sizeof(struct rtentry));
@@ -316,7 +316,7 @@ void perform_broadcast(int idx, char *str)
         return;
     if (!is_permitted(ifnam[idx]))
         return;
-    if (!inet_aton(str, &broadcast))
+    if (!inet_pton(AF_INET, str, &broadcast))
         return;
 
     strlcpy(ifrt.ifr_name, ifnam[idx], IFNAMSIZ);
