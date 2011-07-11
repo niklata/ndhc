@@ -161,7 +161,7 @@ static int get_clientid_mac_string(char *str, size_t slen)
 static void do_work(void)
 {
     struct epoll_event events[3];
-    long long last_awake;
+    long long last_awake, nowts;
     int timeout_delta;
 
     cs.epollFd = epoll_create1(0);
@@ -170,10 +170,10 @@ static void do_work(void)
     setup_signals(&cs);
     epoll_add(&cs, cs.nlFd);
     set_listen_raw(&cs);
-    timeout_action(&cs);
+    last_awake = curms();
+    timeout_action(&cs, last_awake);
 
     for (;;) {
-        last_awake = curms();
         int r = epoll_wait(cs.epollFd, events, 3, cs.timeout);
         if (r == -1) {
             if (errno == EINTR)
@@ -195,12 +195,14 @@ static void do_work(void)
                 suicide("epoll_wait: unknown fd");
         }
 
-        timeout_delta = curms() - last_awake;
+        nowts = curms();
+        timeout_delta = nowts - last_awake;
         cs.timeout -= timeout_delta;
         if (cs.timeout <= 0) {
             cs.timeout = 0;
-            timeout_action(&cs);
+            timeout_action(&cs, nowts);
         }
+        last_awake = nowts;
     }
 }
 

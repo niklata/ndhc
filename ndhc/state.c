@@ -16,12 +16,12 @@ static void selecting_packet(struct client_state_t *cs, struct dhcpmsg *packet,
                              uint8_t *message);
 static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
                       uint8_t *message);
-static void selecting_timeout(struct client_state_t *cs);
-static void requesting_timeout(struct client_state_t *cs);
-static void bound_timeout(struct client_state_t *cs);
-static void renewing_timeout(struct client_state_t *cs);
-static void rebinding_timeout(struct client_state_t *cs);
-static void released_timeout(struct client_state_t *cs);
+static void selecting_timeout(struct client_state_t *cs, long long nowts);
+static void requesting_timeout(struct client_state_t *cs, long long nowts);
+static void bound_timeout(struct client_state_t *cs, long long nowts);
+static void renewing_timeout(struct client_state_t *cs, long long nowts);
+static void rebinding_timeout(struct client_state_t *cs, long long nowts);
+static void released_timeout(struct client_state_t *cs, long long nowts);
 static void xmit_release(struct client_state_t *cs);
 static void print_release(struct client_state_t *cs);
 static void frenew(struct client_state_t *cs);
@@ -29,7 +29,7 @@ static void frenew(struct client_state_t *cs);
 typedef struct {
     void (*packet_fn)(struct client_state_t *cs, struct dhcpmsg *packet,
                       uint8_t *message);
-    void (*timeout_fn)(struct client_state_t *cs);
+    void (*timeout_fn)(struct client_state_t *cs, long long nowts);
     void (*force_renew_fn)(struct client_state_t *cs);
     void (*force_release_fn)(struct client_state_t *cs);
 } dhcp_state_t;
@@ -85,7 +85,7 @@ static void set_released(struct client_state_t *cs)
 // been received within the response wait time.  If we've not exceeded the
 // maximum number of request retransmits, then send another packet and wait
 // again.  Otherwise, return to the DHCP initialization state.
-static void requesting_timeout(struct client_state_t *cs)
+static void requesting_timeout(struct client_state_t *cs, long long nowts)
 {
     if (num_dhcp_requests < 5) {
         send_selecting(cs);
@@ -97,14 +97,17 @@ static void requesting_timeout(struct client_state_t *cs)
 
 // Triggered when the lease has been held for a significant fraction of its
 // total time, and it is time to renew the lease so that it is not lost.
-static void bound_timeout(struct client_state_t *cs)
+static void bound_timeout(struct client_state_t *cs, long long nowts)
 {
-    if (curms() < cs->leaseStartTime + cs->renewTime * 1000)
+    long long rnt = cs->leaseStartTime + cs->renewTime * 1000;
+    if (nowts < rnt) {
+        cs->timeout = rnt - nowts;
         return;
+    }
     cs->dhcpState = DS_RENEWING;
     set_listen_cooked(cs);
     log_line("Entering renew state.");
-    renewing_timeout(cs);
+    renewing_timeout(cs, nowts);
 }
 
 static void lease_timedout(struct client_state_t *cs)
@@ -119,23 +122,22 @@ static void lease_timedout(struct client_state_t *cs)
 // expires.  Check to see if the lease is still valid, and if it is, send
 // a unicast DHCP renew packet.  If it is not, then change to the REBINDING
 // state to send broadcast queries.
-static void renewing_timeout(struct client_state_t *cs)
+static void renewing_timeout(struct client_state_t *cs, long long nowts)
 {
-    long long ct = curms();
     long long rbt = cs->leaseStartTime + cs->rebindTime * 1000;
-    if (ct < rbt) {
-        long long wt = (rbt - ct) / 2;
+    if (nowts < rbt) {
+        long long wt = (rbt - nowts) / 2;
         if (wt >= 30000)
             send_renew(cs);
         else
-            wt = rbt - ct;
+            wt = rbt - nowts;
         cs->timeout = wt;
         return;
     }
     long long elt = cs->leaseStartTime + cs->lease * 1000;
-    if (ct < elt) {
+    if (nowts < elt) {
         cs->dhcpState = DS_REBINDING;
-        cs->timeout = (elt - ct) / 2;
+        cs->timeout = (elt - nowts) / 2;
         log_line("Entering rebinding state.");
     } else
         lease_timedout(cs);
@@ -145,22 +147,21 @@ static void renewing_timeout(struct client_state_t *cs)
 // received within the response wait time.  Check to see if the lease is still
 // valid, and if it is, send a broadcast DHCP renew packet.  If it is not, then
 // change to the SELECTING state to get a new lease.
-static void rebinding_timeout(struct client_state_t *cs)
+static void rebinding_timeout(struct client_state_t *cs, long long nowts)
 {
-    long long ct = curms();
     long long elt = cs->leaseStartTime + cs->lease * 1000;
-    if (ct < elt) {
-        long long wt = (elt - ct) / 2;
+    if (nowts < elt) {
+        long long wt = (elt - nowts) / 2;
         if (wt >= 30000)
             send_rebind(cs);
         else
-            wt = elt - ct;
+            wt = elt - nowts;
         cs->timeout = wt;
     } else
         lease_timedout(cs);
 }
 
-static void released_timeout(struct client_state_t *cs)
+static void released_timeout(struct client_state_t *cs, long long nowts)
 {
     cs->timeout = -1;
 }
@@ -233,7 +234,7 @@ static void selecting_packet(struct client_state_t *cs, struct dhcpmsg *packet,
 // been received within the response wait time.  If we've not exceeded the
 // maximum number of discover retransmits, then send another packet and wait
 // again.  Otherwise, background or fail.
-static void selecting_timeout(struct client_state_t *cs)
+static void selecting_timeout(struct client_state_t *cs, long long nowts)
 {
     if (cs->init && num_dhcp_requests >= 2) {
         if (client_config.background_if_no_lease) {
@@ -315,11 +316,11 @@ void packet_action(struct client_state_t *cs, struct dhcpmsg *packet,
         dhcp_states[cs->dhcpState].packet_fn(cs, packet, message);
 }
 
-void timeout_action(struct client_state_t *cs)
+void timeout_action(struct client_state_t *cs, long long nowts)
 {
-    handle_arp_timeout(cs);
     if (dhcp_states[cs->dhcpState].timeout_fn)
-        dhcp_states[cs->dhcpState].timeout_fn(cs);
+        dhcp_states[cs->dhcpState].timeout_fn(cs, nowts);
+    handle_arp_timeout(cs, nowts);
 }
 
 void force_renew_action(struct client_state_t *cs)

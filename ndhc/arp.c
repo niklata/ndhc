@@ -524,7 +524,7 @@ static int arp_gen_probe_wait(void)
     return PROBE_MIN + rand() % (PROBE_MAX - PROBE_MIN);
 }
 
-static void arp_defense_timeout(struct client_state_t *cs)
+static void arp_defense_timeout(struct client_state_t *cs, long long nowts)
 {
     if (pending_def_ts) {
         log_line("arp: Defending our lease IP.");
@@ -538,16 +538,15 @@ static void arp_defense_timeout(struct client_state_t *cs)
     }
 }
 
-static void arp_check_timeout(struct client_state_t *cs)
+static void arp_check_timeout(struct client_state_t *cs, long long nowts)
 {
-    arp_defense_timeout(cs);
+    arp_defense_timeout(cs, nowts);
 
     if (arpState == AS_GW_CHECK && act_if_arp_gw_failed(cs))
         return;
-    long long cms = curms();
     long long rtts = arp_send_stats[ASEND_GW_PING].ts + ARP_RETRANS_DELAY;
-    if (cms < rtts) {
-        cs->timeout = rtts - cms;
+    if (nowts < rtts) {
+        cs->timeout = rtts - nowts;
         return;
     }
     log_line(arpState == AS_GW_CHECK ?
@@ -558,20 +557,19 @@ static void arp_check_timeout(struct client_state_t *cs)
     cs->timeout = ARP_RETRANS_DELAY;
 }
 
-static void arp_collision_timeout(struct client_state_t *cs)
+static void arp_collision_timeout(struct client_state_t *cs, long long nowts)
 {
-    arp_defense_timeout(cs);
+    arp_defense_timeout(cs, nowts);
 
-    long long cms = curms();
-    if (cms >= collision_check_init_ts + ANNOUNCE_WAIT ||
+    if (nowts >= collision_check_init_ts + ANNOUNCE_WAIT ||
         arp_send_stats[ASEND_COLLISION_CHECK].count >= PROBE_NUM) {
         arp_success(cs);
         return;
     }
     long long rtts = arp_send_stats[ASEND_COLLISION_CHECK].ts +
         probe_wait_time;
-    if (cms < rtts) {
-        cs->timeout = rtts - cms;
+    if (nowts < rtts) {
+        cs->timeout = rtts - nowts;
         return;
     }
     log_line("arp: Probing for hosts that may conflict with our lease...");
@@ -659,7 +657,7 @@ static void arp_do_invalid(struct client_state_t *cs)
 
 typedef struct {
     void (*packet_fn)(struct client_state_t *cs);
-    void (*timeout_fn)(struct client_state_t *cs);
+    void (*timeout_fn)(struct client_state_t *cs, long long nowts);
 } arp_state_fn_t;
 
 static const arp_state_fn_t arp_states[] = {
@@ -691,7 +689,7 @@ void handle_arp_response(struct client_state_t *cs)
     }
 
     if (r <= 0) {
-        handle_arp_timeout(cs);
+        handle_arp_timeout(cs, curms());
         return;
     }
 
@@ -712,8 +710,8 @@ void handle_arp_response(struct client_state_t *cs)
 }
 
 // Perform retransmission if necessary.
-void handle_arp_timeout(struct client_state_t *cs)
+void handle_arp_timeout(struct client_state_t *cs, long long nowts)
 {
     if (arp_states[arpState].timeout_fn)
-        arp_states[arpState].timeout_fn(cs);
+        arp_states[arpState].timeout_fn(cs, nowts);
 }
