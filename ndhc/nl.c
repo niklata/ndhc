@@ -45,11 +45,11 @@ ssize_t nl_recv_buf(int fd, char *buf, size_t blen)
         return -1;
     }
     if (msg.msg_flags & MSG_TRUNC) {
-        log_error("nl_fill_buf: buffer not long enough for message");
+        log_error("nl_fill_buf: Buffer not long enough for message.");
         return -1;
     }
     if (msg.msg_namelen != sizeof addr) {
-        log_error("nl_fill_buf: response was not of the same address family");
+        log_error("nl_fill_buf: Response was not of the same address family.");
         return -1;
     }
     return ret;
@@ -72,13 +72,13 @@ int nl_foreach_nlmsg(char *buf, size_t blen, int portid,
         } else {
             switch (nlh->nlmsg_type) {
                 case NLMSG_ERROR:
-                    log_line("nl: received a NLMSG_ERROR: %s",
+                    log_line("nl: Received a NLMSG_ERROR: %s",
                              strerror(nlmsg_get_error(nlh)));
                     return -1;
                 case NLMSG_DONE:
                     return 0;
                 case NLMSG_OVERRUN:
-                    log_line("nl: received a NLMSG_OVERRUN");
+                    log_line("nl: Received a NLMSG_OVERRUN.");
                 case NLMSG_NOOP:
                 default:
                     break;
@@ -98,11 +98,11 @@ int nl_open(int nltype, int nlgroup, int *nlportid)
         return -1;
     }
     if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
-        log_error("nl_open: set non-blocking failed: %s", strerror(errno));
+        log_error("nl_open: Set non-blocking failed: %s", strerror(errno));
         goto err_close;
     }
     if (fcntl(fd, F_SETFD, FD_CLOEXEC)) {
-        log_error("nl_open: set close-on-exec failed: %s", strerror(errno));
+        log_error("nl_open: Set close-on-exec failed: %s", strerror(errno));
         goto err_close;
     }
     socklen_t al;
@@ -120,11 +120,11 @@ int nl_open(int nltype, int nlgroup, int *nlportid)
         goto err_close;
     }
     if (al != sizeof nlsock) {
-        log_error("nl_open: bound socket doesn't have right family size");
+        log_error("nl_open: Bound socket doesn't have right family size.");
         goto err_close;
     }
     if (nlsock.nl_family != AF_NETLINK) {
-        log_error("nl_open: bound socket isn't AF_NETLINK");
+        log_error("nl_open: Bound socket isn't AF_NETLINK.");
         goto err_close;
     }
     if (nlportid)

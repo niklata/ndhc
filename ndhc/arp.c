@@ -201,17 +201,17 @@ static int arp_open_fd(struct client_state_t *cs)
 
     int fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ARP));
     if (fd == -1) {
-        log_error("arp: failed to create socket: %s", strerror(errno));
+        log_error("arp: Failed to create socket: %s", strerror(errno));
         goto out;
     }
 
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &opt, sizeof opt) == -1) {
-        log_error("arp: failed to set broadcast: %s", strerror(errno));
+        log_error("arp: Failed to set broadcast: %s", strerror(errno));
         goto out_fd;
     }
     if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
-        log_error("arp: failed to set non-blocking: %s", strerror(errno));
+        log_error("arp: Failed to set non-blocking: %s", strerror(errno));
         goto out_fd;
     }
     struct sockaddr_ll saddr = {
@@ -246,7 +246,7 @@ static void arp_switch_state(struct client_state_t *cs, arp_state_t state)
     }
     if (cs->arpFd == -1) {
         if (arp_open_fd(cs) == -1)
-            suicide("arp: failed to open arpFd when changing state to %u",
+            suicide("arp: Failed to open arpFd when changing state to %u",
                     arpState);
         if (arpState != AS_DEFENSE)
             arp_set_bpf_basic(cs->arpFd);
@@ -285,8 +285,8 @@ static int arp_reopen_fd(struct client_state_t *cs)
     arp_state_t prev_state = arpState;
     arp_min_close_fd(cs);
     if (arp_open_fd(cs) == -1) {
-        log_warning("arp_reopen_fd: Failed to open.  Something is very wrong.");
-        log_warning("arp_reopen_fd: Client will still run, but functionality will be degraded.");
+        log_warning("arp: Failed to re-open fd.  Something is very wrong.");
+        log_warning("arp: Client will still run, but functionality will be degraded.");
         return -1;
     }
     arp_switch_state(cs, prev_state);
@@ -303,7 +303,7 @@ static int arp_send(struct client_state_t *cs, struct arpMsg *arp)
     memcpy(addr.sll_addr, client_config.arp, 6);
 
     if (cs->arpFd == -1) {
-        log_warning("arp_send: Send attempted when no ARP fd is open.");
+        log_warning("arp: Send attempted when no ARP fd is open.");
         return -1;
     }
 
@@ -403,6 +403,7 @@ int arp_gw_check(struct client_state_t *cs)
     return 0;
 }
 
+// Should only be called from DS_BOUND state.
 static int arp_get_gw_hwaddr(struct client_state_t *cs)
 {
     if (cs->dhcpState != DS_BOUND)
@@ -428,7 +429,7 @@ static int arp_get_gw_hwaddr(struct client_state_t *cs)
 
 static void arp_failed(struct client_state_t *cs)
 {
-    log_line("arp: Offered address is in use -- declining");
+    log_line("arp: Offered address is in use.  Declining.");
     send_decline(cs, arp_dhcp_packet.yiaddr);
     arp_wake_ts[AS_COLLISION_CHECK] = -1;
     reinit_selecting(cs, total_conflicts < MAX_CONFLICTS ?
@@ -464,7 +465,7 @@ void arp_set_defense_mode(struct client_state_t *cs)
 void arp_success(struct client_state_t *cs)
 {
     struct in_addr temp_addr = {.s_addr = arp_dhcp_packet.yiaddr};
-    log_line("arp: Lease of %s obtained, lease time %ld",
+    log_line("Lease of %s obtained.  Lease time is %ld seconds.",
              inet_ntoa(temp_addr), cs->lease);
     cs->clientAddr = arp_dhcp_packet.yiaddr;
     cs->dhcpState = DS_BOUND;
@@ -494,7 +495,7 @@ void arp_success(struct client_state_t *cs)
 
 static void arp_gw_success(struct client_state_t *cs)
 {
-    log_line("arp: Network seems unchanged");
+    log_line("arp: Network seems unchanged.  Resuming normal operation.");
     arp_switch_state(cs, AS_DEFENSE);
     arp_announcement(cs);
 
@@ -645,7 +646,7 @@ static void arp_do_defense(struct client_state_t *cs)
     if (!arp_validate_bpf_defense(cs, &arpreply))
         return;
 
-    log_line("arp: detected a peer attempting to use our IP!");
+    log_line("arp: Detected a peer attempting to use our IP!");
     long long nowts = curms();
     arp_wake_ts[AS_DEFENSE] = -1;
     if (!last_conflict_ts ||

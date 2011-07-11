@@ -55,10 +55,10 @@ static void get_if_index_and_mac(const struct nlmsghdr *nlh,
     if (!strcmp(client_config.interface, nlattr_get_data(tb[IFLA_IFNAME]))) {
         client_config.ifindex = ifm->ifi_index;
         if (!tb[IFLA_ADDRESS])
-            suicide("FATAL: adapter %s lacks a hardware address");
+            suicide("FATAL: Adapter %s lacks a hardware address.");
         int maclen = nlattr_get_len(tb[IFLA_ADDRESS]) - 4;
         if (maclen != 6)
-            suicide("FATAL: adapter hardware address length should be 6, but is %u",
+            suicide("FATAL: Adapter hardware address length should be 6, but is %u.",
                     maclen);
 
         const unsigned char *mac =
@@ -105,7 +105,7 @@ static int nl_process_msgs(const struct nlmsghdr *nlh, void *data)
                 break;
             if (cs->ifsPrevState != IFS_REMOVED) {
                 cs->ifsPrevState = IFS_REMOVED;
-                log_line("Interface removed; exiting.");
+                log_line("Interface removed.  Exiting.");
                 exit(EXIT_SUCCESS);
             }
             break;

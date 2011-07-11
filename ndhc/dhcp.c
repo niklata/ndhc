@@ -62,12 +62,12 @@ static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
     }
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt) == -1) {
-        log_error("create_udp_socket: set reuse addr failed: %s",
+        log_error("create_udp_socket: Set reuse addr failed: %s",
                   strerror(errno));
         goto out_fd;
     }
     if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) == -1) {
-        log_error("create_udp_socket: set don't route failed: %s",
+        log_error("create_udp_socket: Set don't route failed: %s",
                   strerror(errno));
         goto out_fd;
     }
@@ -75,12 +75,12 @@ static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
     memset(&ifr, 0, sizeof (struct ifreq));
     strlcpy(ifr.ifr_name, iface, IFNAMSIZ);
     if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
-        log_error("create_udp_socket: set bind to device failed: %s",
+        log_error("create_udp_socket: Set bind to device failed: %s",
                   strerror(errno));
         goto out_fd;
     }
     if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
-        log_error("create_udp_socket: set non-blocking failed: %s",
+        log_error("create_udp_socket: Set non-blocking failed: %s",
                   strerror(errno));
         goto out_fd;
     }
@@ -109,7 +109,7 @@ static int create_udp_listen_socket(struct client_state_t *cs, char *inf)
         return -1;
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &opt, sizeof opt) == -1) {
-        log_error("create_udp_listen_socket: set broadcast failed: %s",
+        log_error("create_udp_listen_socket: Set broadcast failed: %s",
                   strerror(errno));
         close(fd);
         return -1;
@@ -138,7 +138,7 @@ static int send_dhcp_cooked(struct client_state_t *cs, struct dhcpmsg *payload)
 
     ssize_t endloc = get_end_option_idx(payload);
     if (endloc < 0) {
-        log_error("send_dhcp_cooked: attempt to send packet with no DHCP_END");
+        log_error("send_dhcp_cooked: Attempt to send packet with no DHCP_END.");
         goto out_fd;
     }
     size_t payload_len =
@@ -236,11 +236,11 @@ static int udp_checksum(struct ip_udp_dhcp_packet *packet)
 static int get_raw_packet_validate_bpf(struct ip_udp_dhcp_packet *packet)
 {
     if (packet->ip.version != IPVERSION) {
-        log_line("IP version is not IPv4");
+        log_line("IP version is not IPv4.");
         return 0;
     }
     if (packet->ip.ihl != sizeof packet->ip >> 2) {
-        log_line("IP header length incorrect");
+        log_line("IP header length incorrect.");
         return 0;
     }
     if (packet->ip.protocol != IPPROTO_UDP) {
@@ -253,7 +253,7 @@ static int get_raw_packet_validate_bpf(struct ip_udp_dhcp_packet *packet)
     }
     if (ntohs(packet->udp.len) !=
         ntohs(packet->ip.tot_len) - sizeof packet->ip) {
-        log_line("UDP header length incorrect");
+        log_line("UDP header length incorrect.");
         return 0;
     }
     return 1;
@@ -281,11 +281,11 @@ static int get_raw_packet(struct client_state_t *cs, struct dhcpmsg *payload)
         return -2;
 
     if (!ip_checksum(&packet)) {
-        log_line("IP header checksum incorrect");
+        log_line("IP header checksum incorrect.");
         return -2;
     }
     if (packet.udp.check && !udp_checksum(&packet)) {
-        log_error("Packet with bad UDP checksum received, ignoring");
+        log_error("Packet with bad UDP checksum received.  Ignoring.");
         return -2;
     }
 
@@ -313,12 +313,12 @@ static int create_raw_socket(struct client_state_t *cs, struct sockaddr_ll *sa,
 
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) == -1) {
-        log_error("create_raw_socket: failed to set don't route: %s",
+        log_error("create_raw_socket: Failed to set don't route: %s",
                   strerror(errno));
         goto out_fd;
     }
     if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
-        log_error("create_raw_socket: set non-blocking failed: %s",
+        log_error("create_raw_socket: Set non-blocking failed: %s",
                   strerror(errno));
         goto out_fd;
     }
@@ -399,7 +399,7 @@ static int send_dhcp_raw(struct dhcpmsg *payload)
     // and drop packets that are longer than 562 bytes.
     ssize_t endloc = get_end_option_idx(payload);
     if (endloc < 0) {
-        log_error("send_dhcp_raw: attempt to send packet with no DHCP_END");
+        log_error("send_dhcp_raw: Attempt to send packet with no DHCP_END.");
         close(fd);
         return ret;
     }
@@ -452,20 +452,16 @@ static void change_listen_mode(struct client_state_t *cs, int new_mode)
         close(cs->listenFd);
         cs->listenFd = -1;
     }
-    if (new_mode == LM_NONE) {
-        log_line("Stopped listening for DHCP packets.");
+    if (new_mode == LM_NONE)
         return;
-    }
     cs->listenFd = new_mode == LM_RAW ?
         create_raw_listen_socket(cs, client_config.ifindex) :
         create_udp_listen_socket(cs, client_config.interface);
     if (cs->listenFd < 0) {
-        log_error("FATAL: couldn't listen on socket: %s.", strerror(errno));
+        log_error("FATAL: Couldn't listen on socket: %s.", strerror(errno));
         exit(EXIT_FAILURE);
     }
     epoll_add(cs, cs->listenFd);
-    log_line("Listening for DHCP packets using a %s socket.",
-             new_mode == LM_RAW ? "raw" : "cooked");
 }
 
 void set_listen_raw(struct client_state_t *cs)
@@ -529,7 +525,6 @@ void handle_packet(struct client_state_t *cs)
 
     if (!validate_dhcp_packet(cs, len, &packet, &message))
         return;
-    log_line("Received a reply.");
     packet_action(cs, &packet, message);
 }
 
