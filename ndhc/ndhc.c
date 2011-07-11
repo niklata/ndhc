@@ -211,7 +211,7 @@ int main(int argc, char **argv)
     struct passwd *pwd;
     uid_t uid = 0;
     gid_t gid = 0;
-    static struct option arg_options[] = {
+    static const struct option arg_options[] = {
         {"clientid",    required_argument,  0, 'c'},
         {"foreground",  no_argument,        0, 'f'},
         {"background",  no_argument,        0, 'b'},

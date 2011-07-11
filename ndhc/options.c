@@ -36,7 +36,7 @@ struct dhcp_option {
 #define OPTION_REQ 16
 // Marks an option that can be sent as a list of multiple items.
 #define OPTION_LIST 32
-static struct dhcp_option options[] = {
+static const struct dhcp_option options[] = {
     // name[10]     type                                    code
     {"subnet"   ,   OPTION_IP | OPTION_LIST | OPTION_REQ,   0x01},
     {"timezone" ,   OPTION_S32,                             0x02},
