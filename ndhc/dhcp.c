@@ -590,7 +590,7 @@ int send_discover(struct client_state_t *cs)
     add_option_request_list(&packet);
     add_option_vendor(&packet);
     add_option_hostname(&packet);
-    log_line("Sending discover...");
+    log_line("Discovering DHCP servers...");
     return send_dhcp_raw(&packet);
 }
 
@@ -607,7 +607,7 @@ int send_selecting(struct client_state_t *cs)
     add_option_hostname(&packet);
     inet_ntop(AF_INET, &(struct in_addr){.s_addr = cs->clientAddr},
               clibuf, sizeof clibuf);
-    log_line("Sending select for %s...", clibuf);
+    log_line("Sending a selection request for %s...", clibuf);
     return send_dhcp_raw(&packet);
 }
 
@@ -620,7 +620,7 @@ int send_renew(struct client_state_t *cs)
     add_option_request_list(&packet);
     add_option_vendor(&packet);
     add_option_hostname(&packet);
-    log_line("Sending renew...");
+    log_line("Sending a renew request...");
     return send_dhcp_cooked(cs, &packet);
 }
 
@@ -634,7 +634,7 @@ int send_rebind(struct client_state_t *cs)
     add_option_request_list(&packet);
     add_option_vendor(&packet);
     add_option_hostname(&packet);
-    log_line("Sending rebind...");
+    log_line("Sending a rebind request...");
     return send_dhcp_raw(&packet);
 }
 
@@ -643,7 +643,7 @@ int send_decline(struct client_state_t *cs, uint32_t server)
     struct dhcpmsg packet = init_packet(DHCPDECLINE, cs->xid);
     add_u32_option(&packet, DHCP_REQUESTED_IP, cs->clientAddr);
     add_u32_option(&packet, DHCP_SERVER_ID, server);
-    log_line("Sending decline...");
+    log_line("Sending a decline message...");
     return send_dhcp_raw(&packet);
 }
 
@@ -653,7 +653,7 @@ int send_release(struct client_state_t *cs)
     packet.ciaddr = cs->clientAddr;
     add_u32_option(&packet, DHCP_REQUESTED_IP, cs->clientAddr);
     add_u32_option(&packet, DHCP_SERVER_ID, cs->serverAddr);
-    log_line("Sending release...");
+    log_line("Sending a release message...");
     return send_dhcp_cooked(cs, &packet);
 }
 
