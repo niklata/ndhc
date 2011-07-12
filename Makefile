@@ -10,7 +10,7 @@ IFCHD_OBJS = $(IFCHD_SRCS:.c=.o)
 NDHC_OBJS = $(NDHC_SRCS:.c=.o)
 NCM_INC = -I./ncmlib
 BUILD_DIR = build
-OBJ_DIR = objs
+OBJ_DIR = $(BUILD_DIR)/objs
 
 CC = gcc
 AR = ar
@@ -20,10 +20,10 @@ CFLAGS = -O2 -s -std=gnu99 -pedantic -Wall -D_GNU_SOURCE -DHAVE_CLEARENV -DLINUX
 all: makedir ncmlib.a ifchd ndhc
 
 clean:
-	rm -Rf $(OBJ_DIR) $(BUILD_DIR)
+	rm -Rf $(BUILD_DIR)
 
 makedir:
-	mkdir -p $(OBJ_DIR)/ndhc $(OBJ_DIR)/ifchd $(OBJ_DIR)/ncmlib $(BUILD_DIR)
+	mkdir -p $(BUILD_DIR) $(OBJ_DIR)/ndhc $(OBJ_DIR)/ifchd $(OBJ_DIR)/ncmlib
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(NCM_INC) -c -o $(OBJ_DIR)/$@ $<
