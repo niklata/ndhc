@@ -169,7 +169,7 @@ void ifchange_deconfig(void)
 
     snprintf(buf, sizeof buf, "interface:%s:ip:0.0.0.0:",
              client_config.interface);
-    log_line("sent to ifchd: ip:0.0.0.0:");
+    log_line("Sent to ifchd: ip:0.0.0.0:");
     sockwrite(sockfd, buf, strlen(buf));
 
     cfg_deconfig = 1;
@@ -186,7 +186,7 @@ static size_t send_client_ip(char *out, size_t olen, struct dhcpmsg *packet)
     inet_ntop(AF_INET, &packet->yiaddr, ip, sizeof ip);
     snprintf(ipb, sizeof ipb, "ip:%s:", ip);
     strlcat(out, ipb, olen);
-    log_line("sent to ifchd: %s", ipb);
+    log_line("Sent to ifchd: %s", ipb);
     return strlen(ipb);
 }
 
@@ -210,7 +210,7 @@ static size_t send_cmd(char *out, size_t olen, struct dhcpmsg *packet,
     if (ifchd_cmd(buf, sizeof buf, optdata, optlen, code) == -1)
         return 0;
     strlcat(out, buf, olen);
-    log_line("sent to ifchd: %s", buf);
+    log_line("Sent to ifchd: %s", buf);
     return strlen(buf);
 }
 

@@ -46,7 +46,7 @@ void open_leasefile()
     if (strlen(leasefile) > 0) {
         leasefilefd = open(leasefile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
         if (leasefilefd < 0) {
-            log_line("Failed to create lease file (%s)\n", leasefile);
+            log_line("Failed to create lease file (%s).", leasefile);
             exit(EXIT_FAILURE);
         }
     }
@@ -67,13 +67,13 @@ void write_leasefile(struct in_addr ipnum)
         case -1:
             if (errno == EINTR)
                 goto retry_trunc;
-            log_warning("Failed to truncate lease file.\n");
+            log_warning("Failed to truncate lease file.");
             return;
     }
     lseek(leasefilefd, 0, SEEK_SET);
     ret = safe_write(leasefilefd, ip, strlen(ip));
     if (ret == -1)
-        log_warning("Failed to write ip to lease file.\n");
+        log_warning("Failed to write ip to lease file.");
     else
         fsync(leasefilefd);
 }

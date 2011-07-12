@@ -66,7 +66,7 @@ void background(struct client_state_t *cs)
             setup_signals(cs);
     }
     if (file_exists(pidfile, "w") == -1) {
-        log_line("cannot open pidfile for write!");
+        log_line("Cannot open pidfile for write!");
     } else
         write_pid(pidfile);
 }

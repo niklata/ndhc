@@ -103,7 +103,7 @@ uint8_t option_length(uint8_t code)
     for (int i = 0; options[i].code; i++)
         if (options[i].code == code)
             return option_type_length(options[i].type & 0xf);
-    log_warning("option_length: unknown length for code 0x%02x", code);
+    log_warning("option_length: Unknown length for code 0x%02x.", code);
     return 0;
 }
 
@@ -145,7 +145,7 @@ static uint8_t *do_get_option_data(uint8_t *buf, ssize_t buflen, int code,
 
         buflen -= buf[1] + 2;
         if (buflen < 0) {
-            log_warning("Bad dhcp data: option length would exceed options field length");
+            log_warning("Bad option data: length would exceed options field size.");
             *optlen = 0;
             return NULL;
         }
@@ -213,7 +213,7 @@ ssize_t get_end_option_idx(struct dhcpmsg *packet)
         if (packet->options[i] != DHCP_PADDING)
             i += packet->options[i+1] + 1;
     }
-    log_warning("get_end_option_idx(): did not find DHCP_END marker");
+    log_warning("get_end_option_idx: Did not find DHCP_END marker.");
     return -1;
 }
 
@@ -230,11 +230,11 @@ size_t add_option_string(struct dhcpmsg *packet, uint8_t code, char *str,
 
     ssize_t end = get_end_option_idx(packet);
     if (end == -1) {
-        log_warning("add_option_string: Buffer has no DHCP_END marker");
+        log_warning("add_option_string: Buffer has no DHCP_END marker.");
         return 0;
     }
     if (end + len >= sizeof packet->options) {
-        log_warning("add_option_string: No space for option 0x%02x", code);
+        log_warning("add_option_string: No space for option 0x%02x.", code);
         return 0;
     }
     packet->options[end] = code;
@@ -249,17 +249,17 @@ static ssize_t add_option_check(struct dhcpmsg *packet, uint8_t code,
 {
     size_t length = option_length(code);
     if (length != rlen) {
-        log_warning("add_u%01u_option: length mismatch code=0x%02x len=%01u",
+        log_warning("add_u%01u_option: Length mismatch: code=0x%02x len=%01u.",
                     rlen*8, code, length);
         return -1;
     }
     ssize_t end = get_end_option_idx(packet);
     if (end == -1) {
-        log_warning("add_u%01u_option: Buffer has no DHCP_END marker", rlen*8);
+        log_warning("add_u%01u_option: Buffer has no DHCP_END marker.", rlen*8);
         return -1;
     }
     if (end + 2 + rlen >= sizeof packet->options) {
-        log_warning("add_u%01u_option: No space for option 0x%02x",
+        log_warning("add_u%01u_option: No space for option 0x%02x.",
                     rlen*8, code);
         return -1;
     }
