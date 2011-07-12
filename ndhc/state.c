@@ -112,7 +112,6 @@ static void bound_timeout(struct client_state_t *cs, long long nowts)
     }
     cs->dhcpState = DS_RENEWING;
     set_listen_cooked(cs);
-    log_line("Entering renew state.");
     renewing_timeout(cs, nowts);
 }
 
@@ -134,7 +133,6 @@ static void renewing_timeout(struct client_state_t *cs, long long nowts)
         dhcp_wake_ts = nowts + ((rbt - nowts) / 2);
     } else {
         cs->dhcpState = DS_REBINDING;
-        log_line("Entering rebinding state.");
         rebinding_timeout(cs, nowts);
     }
 }
@@ -305,7 +303,7 @@ static void xmit_release(struct client_state_t *cs)
 
 static void print_release(struct client_state_t *cs)
 {
-    log_line("Entering released state.");
+    log_line("ndhc going to sleep.  Wake it by sending a SIGUSR1.");
     set_released(cs);
 }
 
