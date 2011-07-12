@@ -1,4 +1,4 @@
-ifchd, copyright (c) 2004-2011 Nicholas Kain.  Licensed under GNU GPL.
+ndhc + ifchd, copyright (c) 2004-2011 Nicholas Kain.  Licensed under GNU GPL2.
 
 Requirements:
 
@@ -47,12 +47,19 @@ taken to prevent unintentional ARP flooding under any circumstance.
 
 ndhc also monitors hardware link status via netlink events and reacts
 appropriately when interface carrier status changes or an interface is
-explicitly deconfigured.
+explicitly deconfigured.  This functionality can be useful on wired networks
+when transient carrier downtimes occur (or cables are changed), but it is
+particularly useful on wireless networks.
 
 USAGE
 -----
 
 1) Compile and install ifchd and ndhc.
+    a) gmake
+    b) Install the build/ifchd and build/ndhc executables in a normal place.  I
+       would suggest /usr/sbin or /usr/local/sbin.
+
+1alt) Compile and install ifchd and ndhc.
     a) Create a build directory:
        mkdir build && cd build
     b) Create the makefiles:
@@ -129,8 +136,7 @@ esac
     directions, the script will of course require modifications.
 
 4o) If you encounter problems, I suggest running both ifchd and ndhc in the
-   foreground, and perhaps compiling ndhc with extra debugging output
-   (uncomment DEBUG=1 in the Makefile).
+    foreground and examining the printed output.
 
 
 BEHAVIOR NOTES
@@ -144,31 +150,38 @@ ifchd can be set such that it only allows clients to configure particular
 network interfaces.  The --interface (-i) argument does the trick, and may
 be used multiple times to allow multiple interfaces.
 
-GRSECURITY NOTES
-----------------
-
-Make sure that CONFIG_GRKERNSEC_CHROOT_CAPS is disabled.  Otherwise, ifchd will
-lose its capabilities (in particular, the ability to reconfigure interfaces)
-when it chroots.
-
-
 PORTING NOTES
 -------------
 
-There are seven major functions that ifchd depends upon that are not generally
-portable.  First, it uses the SO_PEERCRED flag of getsockopt() to discriminate
-authorized connections by uid, gid, and pid.  Similar functionality exists in
-at least the BSDs; however, it has a different API.  Second, ifchd takes
-advantage of Linux capabilities so that it does not need full root privileges.
-Capabilities were a proposed POSIX feature that was not made part of the
-official standard, so any implemention that may exist will be system-dependent.
-Third and fourth, ifchd configures network interfaces and routes.  Interface
-and route configuration is entirely non-portable, usually requiring calls to
-the catch-all ioctl(), and will almost certainly require platform-dependent
-code.  Fifth and sixth, both ifchd and ndhc use epoll() and signalfd(), which
-are Linux-specific.  Seventh, ndhc uses netlink sockets extensively for
-both fetching data and hardware link state change notification events.
+ndhc is rather platform-dependent, and it extensively uses Linux-specific
+features.  Some of these features are also available on the BSDs.
 
+1) Both ndhc and ifchd use the SO_PEERCRED flag of getsockopt() to discriminate
+authorized connections by uid, gid, and pid.  Similar functionality exists in
+at least the BSDs; however, it has a different API.
+
+2) ifchd takes advantage of Linux capabilities so that it does not need full
+root privileges.  Capabilities were a proposed POSIX feature that was not made
+part of the official standard, so any implemention that may exist will be
+system-dependent.
+
+3) ifchd configures network interfaces and routes.  Interface and route
+configuration is entirely non-portable, usually requiring calls to the
+catch-all ioctl(), or even more unusual mechanisms like netlink sockets.
+
+4) ndhc uses netlink sockets extensively for both fetching data and hardware
+link state change notification events.
+
+5) ndhc uses the Berkeley Packet Filter / Linux Packet Filter interfaces to
+drop unwanted packets in kernelspace.  This functionality is available on
+most modern unix systems, but it is not standard.
+
+6) ndhc uses epoll() and signalfd().  These are Linux-specific.
+
+7) Numerous socket options are used, and the AF_PACKET socket family is used
+for raw sockets and ARP.  These are largely Linux-specific, too.
+
+8) ndhc uses strlcpy() and strlcat().  Native versions are provided.
 Some standard C libraries include a native implementation of strlcpy() and
 strlcat().  Such defines may conflict with my implementations in strl.c/strl.h.
 It is up to the user whether the standard C library implementations should be
@@ -177,3 +190,80 @@ nonstandard semantics (notably Solaris).  On these systems, using the
 system-provided implementations may lead to security problems.  Such problems
 are the fault of the vendor.  If you are unsure whether your system is correct
 or not, I suggest using the implementation that I provide.
+
+HISTORY
+-------
+
+I started writing ndhc back in 2004.  My ISP at the time required a dhcp
+client for connection authentication, and I was not comfortable with any
+of the existing clients, which all ran as root and had colorful security
+histories.  DHCP is generally not a routed protocol, and lacks real
+authentication mechanisms in real world deployments (some largely
+abandoned RFCs for such behavior do exist), so no program existed to
+fill the niche of a truly secure DHCP client.
+
+My router/server at the time ran a custom Linux distro that was designed
+for extreme security.  A root privileged DHCP client would be nearly the
+only root-owned process running on the machine, so I was highly motivated
+to develop an alternative.
+
+ifchd was first written entirely from scratch.  It did not take long to write,
+since it is by design rather simple, and I was already familiar with
+the quirks of Linux capabilities.  That left me with the choice of adapting
+an existing DHCP client or writing my own from scratch.
+
+At the time, I just wanted something that would work, so my choice was to
+adapt udhcpc to work with ifchd.  udhcpc was chosen since it was intended to
+be used with resource-constrained or embedded systems, and was thus very
+small.  ISC dhclient was another alternative, but it is an extremely large
+program, and it would have been very hard to audit it for correctness.
+
+udhcpc was not all that great of a choice, since it was designed to be small at
+all costs, sacrificing correctness when necessary.  The code was hard to
+follow, and had many quirks.  Bounds-checking was rare, type aliasing common,
+and state transitions were convoluted.  Not all of the client was asynchronous,
+and no precautions were taken against conflicting peers.  ARP was not used at
+all.
+
+However, it was small.  With a lot of work, I ripped out the script-calling
+mechanisms and replaced them with ifchd requests.  Bounds-checking was
+aggressively (and somewhat hamfistedly) retrofitted into the code.  It was
+cleaned to a degree, and importantly it worked for connecting to my ISP.
+
+Then I changed ISPs.  My new ISP used PPPoE, not dhcp.  Around the same time, I
+also switched to using Gentoo rather than a hand-built distribution.  I didn't
+have time to maintain the old custom setup, and it was very hard keeping up
+with library vulnerabilties in eg, zlib or openssl, and ensuring that all
+installed binaries, dynamic and static, were updated.  ndhc was abandoned for
+many years.  It wasn't needed on my server, and it was "too much effort" to
+deviate from the stock distro dhcp clients on other machines.
+
+Then, around 2008, I changed ISPs again.  This time my new ISP used dhcp and
+not PPPoE.  So, after a few months, I decided to dust off the old ndhc/ifchd
+project and adapt it to my modern standards and machines.
+
+ifchd was in good shape and required little work.  I ended up rewriting
+ndhc.  The only parts that remained from the original were the parts that
+I had already rewritten before, and some of those were rewritten, too.
+
+The end result is a modern DHCP client is largely RFC-compliant, except where
+the RFCs dictate behavior that would be problematic, overly complex, useless,
+or exploitable.  DHCP is poorly specified, and real-world servers and clients
+vary a lot from the RFCs, so these conditions are necessary for a useful
+program.
+
+Although ndhc's implementation and behavior are different, I have to credit
+the idea of using netlink events to discover hardware link status transitions
+to Stefan Rompf and his 'dhcpclient' program.  The Linux netlink events that
+are used are otherwise rather obscure and poorly documented, and I wouldn't
+have known about them otherwise.
+
+GRSECURITY NOTES
+----------------
+
+Make sure that CONFIG_GRKERNSEC_CHROOT_CAPS is disabled.  Otherwise, ifchd will
+lose its capabilities (in particular, the ability to reconfigure interfaces)
+when it chroots.
+
+
+
