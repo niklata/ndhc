@@ -68,8 +68,9 @@ in the case of a conflict, and of relentlessly defending a lease forever.  In
 either mode, it rate-limits defense messages, so it can't be tricked into
 flooding by a hostile peer or DHCP server, either.
 
-Small.  Both ndhc and ifchd avoid outside dependencies and are written in
-plain C.
+Small.  Both ndhc and ifchd avoid unnecessary outside dependencies and are
+written in plain C.  The only library used is libcap, as the raw raw kernel API
+for capabilities is not guaranteed to stay stable.
 
 Fast.  ndhc filters input using the BPF/LPF mechanism so that uninteresting
 packets are dropped by the operating system before ndhc even sees the data.
