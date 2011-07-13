@@ -79,6 +79,8 @@ struct client_config_t client_config = {
 static void show_usage(void)
 {
     printf(
+"ndhc " VERSION ", dhcp client.  Licensed under GNU GPL.\n"
+"Copyright (C) 2004-2011 Nicholas J. Kain\n"
 "Usage: ndhc [OPTIONS]\n\n"
 "  -c, --clientid=CLIENTID         Client identifier\n"
 "  -h, --hostname=HOSTNAME         Client hostname\n"
@@ -312,7 +314,12 @@ int main(int argc, char **argv)
                 arp_relentless_def = 1;
                 break;
             case 'v':
-                printf("ndhc, version " VERSION "\n\n");
+                printf(
+"ndhc %s, dhcp client.  Licensed under GNU GPL.\n", VERSION);
+                printf(
+"Copyright (C) 2004-2011 Nicholas J. Kain\n"
+"This is free software; see the source for copying conditions.  There is NO\n"
+"WARRANTY; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
                 exit(EXIT_SUCCESS);
                 break;
             case 'V':

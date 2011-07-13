@@ -1,46 +1,93 @@
-.TH NDHC 8 2004-02-25 Linux "Linux Administrator's Manual"
+.TH NDHC 8 2011-07-12 Linux "Linux Administrator's Manual"
 .SH NAME
 ndhc \- secure DHCP client
 .SH SYNOPSIS
 .B ndhc
 .RI [ OPTION ]...
 .SH DESCRIPTION
-The ndhc client negotiates a lease with the DHCP server and
-informs ifchd of the change when it is obtained or lost.
+The ndhc client negotiates a lease with the DHCP server and informs ifchd of
+the change when it is obtained or lost.  It also defends the assigned IP
+address against hostile imposters and requests a new lease if it detects that
+the interface has been connected to a new network.  It requires a cooperating
+ifchd server to properly perform its duties.
 .SH OPTIONS
 .TP
 .BI \-c\  CLIENTID ,\ \-\-clientid= CLIENTID
-Send the client identifier
-.IR CLIENTID .
+Specifies the client identifier that will be sent to the remote server.  This
+can be any (reasonably sized, <64byte or so) text string, or an ethernet
+MAC address in a form similar to 'aa:bb:cc:dd:ee:ff'.  ndhc is smart enough
+to recognize MAC addresses.  ISP DHCP servers commonly check the value of this
+field before providing a lease.  The default value is the MAC address of
+the network interface to which ndhc is bound.
 .TP
-.BR -f ,\  \-\-foreground
-Do not fork after obtaining a lease.
+.BI \-h\  HOSTNAME ,\ \-\-hostname= HOSTNAME
+Send the specified client hostname to the remote DHCP server.  This option
+should not be necessary in most instances, but may perhaps be useful for odd
+DHCP servers that perform some kind of authentication against the hostname
+option field.  The default is to send no hostname option at all.
 .TP
-.BI \-H\  HOSTNAME ,\ \-\-hostname= HOSTNAME
-Send the client hostname
-.IR HOSTNAME .
+.BI \-v\  VENDORID ,\ \-\-vendorid= VENDORID
+Send the specified vendor identification string to the remote DHCP server.
+This option should not be necessary in most instances, but may perhaps be
+useful for odd DHCP servers that perform some kind of authentication against
+the vendor id option field.  The default is to send the string 'ndhc'.
 .TP
-.BI \-h\  HOSTNAME
-Alias for -H
-.IR HOSTNAME .
+.BR \-f ,\  \-\-foreground
+Do not fork into the background after obtaining a lease.
+.TP
+.BR \-b ,\  \-\-background
+Immediately fork into the background, even before obtaining a lease.
+.TP
+.BI \-p\  PIDFILE ,\ \-\-pidfile= PIDFILE
+Write the process id number of the ndhc instance into the specified file name.
+The default is to not write the process id number into any file at all.
+.TP
+.BI \-l\  LEASEFILE ,\ \-\-leasefile= LEASEFILE
+Write the IP address of the currently held DHCP lease into the specified file
+name.  The default is to not write the lease IP address into any file at all.
+This file can be quite useful for reacting to changes in IP address -- one
+can listen for changes to it using fanotify() or inotify() on Linux.
 .TP
 .BI \-i\  INTERFACE ,\ \-\-interface= INTERFACE
-Configure
-.IR INTERFACE .
+Act as a DHCP client for the specified interface.  A single ndhc daemon can
+only act as a DHCP client for a single interface.  Specify the interface it
+should use by name.  The default is to listen on 'eth0'.
 .TP
-.BR -n ,\  \-\-now
-Exit with failure if a lease cannot be obtained.
+.BR \-n ,\  \-\-now
+Exit with failure if a lease cannot be obtained.  Useful for some init scripts.
 .TP
-.BR -q ,\  \-\-quit
-Exit after obtaining a lease.
+.BR \-q ,\  \-\-quit
+Exit after obtaining a lease.  Useful for some init scripts.
 .TP
-.BI \-r\  ADDRESS ,\ \-\-request= ADDRESS
-Request IP address
-.IR ADDRESS .
+.BI \-r\  IP ,\ \-\-request= IP
+Request the specified IP address from the remote DHCP server.  The DHCP server
+has no obligation to provide us with this IP, but it may acquiesce to the
+request if it would not conflict with another host.
 .TP
-.BR -v ,\  \-\-version
-Display version.
-.SH NOTES
+.BI \-u\  USER ,\ \-\-user= USER
+This option specifies the user name or user id that ndhc will change to after
+startup.  ndhc will also change its group to match the default group of this
+user.  This user should have the ability to write to the ifchd socket of the
+associated ifchd daemon.  In practice, this requirement means that this user
+should belong to the same group as the ifchd user.
+.TP
+.BI \-C\  CHROOTDIR ,\ \-\-chroot= CHROOTDIR
+This option specifies the directory to which ndhc should confine itself via
+chroot() after startup.  This directory should be shared with the associated
+ifchd daemon, and should have access to dev/urandom and dev/null.  For
+logging to work, a dev/log socket or device should also exist.
+.TP
+.BR \-d ,\  \-\-relentless-defense
+If specified, ndhc will never back down in defending the IP address that it
+has been assigned by the remote DHCP server.  This behavior should not be
+specified for average machines, but is useful for servers or routers where
+the IP address of the machine must remain fixed for proper operation.
+.TP
+.BR \-v ,\  \-\-version
+Display the ndhc version number.
+.SH SIGNALS
+It is not necessary to sleep between sending signals, as signals received are
+processed sequentially in the order they are received.
 .B ndhc
 responds to the following signals:
 .TP
@@ -51,6 +98,18 @@ to renew the current lease or, if it does not have one, obtain a
 new lease.
 .TP
 .B SIGUSR2
-This signal caused
+This signal causes
 .B ndhc
-to release the current lease.
+to release the current lease and go to sleep until it receives a SIGUSR1.
+.SH NOTES
+ndhc will seed its random number generator (used for generating xids)
+by reading /dev/urandom. If you have a lot of embedded systems on the same
+network, with no entropy, you can either seed /dev/urandom by a method of
+your own, or doing the following on startup:
+
+ifconfig eth0 > /dev/urandom
+
+in order to seed /dev/urandom with some data (mac address) unique to your
+system. If reading /dev/urandom fails, ndhc will fall back to seeding with
+time(0).
+

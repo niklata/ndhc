@@ -1,0 +1,91 @@
+.TH IFCHD 8 2011-07-12 Linux "Linux Administrator's Manual"
+.SH NAME
+ifchd \- interface change daemon
+.SH SYNOPSIS
+.B ifchd
+.RI [ OPTION ]...
+.SH DESCRIPTION
+The ifchd daemon changes network interface configuration information
+(such as the IP address, broadcast address, subnet, etc) as well as
+resolv.conf, the machine hostname, and other similar system configuration
+bits on the request of authorized clients such as ndhc instances.
+.SH OPTIONS
+.TP
+.BR \-d ,\  \-\-detach
+Immediately fork into the background.  This is the default behavior.
+.TP
+.BR \-n ,\  \-\-nodetach
+Do not fork into the background.  Useful for debugging or initial setup.
+.TP
+.BR \-q ,\  \-\-quiet
+Don't print to standard out, standard error, or syslog.
+.TP
+.BI \-c\  CHROOTDIR ,\ \-\-chroot= CHROOTDIR
+This option specifies the directory to which ifchd should confine itself via
+chroot() after startup.  This directory should be shared with associated ndhc
+daemons, and should have access to dev/urandom and dev/null.  For logging to
+work, a dev/log socket or device should also exist.
+.TP
+.BI \-r\  RESOLVCONF ,\ \-\-resolve= RESOLVCONF
+Specifies the path to the system resolv.conf.  This file will typically be in
+/etc/resolv.conf.  If this option is specified, ndhc will update the contents
+of this file to match the DNS servers specified by the remote DHCP server.  If
+this option is not specified, ifchd will never change the system DNS resolution
+configuration.
+.TP
+.BR \-o ,\  \-\-hostname
+If specified, ifchd will update the system host name in response to any
+hostname option field provided by a remote DHCP server on the request of
+a ndhc client.  If this option is not specified, ifchd will never change
+the system hostname.
+.TP
+.BI \-p\  PIDFILE ,\ \-\-pidfile= PIDFILE
+Write the process id number of the ifchd instance into the specified file name.
+The default is to not write the process id number into any file at all.
+.TP
+.BI \-u\  USER ,\ \-\-user= USER
+This option specifies the user name or user id that ifchd will change to after
+startup.  This user should be unique to the ifchd daemon.
+.TP
+.BI \-g\  GROUP ,\ \-\-group= GROUP
+This option specifies the group name or group id that ifchd will change to
+after startup.
+.TP
+.BI \-U\  CLIENTUSER ,\ \-\-cuser= CLIENTUSER
+This option specifies the user name or user id that will be required of
+processes that wish to make interface change requests of ifchd.  Any other
+users will be denied a connection to the ifchange socket.
+.TP
+.BI \-G\  CLIENTGROUP ,\ \-\-cgroup= CLIENTGROUP
+This option specifies the group name or group id that will be required of
+processes that wish to make interface change requests of ifchd.  Any other
+groups will be denied a connection to the ifchange socket.
+.TP
+.BI \-P\  CLIENTPID ,\ \-\-cpid= CLIENTPID
+This option specifies the process id that will be required to make interface
+change requests of ifchd.  Any process that has a process id that does not
+equal this value will be denied a connection to the ifchange socket.
+.TP
+.BI \-i\  INTERFACE ,\ \-\-interface= INTERFACE
+Specifies an interface by name (such as 'eth0') on which ifchd is allowed to
+make configuration changes (such as IP address, subnet mask, etc).  Multiple
+interfaces may be whitelisted by using this switch multiple times.
+.TP
+.BR \-V ,\  \-\-verbose
+Print detailed messages.  Useful for debugging or setup.
+.TP
+.BR \-h ,\  \-\-help
+Print basic help information and exit.
+.TP
+.BR \-v ,\  \-\-version
+Display the ifchd version number and copyright information.
+.SH SIGNALS
+It is not necessary to sleep between sending signals, as signals received are
+processed sequentially in the order they are received.  ifchd does not
+perform any unusual behavior on receipt of signals.
+.SH NOTES
+ifchd is rather minimal and doesn't do exotic things like change NTP server
+configuration.  This is intentional, since it needs to run as CAP_NET_ADMIN,
+which although far less powerful than root, still gives it a fair amount
+of privileged behavior.
+

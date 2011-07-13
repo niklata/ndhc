@@ -1,14 +1,12 @@
-ndhc + ifchd, copyright (c) 2004-2011 Nicholas Kain.  Licensed under GNU GPL2.
+ndhc + ifchd, Copyright (C) 2004-2011 Nicholas J. Kain.
+Licensed under GNU GPL v2.
 
 Requirements:
 
-Linux kernel (tested: 2.4, 2.6)
-        * libcap is required (available via ftp.kernel.org)
-
-C99-compliant C compiler (for C99 struct subobject init)
-        * any modern GCC should be sufficient
-
-CMake (tested: 2.8)
+Linux kernel (2.4 used to work long ago, but I only test 2.6 now)
+C99-compliant C compiler (any recent GCC will work)
+GNU Make (tested: 3.82) or CMake (tested: 2.8)
+libcap (available via ftp.kernel.org)
 
 Tested with glibc.  dietlibc is not compatible.  I have not tested uclibc.
 
@@ -50,6 +48,42 @@ appropriately when interface carrier status changes or an interface is
 explicitly deconfigured.  This functionality can be useful on wired networks
 when transient carrier downtimes occur (or cables are changed), but it is
 particularly useful on wireless networks.
+
+FEATURES
+--------
+
+Privilege-seperated.  Neither ifchd or ndhc runs as full root, and capabilities
+are divided between the programs.  Both programs run in a chroot.
+
+Robust.  ndhc performs no runtime heap allocations -- malloc() is never called
+(and neither is brk(), mmap(), etc), and ndhc never performs recursive calls
+and only stack-allocates fixed-length types, so stack depth is bounded, too.
+ifchd lightly uses malloc(), but no heap allocations have long lifetimes, and
+are bounded from being large.
+
+Active defense of IP address and IP collision avoidance.  ndhc fully implements
+RFC5227.  It is capable of both a normal level of tenacity in defense, where
+it will eventually back off and request a new lease if a peer won't relent
+in the case of a conflict, and of relentlessly defending a lease forever.  In
+either mode, it rate-limits defense messages, so it can't be tricked into
+flooding by a hostile peer or DHCP server, either.
+
+Small.  Both ndhc and ifchd avoid outside dependencies and are written in
+plain C.
+
+Fast.  ndhc filters input using the BPF/LPF mechanism so that uninteresting
+packets are dropped by the operating system before ndhc even sees the data.
+ndhc also only listens to DHCP traffic when it's necessary.
+
+Flexible.  ndhc can request particular IPs, send user-specified client IDs,
+write a file that contains the current lease IP, write PID files, etc.  One
+ifchd session can service multiple ndhc sessions.
+
+Aware of the hardware link status.  If you disconnect an interface on which
+ndhc is providing dhcp service, it will be aware.  When the link status
+returns, ndhc will fingerprint the reconnected network and make sure that it
+corresponds to the one on which it has a lease.  If the new network is
+different, it will forget about the old lease and request a new one.
 
 USAGE
 -----
@@ -153,8 +187,10 @@ be used multiple times to allow multiple interfaces.
 PORTING NOTES
 -------------
 
-ndhc is rather platform-dependent, and it extensively uses Linux-specific
-features.  Some of these features are also available on the BSDs.
+DHCP clients aren't naturally very portable.  It's necessary to perform a lot
+of tasks that are platform-specific.  ndhc is rather platform-dependent, and it
+extensively uses Linux-specific features.  Some of these features are also
+available on the BSDs.
 
 1) Both ndhc and ifchd use the SO_PEERCRED flag of getsockopt() to discriminate
 authorized connections by uid, gid, and pid.  Similar functionality exists in
@@ -265,5 +301,34 @@ Make sure that CONFIG_GRKERNSEC_CHROOT_CAPS is disabled.  Otherwise, ifchd will
 lose its capabilities (in particular, the ability to reconfigure interfaces)
 when it chroots.
 
+DHCP PROTOCOL QUIRKS
+--------------------
 
+Send a packet that has an options field set to:
+'DHCP-OPTION-OVERLOAD:3'
+Then in the file and sname fields:
+'DHCP-OPTION-OVERLOAD:3'
+I suspect some bad dhcp programs will hang given this input.
+
+Options concatenation is a minefield of poor specification.  There's a
+follow-up RFC to make proper behavior somewhat more defined, but it's still
+overly complex.
+
+DHCP explicitly specifies that there is no minimum lease time and also
+specifies that the minimum default rebinding time is leasetime*0.875 and
+the minimum default renewing time is leasetime*0.500.  All times are relative
+to the instant when the lease is bound and are specified in seconds.  Taken
+together, this means that a client strictly implementing the RFC should
+accept a lease that either is perpetually rebinding (lease == 1s) or instantly
+expires (lease == 0s).  ndhc ignores the RFC and specifies a minimum lease
+time of one minute.
+
+Renew and rebind times are optionally specified and may take on any value.
+This means that a malicious server could demand a rebind time before a renew
+time, or make these times ridiculously short, or specify both times past
+that of the lease duration.  ndhc avoids all of this nonsense by simply
+ignoring these options and using the default values specified by the RFC.
+
+There are other quirks, but these are just several interesting ones that
+immediately occur to me while I'm writing this document.
 
