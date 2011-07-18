@@ -480,9 +480,8 @@ void set_listen_none(struct client_state_t *cs)
 }
 
 static int validate_dhcp_packet(struct client_state_t *cs, int len,
-                                struct dhcpmsg *packet, uint8_t **msg)
+                                struct dhcpmsg *packet, uint8_t *msgtype)
 {
-    ssize_t optlen;
     if (len < sizeof *packet - sizeof packet->options) {
         log_line("Packet is too short to contain magic cookie.  Ignoring.");
         return 0;
@@ -496,16 +495,19 @@ static int validate_dhcp_packet(struct client_state_t *cs, int len,
                  packet->xid, cs->xid);
         return 0;
     }
-    if (!(*msg = get_option_data(packet, DHCP_MESSAGE_TYPE, &optlen))) {
+    ssize_t optlen;
+    uint8_t *temp = get_option_data(packet, DHCP_MESSAGE_TYPE, &optlen);
+    if (!temp) {
         log_line("Packet does not specify a DHCP message type.  Ignoring.");
         return 0;
     }
+    *msgtype = *temp;
     return 1;
 }
 
 void handle_packet(struct client_state_t *cs)
 {
-    uint8_t *message = NULL;
+    uint8_t msgtype;
     int len;
     struct dhcpmsg packet;
 
@@ -523,9 +525,9 @@ void handle_packet(struct client_state_t *cs)
         change_listen_mode(cs, cs->listenMode);
     }
 
-    if (!validate_dhcp_packet(cs, len, &packet, &message))
+    if (!validate_dhcp_packet(cs, len, &packet, &msgtype))
         return;
-    packet_action(cs, &packet, message);
+    packet_action(cs, &packet, msgtype);
 }
 
 static void add_option_vendor(struct dhcpmsg *packet)

@@ -13,9 +13,9 @@
 #include "random.h"
 
 static void selecting_packet(struct client_state_t *cs, struct dhcpmsg *packet,
-                             uint8_t *message);
+                             uint8_t msgtype);
 static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
-                      uint8_t *message);
+                      uint8_t msgtype);
 static void selecting_timeout(struct client_state_t *cs, long long nowts);
 static void requesting_timeout(struct client_state_t *cs, long long nowts);
 static void bound_timeout(struct client_state_t *cs, long long nowts);
@@ -28,7 +28,7 @@ static void frenew(struct client_state_t *cs);
 
 typedef struct {
     void (*packet_fn)(struct client_state_t *cs, struct dhcpmsg *packet,
-                      uint8_t *message);
+                      uint8_t msgtype);
     void (*timeout_fn)(struct client_state_t *cs, long long nowts);
     void (*force_renew_fn)(struct client_state_t *cs);
     void (*force_release_fn)(struct client_state_t *cs);
@@ -186,9 +186,9 @@ static int validate_serverid(struct client_state_t *cs, struct dhcpmsg *packet,
 
 // Can transition to DS_BOUND or DS_SELECTING.
 static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
-                      uint8_t *message)
+                      uint8_t msgtype)
 {
-    if (*message == DHCPACK) {
+    if (msgtype == DHCPACK) {
         if (!validate_serverid(cs, packet, "a DHCP ACK"))
             return;
         ssize_t optlen;
@@ -230,7 +230,7 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
             set_listen_none(cs);
         }
 
-    } else if (*message == DHCPNAK) {
+    } else if (msgtype == DHCPNAK) {
         if (!validate_serverid(cs, packet, "a DHCP NAK"))
             return;
         log_line("Our request was rejected.  Searching for a new lease...");
@@ -239,9 +239,9 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
 }
 
 static void selecting_packet(struct client_state_t *cs, struct dhcpmsg *packet,
-                             uint8_t *message)
+                             uint8_t msgtype)
 {
-    if (*message == DHCPOFFER) {
+    if (msgtype == DHCPOFFER) {
         uint8_t *temp = NULL;
         ssize_t optlen;
         if ((temp = get_option_data(packet, DHCP_SERVER_ID, &optlen))) {
@@ -351,10 +351,10 @@ void ifnocarrier_action(struct client_state_t *cs)
 }
 
 void packet_action(struct client_state_t *cs, struct dhcpmsg *packet,
-                   uint8_t *message)
+                   uint8_t msgtype)
 {
     if (dhcp_states[cs->dhcpState].packet_fn)
-        dhcp_states[cs->dhcpState].packet_fn(cs, packet, message);
+        dhcp_states[cs->dhcpState].packet_fn(cs, packet, msgtype);
 }
 
 void timeout_action(struct client_state_t *cs, long long nowts)
