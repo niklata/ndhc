@@ -326,7 +326,8 @@ void ifup_action(struct client_state_t *cs)
                            cs->dhcpState == DS_RENEWING ||
                            cs->dhcpState == DS_REBINDING)) {
         if (arp_gw_check(cs) != -1) {
-            log_line("nl: Interface is back.  Revalidating lease...");
+            log_line("nl: %s is back.  Revalidating lease...",
+                     client_config.interface);
             return;
         } else
             log_warning("nl: arp_gw_check could not make arp socket.");
@@ -340,13 +341,13 @@ void ifup_action(struct client_state_t *cs)
 
 void ifdown_action(struct client_state_t *cs)
 {
-    log_line("Interface shut down.  Going to sleep.");
+    log_line("nl: %s shut down.  Going to sleep.", client_config.interface);
     set_released(cs);
 }
 
 void ifnocarrier_action(struct client_state_t *cs)
 {
-    log_line("Interface carrier down.");
+    log_line("nl: %s carrier down.", client_config.interface);
 }
 
 void packet_action(struct client_state_t *cs, struct dhcpmsg *packet,
