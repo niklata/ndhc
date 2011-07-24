@@ -255,12 +255,12 @@ be used with resource-constrained or embedded systems, and was thus very
 small.  ISC dhclient was another alternative, but it is an extremely large
 program, and it would have been very hard to audit it for correctness.
 
-udhcpc was not all that great of a choice, since it was designed to be small at
-all costs, sacrificing correctness when necessary.  The code was hard to
-follow, and had many quirks.  Bounds-checking was rare, type aliasing common,
-and state transitions were convoluted.  Not all of the client was asynchronous,
-and no precautions were taken against conflicting peers.  ARP was not used at
-all.
+udhcpc was not did not really fit my requirements well, since it was designed
+to be small at all costs, sacrificing correctness when necessary.  The code was
+hard to follow, and had many quirks.  Bounds-checking was rare, type aliasing
+common, and state transitions were convoluted.  Not all of the client was
+asynchronous, and no precautions were taken against conflicting peers.  ARP was
+not used at all.
 
 However, it was small.  With a lot of work, I ripped out the script-calling
 mechanisms and replaced them with ifchd requests.  Bounds-checking was
