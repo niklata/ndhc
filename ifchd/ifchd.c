@@ -76,7 +76,7 @@ enum states {
     STATE_IPTTL,
     STATE_MTU,
     STATE_BROADCAST,
-    STATE_NTPSRV,
+    STATE_NTPSVR,
     STATE_WINS
 };
 
@@ -419,8 +419,8 @@ static void execute_list(int i)
                     state[i] = STATE_MTU;
                 if (strncmp(p, CMD_BROADCAST, sizeof(CMD_BROADCAST)) == 0)
                     state[i] = STATE_BROADCAST;
-                if (strncmp(p, CMD_NTPSRV, sizeof(CMD_NTPSRV)) == 0)
-                    state[i] = STATE_NTPSRV;
+                if (strncmp(p, CMD_NTPSVR, sizeof(CMD_NTPSVR)) == 0)
+                    state[i] = STATE_NTPSVR;
                 if (strncmp(p, CMD_WINS, sizeof(CMD_WINS)) == 0)
                     state[i] = STATE_WINS;
                 free_stritem(&(curl[i]));
@@ -504,7 +504,7 @@ static void execute_list(int i)
                 state[i] = STATE_NOTHING;
                 break;
 
-            case STATE_NTPSRV:
+            case STATE_NTPSVR:
                 perform_ntpsrv(i, p);
                 free_stritem(&(curl[i]));
                 state[i] = STATE_NOTHING;

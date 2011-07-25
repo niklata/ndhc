@@ -234,14 +234,14 @@ void ifchange_bind(struct dhcpmsg *packet)
 
     snprintf(buf, sizeof buf, CMD_INTERFACE ":%s:", client_config.interface);
     tbs |= send_client_ip(buf, sizeof buf, packet);
-    tbs |= send_cmd(buf, sizeof buf, packet, DHCP_SUBNET);
-    tbs |= send_cmd(buf, sizeof buf, packet, DHCP_ROUTER);
-    tbs |= send_cmd(buf, sizeof buf, packet, DHCP_DNS_SERVER);
-    tbs |= send_cmd(buf, sizeof buf, packet, DHCP_HOST_NAME);
-    tbs |= send_cmd(buf, sizeof buf, packet, DHCP_DOMAIN_NAME);
-    tbs |= send_cmd(buf, sizeof buf, packet, DHCP_MTU);
-    tbs |= send_cmd(buf, sizeof buf, packet, DHCP_BROADCAST);
-    tbs |= send_cmd(buf, sizeof buf, packet, DHCP_WINS_SERVER);
+    tbs |= send_cmd(buf, sizeof buf, packet, DCODE_SUBNET);
+    tbs |= send_cmd(buf, sizeof buf, packet, DCODE_ROUTER);
+    tbs |= send_cmd(buf, sizeof buf, packet, DCODE_DNS);
+    tbs |= send_cmd(buf, sizeof buf, packet, DCODE_HOSTNAME);
+    tbs |= send_cmd(buf, sizeof buf, packet, DCODE_DOMAIN);
+    tbs |= send_cmd(buf, sizeof buf, packet, DCODE_MTU);
+    tbs |= send_cmd(buf, sizeof buf, packet, DCODE_BROADCAST);
+    tbs |= send_cmd(buf, sizeof buf, packet, DCODE_WINS);
     if (tbs) {
         sockfd = open_ifch();
         sockwrite(sockfd, buf, strlen(buf));

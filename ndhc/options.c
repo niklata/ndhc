@@ -40,6 +40,8 @@ struct dhcp_option {
     uint8_t code;
 };
 
+#define DCODE_PADDING 0x00
+
 // Marks an option that will be sent on the parameter request list to the
 // remote DHCP server.
 #define OPTION_REQ 16
@@ -48,19 +50,19 @@ struct dhcp_option {
 
 static const struct dhcp_option options[] = {
     // name[10]     type                                    code
-    {CMD_SUBNET   ,   OPTION_IP | OPTION_LIST | OPTION_REQ,   0x01},
-    {CMD_TIMEZONE ,   OPTION_S32,                             0x02},
-    {CMD_ROUTER   ,   OPTION_IP | OPTION_REQ,                 0x03},
-    {CMD_TIMESVR  ,   OPTION_IP | OPTION_LIST,                0x04},
-    {CMD_DNS      ,   OPTION_IP | OPTION_LIST | OPTION_REQ,   0x06},
-    {CMD_LPRSVR   ,   OPTION_IP | OPTION_LIST,                0x09},
-    {CMD_HOSTNAME ,   OPTION_STRING | OPTION_REQ,             0x0c},
-    {CMD_DOMAIN   ,   OPTION_STRING | OPTION_REQ,             0x0f},
-    {CMD_IPTTL    ,   OPTION_U8,                              0x17},
-    {CMD_MTU      ,   OPTION_U16,                             0x1a},
-    {CMD_BROADCAST,   OPTION_IP | OPTION_REQ,                 0x1c},
-    {CMD_NTPSRV   ,   OPTION_IP | OPTION_LIST,                0x2a},
-    {CMD_WINS     ,   OPTION_IP | OPTION_LIST,                0x2c},
+    {CMD_SUBNET   ,   OPTION_IP | OPTION_LIST | OPTION_REQ,   DCODE_SUBNET},
+    {CMD_TIMEZONE ,   OPTION_S32,                             DCODE_TIMEZONE},
+    {CMD_ROUTER   ,   OPTION_IP | OPTION_REQ,                 DCODE_ROUTER},
+    {CMD_TIMESVR  ,   OPTION_IP | OPTION_LIST,                DCODE_TIMESVR},
+    {CMD_DNS      ,   OPTION_IP | OPTION_LIST | OPTION_REQ,   DCODE_DNS},
+    {CMD_LPRSVR   ,   OPTION_IP | OPTION_LIST,                DCODE_LPRSVR},
+    {CMD_HOSTNAME ,   OPTION_STRING | OPTION_REQ,             DCODE_HOSTNAME},
+    {CMD_DOMAIN   ,   OPTION_STRING | OPTION_REQ,             DCODE_DOMAIN},
+    {CMD_IPTTL    ,   OPTION_U8,                              DCODE_IPTTL},
+    {CMD_MTU      ,   OPTION_U16,                             DCODE_MTU},
+    {CMD_BROADCAST,   OPTION_IP | OPTION_REQ,                 DCODE_BROADCAST},
+    {CMD_NTPSVR   ,   OPTION_IP | OPTION_LIST,                DCODE_NTPSVR},
+    {CMD_WINS     ,   OPTION_IP | OPTION_LIST,                DCODE_WINS},
 // Past this point, these options are not useful for client configuration
 // and contain DHCP protocol metadata.  Perhaps they can be removed.
     {"requestip",   OPTION_IP,                              0x32},
@@ -69,7 +71,7 @@ static const struct dhcp_option options[] = {
     {"serverid" ,   OPTION_IP,                              0x36},
     {"message"  ,   OPTION_STRING,                          0x38},
     {"maxsize"  ,   OPTION_U16,                             0x39},
-    {"NONE"     ,   OPTION_NONE,                            0x00}
+    {"0XX0"     ,   OPTION_NONE,                            0x00}
 };
 
 enum option_type option_type(uint8_t code)
@@ -121,7 +123,7 @@ int option_valid_list(uint8_t code)
 
 static size_t sizeof_option(uint8_t code, size_t datalen)
 {
-    if (code == DHCP_PADDING || code == DHCP_END)
+    if (code == DCODE_PADDING || code == DCODE_END)
         return 1;
     return 2 + datalen;
 }
@@ -135,14 +137,14 @@ static uint8_t *do_get_option_data(uint8_t *buf, ssize_t buflen, int code,
     *overload = 0;
     while (buflen > 0) {
         // Advance over padding.
-        if (buf[0] == DHCP_PADDING) {
+        if (buf[0] == DCODE_PADDING) {
             buflen--;
             buf++;
             continue;
         }
 
         // We hit the end.
-        if (buf[0] == DHCP_END) {
+        if (buf[0] == DCODE_END) {
             *optlen = 0;
             return NULL;
         }
@@ -159,7 +161,7 @@ static uint8_t *do_get_option_data(uint8_t *buf, ssize_t buflen, int code,
             return buf + 2;
         }
 
-        if (buf[0] == DHCP_OPTION_OVERLOAD) {
+        if (buf[0] == DCODE_OVERLOAD) {
             if (buf[1] == 1)
                 *overload |= buf[2];
             // fall through
@@ -210,14 +212,14 @@ uint8_t *get_option_data(struct dhcpmsg *packet, int code, ssize_t *optlen)
 ssize_t get_end_option_idx(struct dhcpmsg *packet)
 {
     for (size_t i = 0; i < sizeof packet->options; ++i) {
-        if (packet->options[i] == DHCP_END)
+        if (packet->options[i] == DCODE_END)
             return i;
-        if (packet->options[i] == DHCP_PADDING)
+        if (packet->options[i] == DCODE_PADDING)
             continue;
-        if (packet->options[i] != DHCP_PADDING)
+        if (packet->options[i] != DCODE_PADDING)
             i += packet->options[i+1] + 1;
     }
-    log_warning("get_end_option_idx: Did not find DHCP_END marker.");
+    log_warning("get_end_option_idx: Did not find DCODE_END marker.");
     return -1;
 }
 
@@ -234,7 +236,7 @@ size_t add_option_string(struct dhcpmsg *packet, uint8_t code, char *str,
 
     ssize_t end = get_end_option_idx(packet);
     if (end == -1) {
-        log_warning("add_option_string: Buffer has no DHCP_END marker.");
+        log_warning("add_option_string: Buffer has no DCODE_END marker.");
         return 0;
     }
     if (end + len >= sizeof packet->options) {
@@ -244,7 +246,7 @@ size_t add_option_string(struct dhcpmsg *packet, uint8_t code, char *str,
     packet->options[end] = code;
     packet->options[end+1] = slen;
     memcpy(packet->options + end + 2, str, slen);
-    packet->options[end+len] = DHCP_END;
+    packet->options[end+len] = DCODE_END;
     return len;
 }
 
@@ -259,7 +261,7 @@ static ssize_t add_option_check(struct dhcpmsg *packet, uint8_t code,
     }
     ssize_t end = get_end_option_idx(packet);
     if (end == -1) {
-        log_warning("add_u%01u_option: Buffer has no DHCP_END marker.", rlen*8);
+        log_warning("add_u%01u_option: Buffer has no DCODE_END marker.", rlen*8);
         return -1;
     }
     if (end + 2 + rlen >= sizeof packet->options) {
@@ -278,7 +280,7 @@ size_t add_u8_option(struct dhcpmsg *packet, uint8_t code, uint8_t data)
     packet->options[end] = code;
     packet->options[end+1] = 1;
     packet->options[end+2] = data;
-    packet->options[end+3] = DHCP_END;
+    packet->options[end+3] = DCODE_END;
     return 3;
 }
 
@@ -293,7 +295,7 @@ size_t add_u16_option(struct dhcpmsg *packet, uint8_t code, uint16_t data)
     packet->options[end+1] = 2;
     packet->options[end+2] = dp[0];
     packet->options[end+3] = dp[1];
-    packet->options[end+4] = DHCP_END;
+    packet->options[end+4] = DCODE_END;
     return 4;
 }
 
@@ -310,7 +312,7 @@ size_t add_u32_option(struct dhcpmsg *packet, uint8_t code, uint32_t data)
     packet->options[end+3] = dp[1];
     packet->options[end+4] = dp[2];
     packet->options[end+5] = dp[3];
-    packet->options[end+6] = DHCP_END;
+    packet->options[end+6] = DCODE_END;
     return 6;
 }
 
@@ -323,6 +325,6 @@ size_t add_option_request_list(struct dhcpmsg *packet)
         if (options[i].type & OPTION_REQ)
             reqdata[j++] = options[i].code;
     }
-    return add_option_string(packet, DHCP_PARAM_REQ, (char *)reqdata, j);
+    return add_option_string(packet, DCODE_PARAM_REQ, (char *)reqdata, j);
 }
 

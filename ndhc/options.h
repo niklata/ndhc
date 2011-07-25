@@ -30,51 +30,29 @@
 
 #include "dhcp.h"
 
-enum dhcp_codes {
-    DHCP_PADDING             = 0x00,
-    DHCP_SUBNET              = 0x01,
-    DHCP_TIME_OFFSET         = 0x02,
-    DHCP_ROUTER              = 0x03,
-    DHCP_TIME_SERVER         = 0x04,
-    DHCP_NAME_SERVER         = 0x05,
-    DHCP_DNS_SERVER          = 0x06,
-    DHCP_LOG_SERVER          = 0x07,
-    DHCP_COOKIE_SERVER       = 0x08,
-    DHCP_LPR_SERVER          = 0x09,
-    DHCP_HOST_NAME           = 0x0c,
-    DHCP_BOOT_SIZE           = 0x0d,
-    DHCP_DOMAIN_NAME         = 0x0f,
-    DHCP_SWAP_SERVER         = 0x10,
-    DHCP_ROOT_PATH           = 0x11,
-    DHCP_IP_TTL              = 0x17,
-    DHCP_MTU                 = 0x1a,
-    DHCP_BROADCAST           = 0x1c,
-    DHCP_NIS_DOMAIN          = 0x28,
-    DHCP_NIS_SERVER          = 0x29,
-    DHCP_NTP_SERVER          = 0x2a,
-    DHCP_WINS_SERVER         = 0x2c,
-    DHCP_REQUESTED_IP        = 0x32,
-    DHCP_LEASE_TIME          = 0x33,
-    DHCP_OPTION_OVERLOAD     = 0x34,
-    DHCP_MESSAGE_TYPE        = 0x35,
-    DHCP_SERVER_ID           = 0x36,
-    DHCP_PARAM_REQ           = 0x37,
-    DHCP_MESSAGE             = 0x38,
-    DHCP_MAX_SIZE            = 0x39,
-    DHCP_T1                  = 0x3a,
-    DHCP_T2                  = 0x3b,
-    DHCP_VENDOR              = 0x3c,
-    DHCP_CLIENT_ID           = 0x3d,
-    DHCP_TFTP_SERVER_NAME    = 0x42,
-    DHCP_BOOT_FILE           = 0x43,
-    DHCP_USER_CLASS          = 0x4d,
-    DHCP_FQDN                = 0x51,
-    DHCP_DOMAIN_SEARCH       = 0x77,
-    DHCP_SIP_SERVERS         = 0x78,
-    DHCP_STATIC_ROUTES       = 0x79,
-    DHCP_WPAD                = 0xfc,
-    DHCP_END                 = 0xff,
-};
+#define DCODE_SUBNET       0x01
+#define DCODE_TIMEZONE     0x02
+#define DCODE_ROUTER       0x03
+#define DCODE_TIMESVR      0x04
+#define DCODE_DNS          0x06
+#define DCODE_LPRSVR       0x09
+#define DCODE_HOSTNAME     0x0c
+#define DCODE_DOMAIN       0x0f
+#define DCODE_IPTTL        0x17
+#define DCODE_MTU          0x1a
+#define DCODE_BROADCAST    0x1c
+#define DCODE_NTPSVR       0x2a
+#define DCODE_WINS         0x2c
+#define DCODE_REQUESTED_IP 0x32
+#define DCODE_LEASE_TIME   0x33
+#define DCODE_OVERLOAD     0x34
+#define DCODE_MESSAGE_TYPE 0x35
+#define DCODE_SERVER_ID    0x36
+#define DCODE_PARAM_REQ    0x37
+#define DCODE_MAX_SIZE     0x39
+#define DCODE_VENDOR       0x3c
+#define DCODE_CLIENT_ID    0x3d
+#define DCODE_END          0xff
 
 enum option_type {
     OPTION_NONE = 0,

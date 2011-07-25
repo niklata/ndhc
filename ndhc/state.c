@@ -194,7 +194,7 @@ static int validate_serverid(struct client_state_t *cs, struct dhcpmsg *packet,
 {
     uint8_t *temp = NULL;
     ssize_t optlen;
-    if (!(temp = get_option_data(packet, DHCP_SERVER_ID, &optlen))) {
+    if (!(temp = get_option_data(packet, DCODE_SERVER_ID, &optlen))) {
         log_line("Received %s with no server id.  Ignoring it.");
         return 0;
     }
@@ -219,7 +219,7 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
         if (!validate_serverid(cs, packet, "a DHCP ACK"))
             return;
         ssize_t optlen;
-        uint8_t *temp = get_option_data(packet, DHCP_LEASE_TIME, &optlen);
+        uint8_t *temp = get_option_data(packet, DCODE_LEASE_TIME, &optlen);
         cs->leaseStartTime = curms();
         if (!temp) {
             log_line("No lease time received, assuming 1h.");
@@ -271,7 +271,7 @@ static void selecting_packet(struct client_state_t *cs, struct dhcpmsg *packet,
     if (msgtype == DHCPOFFER) {
         uint8_t *temp = NULL;
         ssize_t optlen;
-        if ((temp = get_option_data(packet, DHCP_SERVER_ID, &optlen))) {
+        if ((temp = get_option_data(packet, DCODE_SERVER_ID, &optlen))) {
             char clibuf[INET_ADDRSTRLEN];
             char svrbuf[INET_ADDRSTRLEN];
             memcpy(&cs->serverAddr, temp, 4);

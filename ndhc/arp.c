@@ -487,7 +487,7 @@ void arp_success(struct client_state_t *cs)
         arp_switch_state(cs, AS_DEFENSE);
     } else {
         ssize_t ol;
-        uint8_t *od = get_option_data(&arp_dhcp_packet, DHCP_ROUTER, &ol);
+        uint8_t *od = get_option_data(&arp_dhcp_packet, DCODE_ROUTER, &ol);
         if (ol == 4) {
             memcpy(&cs->routerAddr, od, 4);
         } else

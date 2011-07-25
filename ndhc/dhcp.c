@@ -146,7 +146,7 @@ static int send_dhcp_cooked(struct client_state_t *cs, struct dhcpmsg *payload)
 
     ssize_t endloc = get_end_option_idx(payload);
     if (endloc < 0) {
-        log_error("send_dhcp_cooked: Attempt to send packet with no DHCP_END.");
+        log_error("send_dhcp_cooked: Attempt to send packet with no DCODE_END.");
         goto out_fd;
     }
     size_t payload_len =
@@ -407,7 +407,7 @@ static int send_dhcp_raw(struct dhcpmsg *payload)
     // and drop packets that are longer than 562 bytes.
     ssize_t endloc = get_end_option_idx(payload);
     if (endloc < 0) {
-        log_error("send_dhcp_raw: Attempt to send packet with no DHCP_END.");
+        log_error("send_dhcp_raw: Attempt to send packet with no DCODE_END.");
         close(fd);
         return ret;
     }
@@ -504,7 +504,7 @@ static int validate_dhcp_packet(struct client_state_t *cs, int len,
         return 0;
     }
     ssize_t optlen;
-    uint8_t *temp = get_option_data(packet, DHCP_MESSAGE_TYPE, &optlen);
+    uint8_t *temp = get_option_data(packet, DCODE_MESSAGE_TYPE, &optlen);
     if (!temp) {
         log_line("Packet does not specify a DHCP message type.  Ignoring.");
         return 0;
@@ -542,9 +542,9 @@ static void add_option_vendor(struct dhcpmsg *packet)
 {
     size_t len = strlen(client_config.vendor);
     if (len)
-        add_option_string(packet, DHCP_VENDOR, client_config.vendor, len);
+        add_option_string(packet, DCODE_VENDOR, client_config.vendor, len);
     else
-        add_option_string(packet, DHCP_VENDOR, "ndhc", sizeof "ndhc" - 1);
+        add_option_string(packet, DCODE_VENDOR, "ndhc", sizeof "ndhc" - 1);
 }
 
 static void add_option_clientid(struct dhcpmsg *packet)
@@ -563,14 +563,14 @@ static void add_option_clientid(struct dhcpmsg *packet)
         }
     } else
         memcpy(buf+1, client_config.clientid, len);
-    add_option_string(packet, DHCP_CLIENT_ID, buf, len+1);
+    add_option_string(packet, DCODE_CLIENT_ID, buf, len+1);
 }
 
 static void add_option_hostname(struct dhcpmsg *packet)
 {
     size_t len = strlen(client_config.hostname);
     if (len)
-        add_option_string(packet, DHCP_HOST_NAME, client_config.hostname, len);
+        add_option_string(packet, DCODE_HOSTNAME, client_config.hostname, len);
 }
 
 // Initialize a DHCP client packet that will be sent to a server
@@ -581,10 +581,10 @@ static struct dhcpmsg init_packet(char type, uint32_t xid)
         .htype = 1, // ETH_10MB
         .hlen = 6, // ETH_10MB_LEN
         .cookie = htonl(DHCP_MAGIC),
-        .options[0] = DHCP_END,
+        .options[0] = DCODE_END,
         .xid = xid,
     };
-    add_u8_option(&packet, DHCP_MESSAGE_TYPE, type);
+    add_u8_option(&packet, DCODE_MESSAGE_TYPE, type);
     memcpy(packet.chaddr, client_config.arp, 6);
     add_option_clientid(&packet);
     return packet;
@@ -594,8 +594,8 @@ int send_discover(struct client_state_t *cs)
 {
     struct dhcpmsg packet = init_packet(DHCPDISCOVER, cs->xid);
     if (cs->clientAddr)
-        add_u32_option(&packet, DHCP_REQUESTED_IP, cs->clientAddr);
-    add_u16_option(&packet, DHCP_MAX_SIZE,
+        add_u32_option(&packet, DCODE_REQUESTED_IP, cs->clientAddr);
+    add_u16_option(&packet, DCODE_MAX_SIZE,
                    htons(sizeof(struct ip_udp_dhcp_packet)));
     add_option_request_list(&packet);
     add_option_vendor(&packet);
@@ -608,9 +608,9 @@ int send_selecting(struct client_state_t *cs)
 {
     char clibuf[INET_ADDRSTRLEN];
     struct dhcpmsg packet = init_packet(DHCPREQUEST, cs->xid);
-    add_u32_option(&packet, DHCP_REQUESTED_IP, cs->clientAddr);
-    add_u32_option(&packet, DHCP_SERVER_ID, cs->serverAddr);
-    add_u16_option(&packet, DHCP_MAX_SIZE,
+    add_u32_option(&packet, DCODE_REQUESTED_IP, cs->clientAddr);
+    add_u32_option(&packet, DCODE_SERVER_ID, cs->serverAddr);
+    add_u16_option(&packet, DCODE_MAX_SIZE,
                    htons(sizeof(struct ip_udp_dhcp_packet)));
     add_option_request_list(&packet);
     add_option_vendor(&packet);
@@ -625,7 +625,7 @@ int send_renew(struct client_state_t *cs)
 {
     struct dhcpmsg packet = init_packet(DHCPREQUEST, cs->xid);
     packet.ciaddr = cs->clientAddr;
-    add_u16_option(&packet, DHCP_MAX_SIZE,
+    add_u16_option(&packet, DCODE_MAX_SIZE,
                    htons(sizeof(struct ip_udp_dhcp_packet)));
     add_option_request_list(&packet);
     add_option_vendor(&packet);
@@ -638,8 +638,8 @@ int send_rebind(struct client_state_t *cs)
 {
     struct dhcpmsg packet = init_packet(DHCPREQUEST, cs->xid);
     packet.ciaddr = cs->clientAddr;
-    add_u32_option(&packet, DHCP_REQUESTED_IP, cs->clientAddr);
-    add_u16_option(&packet, DHCP_MAX_SIZE,
+    add_u32_option(&packet, DCODE_REQUESTED_IP, cs->clientAddr);
+    add_u16_option(&packet, DCODE_MAX_SIZE,
                    htons(sizeof(struct ip_udp_dhcp_packet)));
     add_option_request_list(&packet);
     add_option_vendor(&packet);
@@ -651,8 +651,8 @@ int send_rebind(struct client_state_t *cs)
 int send_decline(struct client_state_t *cs, uint32_t server)
 {
     struct dhcpmsg packet = init_packet(DHCPDECLINE, cs->xid);
-    add_u32_option(&packet, DHCP_REQUESTED_IP, cs->clientAddr);
-    add_u32_option(&packet, DHCP_SERVER_ID, server);
+    add_u32_option(&packet, DCODE_REQUESTED_IP, cs->clientAddr);
+    add_u32_option(&packet, DCODE_SERVER_ID, server);
     log_line("Sending a decline message...");
     return send_dhcp_raw(&packet);
 }
@@ -661,8 +661,8 @@ int send_release(struct client_state_t *cs)
 {
     struct dhcpmsg packet = init_packet(DHCPRELEASE, libc_random_u32());
     packet.ciaddr = cs->clientAddr;
-    add_u32_option(&packet, DHCP_REQUESTED_IP, cs->clientAddr);
-    add_u32_option(&packet, DHCP_SERVER_ID, cs->serverAddr);
+    add_u32_option(&packet, DCODE_REQUESTED_IP, cs->clientAddr);
+    add_u32_option(&packet, DCODE_SERVER_ID, cs->serverAddr);
     log_line("Sending a release message...");
     return send_dhcp_cooked(cs, &packet);
 }
