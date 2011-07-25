@@ -33,7 +33,6 @@
 #define DCODE_SUBNET       0x01
 #define DCODE_TIMEZONE     0x02
 #define DCODE_ROUTER       0x03
-#define DCODE_TIMESVR      0x04
 #define DCODE_DNS          0x06
 #define DCODE_LPRSVR       0x09
 #define DCODE_HOSTNAME     0x0c

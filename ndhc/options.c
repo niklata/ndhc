@@ -37,7 +37,7 @@
 struct dhcp_option {
     uint8_t code;
     uint8_t type;
-    char name[10];
+    char name[6];
 };
 
 #define DCODE_PADDING 0x00
@@ -57,7 +57,6 @@ static const struct dhcp_option options[] = {
     {DCODE_SUBNET   , OPTION_IP | OPTION_LIST | OPTION_REQ, CMD_SUBNET   },
     {DCODE_TIMEZONE , OPTION_S32,                           CMD_TIMEZONE },
     {DCODE_ROUTER   , OPTION_IP | OPTION_REQ,               CMD_ROUTER   },
-    {DCODE_TIMESVR  , OPTION_IP | OPTION_LIST,              CMD_TIMESVR  },
     {DCODE_DNS      , OPTION_IP | OPTION_LIST | OPTION_REQ, CMD_DNS      },
     {DCODE_LPRSVR   , OPTION_IP | OPTION_LIST,              CMD_LPRSVR   },
     {DCODE_HOSTNAME , OPTION_STRING | OPTION_REQ,           CMD_HOSTNAME },

@@ -68,7 +68,6 @@ enum states {
     STATE_SUBNET,
     STATE_TIMEZONE,
     STATE_ROUTER,
-    STATE_TIMESVR,
     STATE_DNS,
     STATE_LPRSVR,
     STATE_HOSTNAME,
@@ -246,10 +245,6 @@ static void parse_list(int idx, char *str, strlist_t **toplist,
 static void perform_timezone(int idx, char *str)
 {}
 
-/* Does anyone use this command? */
-static void perform_timesvr(int idx, char *str)
-{}
-
 /* Add a dns server to the /etc/resolv.conf -- we already have a fd. */
 static void perform_dns(int idx, char *str)
 {
@@ -403,8 +398,6 @@ static void execute_list(int i)
                     state[i] = STATE_TIMEZONE;
                 if (strncmp(p, CMD_ROUTER, sizeof(CMD_ROUTER)) == 0)
                     state[i] = STATE_ROUTER;
-                if (strncmp(p, CMD_TIMESVR, sizeof(CMD_TIMESVR)) == 0)
-                    state[i] = STATE_TIMESVR;
                 if (strncmp(p, CMD_DNS, sizeof(CMD_DNS)) == 0)
                     state[i] = STATE_DNS;
                 if (strncmp(p, CMD_LPRSVR, sizeof(CMD_LPRSVR)) == 0)
@@ -452,12 +445,6 @@ static void execute_list(int i)
 
             case STATE_ROUTER:
                 perform_router(i, p);
-                free_stritem(&(curl[i]));
-                state[i] = STATE_NOTHING;
-                break;
-
-            case STATE_TIMESVR:
-                perform_timesvr(i, p);
                 free_stritem(&(curl[i]));
                 state[i] = STATE_NOTHING;
                 break;
