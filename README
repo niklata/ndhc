@@ -1,14 +1,11 @@
 ndhc + ifchd, Copyright (C) 2004-2011 Nicholas J. Kain.
-Licensed under GNU GPL v2.
+See LICENSE for licensing information.  In short: Two-clause / New BSD.
 
 Requirements:
 
-Linux kernel (2.4 used to work long ago, but I only test 2.6 now)
-C99-compliant C compiler (any recent GCC will work)
+Linux kernel
 GNU Make (tested: 3.82) or CMake (tested: 2.8)
 libcap (available via ftp.kernel.org)
-
-Tested with glibc.  dietlibc is not compatible.  I have not tested uclibc.
 
 INTRODUCTION
 ------------
