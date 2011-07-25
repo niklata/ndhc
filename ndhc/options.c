@@ -77,7 +77,7 @@ enum option_type option_type(uint8_t code)
     return OPTION_NONE;
 }
 
-static const char bad_option_name[] = "BADOPTION";
+static const char bad_option_name[] = "BAD";
 const char *option_name(uint8_t code)
 {
     for (int i = 0; options[i].code; ++i)
