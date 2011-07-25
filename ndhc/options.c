@@ -63,12 +63,6 @@ static const struct dhcp_option options[] = {
     {DCODE_BROADCAST, OPTION_IP | OPTION_REQ,               CMD_BROADCAST},
     {DCODE_NTPSVR   , OPTION_IP | OPTION_LIST,              CMD_NTPSVR   },
     {DCODE_WINS     , OPTION_IP | OPTION_LIST,              CMD_WINS     },
-    // Past this point, these options are not useful for client configuration.
-    {DCODE_REQIP    , OPTION_IP,                            CMD_NULL     },
-    {DCODE_LEASET   , OPTION_U32,                           CMD_NULL     },
-    {DCODE_MSGTYPE  , OPTION_U8,                            CMD_NULL     },
-    {DCODE_SERVER_ID, OPTION_IP,                            CMD_NULL     },
-    {DCODE_MAX_SIZE , OPTION_U16,                           CMD_NULL     },
     {0x00           , OPTION_NONE,                          CMD_NULL     }
 };
 
@@ -251,12 +245,6 @@ size_t add_option_string(struct dhcpmsg *packet, uint8_t code, char *str,
 static ssize_t add_option_check(struct dhcpmsg *packet, uint8_t code,
                                 uint8_t rlen)
 {
-    size_t length = option_length(code);
-    if (length != rlen) {
-        log_warning("add_u%01u_option: Length mismatch: code=0x%02x len=%01u.",
-                    rlen*8, code, length);
-        return -1;
-    }
     ssize_t end = get_end_option_idx(packet);
     if (end == -1) {
         log_warning("add_u%01u_option: Buffer has no DCODE_END marker.", rlen*8);
