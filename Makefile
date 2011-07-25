@@ -9,6 +9,7 @@ NCM_OBJS = $(NCM_SRCS:.c=.o)
 IFCHD_OBJS = $(IFCHD_SRCS:.c=.o)
 NDHC_OBJS = $(NDHC_SRCS:.c=.o)
 NCM_INC = -I./ncmlib
+IFCH_INC = -I./ifchd
 BUILD_DIR = build
 OBJ_DIR = $(BUILD_DIR)/objs
 
@@ -36,7 +37,7 @@ ifchd: $(IFCHD_OBJS)
 	$(CC) $(CFLAGS) $(NCM_INC) -o $(BUILD_DIR)/$@ $(subst ifchd/,$(OBJ_DIR)/ifchd/,$(IFCHD_OBJS)) $(BUILD_DIR)/ncmlib.a -lcap 
 
 ndhc: $(NDHC_OBJS)
-	$(CC) $(CFLAGS) $(NCM_INC) -o $(BUILD_DIR)/$@ $(subst ndhc/,$(OBJ_DIR)/ndhc/,$(NDHC_OBJS)) $(BUILD_DIR)/ncmlib.a -lcap
+	$(CC) $(CFLAGS) $(IFCH_INC) $(NCM_INC) -o $(BUILD_DIR)/$@ $(subst ndhc/,$(OBJ_DIR)/ndhc/,$(NDHC_OBJS)) $(BUILD_DIR)/ncmlib.a -lcap
 
 .PHONY: all clean
 

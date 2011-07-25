@@ -39,6 +39,7 @@
 #include "io.h"
 #include "strl.h"
 #include "ifchange.h"
+#include "ifch_proto.h"
 
 static int cfg_deconfig; // Set if the interface has already been deconfigured.
 static struct dhcpmsg cfg_packet; // Copy of the current configuration packet.
@@ -167,9 +168,9 @@ void ifchange_deconfig(void)
 
     sockfd = open_ifch();
 
-    snprintf(buf, sizeof buf, "interface:%s:ip:0.0.0.0:",
+    snprintf(buf, sizeof buf, CMD_INTERFACE ":%s:" CMD_IP ":0.0.0.0:",
              client_config.interface);
-    log_line("Sent to ifchd: ip:0.0.0.0:");
+    log_line("Resetting %s IP configuration.", client_config.interface);
     sockwrite(sockfd, buf, strlen(buf));
 
     cfg_deconfig = 1;
@@ -223,7 +224,7 @@ void ifchange_bind(struct dhcpmsg *packet)
     if (!packet)
         return;
 
-    snprintf(buf, sizeof buf, "interface:%s:", client_config.interface);
+    snprintf(buf, sizeof buf, CMD_INTERFACE ":%s:", client_config.interface);
     tbs |= send_client_ip(buf, sizeof buf, packet);
     tbs |= send_cmd(buf, sizeof buf, packet, DHCP_SUBNET);
     tbs |= send_cmd(buf, sizeof buf, packet, DHCP_ROUTER);

@@ -47,7 +47,7 @@
 #include "pidfile.h"
 #include "signals.h"
 #include "strlist.h"
-#include "ifproto.h"
+#include "ifch_proto.h"
 #include "strl.h"
 #include "cap.h"
 #include "io.h"

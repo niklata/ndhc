@@ -40,7 +40,7 @@
 #include "ifchd-defines.h"
 #include "log.h"
 #include "strlist.h"
-#include "ifproto.h"
+#include "ifch_proto.h"
 #include "strl.h"
 
 /* Symbolic name of the interface associated with a connection. */

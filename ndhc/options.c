@@ -24,6 +24,7 @@
 
 #include "options.h"
 #include "log.h"
+#include "ifch_proto.h"
 
 struct dhcp_option {
     char name[10];
@@ -36,35 +37,30 @@ struct dhcp_option {
 #define OPTION_REQ 16
 // Marks an option that can be sent as a list of multiple items.
 #define OPTION_LIST 32
+
 static const struct dhcp_option options[] = {
     // name[10]     type                                    code
-    {"subnet"   ,   OPTION_IP | OPTION_LIST | OPTION_REQ,   0x01},
-    {"timezone" ,   OPTION_S32,                             0x02},
-    {"router"   ,   OPTION_IP | OPTION_REQ,                 0x03},
-    {"timesvr"  ,   OPTION_IP | OPTION_LIST,                0x04},
-    {"namesvr"  ,   OPTION_IP | OPTION_LIST,                0x05},
-    {"dns"      ,   OPTION_IP | OPTION_LIST | OPTION_REQ,   0x06},
-    {"logsvr"   ,   OPTION_IP | OPTION_LIST,                0x07},
-    {"cookiesvr",   OPTION_IP | OPTION_LIST,                0x08},
-    {"lprsvr"   ,   OPTION_IP | OPTION_LIST,                0x09},
-    {"hostname" ,   OPTION_STRING | OPTION_REQ,             0x0c},
-    {"bootsize" ,   OPTION_U16,                             0x0d},
-    {"domain"   ,   OPTION_STRING | OPTION_REQ,             0x0f},
-    {"swapsvr"  ,   OPTION_IP,                              0x10},
-    {"rootpath" ,   OPTION_STRING,                          0x11},
-    {"ipttl"    ,   OPTION_U8,                              0x17},
-    {"mtu"      ,   OPTION_U16,                             0x1a},
-    {"broadcast",   OPTION_IP | OPTION_REQ,                 0x1c},
-    {"ntpsrv"   ,   OPTION_IP | OPTION_LIST,                0x2a},
-    {"wins"     ,   OPTION_IP | OPTION_LIST,                0x2c},
+    {CMD_SUBNET   ,   OPTION_IP | OPTION_LIST | OPTION_REQ,   0x01},
+    {CMD_TIMEZONE ,   OPTION_S32,                             0x02},
+    {CMD_ROUTER   ,   OPTION_IP | OPTION_REQ,                 0x03},
+    {CMD_TIMESVR  ,   OPTION_IP | OPTION_LIST,                0x04},
+    {CMD_DNS      ,   OPTION_IP | OPTION_LIST | OPTION_REQ,   0x06},
+    {CMD_LPRSVR   ,   OPTION_IP | OPTION_LIST,                0x09},
+    {CMD_HOSTNAME ,   OPTION_STRING | OPTION_REQ,             0x0c},
+    {CMD_DOMAIN   ,   OPTION_STRING | OPTION_REQ,             0x0f},
+    {CMD_IPTTL    ,   OPTION_U8,                              0x17},
+    {CMD_MTU      ,   OPTION_U16,                             0x1a},
+    {CMD_BROADCAST,   OPTION_IP | OPTION_REQ,                 0x1c},
+    {CMD_NTPSRV   ,   OPTION_IP | OPTION_LIST,                0x2a},
+    {CMD_WINS     ,   OPTION_IP | OPTION_LIST,                0x2c},
+// Past this point, these options are not useful for client configuration
+// and contain DHCP protocol metadata.  Perhaps they can be removed.
     {"requestip",   OPTION_IP,                              0x32},
     {"lease"    ,   OPTION_U32,                             0x33},
     {"dhcptype" ,   OPTION_U8,                              0x35},
     {"serverid" ,   OPTION_IP,                              0x36},
     {"message"  ,   OPTION_STRING,                          0x38},
     {"maxsize"  ,   OPTION_U16,                             0x39},
-    {"tftp"     ,   OPTION_STRING,                          0x42},
-    {"bootfile" ,   OPTION_STRING,                          0x43},
     {"NONE"     ,   OPTION_NONE,                            0x00}
 };
 
