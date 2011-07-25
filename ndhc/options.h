@@ -30,6 +30,7 @@
 
 #include "dhcp.h"
 
+#define DCODE_PADDING      0x00
 #define DCODE_SUBNET       0x01
 #define DCODE_TIMEZONE     0x02
 #define DCODE_ROUTER       0x03
@@ -42,10 +43,10 @@
 #define DCODE_BROADCAST    0x1c
 #define DCODE_NTPSVR       0x2a
 #define DCODE_WINS         0x2c
-#define DCODE_REQUESTED_IP 0x32
-#define DCODE_LEASE_TIME   0x33
+#define DCODE_REQIP        0x32
+#define DCODE_LEASET       0x33
 #define DCODE_OVERLOAD     0x34
-#define DCODE_MESSAGE_TYPE 0x35
+#define DCODE_MSGTYPE      0x35
 #define DCODE_SERVER_ID    0x36
 #define DCODE_PARAM_REQ    0x37
 #define DCODE_MAX_SIZE     0x39

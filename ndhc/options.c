@@ -40,8 +40,6 @@ struct dhcp_option {
     char name[6];
 };
 
-#define DCODE_PADDING 0x00
-
 // Marks an option that will be sent on the parameter request list to the
 // remote DHCP server.
 #define OPTION_REQ 16
@@ -53,7 +51,6 @@ struct dhcp_option {
 // useful part and helps for safety checks and determining what options to
 // send in the initial DHCP option request packet.
 static const struct dhcp_option options[] = {
-    // code           type                                  name
     {DCODE_SUBNET   , OPTION_IP | OPTION_LIST | OPTION_REQ, CMD_SUBNET   },
     {DCODE_TIMEZONE , OPTION_S32,                           CMD_TIMEZONE },
     {DCODE_ROUTER   , OPTION_IP | OPTION_REQ,               CMD_ROUTER   },
@@ -66,7 +63,13 @@ static const struct dhcp_option options[] = {
     {DCODE_BROADCAST, OPTION_IP | OPTION_REQ,               CMD_BROADCAST},
     {DCODE_NTPSVR   , OPTION_IP | OPTION_LIST,              CMD_NTPSVR   },
     {DCODE_WINS     , OPTION_IP | OPTION_LIST,              CMD_WINS     },
-    {0x00           , OPTION_NONE,                          "NULL"       }
+    // Past this point, these options are not useful for client configuration.
+    {DCODE_REQIP    , OPTION_IP,                            CMD_NULL     },
+    {DCODE_LEASET   , OPTION_U32,                           CMD_NULL     },
+    {DCODE_MSGTYPE  , OPTION_U8,                            CMD_NULL     },
+    {DCODE_SERVER_ID, OPTION_IP,                            CMD_NULL     },
+    {DCODE_MAX_SIZE , OPTION_U16,                           CMD_NULL     },
+    {0x00           , OPTION_NONE,                          CMD_NULL     }
 };
 
 enum option_type option_type(uint8_t code)

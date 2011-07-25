@@ -15,5 +15,6 @@
 #define CMD_BROADCAST     "bcast"
 #define CMD_NTPSVR        "ntp"
 #define CMD_WINS          "wins"
+#define CMD_NULL          "NULL"
 
 #endif

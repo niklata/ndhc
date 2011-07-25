@@ -219,7 +219,7 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
         if (!validate_serverid(cs, packet, "a DHCP ACK"))
             return;
         ssize_t optlen;
-        uint8_t *temp = get_option_data(packet, DCODE_LEASE_TIME, &optlen);
+        uint8_t *temp = get_option_data(packet, DCODE_LEASET, &optlen);
         cs->leaseStartTime = curms();
         if (!temp) {
             log_line("No lease time received, assuming 1h.");
