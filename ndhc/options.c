@@ -35,9 +35,9 @@
 #include "ifch_proto.h"
 
 struct dhcp_option {
-    char name[10];
-    enum option_type type;
     uint8_t code;
+    uint8_t type;
+    char name[10];
 };
 
 #define DCODE_PADDING 0x00
@@ -48,30 +48,26 @@ struct dhcp_option {
 // Marks an option that can be sent as a list of multiple items.
 #define OPTION_LIST 32
 
+// This structure is mostly used here and for finding the correct strings
+// to describe option commands when sending to ifchd.  The type is the more
+// useful part and helps for safety checks and determining what options to
+// send in the initial DHCP option request packet.
 static const struct dhcp_option options[] = {
-    // name[10]     type                                    code
-    {CMD_SUBNET   ,   OPTION_IP | OPTION_LIST | OPTION_REQ,   DCODE_SUBNET},
-    {CMD_TIMEZONE ,   OPTION_S32,                             DCODE_TIMEZONE},
-    {CMD_ROUTER   ,   OPTION_IP | OPTION_REQ,                 DCODE_ROUTER},
-    {CMD_TIMESVR  ,   OPTION_IP | OPTION_LIST,                DCODE_TIMESVR},
-    {CMD_DNS      ,   OPTION_IP | OPTION_LIST | OPTION_REQ,   DCODE_DNS},
-    {CMD_LPRSVR   ,   OPTION_IP | OPTION_LIST,                DCODE_LPRSVR},
-    {CMD_HOSTNAME ,   OPTION_STRING | OPTION_REQ,             DCODE_HOSTNAME},
-    {CMD_DOMAIN   ,   OPTION_STRING | OPTION_REQ,             DCODE_DOMAIN},
-    {CMD_IPTTL    ,   OPTION_U8,                              DCODE_IPTTL},
-    {CMD_MTU      ,   OPTION_U16,                             DCODE_MTU},
-    {CMD_BROADCAST,   OPTION_IP | OPTION_REQ,                 DCODE_BROADCAST},
-    {CMD_NTPSVR   ,   OPTION_IP | OPTION_LIST,                DCODE_NTPSVR},
-    {CMD_WINS     ,   OPTION_IP | OPTION_LIST,                DCODE_WINS},
-// Past this point, these options are not useful for client configuration
-// and contain DHCP protocol metadata.  Perhaps they can be removed.
-    {"requestip",   OPTION_IP,                              0x32},
-    {"lease"    ,   OPTION_U32,                             0x33},
-    {"dhcptype" ,   OPTION_U8,                              0x35},
-    {"serverid" ,   OPTION_IP,                              0x36},
-    {"message"  ,   OPTION_STRING,                          0x38},
-    {"maxsize"  ,   OPTION_U16,                             0x39},
-    {"0XX0"     ,   OPTION_NONE,                            0x00}
+    // code           type                                  name
+    {DCODE_SUBNET   , OPTION_IP | OPTION_LIST | OPTION_REQ, CMD_SUBNET   },
+    {DCODE_TIMEZONE , OPTION_S32,                           CMD_TIMEZONE },
+    {DCODE_ROUTER   , OPTION_IP | OPTION_REQ,               CMD_ROUTER   },
+    {DCODE_TIMESVR  , OPTION_IP | OPTION_LIST,              CMD_TIMESVR  },
+    {DCODE_DNS      , OPTION_IP | OPTION_LIST | OPTION_REQ, CMD_DNS      },
+    {DCODE_LPRSVR   , OPTION_IP | OPTION_LIST,              CMD_LPRSVR   },
+    {DCODE_HOSTNAME , OPTION_STRING | OPTION_REQ,           CMD_HOSTNAME },
+    {DCODE_DOMAIN   , OPTION_STRING | OPTION_REQ,           CMD_DOMAIN   },
+    {DCODE_IPTTL    , OPTION_U8,                            CMD_IPTTL    },
+    {DCODE_MTU      , OPTION_U16,                           CMD_MTU      },
+    {DCODE_BROADCAST, OPTION_IP | OPTION_REQ,               CMD_BROADCAST},
+    {DCODE_NTPSVR   , OPTION_IP | OPTION_LIST,              CMD_NTPSVR   },
+    {DCODE_WINS     , OPTION_IP | OPTION_LIST,              CMD_WINS     },
+    {0x00           , OPTION_NONE,                          "NULL"       }
 };
 
 enum option_type option_type(uint8_t code)
