@@ -40,9 +40,6 @@ struct dhcp_option {
     char name[6];
 };
 
-// Marks an option that will be sent on the parameter request list to the
-// remote DHCP server.
-#define OPTION_REQ 16
 // Marks an option that can be sent as a list of multiple items.
 #define OPTION_LIST 32
 
@@ -51,16 +48,16 @@ struct dhcp_option {
 // useful part and helps for safety checks and determining what options to
 // send in the initial DHCP option request packet.
 static const struct dhcp_option options[] = {
-    {DCODE_SUBNET   , OPTION_IP | OPTION_LIST | OPTION_REQ, CMD_SUBNET   },
+    {DCODE_SUBNET   , OPTION_IP | OPTION_LIST,              CMD_SUBNET   },
     {DCODE_TIMEZONE , OPTION_S32,                           CMD_TIMEZONE },
-    {DCODE_ROUTER   , OPTION_IP | OPTION_REQ,               CMD_ROUTER   },
-    {DCODE_DNS      , OPTION_IP | OPTION_LIST | OPTION_REQ, CMD_DNS      },
+    {DCODE_ROUTER   , OPTION_IP,                            CMD_ROUTER   },
+    {DCODE_DNS      , OPTION_IP | OPTION_LIST,              CMD_DNS      },
     {DCODE_LPRSVR   , OPTION_IP | OPTION_LIST,              CMD_LPRSVR   },
-    {DCODE_HOSTNAME , OPTION_STRING | OPTION_REQ,           CMD_HOSTNAME },
-    {DCODE_DOMAIN   , OPTION_STRING | OPTION_REQ,           CMD_DOMAIN   },
+    {DCODE_HOSTNAME , OPTION_STRING,                        CMD_HOSTNAME },
+    {DCODE_DOMAIN   , OPTION_STRING,                        CMD_DOMAIN   },
     {DCODE_IPTTL    , OPTION_U8,                            CMD_IPTTL    },
     {DCODE_MTU      , OPTION_U16,                           CMD_MTU      },
-    {DCODE_BROADCAST, OPTION_IP | OPTION_REQ,               CMD_BROADCAST},
+    {DCODE_BROADCAST, OPTION_IP,                            CMD_BROADCAST},
     {DCODE_NTPSVR   , OPTION_IP | OPTION_LIST,              CMD_NTPSVR   },
     {DCODE_WINS     , OPTION_IP | OPTION_LIST,              CMD_WINS     },
     {0x00           , OPTION_NONE,                          CMD_NULL     }
@@ -307,13 +304,12 @@ static size_t add_u32_option(struct dhcpmsg *packet, uint8_t code,
 // Add a paramater request list for stubborn DHCP servers
 size_t add_option_request_list(struct dhcpmsg *packet)
 {
-    uint8_t reqdata[256];
-    size_t j = 0;
-    for (int i = 0; options[i].code; i++) {
-        if (options[i].type & OPTION_REQ)
-            reqdata[j++] = options[i].code;
-    }
-    return add_option_string(packet, DCODE_PARAM_REQ, (char *)reqdata, j);
+    static const uint8_t reqdata[] = {
+        DCODE_SUBNET, DCODE_ROUTER, DCODE_DNS, DCODE_HOSTNAME, DCODE_DOMAIN,
+        DCODE_BROADCAST,
+    };
+    return add_option_string(packet, DCODE_PARAM_REQ,
+                             (char *)reqdata, sizeof reqdata);
 }
 
 void add_option_msgtype(struct dhcpmsg *packet, uint8_t type)
