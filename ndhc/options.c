@@ -372,3 +372,49 @@ void add_option_hostname(struct dhcpmsg *packet)
         add_option_string(packet, DCODE_HOSTNAME, client_config.hostname, len);
 }
 
+uint32_t get_option_router(struct dhcpmsg *packet)
+{
+    ssize_t ol;
+    uint32_t ret = 0;
+    uint8_t *od = get_option_data(packet, DCODE_ROUTER, &ol);
+    if (ol == sizeof ret)
+        memcpy(&ret, od, sizeof ret);
+    return ret;
+}
+
+uint8_t get_option_msgtype(struct dhcpmsg *packet)
+{
+    ssize_t ol;
+    uint8_t ret = 0;
+    uint8_t *t = get_option_data(packet, DCODE_MSGTYPE, &ol);
+    if (t)
+        ret = *t;
+    return ret;
+}
+
+uint32_t get_option_serverid(struct dhcpmsg *packet, int *found)
+{
+    ssize_t ol;
+    uint8_t *t;
+    uint32_t ret = 0;
+    *found = 0;
+    t = get_option_data(packet, DCODE_SERVER_ID, &ol);
+    if (ol == sizeof ret) {
+        *found = 1;
+        memcpy(&ret, t, sizeof ret);
+    }
+    return ret;
+}
+
+uint32_t get_option_leasetime(struct dhcpmsg *packet)
+{
+    ssize_t ol;
+    uint8_t *t;
+    uint32_t ret = 0;
+    t = get_option_data(packet, DCODE_LEASET, &ol);
+    if (ol == sizeof ret) {
+        memcpy(&ret, t, sizeof ret);
+        ret = ntohl(ret);
+    }
+    return ret;
+}

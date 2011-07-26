@@ -192,17 +192,15 @@ static void released_timeout(struct client_state_t *cs, long long nowts)
 static int validate_serverid(struct client_state_t *cs, struct dhcpmsg *packet,
                              char *typemsg)
 {
-    uint8_t *temp = NULL;
-    ssize_t optlen;
-    if (!(temp = get_option_data(packet, DCODE_SERVER_ID, &optlen))) {
+    int found;
+    uint32_t sid = get_option_serverid(packet, &found);
+    if (!found) {
         log_line("Received %s with no server id.  Ignoring it.");
         return 0;
     }
-    if (memcmp(&cs->serverAddr, temp, 4)) {
+    if (cs->serverAddr != sid) {
         char svrbuf[INET_ADDRSTRLEN];
-        uint32_t iptmp;
-        memcpy(&iptmp, temp, 4);
-        inet_ntop(AF_INET, &(struct in_addr){.s_addr=iptmp},
+        inet_ntop(AF_INET, &(struct in_addr){.s_addr=sid},
                   svrbuf, sizeof svrbuf);
         log_line("Received %s with an unexpected server id: %s.  Ignoring it.",
                  typemsg, svrbuf);
@@ -218,15 +216,12 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
     if (msgtype == DHCPACK) {
         if (!validate_serverid(cs, packet, "a DHCP ACK"))
             return;
-        ssize_t optlen;
-        uint8_t *temp = get_option_data(packet, DCODE_LEASET, &optlen);
+        cs->lease = get_option_leasetime(packet);
         cs->leaseStartTime = curms();
-        if (!temp) {
+        if (!cs->lease) {
             log_line("No lease time received, assuming 1h.");
             cs->lease = 60 * 60;
         } else {
-            memcpy(&cs->lease, temp, 4);
-            cs->lease = ntohl(cs->lease);
             if (cs->lease < 60) {
                 log_warning("Server sent lease of <1m.  Forcing lease to 1m.");
                 cs->lease = 60;
@@ -269,12 +264,12 @@ static void selecting_packet(struct client_state_t *cs, struct dhcpmsg *packet,
                              uint8_t msgtype)
 {
     if (msgtype == DHCPOFFER) {
-        uint8_t *temp = NULL;
-        ssize_t optlen;
-        if ((temp = get_option_data(packet, DCODE_SERVER_ID, &optlen))) {
+        int found;
+        uint32_t sid = get_option_serverid(packet, &found);
+        if (found) {
             char clibuf[INET_ADDRSTRLEN];
             char svrbuf[INET_ADDRSTRLEN];
-            memcpy(&cs->serverAddr, temp, 4);
+            cs->serverAddr = sid;
             cs->xid = packet->xid;
             cs->clientAddr = packet->yiaddr;
             cs->dhcpState = DS_REQUESTING;

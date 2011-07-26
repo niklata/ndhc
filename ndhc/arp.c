@@ -486,12 +486,7 @@ void arp_success(struct client_state_t *cs)
     if (cs->arpPrevState == DS_RENEWING || cs->arpPrevState == DS_REBINDING) {
         arp_switch_state(cs, AS_DEFENSE);
     } else {
-        ssize_t ol;
-        uint8_t *od = get_option_data(&arp_dhcp_packet, DCODE_ROUTER, &ol);
-        if (ol == 4) {
-            memcpy(&cs->routerAddr, od, 4);
-        } else
-            cs->routerAddr = 0;
+        cs->routerAddr = get_option_router(&arp_dhcp_packet);
         arp_get_gw_hwaddr(cs);
     }
     set_listen_none(cs);

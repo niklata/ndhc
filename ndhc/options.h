@@ -82,4 +82,9 @@ void add_option_vendor(struct dhcpmsg *packet);
 void add_option_clientid(struct dhcpmsg *packet);
 void add_option_hostname(struct dhcpmsg *packet);
 
+uint32_t get_option_router(struct dhcpmsg *packet);
+uint8_t get_option_msgtype(struct dhcpmsg *packet);
+uint32_t get_option_serverid(struct dhcpmsg *packet, int *found);
+uint32_t get_option_leasetime(struct dhcpmsg *packet);
+
 #endif

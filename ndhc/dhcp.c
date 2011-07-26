@@ -503,13 +503,11 @@ static int validate_dhcp_packet(struct client_state_t *cs, int len,
                  packet->xid, cs->xid);
         return 0;
     }
-    ssize_t optlen;
-    uint8_t *temp = get_option_data(packet, DCODE_MSGTYPE, &optlen);
-    if (!temp) {
+    *msgtype = get_option_msgtype(packet);
+    if (!*msgtype) {
         log_line("Packet does not specify a DHCP message type.  Ignoring.");
         return 0;
     }
-    *msgtype = *temp;
     return 1;
 }
 
