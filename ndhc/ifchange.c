@@ -52,95 +52,112 @@
 static int cfg_deconfig; // Set if the interface has already been deconfigured.
 static struct dhcpmsg cfg_packet; // Copy of the current configuration packet.
 
-// Fill buf with the ifchd command text of option 'option'.
-// Returns 0 if successful, -1 if nothing was filled in.
-static int ifchd_cmd(char *buf, size_t buflen, uint8_t *option, ssize_t optlen,
-                     uint8_t code)
+static int ifchd_cmd_u8(char *buf, size_t buflen, char *optname,
+                        uint8_t *optdata, ssize_t optlen)
+{
+    if (!optdata || optlen < 1)
+        return -1;
+    return snprintf(buf, buflen, "%s:%c:", optname, *optdata);
+}
+
+static int ifchd_cmd_u16(char *buf, size_t buflen, char *optname,
+                        uint8_t *optdata, ssize_t optlen)
+{
+    if (!optdata || optlen < 2)
+        return -1;
+    uint16_t v;
+    memcpy(&v, optdata, 2);
+    v = ntohs(v);
+    return snprintf(buf, buflen, "%s:%hu:", optname, v);
+}
+
+static int ifchd_cmd_s32(char *buf, size_t buflen, char *optname,
+                        uint8_t *optdata, ssize_t optlen)
+{
+    if (!optdata || optlen < 4)
+        return -1;
+    int32_t v;
+    memcpy(&v, optdata, 4);
+    v = ntohl(v);
+    return snprintf(buf, buflen, "%s:%d:", optname, v);
+}
+
+static int ifchd_cmd_ip(char *buf, size_t buflen, char *optname,
+                        uint8_t *optdata, ssize_t optlen)
+{
+    char ipbuf[INET_ADDRSTRLEN];
+    if (!optdata || optlen < 4)
+        return -1;
+    inet_ntop(AF_INET, optdata, ipbuf, sizeof ipbuf);
+    return snprintf(buf, buflen, "%s:%s:", optname, ipbuf);
+}
+
+static int ifchd_cmd_iplist(char *buf, size_t buflen, char *optname,
+                            uint8_t *optdata, ssize_t optlen)
+{
+    char ipbuf[INET_ADDRSTRLEN];
+    char *obuf = buf;
+    if (!optdata)
+        return -1;
+    ssize_t wc = ifchd_cmd_ip(buf, buflen, optname, optdata, optlen);
+    if (wc <= 0)
+        return wc;
+    optlen -= 4;
+    optdata += 4;
+    buf += wc;
+    while (optlen >= 4) {
+        inet_ntop(AF_INET, optdata, ipbuf, sizeof ipbuf);
+        if (buflen < strlen(ipbuf) + (buf - obuf) + 2)
+            break;
+        buf += snprintf(buf, buflen - (buf - obuf), "%s:", ipbuf);
+        optlen -= 4;
+        optdata += 4;
+    }
+    return buf - obuf;
+}
+
+static int ifchd_cmd_str(char *buf, size_t buflen, char *optname,
+                         uint8_t *optdata, ssize_t optlen)
 {
     char *obuf = buf;
-    uint8_t *ooption = option;
-    const char *optname = option_name(code);
-    enum option_type type = option_type(code);
-    ssize_t typelen = option_length(code);
-
-    if (!option || type == OPTION_NONE)
-        return -1;
-
-    if (type == OPTION_STRING) {
-        buf += snprintf(buf, buflen, "%s:", optname);
-        if (buflen < optlen + 1)
-            return -1;
-        memcpy(buf, option, optlen);
-        buf[optlen] = ':';
-        return 0;
-    }
-
-    // Length and type checking.
-    if (optlen != typelen) {
-        if (option_valid_list(code)) {
-            if ((optlen % typelen)) {
-                log_warning("Bad data received - option list size mismatch: code=0x%02x proplen=0x%02x optlen=0x%02x",
-                            code, typelen, optlen);
-                return -1;
-            }
-        } else {
-            log_warning("Bad data received - option size mismatch: code=0x%02x proplen=0x%02x optlen=0x%02x",
-                        code, typelen, optlen);
-            return -1;
-        }
-    }
-
     buf += snprintf(buf, buflen, "%s:", optname);
-
-    for(;;) {
-        switch (type) {
-            case OPTION_IP: {
-                if (inet_ntop(AF_INET, option, buf, buflen - (buf - obuf) - 1))
-                    buf += strlen(buf);
-                break;
-            }
-            case OPTION_U8:
-                buf += snprintf(buf, buflen - (buf - obuf) - 1, "%u ", *option);
-                break;
-            case OPTION_U16: {
-                uint16_t val_u16;
-                memcpy(&val_u16, option, 2);
-                buf += snprintf(buf, buflen - (buf - obuf) - 1, "%u ",
-                                ntohs(val_u16));
-                break;
-            }
-            case OPTION_S16: {
-                int16_t val_s16;
-                memcpy(&val_s16, option, 2);
-                buf += snprintf(buf, buflen - (buf - obuf) - 1, "%d ",
-                                ntohs(val_s16));
-                break;
-            }
-            case OPTION_U32: {
-                uint32_t val_u32;
-                memcpy(&val_u32, option, 4);
-                buf += snprintf(buf, buflen - (buf - obuf) - 1, "%u ",
-                                ntohl(val_u32));
-                break;
-            }
-            case OPTION_S32: {
-                int32_t val_s32;
-                memcpy(&val_s32, option, 4);
-                buf += snprintf(buf, buflen - (buf - obuf) - 1, "%d ",
-                                ntohl(val_s32));
-                break;
-            }
-            default:
-                return 0;
-        }
-        option += typelen;
-        if ((option - ooption) >= optlen)
-            break;
-        *(buf++) = ':';
-    }
-    *(buf++) = ':';
-    return 0;
+    if (buflen < optlen + 1)
+        return -1;
+    memcpy(buf, optdata, optlen);
+    buf[optlen] = ':';
+    buf[optlen+1] = '\0';
+    return (buf - obuf) + optlen;
 }
+
+#define IFCHD_SW_CMD(x, y) case DCODE_##x: \
+                           optname = CMD_##x; \
+                           dofn = ifchd_cmd_##y; \
+                           break
+static int ifchd_cmd(char *buf, size_t buflen, uint8_t *optdata,
+                     ssize_t optlen, uint8_t code)
+{
+    int (*dofn)(char *, size_t, char *, uint8_t *, ssize_t);
+    char *optname;
+    switch (code) {
+        IFCHD_SW_CMD(SUBNET, iplist);
+        IFCHD_SW_CMD(DNS, iplist);
+        IFCHD_SW_CMD(LPRSVR, iplist);
+        IFCHD_SW_CMD(NTPSVR, iplist);
+        IFCHD_SW_CMD(WINS, iplist);
+        IFCHD_SW_CMD(ROUTER, ip);
+        IFCHD_SW_CMD(BROADCAST, ip);
+        IFCHD_SW_CMD(TIMEZONE, s32);
+        IFCHD_SW_CMD(HOSTNAME, str);
+        IFCHD_SW_CMD(DOMAIN, str);
+        IFCHD_SW_CMD(IPTTL, u8);
+        IFCHD_SW_CMD(MTU, u16);
+    default:
+        log_line("Invalid option code (%c) for ifchd cmd.", code);
+        return -1;
+    }
+    return dofn(buf, buflen, optname, optdata, optlen);
+}
+#undef IFCHD_SW_CMD
 
 static int open_ifch(void) {
     int sockfd, ret;
