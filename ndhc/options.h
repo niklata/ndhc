@@ -74,9 +74,10 @@ uint8_t *get_option_data(struct dhcpmsg *packet, int code, ssize_t *optlen);
 ssize_t get_end_option_idx(struct dhcpmsg *packet);
 size_t add_option_string(struct dhcpmsg *packet, uint8_t code, char *str,
                          size_t slen);
-size_t add_u8_option(struct dhcpmsg *packet, uint8_t code, uint8_t data);
-size_t add_u16_option(struct dhcpmsg *packet, uint8_t code, uint16_t data);
-size_t add_u32_option(struct dhcpmsg *packet, uint8_t code, uint32_t data);
 size_t add_option_request_list(struct dhcpmsg *packet);
+void add_option_msgtype(struct dhcpmsg *packet, uint8_t type);
+void add_option_reqip(struct dhcpmsg *packet, uint32_t ip);
+void add_option_maxsize(struct dhcpmsg *packet);
+void add_option_serverid(struct dhcpmsg *packet, uint32_t sid);
 
 #endif

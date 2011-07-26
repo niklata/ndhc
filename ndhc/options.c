@@ -258,7 +258,7 @@ static ssize_t add_option_check(struct dhcpmsg *packet, uint8_t code,
     return end;
 }
 
-size_t add_u8_option(struct dhcpmsg *packet, uint8_t code, uint8_t data)
+static size_t add_u8_option(struct dhcpmsg *packet, uint8_t code, uint8_t data)
 {
     ssize_t end = add_option_check(packet, code, 1);
     if (end < 0)
@@ -271,7 +271,8 @@ size_t add_u8_option(struct dhcpmsg *packet, uint8_t code, uint8_t data)
 }
 
 // Data should be in network byte order.
-size_t add_u16_option(struct dhcpmsg *packet, uint8_t code, uint16_t data)
+static size_t add_u16_option(struct dhcpmsg *packet, uint8_t code,
+                             uint16_t data)
 {
     ssize_t end = add_option_check(packet, code, 2);
     if (end < 0)
@@ -286,7 +287,8 @@ size_t add_u16_option(struct dhcpmsg *packet, uint8_t code, uint16_t data)
 }
 
 // Data should be in network byte order.
-size_t add_u32_option(struct dhcpmsg *packet, uint8_t code, uint32_t data)
+static size_t add_u32_option(struct dhcpmsg *packet, uint8_t code,
+                             uint32_t data)
 {
     ssize_t end = add_option_check(packet, code, 4);
     if (end < 0)
@@ -312,5 +314,26 @@ size_t add_option_request_list(struct dhcpmsg *packet)
             reqdata[j++] = options[i].code;
     }
     return add_option_string(packet, DCODE_PARAM_REQ, (char *)reqdata, j);
+}
+
+void add_option_msgtype(struct dhcpmsg *packet, uint8_t type)
+{
+    add_u8_option(packet, DCODE_MSGTYPE, type);
+}
+
+void add_option_reqip(struct dhcpmsg *packet, uint32_t ip)
+{
+    add_u32_option(packet, DCODE_REQIP, ip);
+}
+
+void add_option_maxsize(struct dhcpmsg *packet)
+{
+    add_u16_option(packet, DCODE_MAX_SIZE,
+                   htons(sizeof(struct ip_udp_dhcp_packet)));
+}
+
+void add_option_serverid(struct dhcpmsg *packet, uint32_t sid)
+{
+    add_u32_option(packet, DCODE_SERVER_ID, sid);
 }
 
