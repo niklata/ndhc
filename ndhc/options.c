@@ -217,8 +217,8 @@ ssize_t get_end_option_idx(struct dhcpmsg *packet)
 
 // add an option string to the options (an option string contains an option
 // code, length, then data)
-size_t add_option_string(struct dhcpmsg *packet, uint8_t code, char *str,
-                         size_t slen)
+static size_t add_option_string(struct dhcpmsg *packet, uint8_t code,
+                                char *str, size_t slen)
 {
     size_t len = sizeof_option(code, slen);
     if (slen > 255 || len != slen + 2) {
@@ -335,5 +335,40 @@ void add_option_maxsize(struct dhcpmsg *packet)
 void add_option_serverid(struct dhcpmsg *packet, uint32_t sid)
 {
     add_u32_option(packet, DCODE_SERVER_ID, sid);
+}
+
+void add_option_vendor(struct dhcpmsg *packet)
+{
+    size_t len = strlen(client_config.vendor);
+    if (len)
+        add_option_string(packet, DCODE_VENDOR, client_config.vendor, len);
+    else
+        add_option_string(packet, DCODE_VENDOR, "ndhc", sizeof "ndhc" - 1);
+}
+
+void add_option_clientid(struct dhcpmsg *packet)
+{
+    char buf[sizeof client_config.clientid + 1];
+    size_t len = 6;
+    buf[0] = 1; // Ethernet MAC
+    if (!client_config.clientid_mac) {
+        size_t slen = strlen(client_config.clientid);
+        if (!slen) {
+            memcpy(buf+1, client_config.arp, len);
+        } else {
+            buf[0] = 0; // Not a hardware address
+            len = slen;
+            memcpy(buf+1, client_config.clientid, slen);
+        }
+    } else
+        memcpy(buf+1, client_config.clientid, len);
+    add_option_string(packet, DCODE_CLIENT_ID, buf, len+1);
+}
+
+void add_option_hostname(struct dhcpmsg *packet)
+{
+    size_t len = strlen(client_config.hostname);
+    if (len)
+        add_option_string(packet, DCODE_HOSTNAME, client_config.hostname, len);
 }
 

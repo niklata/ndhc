@@ -146,7 +146,7 @@ static int send_dhcp_cooked(struct client_state_t *cs, struct dhcpmsg *payload)
 
     ssize_t endloc = get_end_option_idx(payload);
     if (endloc < 0) {
-        log_error("send_dhcp_cooked: Attempt to send packet with no DCODE_END.");
+        log_error("send_dhcp_cooked: No end marker.  Not sending.");
         goto out_fd;
     }
     size_t payload_len =
@@ -407,7 +407,7 @@ static int send_dhcp_raw(struct dhcpmsg *payload)
     // and drop packets that are longer than 562 bytes.
     ssize_t endloc = get_end_option_idx(payload);
     if (endloc < 0) {
-        log_error("send_dhcp_raw: Attempt to send packet with no DCODE_END.");
+        log_error("send_dhcp_raw: No end marker.  Not sending.");
         close(fd);
         return ret;
     }
@@ -536,41 +536,6 @@ void handle_packet(struct client_state_t *cs)
     if (!validate_dhcp_packet(cs, len, &packet, &msgtype))
         return;
     packet_action(cs, &packet, msgtype);
-}
-
-static void add_option_vendor(struct dhcpmsg *packet)
-{
-    size_t len = strlen(client_config.vendor);
-    if (len)
-        add_option_string(packet, DCODE_VENDOR, client_config.vendor, len);
-    else
-        add_option_string(packet, DCODE_VENDOR, "ndhc", sizeof "ndhc" - 1);
-}
-
-static void add_option_clientid(struct dhcpmsg *packet)
-{
-    char buf[sizeof client_config.clientid + 1];
-    size_t len = 6;
-    buf[0] = 1; // Ethernet MAC
-    if (!client_config.clientid_mac) {
-        size_t slen = strlen(client_config.clientid);
-        if (!slen) {
-            memcpy(buf+1, client_config.arp, len);
-        } else {
-            buf[0] = 0; // Not a hardware address
-            len = slen;
-            memcpy(buf+1, client_config.clientid, slen);
-        }
-    } else
-        memcpy(buf+1, client_config.clientid, len);
-    add_option_string(packet, DCODE_CLIENT_ID, buf, len+1);
-}
-
-static void add_option_hostname(struct dhcpmsg *packet)
-{
-    size_t len = strlen(client_config.hostname);
-    if (len)
-        add_option_string(packet, DCODE_HOSTNAME, client_config.hostname, len);
 }
 
 // Initialize a DHCP client packet that will be sent to a server
