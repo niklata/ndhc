@@ -129,19 +129,20 @@ ssize_t get_end_option_idx(struct dhcpmsg *packet)
     return -1;
 }
 
-static size_t sizeof_option(uint8_t code, size_t datalen)
+static inline size_t sizeof_option_str(uint8_t code, size_t datalen)
 {
     if (code == DCODE_PADDING || code == DCODE_END)
         return 1;
     return 2 + datalen;
 }
 
-// add an option string to the options (an option string contains an option
-// code, length, then data)
+// Add a raw data string to the options.  It will take a binary string suitable
+// for use with eg memcpy() and will append it to the options[] field of
+// a dhcp packet with the requested option code and proper length specifier.
 static size_t add_option_string(struct dhcpmsg *packet, uint8_t code,
                                 char *str, size_t slen)
 {
-    size_t len = sizeof_option(code, slen);
+    size_t len = sizeof_option_str(code, slen);
     if (slen > 255 || len != slen + 2) {
         log_warning("add_option_string: Length checks failed.");
         return 0;
@@ -225,7 +226,7 @@ static size_t add_u32_option(struct dhcpmsg *packet, uint8_t code,
     return 6;
 }
 
-// Add a paramater request list for stubborn DHCP servers
+// Add a parameter request list for stubborn DHCP servers
 size_t add_option_request_list(struct dhcpmsg *packet)
 {
     static const uint8_t reqdata[] = {
