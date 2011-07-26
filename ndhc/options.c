@@ -34,89 +34,6 @@
 #include "log.h"
 #include "ifch_proto.h"
 
-struct dhcp_option {
-    uint8_t code;
-    uint8_t type;
-    char name[6];
-};
-
-// Marks an option that can be sent as a list of multiple items.
-#define OPTION_LIST 32
-
-// This structure is mostly used here and for finding the correct strings
-// to describe option commands when sending to ifchd.  The type is the more
-// useful part and helps for safety checks and determining what options to
-// send in the initial DHCP option request packet.
-static const struct dhcp_option options[] = {
-    {DCODE_SUBNET   , OPTION_IP | OPTION_LIST,              CMD_SUBNET   },
-    {DCODE_TIMEZONE , OPTION_S32,                           CMD_TIMEZONE },
-    {DCODE_ROUTER   , OPTION_IP,                            CMD_ROUTER   },
-    {DCODE_DNS      , OPTION_IP | OPTION_LIST,              CMD_DNS      },
-    {DCODE_LPRSVR   , OPTION_IP | OPTION_LIST,              CMD_LPRSVR   },
-    {DCODE_HOSTNAME , OPTION_STRING,                        CMD_HOSTNAME },
-    {DCODE_DOMAIN   , OPTION_STRING,                        CMD_DOMAIN   },
-    {DCODE_IPTTL    , OPTION_U8,                            CMD_IPTTL    },
-    {DCODE_MTU      , OPTION_U16,                           CMD_MTU      },
-    {DCODE_BROADCAST, OPTION_IP,                            CMD_BROADCAST},
-    {DCODE_NTPSVR   , OPTION_IP | OPTION_LIST,              CMD_NTPSVR   },
-    {DCODE_WINS     , OPTION_IP | OPTION_LIST,              CMD_WINS     },
-    {0x00           , OPTION_NONE,                          CMD_NULL     }
-};
-
-enum option_type option_type(uint8_t code)
-{
-    for (int i = 0; options[i].code; ++i)
-        if (options[i].code == code)
-            return options[i].type & 0xf;
-    return OPTION_NONE;
-}
-
-static const char bad_option_name[] = "BAD";
-const char *option_name(uint8_t code)
-{
-    for (int i = 0; options[i].code; ++i)
-        if (options[i].code == code)
-            return options[i].name;
-    return bad_option_name;
-}
-
-static uint8_t option_type_length(enum option_type type)
-{
-    switch (type) {
-        case OPTION_IP: return 4;
-        case OPTION_U8: return 1;
-        case OPTION_U16: return 2;
-        case OPTION_S16: return 2;
-        case OPTION_U32: return 4;
-        case OPTION_S32: return 4;
-        default: return 0;
-    }
-}
-
-uint8_t option_length(uint8_t code)
-{
-    for (int i = 0; options[i].code; i++)
-        if (options[i].code == code)
-            return option_type_length(options[i].type & 0xf);
-    log_warning("option_length: Unknown length for code 0x%02x.", code);
-    return 0;
-}
-
-int option_valid_list(uint8_t code)
-{
-    for (int i = 0; options[i].code; ++i)
-        if ((options[i].code == code) && (options[i].type & OPTION_LIST))
-            return 1;
-    return 0;
-}
-
-static size_t sizeof_option(uint8_t code, size_t datalen)
-{
-    if (code == DCODE_PADDING || code == DCODE_END)
-        return 1;
-    return 2 + datalen;
-}
-
 // Worker function for get_option_data().  Optlen will be set to the length
 // of the option data.
 static uint8_t *do_get_option_data(uint8_t *buf, ssize_t buflen, int code,
@@ -210,6 +127,13 @@ ssize_t get_end_option_idx(struct dhcpmsg *packet)
     }
     log_warning("get_end_option_idx: Did not find DCODE_END marker.");
     return -1;
+}
+
+static size_t sizeof_option(uint8_t code, size_t datalen)
+{
+    if (code == DCODE_PADDING || code == DCODE_END)
+        return 1;
+    return 2 + datalen;
 }
 
 // add an option string to the options (an option string contains an option

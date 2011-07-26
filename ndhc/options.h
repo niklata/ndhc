@@ -54,26 +54,10 @@
 #define DCODE_CLIENT_ID    0x3d
 #define DCODE_END          0xff
 
-enum option_type {
-    OPTION_NONE = 0,
-    OPTION_IP = 1,
-    OPTION_STRING = 2,
-    OPTION_U8 = 3,
-    OPTION_U16 = 4,
-    OPTION_S16 = 5,
-    OPTION_U32 = 6,
-    OPTION_S32 = 7
-};
-
-const char *option_name(uint8_t code);
-enum option_type option_type(uint8_t code);
-uint8_t option_length(uint8_t code);
-int option_valid_list(uint8_t code);
-
 uint8_t *get_option_data(struct dhcpmsg *packet, int code, ssize_t *optlen);
 ssize_t get_end_option_idx(struct dhcpmsg *packet);
-size_t add_option_request_list(struct dhcpmsg *packet);
 
+size_t add_option_request_list(struct dhcpmsg *packet);
 void add_option_msgtype(struct dhcpmsg *packet, uint8_t type);
 void add_option_reqip(struct dhcpmsg *packet, uint32_t ip);
 void add_option_maxsize(struct dhcpmsg *packet);
