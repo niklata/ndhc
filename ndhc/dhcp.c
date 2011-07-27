@@ -144,6 +144,7 @@ static int send_dhcp_cooked(struct client_state_t *cs, struct dhcpmsg *payload)
         goto out_fd;
     }
 
+    // Send packets that are as short as possible.
     ssize_t endloc = get_end_option_idx(payload);
     if (endloc < 0) {
         log_error("send_dhcp_cooked: No end marker.  Not sending.");
@@ -403,8 +404,7 @@ static int send_dhcp_raw(struct dhcpmsg *payload)
     if (fd == -1)
         return ret;
 
-    // Send packets that are as short as possible, since some servers are buggy
-    // and drop packets that are longer than 562 bytes.
+    // Send packets that are as short as possible.
     ssize_t endloc = get_end_option_idx(payload);
     if (endloc < 0) {
         log_error("send_dhcp_raw: No end marker.  Not sending.");
