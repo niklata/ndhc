@@ -31,20 +31,19 @@ the ability to service multiple client requests simultaneously; a single ifchd
 is sufficient for multiple ndhc clients.  Only exotic setups should require
 this functionality, but it does exist.
 
-Note that ndhc does not support the entire DHCP client protocol.  Notably, DHCP
-options concatenation and IPv4 Link Local Addressing as defined in RFC3927 are
-not and will not be supported.
-
-On the other hand, ndhc fully implements RFC5227's address conflict detection
-and defense.  Great care is taken to ensure that address conflicts will be
-detected, and ndhc also has extensive support for address defense.  Care is
-taken to prevent unintentional ARP flooding under any circumstance.
+ndhc fully implements RFC5227's address conflict detection and defense.  Great
+care is taken to ensure that address conflicts will be detected, and ndhc also
+has extensive support for address defense.  Care is taken to prevent
+unintentional ARP flooding under any circumstance.
 
 ndhc also monitors hardware link status via netlink events and reacts
 appropriately when interface carrier status changes or an interface is
 explicitly deconfigured.  This functionality can be useful on wired networks
 when transient carrier downtimes occur (or cables are changed), but it is
 particularly useful on wireless networks.
+
+RFC3927's IPv4 Link Local Addressing is not supported.  I have found v4 LLAs
+to be more of an annoyance than a help.  v6 LLAs work much better in practice.
 
 FEATURES
 --------
@@ -307,10 +306,6 @@ Send a packet that has an options field set to:
 Then in the file and sname fields:
 'DHCP-OPTION-OVERLOAD:3'
 I suspect some bad dhcp programs will hang given this input.
-
-Options concatenation is a minefield of poor specification.  There's a
-follow-up RFC to make proper behavior somewhat more defined, but it's still
-overly complex.
 
 DHCP explicitly specifies that there is no minimum lease time and also
 specifies that the minimum default rebinding time is leasetime*0.875 and
