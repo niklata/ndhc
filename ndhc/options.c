@@ -34,84 +34,83 @@
 #include "log.h"
 #include "ifch_proto.h"
 
-// Worker function for get_option_data().  Optlen will be set to the length
-// of the option data.
-static uint8_t *do_get_option_data(uint8_t *buf, ssize_t buflen, int code,
-                                   char *overload, ssize_t *optlen)
+static int do_overload_value(uint8_t *buf, ssize_t blen, int overload)
 {
-    // option bytes: [code][len]([data1][data2]..[dataLEN])
-    *overload = 0;
-    while (buflen > 0) {
-        // Advance over padding.
-        if (buf[0] == DCODE_PADDING) {
-            buflen--;
-            buf++;
+    ssize_t i = 0;
+    while (i < blen) {
+        if (buf[i] == DCODE_PADDING) {
+            ++i;
             continue;
         }
-
-        // We hit the end.
-        if (buf[0] == DCODE_END) {
-            *optlen = 0;
-            return NULL;
+        if (buf[i] == DCODE_END)
+            break;
+        if (i >= blen - 2)
+            break;
+        if (buf[i] == DCODE_OVERLOAD) {
+            if (buf[i+1] == 1) {
+                overload |= buf[i+2];
+                i += 3;
+                continue;
+            }
         }
-
-        buflen -= buf[1] + 2;
-        if (buflen < 0) {
-            log_warning("Bad option data: length would exceed options field size.");
-            *optlen = 0;
-            return NULL;
-        }
-
-        if (buf[0] == code) {
-            *optlen = buf[1];
-            return buf + 2;
-        }
-
-        if (buf[0] == DCODE_OVERLOAD) {
-            if (buf[1] == 1)
-                *overload |= buf[2];
-            // fall through
-        }
-        buf += buf[1] + 2;
+        i += buf[i+1] + 2;
     }
-    // End of options field was unmarked: no option data
-    *optlen = 0;
-    return NULL;
+    return overload;
 }
 
-// XXX: Never concatenates options.  If this is added, refer to RFC3396.
-// Get an option with bounds checking (warning, result is not aligned)
-// optlen will be equal to the length of the option data.
-uint8_t *get_option_data(struct dhcpmsg *packet, int code, ssize_t *optlen)
+static int overload_value(struct dhcpmsg *packet)
 {
-    uint8_t *option, *buf;
-    ssize_t buflen;
-    char overload, parsed_ff = 0;
-
-    buf = packet->options;
-    buflen = sizeof packet->options;
-
-    option = do_get_option_data(buf, buflen, code, &overload, optlen);
-    if (option)
-        return option;
-
-    if (overload & 1) {
-        parsed_ff = 1;
-        option = do_get_option_data(packet->file, sizeof packet->file,
-                                    code, &overload, optlen);
-        if (option)
-            return option;
+    int ol = do_overload_value(packet->options, sizeof packet->options, 0);
+    if (ol & 1 && ol & 2)
+        return ol;
+    if (ol & 1) {
+        ol |= do_overload_value(packet->file, sizeof packet->file, ol);
+        return ol;
     }
-    if (overload & 2) {
-        option = do_get_option_data(packet->sname, sizeof packet->sname,
-                                    code, &overload, optlen);
-        if (option)
-            return option;
-        if (!parsed_ff && overload & 1)
-            option = do_get_option_data(packet->file, sizeof packet->file,
-                                        code, &overload, optlen);
+    if (ol & 2) {
+        ol |= do_overload_value(packet->sname, sizeof packet->sname, ol);
+        return ol;
     }
-    return option;
+    return ol; // ol == 0
+}
+
+static ssize_t do_get_dhcp_opt(uint8_t *sbuf, ssize_t slen, uint8_t code,
+                               uint8_t *dbuf, ssize_t dlen, ssize_t didx)
+{
+    ssize_t i = 0;
+    while (i < slen) {
+        if (sbuf[i] == DCODE_PADDING) {
+            ++i;
+            continue;
+        }
+        if (sbuf[i] == DCODE_END)
+            break;
+        if (i >= slen - 2)
+            break;
+        if (sbuf[i] == code) {
+            if (dlen - didx < sbuf[i+1])
+                return didx;
+            memcpy(dbuf+didx, sbuf+i+2, sbuf[i+1]);
+            didx += sbuf[i+1];
+        }
+        i += sbuf[i+1] + 2;
+    }
+    return didx;
+}
+
+ssize_t get_dhcp_opt(struct dhcpmsg *packet, uint8_t code, uint8_t *dbuf,
+                     ssize_t dlen)
+{
+    int ol = overload_value(packet);
+    ssize_t didx = do_get_dhcp_opt(packet->options, sizeof packet->options,
+                                   code, dbuf, dlen, 0);
+    if (ol & 1)
+        didx += do_get_dhcp_opt(packet->file, sizeof packet->file, code,
+                                dbuf, dlen, didx);
+    if (ol & 2)
+        didx += do_get_dhcp_opt(packet->sname, sizeof packet->sname, code,
+                                dbuf, dlen, didx);
+    return didx;
 }
 
 // return the position of the 'end' option
@@ -297,9 +296,10 @@ uint32_t get_option_router(struct dhcpmsg *packet)
 {
     ssize_t ol;
     uint32_t ret = 0;
-    uint8_t *od = get_option_data(packet, DCODE_ROUTER, &ol);
+    uint8_t buf[MAX_DOPT_SIZE];
+    ol = get_dhcp_opt(packet, DCODE_ROUTER, buf, sizeof buf);
     if (ol == sizeof ret)
-        memcpy(&ret, od, sizeof ret);
+        memcpy(&ret, buf, sizeof ret);
     return ret;
 }
 
@@ -307,22 +307,23 @@ uint8_t get_option_msgtype(struct dhcpmsg *packet)
 {
     ssize_t ol;
     uint8_t ret = 0;
-    uint8_t *t = get_option_data(packet, DCODE_MSGTYPE, &ol);
-    if (t)
-        ret = *t;
+    uint8_t buf[MAX_DOPT_SIZE];
+    ol = get_dhcp_opt(packet, DCODE_MSGTYPE, buf, sizeof buf);
+    if (ol == sizeof ret)
+        ret = buf[0];
     return ret;
 }
 
 uint32_t get_option_serverid(struct dhcpmsg *packet, int *found)
 {
     ssize_t ol;
-    uint8_t *t;
     uint32_t ret = 0;
+    uint8_t buf[MAX_DOPT_SIZE];
     *found = 0;
-    t = get_option_data(packet, DCODE_SERVER_ID, &ol);
+    ol = get_dhcp_opt(packet, DCODE_SERVER_ID, buf, sizeof buf);
     if (ol == sizeof ret) {
         *found = 1;
-        memcpy(&ret, t, sizeof ret);
+        memcpy(&ret, buf, sizeof ret);
     }
     return ret;
 }
@@ -330,11 +331,11 @@ uint32_t get_option_serverid(struct dhcpmsg *packet, int *found)
 uint32_t get_option_leasetime(struct dhcpmsg *packet)
 {
     ssize_t ol;
-    uint8_t *t;
     uint32_t ret = 0;
-    t = get_option_data(packet, DCODE_LEASET, &ol);
+    uint8_t buf[MAX_DOPT_SIZE];
+    ol = get_dhcp_opt(packet, DCODE_LEASET, buf, sizeof buf);
     if (ol == sizeof ret) {
-        memcpy(&ret, t, sizeof ret);
+        memcpy(&ret, buf, sizeof ret);
         ret = ntohl(ret);
     }
     return ret;

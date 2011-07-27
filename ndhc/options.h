@@ -54,7 +54,10 @@
 #define DCODE_CLIENT_ID    0x3d
 #define DCODE_END          0xff
 
-uint8_t *get_option_data(struct dhcpmsg *packet, int code, ssize_t *optlen);
+#define MAX_DOPT_SIZE 500
+
+ssize_t get_dhcp_opt(struct dhcpmsg *packet, uint8_t code, uint8_t *dbuf,
+                     ssize_t dlen);
 ssize_t get_end_option_idx(struct dhcpmsg *packet);
 
 size_t add_option_request_list(struct dhcpmsg *packet);

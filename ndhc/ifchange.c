@@ -219,18 +219,18 @@ static size_t send_client_ip(char *out, size_t olen, struct dhcpmsg *packet)
 static size_t send_cmd(char *out, size_t olen, struct dhcpmsg *packet,
                        uint8_t code)
 {
-    char buf[256];
-    uint8_t *optdata, *olddata;
+    char buf[2048];
+    uint8_t optdata[MAX_DOPT_SIZE], olddata[MAX_DOPT_SIZE];
     ssize_t optlen, oldlen;
 
     if (!packet)
         return 0;
 
     memset(buf, '\0', sizeof buf);
-    optdata = get_option_data(packet, code, &optlen);
+    optlen = get_dhcp_opt(packet, code, optdata, sizeof optdata);
     if (!optlen)
         return 0;
-    olddata = get_option_data(&cfg_packet, code, &oldlen);
+    oldlen = get_dhcp_opt(&cfg_packet, code, olddata, sizeof olddata);
     if (oldlen == optlen && !memcmp(optdata, olddata, optlen))
         return 0;
     if (ifchd_cmd(buf, sizeof buf, optdata, optlen, code) == -1)
