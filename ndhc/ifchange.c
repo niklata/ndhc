@@ -121,12 +121,12 @@ static int ifchd_cmd_str(char *buf, size_t buflen, char *optname,
 {
     char *obuf = buf;
     buf += snprintf(buf, buflen, "%s:", optname);
-    if (buflen < optlen + 1)
+    if (buflen < (buf - obuf) + optlen + 2)
         return -1;
     memcpy(buf, optdata, optlen);
     buf[optlen] = ':';
     buf[optlen+1] = '\0';
-    return (buf - obuf) + optlen;
+    return (buf - obuf) + optlen + 1;
 }
 
 #define IFCHD_SW_CMD(x, y) case DCODE_##x: \
