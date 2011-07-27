@@ -120,9 +120,9 @@ static int ifchd_cmd_str(char *buf, size_t buflen, char *optname,
                          uint8_t *optdata, ssize_t optlen)
 {
     char *obuf = buf;
-    buf += snprintf(buf, buflen, "%s:", optname);
-    if (buflen < (buf - obuf) + optlen + 2)
+    if (buflen < strlen(optname) + optlen + 3)
         return -1;
+    buf += snprintf(buf, buflen, "%s:", optname);
     memcpy(buf, optdata, optlen);
     buf[optlen] = ':';
     buf[optlen+1] = '\0';
