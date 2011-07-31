@@ -27,7 +27,7 @@ makedir:
 	mkdir -p $(BUILD_DIR) $(OBJ_DIR)/ndhc $(OBJ_DIR)/ifchd $(OBJ_DIR)/ncmlib
 
 %.o: %.c
-	$(CC) $(CFLAGS) $(NCM_INC) -c -o $(OBJ_DIR)/$@ $<
+	$(CC) $(CFLAGS) $(IFCH_INC) $(NCM_INC) -c -o $(OBJ_DIR)/$@ $<
 
 ncmlib.a: $(NCM_OBJS)
 	$(AR) rc $(BUILD_DIR)/$@ $(subst ncmlib/,$(OBJ_DIR)/ncmlib/,$(NCM_OBJS))
@@ -37,7 +37,7 @@ ifchd: $(IFCHD_OBJS)
 	$(CC) $(CFLAGS) $(NCM_INC) -o $(BUILD_DIR)/$@ $(subst ifchd/,$(OBJ_DIR)/ifchd/,$(IFCHD_OBJS)) $(BUILD_DIR)/ncmlib.a -lcap 
 
 ndhc: $(NDHC_OBJS)
-	$(CC) $(CFLAGS) $(IFCH_INC) $(NCM_INC) -o $(BUILD_DIR)/$@ $(subst ndhc/,$(OBJ_DIR)/ndhc/,$(NDHC_OBJS)) $(BUILD_DIR)/ncmlib.a -lcap
+	$(CC) $(CFLAGS) $(IFCH_INC) $(NCM_INC) -o $(BUILD_DIR)/$@ $(subst ndhc/,$(OBJ_DIR)/ndhc/,$(NDHC_OBJS)) $(BUILD_DIR)/ncmlib.a -lcap -lrt
 
 .PHONY: all clean
 

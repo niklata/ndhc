@@ -28,15 +28,15 @@
 #ifndef SYS_H_
 #define SYS_H_
 
-#include <sys/time.h>
+#include <time.h>
 #include "ndhc-defines.h"
 #include "config.h"
 
 static inline unsigned long long curms()
 {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return tv.tv_sec * 1000ULL + tv.tv_usec / 1000ULL;
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1000ULL + ts.tv_nsec / 1000000ULL;
 }
 
 extern char pidfile[MAX_PATH_LENGTH];
