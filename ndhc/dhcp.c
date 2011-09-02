@@ -503,6 +503,15 @@ static int validate_dhcp_packet(struct client_state_t *cs, int len,
                  packet->xid, cs->xid);
         return 0;
     }
+    if (memcmp(packet->chaddr, client_config.arp, sizeof client_config.arp)) {
+        log_line("Packet client MAC %.2hhx:%.2hhx:%.2hhx:%.2hhx:%.2hhx:%.2hhx does not equal our MAC %.2hhx:%.2hhx:%.2hhx:%.2hhx:%.2hhx:%.2hhx.  Ignoring it.",
+                 packet->chaddr[0], packet->chaddr[1], packet->chaddr[2],
+                 packet->chaddr[3], packet->chaddr[4], packet->chaddr[5],
+                 client_config.arp[0], client_config.arp[1],
+                 client_config.arp[2], client_config.arp[3],
+                 client_config.arp[4], client_config.arp[5]);
+        return 0;
+    }
     *msgtype = get_option_msgtype(packet);
     if (!*msgtype) {
         log_line("Packet does not specify a DHCP message type.  Ignoring.");
