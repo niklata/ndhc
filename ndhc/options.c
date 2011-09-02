@@ -29,10 +29,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <arpa/inet.h>
 
 #include "options.h"
 #include "log.h"
+#ifndef NDHS_BUILD
 #include "ifch_proto.h"
+#endif
 
 static int do_overload_value(uint8_t *buf, ssize_t blen, int overload)
 {
@@ -138,8 +141,8 @@ static inline size_t sizeof_option_str(uint8_t code, size_t datalen)
 // Add a raw data string to the options.  It will take a binary string suitable
 // for use with eg memcpy() and will append it to the options[] field of
 // a dhcp packet with the requested option code and proper length specifier.
-static size_t add_option_string(struct dhcpmsg *packet, uint8_t code,
-                                char *str, size_t slen)
+size_t add_option_string(struct dhcpmsg *packet, uint8_t code, const char *str,
+                         size_t slen)
 {
     size_t len = sizeof_option_str(code, slen);
     if (slen > 255 || len != slen + 2) {
@@ -208,8 +211,7 @@ static size_t add_u16_option(struct dhcpmsg *packet, uint8_t code,
 }
 
 // Data should be in network byte order.
-static size_t add_u32_option(struct dhcpmsg *packet, uint8_t code,
-                             uint32_t data)
+size_t add_u32_option(struct dhcpmsg *packet, uint8_t code, uint32_t data)
 {
     ssize_t end = add_option_check(packet, code, 4);
     if (end < 0)
@@ -236,6 +238,22 @@ size_t add_option_request_list(struct dhcpmsg *packet)
                              (char *)reqdata, sizeof reqdata);
 }
 
+size_t add_option_domain_name(struct dhcpmsg *packet, char *dom,
+                              size_t domlen)
+{
+    return add_option_string(packet, DCODE_DOMAIN, dom, domlen);
+}
+
+void add_option_subnet_mask(struct dhcpmsg *packet, uint32_t subnet)
+{
+    add_u32_option(packet, DCODE_SUBNET, subnet);
+}
+
+void add_option_broadcast(struct dhcpmsg *packet, uint32_t bc)
+{
+    add_u32_option(packet, DCODE_BROADCAST, bc);
+}
+
 void add_option_msgtype(struct dhcpmsg *packet, uint8_t type)
 {
     add_u8_option(packet, DCODE_MSGTYPE, type);
@@ -246,15 +264,16 @@ void add_option_reqip(struct dhcpmsg *packet, uint32_t ip)
     add_u32_option(packet, DCODE_REQIP, ip);
 }
 
+void add_option_serverid(struct dhcpmsg *packet, uint32_t sid)
+{
+    add_u32_option(packet, DCODE_SERVER_ID, sid);
+}
+
+#ifndef NDHS_BUILD
 void add_option_maxsize(struct dhcpmsg *packet)
 {
     add_u16_option(packet, DCODE_MAX_SIZE,
                    htons(sizeof(struct ip_udp_dhcp_packet)));
-}
-
-void add_option_serverid(struct dhcpmsg *packet, uint32_t sid)
-{
-    add_u32_option(packet, DCODE_SERVER_ID, sid);
 }
 
 void add_option_vendor(struct dhcpmsg *packet)
@@ -291,6 +310,7 @@ void add_option_hostname(struct dhcpmsg *packet)
     if (len)
         add_option_string(packet, DCODE_HOSTNAME, client_config.hostname, len);
 }
+#endif
 
 uint32_t get_option_router(struct dhcpmsg *packet)
 {
