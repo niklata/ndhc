@@ -515,7 +515,7 @@ static void execute_list(int i)
 static int get_listen(void)
 {
     int lsock, ret;
-    struct sockaddr_un lsock_addr =
+    static const struct sockaddr_un lsock_addr =
     {
         .sun_family = AF_UNIX,
         .sun_path = "/var/state/ifchange"
@@ -749,7 +749,7 @@ int main(int argc, char** argv) {
 
     while (1) {
         int option_index = 0;
-        static struct option long_options[] = {
+        static const struct option long_options[] = {
             {"detach", 0, 0, 'd'},
             {"nodetach", 0, 0, 'n'},
             {"pidfile", 1, 0, 'p'},
