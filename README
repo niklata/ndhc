@@ -11,7 +11,7 @@ INTRODUCTION
 ------------
 
 ndhc consists of a set of daemons that cooperate in order to provide
-privilege-seperated dhcp client services.  Each daemon runs with the minimal
+privilege-separated dhcp client services.  Each daemon runs with the minimal
 necessary privileges in order to perform its task.  Currently, ndhc consists of
 two daemons: the eponymous ndhc and ifchd.
 
@@ -48,7 +48,7 @@ to be more of an annoyance than a help.  v6 LLAs work much better in practice.
 FEATURES
 --------
 
-Privilege-seperated.  Neither ifchd or ndhc runs as full root, and capabilities
+Privilege-separated.  Neither ifchd or ndhc runs as full root, and capabilities
 are divided between the programs.  Both programs run in a chroot.
 
 Robust.  ndhc performs no runtime heap allocations -- malloc() is never called
