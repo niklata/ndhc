@@ -141,16 +141,12 @@ int nl_getifdata(const char *ifname, struct client_state_t *cs)
 {
     char buf[8192];
     struct nlmsghdr *nlh = (struct nlmsghdr *)buf;
-    struct ifinfomsg *ifinfo;
-    size_t msgsize = NLMSG_HDRLEN + NLMSG_ALIGN(sizeof *ifinfo);
 
-    memset(buf, 0, msgsize);
-    nlh->nlmsg_len = msgsize;
+    memset(buf, 0, sizeof buf);
+    nlh->nlmsg_len = NLMSG_LENGTH(sizeof (struct ifinfomsg));
     nlh->nlmsg_type = RTM_GETLINK;
     nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_ROOT;
     nlh->nlmsg_seq = time(NULL);
-    ifinfo = (struct ifinfomsg *)((char *)buf + NLMSG_HDRLEN);
-    ifinfo->ifi_family = AF_UNSPEC;
 
     struct sockaddr_nl addr = {
         .nl_family = AF_NETLINK,
