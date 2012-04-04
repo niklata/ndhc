@@ -353,7 +353,7 @@ int main(int argc, char **argv)
         log_line("FATAL - failed to open netlink socket");
         exit(EXIT_FAILURE);
     }
-    if (nl_getifdata(client_config.interface, &cs) < 0) {
+    if (nl_getifdata(&cs) < 0) {
         log_line("FATAL - failed to get interface MAC and index");
         exit(EXIT_FAILURE);
     }

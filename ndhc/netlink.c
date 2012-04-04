@@ -124,6 +124,7 @@ static int nl_process_msgs(const struct nlmsghdr *nlh, void *data)
     return 1;
 }
 
+/* Destroys contents of nlbuf */
 void handle_nl_message(struct client_state_t *cs)
 {
     ssize_t ret;
@@ -137,12 +138,11 @@ void handle_nl_message(struct client_state_t *cs)
     } while (ret > 0);
 }
 
-int nl_getifdata(const char *ifname, struct client_state_t *cs)
+static int nl_sendgetlink(struct client_state_t *cs)
 {
-    char buf[8192];
-    struct nlmsghdr *nlh = (struct nlmsghdr *)buf;
+    struct nlmsghdr *nlh = (struct nlmsghdr *)nlbuf;
 
-    memset(buf, 0, sizeof buf);
+    memset(nlbuf, 0, sizeof nlbuf);
     nlh->nlmsg_len = NLMSG_LENGTH(sizeof (struct ifinfomsg));
     nlh->nlmsg_type = RTM_GETLINK;
     nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_ROOT;
@@ -151,8 +151,15 @@ int nl_getifdata(const char *ifname, struct client_state_t *cs)
     struct sockaddr_nl addr = {
         .nl_family = AF_NETLINK,
     };
-    if (sendto(cs->nlFd, buf, nlh->nlmsg_len, 0, (struct sockaddr *)&addr,
+    if (sendto(cs->nlFd, nlbuf, nlh->nlmsg_len, 0, (struct sockaddr *)&addr,
                sizeof addr) == -1)
+        return -1;
+    return 0;
+}
+
+int nl_getifdata(struct client_state_t *cs)
+{
+    if (nl_sendgetlink(cs))
         return -1;
 
     for (int pr = 0; !pr;) {
