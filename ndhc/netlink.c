@@ -143,7 +143,7 @@ static int nl_sendgetlink(struct client_state_t *cs)
     struct nlmsghdr *nlh = (struct nlmsghdr *)nlbuf;
 
     memset(nlbuf, 0, sizeof nlbuf);
-    nlh->nlmsg_len = NLMSG_LENGTH(sizeof (struct ifinfomsg));
+    nlh->nlmsg_len = NLMSG_LENGTH(sizeof (struct rtattr));
     nlh->nlmsg_type = RTM_GETLINK;
     nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_ROOT;
     nlh->nlmsg_seq = time(NULL);
