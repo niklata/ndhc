@@ -38,6 +38,7 @@ struct client_state_t {
     int ifsPrevState;
     int listenMode;
     int epollFd, signalFd, listenFd, arpFd, nlFd;
+    int nlPortId;
     uint32_t clientAddr, serverAddr, routerAddr;
     uint32_t lease, renewTime, rebindTime, xid;
     uint8_t routerArp[6], serverArp[6];

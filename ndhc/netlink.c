@@ -42,9 +42,6 @@
 #include "nl.h"
 #include "state.h"
 
-static char nlbuf[8192];
-int nlportid;
-
 static int nlrtattr_assign(struct nlattr *attr, int type, void *data)
 {
     struct nlattr **tb = data;
@@ -124,22 +121,24 @@ static int nl_process_msgs(const struct nlmsghdr *nlh, void *data)
     return 1;
 }
 
-/* Destroys contents of nlbuf */
 void handle_nl_message(struct client_state_t *cs)
 {
+    char nlbuf[8192];
     ssize_t ret;
     assert(cs->nlFd != -1);
     do {
         ret = nl_recv_buf(cs->nlFd, nlbuf, sizeof nlbuf);
         if (ret == -1)
             break;
-        if (nl_foreach_nlmsg(nlbuf, ret, nlportid, nl_process_msgs, cs) == -1)
+        if (nl_foreach_nlmsg(nlbuf, ret, cs->nlPortId, nl_process_msgs, cs)
+            == -1)
             break;
     } while (ret > 0);
 }
 
 static int nl_sendgetlink(struct client_state_t *cs)
 {
+    char nlbuf[8192];
     struct nlmsghdr *nlh = (struct nlmsghdr *)nlbuf;
 
     memset(nlbuf, 0, sizeof nlbuf);

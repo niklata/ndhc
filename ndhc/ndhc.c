@@ -75,6 +75,7 @@ struct client_state_t cs = {
     .listenFd = -1,
     .arpFd = -1,
     .nlFd = -1,
+    .nlPortId = -1,
     .routerArp = "\0\0\0\0\0\0",
     .serverArp = "\0\0\0\0\0\0",
 };
@@ -349,7 +350,7 @@ int main(int argc, char **argv)
         write_pid(pidfile);
     }
 
-    if ((cs.nlFd = nl_open(NETLINK_ROUTE, RTMGRP_LINK, &nlportid)) < 0) {
+    if ((cs.nlFd = nl_open(NETLINK_ROUTE, RTMGRP_LINK, &cs.nlPortId)) < 0) {
         log_line("FATAL - failed to open netlink socket");
         exit(EXIT_FAILURE);
     }

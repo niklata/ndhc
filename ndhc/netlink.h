@@ -40,8 +40,6 @@ enum {
     IFS_REMOVED
 };
 
-extern int nlportid;
-
 void handle_nl_message(struct client_state_t *cs);
 int nl_getifdata(struct client_state_t *cs);
 
