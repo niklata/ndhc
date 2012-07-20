@@ -1,6 +1,6 @@
 /* ifchd.c - interface change daemon
  *
- * Copyright (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright (c) 2004-2012 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -819,9 +819,9 @@ int main(int argc, char** argv) {
 
             case 'h':
                 printf(
-"ifchd %s, if change daemon.  Licensed under GNU GPL.\n", IFCHD_VERSION);
+"ifchd %s, if change daemon.  Licensed under 2-clause BSD.\n", IFCHD_VERSION);
                 printf(
-"Copyright (C) 2004-2011 Nicholas J. Kain\n"
+"Copyright (C) 2004-2012 Nicholas J. Kain\n"
 "Usage: ifchd [OPTIONS]\n"
 "  -d, --detach                detach from TTY and daemonize\n"
 "  -n, --nodetach              stay attached to TTY\n"
@@ -845,9 +845,9 @@ int main(int argc, char** argv) {
 
             case 'v':
                 printf(
-"ifchd %s, if change daemon.  Licensed under GNU GPL.\n", IFCHD_VERSION);
+"ifchd %s, if change daemon.  Licensed under 2-clause BSD.\n", IFCHD_VERSION);
                 printf(
-"Copyright (C) 2004-2011 Nicholas J. Kain\n"
+"Copyright (C) 2004-2012 Nicholas J. Kain\nAll rights reserved.\n"
 "This is free software; see the source for copying conditions.  There is NO\n"
 "WARRANTY; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
                 exit(EXIT_FAILURE);

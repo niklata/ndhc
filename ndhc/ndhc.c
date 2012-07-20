@@ -1,6 +1,6 @@
 /* ndhc.c - DHCP client
  *
- * Copyright (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright (c) 2004-2012 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -89,8 +89,8 @@ struct client_config_t client_config = {
 static void show_usage(void)
 {
     printf(
-"ndhc " VERSION ", dhcp client.  Licensed under GNU GPL.\n"
-"Copyright (C) 2004-2011 Nicholas J. Kain\n"
+"ndhc " VERSION ", dhcp client.  Licensed under 2-clause BSD.\n"
+"Copyright (C) 2004-2012 Nicholas J. Kain\n"
 "Usage: ndhc [OPTIONS]\n\n"
 "  -c, --clientid=CLIENTID         Client identifier\n"
 "  -h, --hostname=HOSTNAME         Client hostname\n"
@@ -379,9 +379,9 @@ int main(int argc, char **argv)
                 break;
             case 'v':
                 printf(
-"ndhc %s, dhcp client.  Licensed under GNU GPL.\n", VERSION);
+"ndhc %s, dhcp client.  Licensed under 2-clause BSD.\n", VERSION);
                 printf(
-"Copyright (C) 2004-2011 Nicholas J. Kain\n"
+"Copyright (C) 2004-2012 Nicholas J. Kain\nAll rights reserved.\n"
 "This is free software; see the source for copying conditions.  There is NO\n"
 "WARRANTY; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
                 exit(EXIT_SUCCESS);
