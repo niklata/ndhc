@@ -51,24 +51,8 @@
 #include "ifch_proto.h"
 #include "strl.h"
 
-/* Symbolic name of the interface associated with a connection. */
-static char ifnam[SOCK_QUEUE][IFNAMSIZ];
+extern struct ifchd_client clients[SOCK_QUEUE];
 static strlist_t *okif;
-
-/* Clear a specified ifnam structure. */
-void clear_if_data(int idx)
-{
-    memset(ifnam[idx], '\0', IFNAMSIZ);
-}
-
-/* Clear all ifnam structures. */
-void initialize_if_data(void)
-{
-    int i;
-    for (i = 0; i < SOCK_QUEUE; i++) {
-        clear_if_data(i);
-    }
-}
 
 /* Adds to the list of interface names ifchd clients are allowed to change. */
 void add_permitted_if(char *s)
@@ -128,8 +112,8 @@ void perform_interface(int idx, char *str)
         return;
 
     /* Update interface name. */
-    memset(ifnam[idx], '\0', IFNAMSIZ);
-    strlcpy(ifnam[idx], str, IFNAMSIZ);
+    memset(clients[idx].ifnam, '\0', IFNAMSIZ);
+    strlcpy(clients[idx].ifnam, str, IFNAMSIZ);
 }
 
 static int set_if_flag(int idx, short flag)
@@ -137,27 +121,27 @@ static int set_if_flag(int idx, short flag)
     int fd, ret = -1;
     struct ifreq ifrt;
 
-    if (!is_permitted(ifnam[idx]))
+    if (!is_permitted(clients[idx].ifnam))
         goto out0;
 
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
         log_line("%s: (set_if_flag) failed to open interface socket: %s\n",
-		 ifnam[idx], strerror(errno));
+		 clients[idx].ifnam, strerror(errno));
         goto out0;
     }
 
-    strlcpy(ifrt.ifr_name, ifnam[idx], IFNAMSIZ);
+    strlcpy(ifrt.ifr_name, clients[idx].ifnam, IFNAMSIZ);
     if (ioctl(fd, SIOCGIFFLAGS, &ifrt) < 0) {
-        log_line("%s: unknown interface: %s\n", ifnam[idx], strerror(errno));
+        log_line("%s: unknown interface: %s\n", clients[idx].ifnam, strerror(errno));
         goto out1;
     }
     if (((ifrt.ifr_flags & flag ) ^ flag) & flag) {
-        strlcpy(ifrt.ifr_name, ifnam[idx], IFNAMSIZ);
+        strlcpy(ifrt.ifr_name, clients[idx].ifnam, IFNAMSIZ);
         ifrt.ifr_flags |= flag;
         if (ioctl(fd, SIOCSIFFLAGS, &ifrt) < 0) {
             log_line("%s: failed to set interface flags: %s\n",
-                     ifnam[idx], strerror(errno));
+                     clients[idx].ifnam, strerror(errno));
             goto out1;
         }
     } else
@@ -179,14 +163,14 @@ void perform_ip(int idx, char *str)
 
     if (!str)
         return;
-    if (!is_permitted(ifnam[idx]))
+    if (!is_permitted(clients[idx].ifnam))
         return;
     if (!inet_pton(AF_INET, str, &ipaddr))
         return;
     if (set_if_flag(idx, (IFF_UP | IFF_RUNNING)))
         return;
 
-    strlcpy(ifrt.ifr_name, ifnam[idx], IFNAMSIZ);
+    strlcpy(ifrt.ifr_name, clients[idx].ifnam, IFNAMSIZ);
     memset(&sin, 0, sizeof(struct sockaddr));
     sin.sin_family = AF_INET;
     sin.sin_addr = ipaddr;
@@ -195,12 +179,12 @@ void perform_ip(int idx, char *str)
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
         log_line("%s: (perform_ip) failed to open interface socket: %s\n",
-		 ifnam[idx], strerror(errno));
+		 clients[idx].ifnam, strerror(errno));
         return;
     }
     if (ioctl(fd, SIOCSIFADDR, &ifrt) < 0)
         log_line("%s: failed to configure IP: %s\n",
-		 ifnam[idx], strerror(errno));
+		 clients[idx].ifnam, strerror(errno));
     close(fd);
 }
 
@@ -214,12 +198,12 @@ void perform_subnet(int idx, char *str)
 
     if (!str)
         return;
-    if (!is_permitted(ifnam[idx]))
+    if (!is_permitted(clients[idx].ifnam))
         return;
     if (!inet_pton(AF_INET, str, &subnet))
         return;
 
-    strlcpy(ifrt.ifr_name, ifnam[idx], IFNAMSIZ);
+    strlcpy(ifrt.ifr_name, clients[idx].ifnam, IFNAMSIZ);
     memset(&sin, 0, sizeof(struct sockaddr));
     sin.sin_family = AF_INET;
     sin.sin_addr = subnet;
@@ -228,14 +212,14 @@ void perform_subnet(int idx, char *str)
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
         log_line("%s: (perform_ip) failed to open interface socket: %s\n",
-		 ifnam[idx], strerror(errno));
+		 clients[idx].ifnam, strerror(errno));
         return;
     }
     if (ioctl(fd, SIOCSIFNETMASK, &ifrt) < 0) {
         sin.sin_addr.s_addr = 0xffffffff;
         if (ioctl(fd, SIOCSIFNETMASK, &ifrt) < 0)
             log_line("%s: failed to configure subnet: %s\n",
-		     ifnam[idx], strerror(errno));
+		     clients[idx].ifnam, strerror(errno));
     }
     close(fd);
 }
@@ -251,7 +235,7 @@ void perform_router(int idx, char *str)
 
     if (!str)
         return;
-    if (!is_permitted(ifnam[idx]))
+    if (!is_permitted(clients[idx].ifnam))
         return;
     if (!inet_pton(AF_INET, str, &router))
         return;
@@ -269,19 +253,19 @@ void perform_router(int idx, char *str)
 
     rt.rt_flags = RTF_UP | RTF_GATEWAY;
     if (mask->sin_addr.s_addr == 0xffffffff) rt.rt_flags |= RTF_HOST;
-    rt.rt_dev = ifnam[idx];
+    rt.rt_dev = clients[idx].ifnam;
     rt.rt_metric = 1;
 
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
         log_line("%s: (perform_router) failed to open interface socket: %s\n",
-		 ifnam[idx], strerror(errno));
+		 clients[idx].ifnam, strerror(errno));
         return;
     }
     if (ioctl(fd, SIOCADDRT, &rt)) {
         if (errno != EEXIST)
             log_line("%s: failed to set route: %s\n",
-                     ifnam[idx], strerror(errno));
+                     clients[idx].ifnam, strerror(errno));
     }
     close(fd);
 }
@@ -294,21 +278,21 @@ void perform_mtu(int idx, char *str)
 
     if (!str)
         return;
-    if (!is_permitted(ifnam[idx]))
+    if (!is_permitted(clients[idx].ifnam))
         return;
 
     mtu = strtol(str, NULL, 10);
     ifrt.ifr_mtu = mtu;
-    strlcpy(ifrt.ifr_name, ifnam[idx], IFNAMSIZ);
+    strlcpy(ifrt.ifr_name, clients[idx].ifnam, IFNAMSIZ);
 
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
         log_line("%s: (perform_mtu) failed to open interface socket: %s\n",
-		 ifnam[idx], strerror(errno));
+		 clients[idx].ifnam, strerror(errno));
         return;
     }
     if (ioctl(fd, SIOCSIFMTU, &ifrt) < 0)
-        log_line("%s: failed to set MTU (%d): %s\n", ifnam[idx], mtu,
+        log_line("%s: failed to set MTU (%d): %s\n", clients[idx].ifnam, mtu,
 		 strerror(errno));
     close(fd);
 }
@@ -322,12 +306,12 @@ void perform_broadcast(int idx, char *str)
 
     if (!str)
         return;
-    if (!is_permitted(ifnam[idx]))
+    if (!is_permitted(clients[idx].ifnam))
         return;
     if (!inet_pton(AF_INET, str, &broadcast))
         return;
 
-    strlcpy(ifrt.ifr_name, ifnam[idx], IFNAMSIZ);
+    strlcpy(ifrt.ifr_name, clients[idx].ifnam, IFNAMSIZ);
     memset(&sin, 0, sizeof(struct sockaddr));
     sin.sin_family = AF_INET;
     sin.sin_addr = broadcast;
@@ -335,11 +319,11 @@ void perform_broadcast(int idx, char *str)
 
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
-        log_line("%s: (perform_broadcast) failed to open interface socket: %s\n", ifnam[idx], strerror(errno));
+        log_line("%s: (perform_broadcast) failed to open interface socket: %s\n", clients[idx].ifnam, strerror(errno));
         return;
     }
     if (ioctl(fd, SIOCSIFBRDADDR, &ifrt) < 0)
         log_line("%s: failed to set broadcast: %s\n",
-		 ifnam[idx], strerror(errno));
+		 clients[idx].ifnam, strerror(errno));
     close(fd);
 }

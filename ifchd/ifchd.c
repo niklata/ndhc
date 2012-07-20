@@ -80,21 +80,11 @@ enum states {
     STATE_WINS
 };
 
+struct ifchd_client clients[SOCK_QUEUE];
+
 static int epollfd, signalFd;
 /* Extra two event slots are for signalFd and the listen socket. */
 static struct epoll_event events[SOCK_QUEUE+2];
-
-/* Socket fd, current state, and idle time for connections. */
-static int sks[SOCK_QUEUE], state[SOCK_QUEUE], idle_time[SOCK_QUEUE];
-
-/* Per-connection buffers. */
-static char ibuf[SOCK_QUEUE][MAX_BUF];
-
-/*
- * Per-connection pointers into the command lists.  Respectively, the
- * topmost item on the list, the current item, and the last item on the list.
- */
-static strlist_t *head[SOCK_QUEUE], *curl[SOCK_QUEUE], *last[SOCK_QUEUE];
 
 int resolv_conf_fd = -1;
 /* int ntp_conf_fd = -1; */
@@ -107,13 +97,6 @@ static gid_t peer_gid;
 static pid_t peer_pid;
 
 static int gflags_verbose = 0;
-
-/* Lists of nameservers and search domains.  Unfortunately they must be
- * per-connection, since otherwise seperate clients could race against
- * one another to write out unpredictable data.
- */
-static strlist_t *namesvrs[SOCK_QUEUE];
-static strlist_t *domains[SOCK_QUEUE];
 
 static void die_nulstr(strlist_t *p)
 {
@@ -229,8 +212,8 @@ static void write_resolve_conf(int idx)
     if (lseek(resolv_conf_fd, 0, SEEK_SET) == -1)
         return;
 
-    write_resolve_list("nameserver ", namesvrs[idx]);
-    write_resolve_list("search ", domains[idx]);
+    write_resolve_list("nameserver ", clients[idx].namesvrs);
+    write_resolve_list("search ", clients[idx].domains);
     off = lseek(resolv_conf_fd, 0, SEEK_CUR);
     if (off == -1) {
         log_line("write_resolve_conf: lseek returned error: %s\n",
@@ -294,7 +277,7 @@ static void perform_dns(int idx, char *str)
 {
     if (!str || resolv_conf_fd == -1)
         return;
-    parse_list(idx, str, &(namesvrs[idx]), &write_resolve_conf);
+    parse_list(idx, str, &clients[idx].namesvrs, &write_resolve_conf);
 }
 
 /* Updates for print daemons are too non-standard to be useful. */
@@ -315,7 +298,7 @@ static void perform_domain(int idx, char *str)
 {
     if (!str || resolv_conf_fd == -1)
         return;
-    parse_list(idx, str, &(domains[idx]), &write_resolve_conf);
+    parse_list(idx, str, &clients[idx].domains, &write_resolve_conf);
 }
 
 /* I don't think this can be done without a netfilter extension
@@ -331,22 +314,38 @@ static void perform_ntpsrv(int idx, char *str)
 static void perform_wins(int idx, char *str)
 {}
 
-/* Wipes all state associated with a given connection. */
-static void new_sk(int idx, int val)
+static void ifchd_client_init(struct ifchd_client *p)
 {
-    sks[idx] = val;
-    memset(ibuf[idx], '\0', sizeof(ibuf[idx]));
-    free_strlist(head[idx]);
-    free_strlist(namesvrs[idx]);
-    free_strlist(domains[idx]);
-    head[idx] = NULL;
-    curl[idx] = NULL;
-    last[idx] = NULL;
-    namesvrs[idx] = NULL;
-    domains[idx] = NULL;
-    idle_time[idx] = time(NULL);
-    state[idx] = STATE_NOTHING;
-    clear_if_data(idx);
+    p->fd = -1;
+    p->idle_time = time(NULL);
+    p->state = STATE_NOTHING;
+
+    memset(p->ibuf, 0, sizeof p->ibuf);
+    memset(p->ifnam, 0, sizeof p->ifnam);
+    p->head = NULL;
+    p->curl = NULL;
+    p->last = NULL;
+    p->namesvrs = NULL;
+    p->domains = NULL;
+}
+
+static void ifchd_client_wipe(struct ifchd_client *p)
+{
+    if (p->fd >= 0) {
+        epoll_del(p->fd);
+        close(p->fd);
+    }
+    free_strlist(p->head);
+    free_strlist(p->namesvrs);
+    free_strlist(p->domains);
+    ifchd_client_init(p);
+}
+
+static void ifchd_client_new(struct ifchd_client *p, int fd)
+{
+    ifchd_client_wipe(p);
+    p->fd = fd;
+    epoll_add(fd);
 }
 
 /* Conditionally accepts a new connection and initializes data structures. */
@@ -355,12 +354,13 @@ static void add_sk(int sk)
     int i;
 
     if (authorized_peer(sk, peer_pid, peer_uid, peer_gid)) {
-        for (i = 0; i < SOCK_QUEUE; i++)
-            if (sks[i] == -1) {
-                new_sk(i, sk);
-                epoll_add(sk);
+        for (i = 0; i < SOCK_QUEUE; i++) {
+            struct ifchd_client *p = &clients[i];
+            if (p->fd == -1) {
+                ifchd_client_new(p, sk);
                 return;
             }
+        }
     }
     close(sk);
 }
@@ -371,13 +371,11 @@ static void close_idle_sk(void)
     int i;
 
     for (i=0; i<SOCK_QUEUE; i++) {
-        if (sks[i] == -1)
+        struct ifchd_client *p = &clients[i];
+        if (p->fd == -1)
             continue;
-        if (time(NULL) - idle_time[i] > CONN_TIMEOUT) {
-            epoll_del(sks[i]);
-            close(sks[i]);
-            new_sk(i, -1);
-        }
+        if (time(NULL) - p->idle_time > CONN_TIMEOUT)
+            ifchd_client_wipe(p);
     }
 }
 
@@ -385,29 +383,30 @@ static void close_idle_sk(void)
 static int stream_onto_list(int i)
 {
     int e, s;
+    struct ifchd_client *cl = &clients[i];
 
-    for (e = 0, s = 0; ibuf[i][e] != '\0'; e++) {
-        if (ibuf[i][e] == ':') {
+    for (e = 0, s = 0; cl->ibuf[e] != '\0'; e++) {
+        if (cl->ibuf[e] == ':') {
             /* Zero-length command: skip. */
             if (s == e) {
                 s = e + 1;
                 continue;
             }
-            curl[i] = xmalloc(sizeof(strlist_t));
+            cl->curl = xmalloc(sizeof(strlist_t));
 
-            if (head[i] == NULL) {
-                head[i] = curl[i];
-                last[i] = NULL;
+            if (cl->head == NULL) {
+                cl->head = cl->curl;
+                cl->last = NULL;
             }
 
-            curl[i]->next = NULL;
-            if (last[i] != NULL)
-                last[i]->next = curl[i];
+            cl->curl->next = NULL;
+            if (cl->last != NULL)
+                cl->last->next = cl->curl;
 
-            curl[i]->str = xmalloc(e - s + 1);
+            cl->curl->str = xmalloc(e - s + 1);
 
-            strlcpy(curl[i]->str, ibuf[i] + s, e - s + 1);
-            last[i] = curl[i];
+            strlcpy(cl->curl->str, cl->ibuf + s, e - s + 1);
+            cl->last = cl->curl;
             s = e + 1;
         }
     }
@@ -419,132 +418,133 @@ static int stream_onto_list(int i)
 static void execute_list(int i)
 {
     char *p;
+    struct ifchd_client *cl = &clients[i];
 
     for (;;) {
-        if (!curl[i])
+        if (!cl->curl)
             break;
-        die_nulstr(curl[i]);
+        die_nulstr(cl->curl);
 
-        p = curl[i]->str;
+        p = cl->curl->str;
 
         if (gflags_verbose)
             log_line("execute_list - p = '%s'", p);
 
-        switch (state[i]) {
+        switch (cl->state) {
             case STATE_NOTHING:
                 if (strncmp(p, CMD_INTERFACE, sizeof(CMD_INTERFACE)) == 0)
-                    state[i] = STATE_INTERFACE;
+                    cl->state = STATE_INTERFACE;
                 if (strncmp(p, CMD_IP, sizeof(CMD_IP)) == 0)
-                    state[i] = STATE_IP;
+                    cl->state = STATE_IP;
                 if (strncmp(p, CMD_SUBNET, sizeof(CMD_SUBNET)) == 0)
-                    state[i] = STATE_SUBNET;
+                    cl->state = STATE_SUBNET;
                 if (strncmp(p, CMD_TIMEZONE, sizeof(CMD_TIMEZONE)) == 0)
-                    state[i] = STATE_TIMEZONE;
+                    cl->state = STATE_TIMEZONE;
                 if (strncmp(p, CMD_ROUTER, sizeof(CMD_ROUTER)) == 0)
-                    state[i] = STATE_ROUTER;
+                    cl->state = STATE_ROUTER;
                 if (strncmp(p, CMD_DNS, sizeof(CMD_DNS)) == 0)
-                    state[i] = STATE_DNS;
+                    cl->state = STATE_DNS;
                 if (strncmp(p, CMD_LPRSVR, sizeof(CMD_LPRSVR)) == 0)
-                    state[i] = STATE_LPRSVR;
+                    cl->state = STATE_LPRSVR;
                 if (strncmp(p, CMD_HOSTNAME, sizeof(CMD_HOSTNAME)) == 0)
-                    state[i] = STATE_HOSTNAME;
+                    cl->state = STATE_HOSTNAME;
                 if (strncmp(p, CMD_DOMAIN, sizeof(CMD_DOMAIN)) == 0)
-                    state[i] = STATE_DOMAIN;
+                    cl->state = STATE_DOMAIN;
                 if (strncmp(p, CMD_IPTTL, sizeof(CMD_IPTTL)) == 0)
-                    state[i] = STATE_IPTTL;
+                    cl->state = STATE_IPTTL;
                 if (strncmp(p, CMD_MTU, sizeof(CMD_MTU)) == 0)
-                    state[i] = STATE_MTU;
+                    cl->state = STATE_MTU;
                 if (strncmp(p, CMD_BROADCAST, sizeof(CMD_BROADCAST)) == 0)
-                    state[i] = STATE_BROADCAST;
+                    cl->state = STATE_BROADCAST;
                 if (strncmp(p, CMD_NTPSVR, sizeof(CMD_NTPSVR)) == 0)
-                    state[i] = STATE_NTPSVR;
+                    cl->state = STATE_NTPSVR;
                 if (strncmp(p, CMD_WINS, sizeof(CMD_WINS)) == 0)
-                    state[i] = STATE_WINS;
-                free_stritem(&(curl[i]));
+                    cl->state = STATE_WINS;
+                free_stritem(&cl->curl);
                 break;
 
             case STATE_INTERFACE:
                 perform_interface(i, p);
-                free_stritem(&(curl[i]));
-                state[i] = STATE_NOTHING;
+                free_stritem(&cl->curl);
+                cl->state = STATE_NOTHING;
                 break;
 
             case STATE_IP:
                 perform_ip(i, p);
-                free_stritem(&(curl[i]));
-                state[i] = STATE_NOTHING;
+                free_stritem(&cl->curl);
+                cl->state = STATE_NOTHING;
                 break;
 
             case STATE_SUBNET:
                 perform_subnet(i, p);
-                free_stritem(&(curl[i]));
-                state[i] = STATE_NOTHING;
+                free_stritem(&cl->curl);
+                cl->state = STATE_NOTHING;
                 break;
 
             case STATE_TIMEZONE:
                 perform_timezone(i, p);
-                free_stritem(&(curl[i]));
-                state[i] = STATE_NOTHING;
+                free_stritem(&cl->curl);
+                cl->state = STATE_NOTHING;
                 break;
 
             case STATE_ROUTER:
                 perform_router(i, p);
-                free_stritem(&(curl[i]));
-                state[i] = STATE_NOTHING;
+                free_stritem(&cl->curl);
+                cl->state = STATE_NOTHING;
                 break;
 
             case STATE_DNS:
                 perform_dns(i, p);
-                free_stritem(&(curl[i]));
-                state[i] = STATE_NOTHING;
+                free_stritem(&cl->curl);
+                cl->state = STATE_NOTHING;
                 break;
 
             case STATE_LPRSVR:
                 perform_lprsvr(i, p);
-                free_stritem(&(curl[i]));
-                state[i] = STATE_NOTHING;
+                free_stritem(&cl->curl);
+                cl->state = STATE_NOTHING;
                 break;
 
             case STATE_HOSTNAME:
                 perform_hostname(i, p);
-                free_stritem(&(curl[i]));
-                state[i] = STATE_NOTHING;
+                free_stritem(&cl->curl);
+                cl->state = STATE_NOTHING;
                 break;
 
             case STATE_DOMAIN:
                 perform_domain(i, p);
-                free_stritem(&(curl[i]));
-                state[i] = STATE_NOTHING;
+                free_stritem(&cl->curl);
+                cl->state = STATE_NOTHING;
                 break;
 
             case STATE_IPTTL:
                 perform_ipttl(i, p);
-                free_stritem(&(curl[i]));
-                state[i] = STATE_NOTHING;
+                free_stritem(&cl->curl);
+                cl->state = STATE_NOTHING;
                 break;
 
             case STATE_MTU:
                 perform_mtu(i, p);
-                free_stritem(&(curl[i]));
-                state[i] = STATE_NOTHING;
+                free_stritem(&cl->curl);
+                cl->state = STATE_NOTHING;
                 break;
 
             case STATE_BROADCAST:
                 perform_broadcast(i, p);
-                free_stritem(&(curl[i]));
-                state[i] = STATE_NOTHING;
+                free_stritem(&cl->curl);
+                cl->state = STATE_NOTHING;
                 break;
 
             case STATE_NTPSVR:
                 perform_ntpsrv(i, p);
-                free_stritem(&(curl[i]));
-                state[i] = STATE_NOTHING;
+                free_stritem(&cl->curl);
+                cl->state = STATE_NOTHING;
                 break;
 
             case STATE_WINS:
                 perform_wins(i, p);
-                free_stritem(&(curl[i]));
-                state[i] = STATE_NOTHING;
+                free_stritem(&cl->curl);
+                cl->state = STATE_NOTHING;
                 break;
 
             default:
@@ -552,7 +552,7 @@ static void execute_list(int i)
                 break;
         }
     }
-    head[i] = curl[i];
+    cl->head = cl->curl;
 }
 
 /* Opens a non-blocking listening socket with the appropriate properties. */
@@ -690,18 +690,19 @@ static void process_client_fd(int fd)
     char buf[MAX_BUF];
     int r, index, sqidx = -1;
     for (int j = 0; j < SOCK_QUEUE; ++j) {
-        if (sks[j] == fd) {
+        if (clients[j].fd == fd) {
             sqidx = j;
             break;
         }
     }
     if (sqidx == -1)
         suicide("epoll returned pending read for untracked fd");
+    struct ifchd_client *cl = &clients[sqidx];
 
-    idle_time[sqidx] = time(NULL);
+    cl->idle_time = time(NULL);
     memset(buf, '\0', sizeof buf);
 
-    r = safe_read(sks[sqidx], buf, sizeof buf / 2 - 1);
+    r = safe_read(cl->fd, buf, sizeof buf / 2 - 1);
     if (r == 0)
         goto fail;
     else if (r < 0) {
@@ -713,31 +714,29 @@ static void process_client_fd(int fd)
     /* Discard everything and close connection if we risk overflow.
      * This approach is maximally conservative... worst case is that
      * some client requests will get dropped. */
-    index = strlen(ibuf[sqidx]);
+    index = strlen(cl->ibuf);
     if (index + strlen(buf) > sizeof buf - 2)
         goto fail;
 
     /* Append new stream input avoiding overflow. */
-    strlcpy(ibuf[sqidx] + index, buf, sizeof ibuf[sqidx] - index);
+    strlcpy(cl->ibuf + index, buf, sizeof cl->ibuf - index);
 
     /* Decompose ibuf contents onto strlist. */
     index = stream_onto_list(sqidx);
 
     /* Remove everything that we've parsed into the list. */
-    strlcpy(buf, ibuf[sqidx] + index, sizeof buf);
-    strlcpy(ibuf[sqidx], buf, sizeof ibuf[sqidx]);
+    strlcpy(buf, cl->ibuf + index, sizeof buf);
+    strlcpy(cl->ibuf, buf, sizeof cl->ibuf);
 
     /* Now we have a strlist of commands and arguments.
      * Decompose and execute it. */
-    if (!head[sqidx])
+    if (!cl->head)
         return;
-    curl[sqidx] = head[sqidx];
+    cl->curl = cl->head;
     execute_list(sqidx);
     return;
   fail:
-    epoll_del(sks[sqidx]);
-    close(sks[sqidx]);
-    new_sk(sqidx, -1);
+    ifchd_client_wipe(cl);
 }
 
 /* Core function that handles connections, gathers input, and calls
@@ -748,8 +747,7 @@ static void dispatch_work(void)
 
     /* Initialize all structures to blank state. */
     for (int i = 0; i < SOCK_QUEUE; i++)
-        sks[i] = -1;
-    initialize_if_data();
+        ifchd_client_init(&clients[i]);
 
     lsock = get_listen();
 
@@ -1002,11 +1000,8 @@ int main(int argc, char** argv) {
     dispatch_work();
 
     /* Explicitly freed so memory debugger output has less static. */
-    for (c=0; c<SOCK_QUEUE; ++c) {
-        free_strlist(head[c]);
-        free_strlist(namesvrs[c]);
-        free_strlist(domains[c]);
-    }
+    for (size_t i = 0; i < SOCK_QUEUE; ++i)
+        ifchd_client_wipe(&clients[i]);
 
     exit(EXIT_SUCCESS);
 }
