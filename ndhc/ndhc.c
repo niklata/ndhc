@@ -65,6 +65,7 @@
 #include "strl.h"
 #include "pidfile.h"
 #include "io.h"
+#include "seccomp-bpf.h"
 
 #define VERSION "1.0"
 
@@ -111,6 +112,56 @@ static void show_usage(void)
 "  -v, --version                   Display version\n"
            );
     exit(EXIT_SUCCESS);
+}
+
+static int enforce_seccomp(void)
+{
+    struct sock_filter filter[] = {
+        VALIDATE_ARCHITECTURE,
+        EXAMINE_SYSCALL,
+        ALLOW_SYSCALL(sendto), // used for glibc syslog routines
+        ALLOW_SYSCALL(epoll_wait),
+        ALLOW_SYSCALL(epoll_ctl),
+        ALLOW_SYSCALL(read),
+        ALLOW_SYSCALL(write),
+        ALLOW_SYSCALL(close),
+        ALLOW_SYSCALL(socket),
+        ALLOW_SYSCALL(setsockopt),
+        ALLOW_SYSCALL(fcntl),
+        ALLOW_SYSCALL(bind),
+        ALLOW_SYSCALL(open),
+        ALLOW_SYSCALL(connect),
+
+        // These are for 'background()'
+        ALLOW_SYSCALL(socketpair),
+        ALLOW_SYSCALL(clone),
+        ALLOW_SYSCALL(set_robust_list),
+        ALLOW_SYSCALL(setsid),
+        ALLOW_SYSCALL(chdir),
+        ALLOW_SYSCALL(fstat),
+        ALLOW_SYSCALL(dup2),
+        ALLOW_SYSCALL(rt_sigprocmask),
+        ALLOW_SYSCALL(signalfd4),
+        ALLOW_SYSCALL(mmap),
+        ALLOW_SYSCALL(munmap),
+
+        ALLOW_SYSCALL(rt_sigreturn),
+#ifdef __NR_sigreturn
+        ALLOW_SYSCALL(sigreturn),
+#endif
+        ALLOW_SYSCALL(exit_group),
+        ALLOW_SYSCALL(exit),
+        KILL_PROCESS,
+    };
+    struct sock_fprog prog = {
+        .len = (unsigned short)(sizeof filter / sizeof filter[0]),
+        .filter = filter,
+    };
+    if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0))
+        return -1;
+    if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog))
+        return -1;
+    return 0;
 }
 
 static void signal_dispatch()
@@ -180,6 +231,10 @@ static void do_work(void)
     if (cs.epollFd == -1)
         suicide("epoll_create1 failed");
     setup_signals(&cs);
+
+    if (enforce_seccomp())
+        log_line("seccomp filter cannot be installed");
+
     epoll_add(&cs, cs.nlFd);
     set_listen_raw(&cs);
     nowts = curms();
