@@ -1,6 +1,6 @@
 /* linux.c - ifchd Linux-specific functions
  *
- * Copyright (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright (c) 2004-2012 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,37 +47,34 @@
 
 #include "ifchd-defines.h"
 #include "log.h"
-#include "strlist.h"
 #include "ifch_proto.h"
 #include "strl.h"
 
 extern struct ifchd_client clients[SOCK_QUEUE];
-static strlist_t *okif;
+
+static size_t numokif;
+static char okif[MAX_IFACES][IFNAMSIZ];
 
 /* Adds to the list of interface names ifchd clients are allowed to change. */
 void add_permitted_if(char *s)
 {
-    if (!s)
+    if (numokif >= MAX_IFACES)
         return;
-    add_to_strlist(&okif, s);
+    strlcpy(okif[numokif++], s, IFNAMSIZ);
 }
 
 /* Checks if changes are permitted to a given interface.  1 == allowed */
 static int is_permitted(char *name)
 {
-    strlist_t *p;
-
     /* If empty, permit all. */
-    if (!okif)
+    if (!numokif)
         return 1;
 
     if (!name || strlen(name) == 0)
         return 0;
-    p = okif;
-    while (p) {
-        if (strcmp(name, p->str) == 0)
+    for (size_t i = 0; i < numokif; ++i) {
+        if (strcmp(name, okif[i]) == 0)
             return 1;
-        p = p->next;
     }
     log_line("attempt to modify interface %s denied\n", name);
     return 0;

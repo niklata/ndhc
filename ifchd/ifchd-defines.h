@@ -8,6 +8,7 @@
 #define MAX_BUF 1024
 #define SOCK_QUEUE 2
 #define CONN_TIMEOUT 60
+#define MAX_IFACES 10
 
 #include <net/if.h>
 #include "strlist.h"
