@@ -57,7 +57,7 @@ static int ifchd_cmd_u8(char *buf, size_t buflen, char *optname,
 {
     if (!optdata || optlen < 1)
         return -1;
-    return snprintf(buf, buflen, "%s:%c:", optname, *optdata);
+    return snprintf(buf, buflen, "%s:%c;", optname, *optdata);
 }
 
 static int ifchd_cmd_u16(char *buf, size_t buflen, char *optname,
@@ -68,7 +68,7 @@ static int ifchd_cmd_u16(char *buf, size_t buflen, char *optname,
     uint16_t v;
     memcpy(&v, optdata, 2);
     v = ntohs(v);
-    return snprintf(buf, buflen, "%s:%hu:", optname, v);
+    return snprintf(buf, buflen, "%s:%hu;", optname, v);
 }
 
 static int ifchd_cmd_s32(char *buf, size_t buflen, char *optname,
@@ -79,7 +79,7 @@ static int ifchd_cmd_s32(char *buf, size_t buflen, char *optname,
     int32_t v;
     memcpy(&v, optdata, 4);
     v = ntohl(v);
-    return snprintf(buf, buflen, "%s:%d:", optname, v);
+    return snprintf(buf, buflen, "%s:%d;", optname, v);
 }
 
 static int ifchd_cmd_ip(char *buf, size_t buflen, char *optname,
@@ -89,7 +89,7 @@ static int ifchd_cmd_ip(char *buf, size_t buflen, char *optname,
     if (!optdata || optlen < 4)
         return -1;
     inet_ntop(AF_INET, optdata, ipbuf, sizeof ipbuf);
-    return snprintf(buf, buflen, "%s:%s:", optname, ipbuf);
+    return snprintf(buf, buflen, "%s:%s;", optname, ipbuf);
 }
 
 static int ifchd_cmd_iplist(char *buf, size_t buflen, char *optname,
@@ -109,7 +109,10 @@ static int ifchd_cmd_iplist(char *buf, size_t buflen, char *optname,
         inet_ntop(AF_INET, optdata, ipbuf, sizeof ipbuf);
         if (buflen < strlen(ipbuf) + (buf - obuf) + 2)
             break;
-        buf += snprintf(buf, buflen - (buf - obuf), "%s:", ipbuf);
+        if (optlen >= 8)
+            buf += snprintf(buf, buflen - (buf - obuf), "%s:", ipbuf);
+        else
+            buf += snprintf(buf, buflen - (buf - obuf), "%s;", ipbuf);
         optlen -= 4;
         optdata += 4;
     }
@@ -124,7 +127,7 @@ static int ifchd_cmd_str(char *buf, size_t buflen, char *optname,
         return -1;
     buf += snprintf(buf, buflen, "%s:", optname);
     memcpy(buf, optdata, optlen);
-    buf[optlen] = ':';
+    buf[optlen] = ';';
     buf[optlen+1] = '\0';
     return (buf - obuf) + optlen + 1;
 }
@@ -193,7 +196,7 @@ void ifchange_deconfig(void)
 
     sockfd = open_ifch();
 
-    snprintf(buf, sizeof buf, CMD_INTERFACE ":%s:" CMD_IP ":0.0.0.0:",
+    snprintf(buf, sizeof buf, CMD_INTERFACE ":%s;" CMD_IP ":0.0.0.0;",
              client_config.interface);
     log_line("Resetting %s IP configuration.", client_config.interface);
     sockwrite(sockfd, buf, strlen(buf));
@@ -210,9 +213,9 @@ static size_t send_client_ip(char *out, size_t olen, struct dhcpmsg *packet)
     if (!memcmp(&packet->yiaddr, &cfg_packet.yiaddr, sizeof packet->yiaddr))
         return 0;
     inet_ntop(AF_INET, &packet->yiaddr, ip, sizeof ip);
-    snprintf(ipb, sizeof ipb, "ip:%s:", ip);
+    snprintf(ipb, sizeof ipb, "ip:%s;", ip);
     strlcat(out, ipb, olen);
-    log_line("Sent to ifchd: %s", ipb);
+    log_line("Sent to ifchd: %s", out);
     return strlen(ipb);
 }
 
@@ -249,7 +252,7 @@ void ifchange_bind(struct dhcpmsg *packet)
     if (!packet)
         return;
 
-    snprintf(buf, sizeof buf, CMD_INTERFACE ":%s:", client_config.interface);
+    snprintf(buf, sizeof buf, CMD_INTERFACE ":%s;", client_config.interface);
     tbs |= send_client_ip(buf, sizeof buf, packet);
     tbs |= send_cmd(buf, sizeof buf, packet, DCODE_SUBNET);
     tbs |= send_cmd(buf, sizeof buf, packet, DCODE_ROUTER);

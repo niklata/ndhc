@@ -49,12 +49,10 @@
 #include <getopt.h>
 
 #include "ifchd-defines.h"
-#include "malloc.h"
 #include "log.h"
 #include "chroot.h"
 #include "pidfile.h"
 #include "signals.h"
-#include "strlist.h"
 #include "ifch_proto.h"
 #include "strl.h"
 #include "cap.h"
@@ -97,14 +95,6 @@ static gid_t peer_gid;
 static pid_t peer_pid;
 
 static int gflags_verbose = 0;
-
-static void die_nulstr(strlist_t *p)
-{
-    if (!p)
-        suicide("FATAL - NULL passed to die_nulstr");
-    if (!p->str)
-        suicide("FATAL - NULL string in strlist");
-}
 
 static void writeordie(int fd, const char *buf, int len)
 {
@@ -177,43 +167,71 @@ static int enforce_seccomp(void)
     return 0;
 }
 
-/* Abstracts away the details of accept()ing a socket connection. */
-/* Writes out each element in a strlist as an argument to a keyword in
- * a file. */
-static void write_resolve_list(const char *keyword, strlist_t *list)
-{
-    char *buf;
-    strlist_t *p = list;
-    unsigned int len;
-
-    if (!keyword || resolv_conf_fd == -1)
-        return;
-
-    while (p) {
-        buf = p->str;
-        len = strlen(buf);
-        if (len) {
-            writeordie(resolv_conf_fd, keyword, strlen(keyword));
-            writeordie(resolv_conf_fd, buf, strlen(buf));
-            writeordie(resolv_conf_fd, "\n", 1);
-        }
-        p = p->next;
-    }
-}
-
 /* Writes a new resolv.conf based on the information we have received. */
-static void write_resolve_conf(int idx)
+static void write_resolve_conf(struct ifchd_client *cl)
 {
+    const static char ns_str[] = "nameserver ";
+    const static char dom_str[] = "domain ";
+    const static char srch_str[] = "search ";
     int r;
     off_t off;
+    char buf[MAX_BUF];
 
     if (resolv_conf_fd == -1)
         return;
+    if (strlen(cl->namesvrs) == 0)
+        return;
+
     if (lseek(resolv_conf_fd, 0, SEEK_SET) == -1)
         return;
 
-    write_resolve_list("nameserver ", clients[idx].namesvrs);
-    write_resolve_list("search ", clients[idx].domains);
+    char *p = cl->namesvrs;
+    while (p && (*p != '\0')) {
+        char *q = strchr(p, ' ');
+        if (!q)
+            q = strchr(p, '\0');
+        else
+            *q++ = '\0';
+        strlcpy(buf, p, sizeof buf);
+
+        writeordie(resolv_conf_fd, ns_str, strlen(ns_str));
+        writeordie(resolv_conf_fd, buf, strlen(buf));
+        writeordie(resolv_conf_fd, "\n", 1);
+
+        p = q;
+    }
+
+    p = cl->domains;
+    int numdoms = 0;
+    while (p && (*p != '\0')) {
+        char *q = strchr(p, ' ');
+        if (!q)
+            q = strchr(p, '\0');
+        else
+            *q++ = '\0';
+        strlcpy(buf, p, sizeof buf);
+
+        if (numdoms == 0) {
+            writeordie(resolv_conf_fd, dom_str, strlen(dom_str));
+            writeordie(resolv_conf_fd, buf, strlen(buf));
+        } else {
+            if (numdoms == 1) {
+                writeordie(resolv_conf_fd, "\n", 1);
+                writeordie(resolv_conf_fd, srch_str, strlen(srch_str));
+                writeordie(resolv_conf_fd, buf, strlen(buf));
+            } else {
+                writeordie(resolv_conf_fd, " ", 1);
+                writeordie(resolv_conf_fd, buf, strlen(buf));
+            }
+        }
+
+        ++numdoms;
+        p = q;
+        if (numdoms > 6)
+            break;
+    }
+    writeordie(resolv_conf_fd, "\n", 1);
+
     off = lseek(resolv_conf_fd, 0, SEEK_CUR);
     if (off == -1) {
         log_line("write_resolve_conf: lseek returned error: %s\n",
@@ -237,55 +255,25 @@ static void write_resolve_conf(int idx)
     }
 }
 
-/* Decomposes a ' '-delimited flat character array onto a strlist, then
- * calls the given function to perform work on the generated strlist. */
-static void parse_list(int idx, char *str, strlist_t **toplist,
-                       void (*fn)(int))
-{
-    char *p, n[256];
-    unsigned int i;
-    strlist_t *newn = 0;
-
-    if (!str || !toplist || !fn)
-        return;
-    p = str;
-
-    while (p != '\0') {
-        memset(n, '\0', sizeof n);
-        for (i = 0; i < sizeof n - 1 && *p != '\0' && *p != ' '; ++p, ++i)
-            n[i] = *p;
-        if (*p == ' ')
-            ++p;
-        add_to_strlist(&newn, n);
-    }
-
-    if (newn) {
-        free_strlist(*toplist);
-        *toplist = newn;
-    } else
-        return;
-
-    (*fn)(idx);
-}
-
 /* XXX: addme */
-static void perform_timezone(int idx, char *str)
+static void perform_timezone(struct ifchd_client *cl, char *str)
 {}
 
 /* Add a dns server to the /etc/resolv.conf -- we already have a fd. */
-static void perform_dns(int idx, char *str)
+static void perform_dns(struct ifchd_client *cl, char *str)
 {
     if (!str || resolv_conf_fd == -1)
         return;
-    parse_list(idx, str, &clients[idx].namesvrs, &write_resolve_conf);
+    strlcpy(cl->namesvrs, str, MAX_BUF);
+    write_resolve_conf(cl);
 }
 
 /* Updates for print daemons are too non-standard to be useful. */
-static void perform_lprsvr(int idx, char *str)
+static void perform_lprsvr(struct ifchd_client *cl, char *str)
 {}
 
 /* Sets machine hostname. */
-static void perform_hostname(int idx, char *str)
+static void perform_hostname(struct ifchd_client *cl, char *str)
 {
     if (!allow_hostname || !str)
         return;
@@ -293,25 +281,26 @@ static void perform_hostname(int idx, char *str)
         log_line("sethostname returned %s\n", strerror(errno));
 }
 
-/* update "search" in /etc/resolv.conf */
-static void perform_domain(int idx, char *str)
+/* update "domain" and "search" in /etc/resolv.conf */
+static void perform_domain(struct ifchd_client *cl, char *str)
 {
     if (!str || resolv_conf_fd == -1)
         return;
-    parse_list(idx, str, &clients[idx].domains, &write_resolve_conf);
+    strlcpy(cl->domains, str, MAX_BUF);
+    write_resolve_conf(cl);
 }
 
 /* I don't think this can be done without a netfilter extension
  * that isn't in the mainline kernels. */
-static void perform_ipttl(int idx, char *str)
+static void perform_ipttl(struct ifchd_client *cl, char *str)
 {}
 
 /* XXX: addme */
-static void perform_ntpsrv(int idx, char *str)
+static void perform_ntpsrv(struct ifchd_client *cl, char *str)
 {}
 
 /* Maybe Samba cares about this feature?  I don't know. */
-static void perform_wins(int idx, char *str)
+static void perform_wins(struct ifchd_client *cl, char *str)
 {}
 
 static void ifchd_client_init(struct ifchd_client *p)
@@ -322,11 +311,8 @@ static void ifchd_client_init(struct ifchd_client *p)
 
     memset(p->ibuf, 0, sizeof p->ibuf);
     memset(p->ifnam, 0, sizeof p->ifnam);
-    p->head = NULL;
-    p->curl = NULL;
-    p->last = NULL;
-    p->namesvrs = NULL;
-    p->domains = NULL;
+    memset(p->namesvrs, 0, sizeof p->namesvrs);
+    memset(p->domains, 0, sizeof p->domains);
 }
 
 static void ifchd_client_wipe(struct ifchd_client *p)
@@ -335,9 +321,6 @@ static void ifchd_client_wipe(struct ifchd_client *p)
         epoll_del(p->fd);
         close(p->fd);
     }
-    free_strlist(p->head);
-    free_strlist(p->namesvrs);
-    free_strlist(p->domains);
     ifchd_client_init(p);
 }
 
@@ -379,56 +362,43 @@ static void close_idle_sk(void)
     }
 }
 
-/* Decomposes a ':'-delimited flat character array onto a strlist. */
-static int stream_onto_list(int i)
+/*
+ * Returns -1 on fatal error.
+ */
+static int execute_buffer(struct ifchd_client *cl, char *newbuf)
 {
-    int e, s;
-    struct ifchd_client *cl = &clients[i];
+    char buf[MAX_BUF * 2];
+    char *p = buf, *endp;
 
-    for (e = 0, s = 0; cl->ibuf[e] != '\0'; e++) {
-        if (cl->ibuf[e] == ':') {
-            /* Zero-length command: skip. */
-            if (s == e) {
-                s = e + 1;
-                continue;
-            }
-            cl->curl = xmalloc(sizeof(strlist_t));
-
-            if (cl->head == NULL) {
-                cl->head = cl->curl;
-                cl->last = NULL;
-            }
-
-            cl->curl->next = NULL;
-            if (cl->last != NULL)
-                cl->last->next = cl->curl;
-
-            cl->curl->str = xmalloc(e - s + 1);
-
-            strlcpy(cl->curl->str, cl->ibuf + s, e - s + 1);
-            cl->last = cl->curl;
-            s = e + 1;
-        }
-    }
-    return s;
-}
-
-/* State machine that runs over the command and argument list,
- * executing commands. */
-static void execute_list(int i)
-{
-    char *p;
-    struct ifchd_client *cl = &clients[i];
+    memset(buf, 0, sizeof buf);
+    strlcat(buf, cl->ibuf, sizeof buf);
+    strlcat(buf, newbuf, sizeof buf);
 
     for (;;) {
-        if (!cl->curl)
-            break;
-        die_nulstr(cl->curl);
-
-        p = cl->curl->str;
-
-        if (gflags_verbose)
-            log_line("execute_list - p = '%s'", p);
+        endp = p;
+        if (cl->state == STATE_NOTHING) {
+            char *colon = strchr(p, ':');
+            if (!colon)
+                break;
+            char *semi = strchr(p, ';');
+            if (semi && semi < colon) {
+                log_line("bad syntax: STATE_NOTHING and a ';' came before ':'");
+                return -1;
+            }
+            *colon = '\0';
+            endp = colon + 1;
+        } else {
+            char *semi = strchr(p, ';');
+            if (!semi)
+                break;
+            char *colon = strchr(p, ':');
+            if (colon && colon < semi) {
+                log_line("bad syntax: !STATE_NOTHING and a ':' came before ';'");
+                return -1;
+            }
+            *semi = '\0';
+            endp = semi + 1;
+        }
 
         switch (cl->state) {
             case STATE_NOTHING:
@@ -460,90 +430,75 @@ static void execute_list(int i)
                     cl->state = STATE_NTPSVR;
                 if (strncmp(p, CMD_WINS, sizeof(CMD_WINS)) == 0)
                     cl->state = STATE_WINS;
-                free_stritem(&cl->curl);
                 break;
 
             case STATE_INTERFACE:
-                perform_interface(i, p);
-                free_stritem(&cl->curl);
+                perform_interface(cl, p);
                 cl->state = STATE_NOTHING;
                 break;
 
             case STATE_IP:
-                perform_ip(i, p);
-                free_stritem(&cl->curl);
+                perform_ip(cl, p);
                 cl->state = STATE_NOTHING;
                 break;
 
             case STATE_SUBNET:
-                perform_subnet(i, p);
-                free_stritem(&cl->curl);
+                perform_subnet(cl, p);
                 cl->state = STATE_NOTHING;
                 break;
 
             case STATE_TIMEZONE:
-                perform_timezone(i, p);
-                free_stritem(&cl->curl);
+                perform_timezone(cl, p);
                 cl->state = STATE_NOTHING;
                 break;
 
             case STATE_ROUTER:
-                perform_router(i, p);
-                free_stritem(&cl->curl);
+                perform_router(cl, p);
                 cl->state = STATE_NOTHING;
                 break;
 
             case STATE_DNS:
-                perform_dns(i, p);
-                free_stritem(&cl->curl);
+                perform_dns(cl, p);
                 cl->state = STATE_NOTHING;
                 break;
 
             case STATE_LPRSVR:
-                perform_lprsvr(i, p);
-                free_stritem(&cl->curl);
+                perform_lprsvr(cl, p);
                 cl->state = STATE_NOTHING;
                 break;
 
             case STATE_HOSTNAME:
-                perform_hostname(i, p);
-                free_stritem(&cl->curl);
+                perform_hostname(cl, p);
                 cl->state = STATE_NOTHING;
                 break;
 
             case STATE_DOMAIN:
-                perform_domain(i, p);
-                free_stritem(&cl->curl);
+                perform_domain(cl, p);
                 cl->state = STATE_NOTHING;
                 break;
 
             case STATE_IPTTL:
-                perform_ipttl(i, p);
-                free_stritem(&cl->curl);
+                perform_ipttl(cl, p);
                 cl->state = STATE_NOTHING;
                 break;
 
             case STATE_MTU:
-                perform_mtu(i, p);
-                free_stritem(&cl->curl);
+                perform_mtu(cl, p);
                 cl->state = STATE_NOTHING;
                 break;
 
             case STATE_BROADCAST:
-                perform_broadcast(i, p);
-                free_stritem(&cl->curl);
+                perform_broadcast(cl, p);
                 cl->state = STATE_NOTHING;
                 break;
 
             case STATE_NTPSVR:
-                perform_ntpsrv(i, p);
-                free_stritem(&cl->curl);
+                perform_ntpsrv(cl, p);
                 cl->state = STATE_NOTHING;
                 break;
 
             case STATE_WINS:
-                perform_wins(i, p);
-                free_stritem(&cl->curl);
+                perform_wins(cl, p);
                 cl->state = STATE_NOTHING;
                 break;
 
@@ -551,8 +506,13 @@ static void execute_list(int i)
                 log_line("warning: invalid state in dispatch_work\n");
                 break;
         }
+        p = endp;
     }
-    cl->head = cl->curl;
+    size_t remsize = strlen(endp);
+    if (remsize > MAX_BUF - 1)
+        return -1;
+    strlcpy(cl->ibuf, endp, MAX_BUF);
+    return 0;
 }
 
 /* Opens a non-blocking listening socket with the appropriate properties. */
@@ -687,53 +647,32 @@ static void signal_dispatch()
 
 static void process_client_fd(int fd)
 {
+    struct ifchd_client *cl = NULL;
+    int r;
     char buf[MAX_BUF];
-    int r, index, sqidx = -1;
+
     for (int j = 0; j < SOCK_QUEUE; ++j) {
         if (clients[j].fd == fd) {
-            sqidx = j;
+            cl = &clients[j];
             break;
         }
     }
-    if (sqidx == -1)
+    if (!cl)
         suicide("epoll returned pending read for untracked fd");
-    struct ifchd_client *cl = &clients[sqidx];
 
     cl->idle_time = time(NULL);
     memset(buf, '\0', sizeof buf);
 
-    r = safe_read(cl->fd, buf, sizeof buf / 2 - 1);
+    r = safe_read(cl->fd, buf, sizeof buf - 1);
     if (r == 0)
-        goto fail;
+        return;
     else if (r < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-            return;
         log_line("error reading from client fd: %s", strerror(errno));
+        goto fail;
     }
 
-    /* Discard everything and close connection if we risk overflow.
-     * This approach is maximally conservative... worst case is that
-     * some client requests will get dropped. */
-    index = strlen(cl->ibuf);
-    if (index + strlen(buf) > sizeof buf - 2)
+    if (execute_buffer(cl, buf) == -1)
         goto fail;
-
-    /* Append new stream input avoiding overflow. */
-    strlcpy(cl->ibuf + index, buf, sizeof cl->ibuf - index);
-
-    /* Decompose ibuf contents onto strlist. */
-    index = stream_onto_list(sqidx);
-
-    /* Remove everything that we've parsed into the list. */
-    strlcpy(buf, cl->ibuf + index, sizeof buf);
-    strlcpy(cl->ibuf, buf, sizeof cl->ibuf);
-
-    /* Now we have a strlist of commands and arguments.
-     * Decompose and execute it. */
-    if (!cl->head)
-        return;
-    cl->curl = cl->head;
-    execute_list(sqidx);
     return;
   fail:
     ifchd_client_wipe(cl);

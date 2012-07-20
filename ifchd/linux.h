@@ -1,6 +1,6 @@
 /* linux.h - ifchd Linux-specific functions include
  *
- * Copyright (c) 2004-2010 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright (c) 2004-2012 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,15 +28,15 @@
 
 #ifndef NJK_IFCHD_LINUX_H_
 #define NJK_IFCHD_LINUX_H_
-void clear_if_data(int idx);
+void clear_if_data(struct ifchd_client *cl);
 void initialize_if_data(void);
 void add_permitted_if(char *s);
 int authorized_peer(int sk, pid_t pid, uid_t uid, gid_t gid);
-void perform_interface(int idx, char *str);
-void perform_ip(int idx, char *str);
-void perform_subnet(int idx, char *str);
-void perform_router(int idx, char *str);
-void perform_mtu(int idx, char *str);
-void perform_broadcast(int idx, char *str);
+void perform_interface(struct ifchd_client *cl, char *str);
+void perform_ip(struct ifchd_client *cl, char *str);
+void perform_subnet(struct ifchd_client *cl, char *str);
+void perform_router(struct ifchd_client *cl, char *str);
+void perform_mtu(struct ifchd_client *cl, char *str);
+void perform_broadcast(struct ifchd_client *cl, char *str);
 #endif
 
