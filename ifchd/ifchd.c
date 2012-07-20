@@ -60,6 +60,7 @@
 #include "cap.h"
 #include "io.h"
 #include "linux.h"
+#include "seccomp-bpf.h"
 
 enum states {
     STATE_NOTHING,
@@ -148,6 +149,49 @@ static void epoll_del(int fd)
     r = epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, &ev);
     if (r == -1)
         suicide("epoll_del failed %s", strerror(errno));
+}
+
+static int enforce_seccomp(void)
+{
+    struct sock_filter filter[] = {
+        VALIDATE_ARCHITECTURE,
+        EXAMINE_SYSCALL,
+        ALLOW_SYSCALL(read),
+        ALLOW_SYSCALL(write),
+        ALLOW_SYSCALL(sendto), // used for glibc syslog routines
+        ALLOW_SYSCALL(epoll_wait),
+        ALLOW_SYSCALL(epoll_ctl),
+        ALLOW_SYSCALL(close),
+        ALLOW_SYSCALL(socket),
+        ALLOW_SYSCALL(getsockopt),
+        ALLOW_SYSCALL(accept),
+        ALLOW_SYSCALL(listen),
+        ALLOW_SYSCALL(ioctl),
+        ALLOW_SYSCALL(fsync),
+        ALLOW_SYSCALL(lseek),
+        ALLOW_SYSCALL(truncate),
+        ALLOW_SYSCALL(fcntl),
+        ALLOW_SYSCALL(unlink),
+        ALLOW_SYSCALL(bind),
+        ALLOW_SYSCALL(chmod),
+
+        ALLOW_SYSCALL(rt_sigreturn),
+#ifdef __NR_sigreturn
+        ALLOW_SYSCALL(sigreturn),
+#endif
+        ALLOW_SYSCALL(exit_group),
+        ALLOW_SYSCALL(exit),
+        KILL_PROCESS,
+    };
+    struct sock_fprog prog = {
+        .len = (unsigned short)(sizeof filter / sizeof filter[0]),
+        .filter = filter,
+    };
+    if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0))
+        return -1;
+    if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog))
+        return -1;
+    return 0;
 }
 
 /* Abstracts away the details of accept()ing a socket connection. */
@@ -709,9 +753,6 @@ static void dispatch_work(void)
 
     lsock = get_listen();
 
-    epollfd = epoll_create1(0);
-    if (epollfd == -1)
-        suicide("epoll_create1 failed");
     epoll_add(lsock);
     epoll_add(signalFd);
 
@@ -950,6 +991,13 @@ int main(int argc, char** argv) {
     memset(chrootd, '\0', sizeof(chrootd));
     memset(resolv_conf_d, '\0', sizeof(resolv_conf_d));
     memset(pidfile, '\0', sizeof(pidfile));
+
+    epollfd = epoll_create1(0);
+    if (epollfd == -1)
+        suicide("epoll_create1 failed");
+
+    if (enforce_seccomp())
+        log_line("seccomp filter cannot be installed");
 
     dispatch_work();
 
