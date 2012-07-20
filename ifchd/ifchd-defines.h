@@ -5,7 +5,7 @@
 
 #define PID_FILE_DEFAULT "/var/run/ifchd.pid"
 #define IFCHD_VERSION "0.9"
-#define MAX_BUF 1024
+#define MAX_BUF 384
 #define SOCK_QUEUE 2
 #define CONN_TIMEOUT 60
 #define MAX_IFACES 10

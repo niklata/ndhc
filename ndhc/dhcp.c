@@ -283,8 +283,10 @@ static int get_raw_packet(struct client_state_t *cs, struct dhcpmsg *payload)
         return -1;
     }
 
-    if (inc > ntohs(packet.ip.tot_len))
-        log_line("Discarded extra bytes after reading a single UDP datagram.");
+    if (inc != ntohs(packet.ip.tot_len)) {
+        log_line("UDP length does not match header length fields.");
+        return -2;
+    }
 
     if (!cs->using_dhcp_bpf && !get_raw_packet_validate_bpf(&packet))
         return -2;

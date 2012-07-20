@@ -664,15 +664,20 @@ static void process_client_fd(int fd)
     memset(buf, '\0', sizeof buf);
 
     r = safe_read(cl->fd, buf, sizeof buf - 1);
-    if (r == 0)
-        return;
-    else if (r < 0) {
+    if (r == 0) {
+        // Remote end hung up.
+        goto fail;
+    } else if (r < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return;
         log_line("error reading from client fd: %s", strerror(errno));
         goto fail;
     }
 
-    if (execute_buffer(cl, buf) == -1)
+    if (execute_buffer(cl, buf) == -1) {
+        log_line("execute_buffer was passed invalid commands");
         goto fail;
+    }
     return;
   fail:
     ifchd_client_wipe(cl);

@@ -125,12 +125,19 @@ static int enforce_seccomp(void)
         ALLOW_SYSCALL(read),
         ALLOW_SYSCALL(write),
         ALLOW_SYSCALL(close),
+        ALLOW_SYSCALL(recvmsg),
         ALLOW_SYSCALL(socket),
         ALLOW_SYSCALL(setsockopt),
         ALLOW_SYSCALL(fcntl),
         ALLOW_SYSCALL(bind),
         ALLOW_SYSCALL(open),
         ALLOW_SYSCALL(connect),
+        ALLOW_SYSCALL(getsockname),
+
+        // These are for 'write_leasefile()'
+        ALLOW_SYSCALL(ftruncate),
+        ALLOW_SYSCALL(lseek),
+        ALLOW_SYSCALL(fsync),
 
         // These are for 'background()'
         ALLOW_SYSCALL(socketpair),
@@ -230,10 +237,11 @@ static void do_work(void)
     cs.epollFd = epoll_create1(0);
     if (cs.epollFd == -1)
         suicide("epoll_create1 failed");
-    setup_signals(&cs);
 
     if (enforce_seccomp())
         log_line("seccomp filter cannot be installed");
+
+    setup_signals(&cs);
 
     epoll_add(&cs, cs.nlFd);
     set_listen_raw(&cs);
