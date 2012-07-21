@@ -303,10 +303,18 @@ static void perform_ntpsrv(struct ifchd_client *cl, char *str)
 static void perform_wins(struct ifchd_client *cl, char *str)
 {}
 
+static inline void clock_or_die(struct timespec *ts)
+{
+    if (clock_gettime(CLOCK_MONOTONIC, ts))
+        suicide("clock_gettime failed %s", strerror(errno));
+}
+
 static void ifchd_client_init(struct ifchd_client *p)
 {
     p->fd = -1;
-    p->idle_time = time(NULL);
+    struct timespec ts;
+    clock_or_die(&ts);
+    p->idle_time = ts.tv_sec;
     p->state = STATE_NOTHING;
 
     memset(p->ibuf, 0, sizeof p->ibuf);
@@ -357,7 +365,9 @@ static void close_idle_sk(void)
         struct ifchd_client *p = &clients[i];
         if (p->fd == -1)
             continue;
-        if (time(NULL) - p->idle_time > CONN_TIMEOUT)
+        struct timespec ts;
+        clock_or_die(&ts);
+        if (ts.tv_sec - p->idle_time > CONN_TIMEOUT)
             ifchd_client_wipe(p);
     }
 }
@@ -661,7 +671,9 @@ static void process_client_fd(int fd)
     if (!cl)
         suicide("epoll returned pending read for untracked fd");
 
-    cl->idle_time = time(NULL);
+    struct timespec ts;
+    clock_or_die(&ts);
+    cl->idle_time = ts.tv_sec;
     memset(buf, '\0', sizeof buf);
 
     r = safe_read(cl->fd, buf, sizeof buf - 1);
@@ -787,12 +799,27 @@ int main(int argc, char** argv) {
                 break;
 
             case 'v':
-                printf(
-"ifchd %s, if change daemon.  Licensed under 2-clause BSD.\n", IFCHD_VERSION);
-                printf(
-"Copyright (C) 2004-2012 Nicholas J. Kain\nAll rights reserved.\n"
-"This is free software; see the source for copying conditions.  There is NO\n"
-"WARRANTY; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
+                printf("ifchd %s, if change daemon.\n", IFCHD_VERSION);
+                printf("Copyright (c) 2004-2012 Nicholas J. Kain\n"
+                       "All rights reserved.\n\n"
+                       "Redistribution and use in source and binary forms, with or without\n"
+                       "modification, are permitted provided that the following conditions are met:\n\n"
+                       "- Redistributions of source code must retain the above copyright notice,\n"
+                       "  this list of conditions and the following disclaimer.\n"
+                       "- Redistributions in binary form must reproduce the above copyright notice,\n"
+                       "  this list of conditions and the following disclaimer in the documentation\n"
+                       "  and/or other materials provided with the distribution.\n\n"
+                       "THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\"\n"
+                       "AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE\n"
+                       "IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE\n"
+                       "ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE\n"
+                       "LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR\n"
+                       "CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF\n"
+                       "SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS\n"
+                       "INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN\n"
+                       "CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)\n"
+                       "ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE\n"
+                       "POSSIBILITY OF SUCH DAMAGE.\n");
                 exit(EXIT_FAILURE);
                 break;
 
