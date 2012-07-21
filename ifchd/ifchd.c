@@ -374,8 +374,7 @@ static int execute_buffer(struct ifchd_client *cl, char *newbuf)
     strlcat(buf, cl->ibuf, sizeof buf);
     strlcat(buf, newbuf, sizeof buf);
 
-    for (;;) {
-        endp = p;
+    for (endp = p;;p = endp) {
         if (cl->state == STATE_NOTHING) {
             char *colon = strchr(p, ':');
             if (!colon)
@@ -399,6 +398,9 @@ static int execute_buffer(struct ifchd_client *cl, char *newbuf)
             *semi = '\0';
             endp = semi + 1;
         }
+
+        if (!strlen(p))
+            continue;
 
         switch (cl->state) {
             case STATE_NOTHING:
@@ -506,7 +508,6 @@ static int execute_buffer(struct ifchd_client *cl, char *newbuf)
                 log_line("warning: invalid state in dispatch_work\n");
                 break;
         }
-        p = endp;
     }
     size_t remsize = strlen(endp);
     if (remsize > MAX_BUF - 1)

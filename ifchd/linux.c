@@ -279,6 +279,9 @@ void perform_mtu(struct ifchd_client *cl, char *str)
         return;
 
     mtu = strtol(str, NULL, 10);
+    // Minimum MTU for physical IPv4 links is 576 octets.
+    if (mtu < 576)
+        return;
     ifrt.ifr_mtu = mtu;
     strlcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
 
