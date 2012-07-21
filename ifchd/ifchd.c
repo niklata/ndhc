@@ -134,6 +134,7 @@ static int enforce_seccomp(void)
         ALLOW_SYSCALL(sendto), // used for glibc syslog routines
         ALLOW_SYSCALL(epoll_wait),
         ALLOW_SYSCALL(epoll_ctl),
+        ALLOW_SYSCALL(clock_gettime),
         ALLOW_SYSCALL(close),
         ALLOW_SYSCALL(socket),
         ALLOW_SYSCALL(getsockopt),
