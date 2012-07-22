@@ -134,6 +134,12 @@ static int enforce_seccomp(void)
         ALLOW_SYSCALL(connect),
         ALLOW_SYSCALL(getsockname),
 
+        // Allowed by vDSO
+        ALLOW_SYSCALL(getcpu),
+        ALLOW_SYSCALL(time),
+        ALLOW_SYSCALL(gettimeofday),
+        ALLOW_SYSCALL(clock_gettime),
+
         // These are for 'write_leasefile()'
         ALLOW_SYSCALL(ftruncate),
         ALLOW_SYSCALL(lseek),

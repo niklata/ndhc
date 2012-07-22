@@ -153,6 +153,11 @@ static int enforce_seccomp(void)
 #ifdef __NR_sigreturn
         ALLOW_SYSCALL(sigreturn),
 #endif
+        // Allowed by vDSO
+        ALLOW_SYSCALL(getcpu),
+        ALLOW_SYSCALL(time),
+        ALLOW_SYSCALL(gettimeofday),
+
         ALLOW_SYSCALL(exit_group),
         ALLOW_SYSCALL(exit),
         KILL_PROCESS,
