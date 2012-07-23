@@ -67,8 +67,6 @@
 #include "io.h"
 #include "seccomp-bpf.h"
 
-#define VERSION "1.0"
-
 struct client_state_t cs = {
     .init = 1,
     .epollFd = -1,
@@ -89,7 +87,7 @@ struct client_config_t client_config = {
 static void show_usage(void)
 {
     printf(
-"ndhc " VERSION ", dhcp client.  Licensed under 2-clause BSD.\n"
+"ndhc " NDHC_VERSION ", dhcp client.  Licensed under 2-clause BSD.\n"
 "Copyright (C) 2004-2012 Nicholas J. Kain\n"
 "Usage: ndhc [OPTIONS]\n\n"
 "  -c, --clientid=CLIENTID         Client identifier\n"
@@ -392,7 +390,7 @@ int main(int argc, char **argv)
                 arp_relentless_def = 1;
                 break;
             case 'v':
-                printf("ndhc %s, dhcp client.\n", VERSION);
+                printf("ndhc %s, dhcp client.\n", NDHC_VERSION);
                 printf("Copyright (c) 2004-2012 Nicholas J. Kain\n"
                        "All rights reserved.\n\n"
                        "Redistribution and use in source and binary forms, with or without\n"
@@ -424,7 +422,7 @@ int main(int argc, char **argv)
         }
     }
 
-    log_line("ndhc client " VERSION " started.");
+    log_line("ndhc client " NDHC_VERSION " started.");
 
     if (client_config.foreground && !client_config.background_if_no_lease) {
         if (file_exists(pidfile, "w") == -1) {
