@@ -356,6 +356,12 @@ static int create_raw_listen_socket(struct client_state_t *cs, int ifindex)
         BPF_STMT(BPF_LD + BPF_B + BPF_ABS, 9),
         BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, IPPROTO_UDP, 1, 0),
         BPF_STMT(BPF_RET + BPF_K, 0),
+        // Make certain that the packet is not a fragment.  All bits in
+        // the flag and fragment offset field must be set to zero except
+        // for the Evil and DF bits (0,1).
+        BPF_STMT(BPF_LD + BPF_H + BPF_ABS, 6),
+        BPF_JUMP(BPF_JMP + BPF_JSET + BPF_K, 0x3fff, 0, 1),
+        BPF_STMT(BPF_RET + BPF_K, 0),
         // Packet is UDP.  Advance X past the IP header.
         BPF_STMT(BPF_LDX + BPF_B + BPF_MSH, 0),
         // Verify that the UDP client and server ports match that of the
