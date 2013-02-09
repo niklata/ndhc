@@ -1,6 +1,6 @@
 /* arp.c - arp ping checking
  *
- * Copyright (c) 2010-2011 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright (c) 2010-2013 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -53,16 +53,17 @@
 #define ARP_RETRANS_DELAY 5000 // ms
 
 // From RFC5227
-#define PROBE_WAIT 1000            // initial random delay
-#define PROBE_NUM 3                // number of probe packets
-#define PROBE_MIN 1000             // minimum delay until repeated probe
-#define PROBE_MAX 2000             // maximum delay until repeated probe
+int arp_probe_wait = 1000;         // initial random delay (ms)
+int arp_probe_num = 3;             // number of probe packets
+int arp_probe_min = 1000;          // minimum delay until repeated probe (ms)
+int arp_probe_max = 2000;          // maximum delay until repeated probe (ms)
 #define ANNOUNCE_WAIT 2000         // delay before announcing
 #define ANNOUNCE_NUM 2             // number of Announcement packets
 #define ANNOUNCE_INTERVAL 2000     // time between Announcement packets
 #define MAX_CONFLICTS 10           // max conflicts before rate-limiting
 #define RATE_LIMIT_INTERVAL 60000  // delay between successive attempts
 #define DEFEND_INTERVAL 10000      // minimum interval between defensive ARPs
+
 
 typedef enum {
     AS_NONE = 0,        // Nothing to react to wrt ARP
@@ -383,7 +384,7 @@ int arp_check(struct client_state_t *cs, struct dhcpmsg *packet)
     cs->arpPrevState = cs->dhcpState;
     cs->dhcpState = DS_COLLISION_CHECK;
     arp_check_start_ts = arp_send_stats[ASEND_COLLISION_CHECK].ts;
-    probe_wait_time = PROBE_WAIT;
+    probe_wait_time = arp_probe_wait;
     arp_wake_ts[AS_COLLISION_CHECK] = arp_check_start_ts + probe_wait_time;
     return 0;
 }
@@ -561,7 +562,7 @@ static int arp_is_query_reply(struct arpMsg *am)
 static int arp_gen_probe_wait(void)
 {
     // This is not a uniform distribution but it doesn't matter here.
-    return PROBE_MIN + rand() % (PROBE_MAX - PROBE_MIN);
+    return arp_probe_min + rand() % (arp_probe_max - arp_probe_min);
 }
 
 static void arp_defense_timeout(struct client_state_t *cs, long long nowts)
@@ -626,7 +627,7 @@ static void arp_collision_timeout(struct client_state_t *cs, long long nowts)
     arp_defense_timeout(cs, nowts);
 
     if (nowts >= arp_check_start_ts + ANNOUNCE_WAIT ||
-        arp_send_stats[ASEND_COLLISION_CHECK].count >= PROBE_NUM) {
+        arp_send_stats[ASEND_COLLISION_CHECK].count >= arp_probe_num) {
         arp_success(cs);
         return;
     }

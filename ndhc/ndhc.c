@@ -1,6 +1,6 @@
 /* ndhc.c - DHCP client
  *
- * Copyright (c) 2004-2012 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright (c) 2004-2013 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -107,6 +107,10 @@ static void show_usage(void)
 "  -C, --chroot=DIR                Chroot to this directory\n"
 "  -d, --relentless-defense        Never back off in defending IP against\n"
 "                                  conflicting hosts (servers only)\n"
+"  -w, --arp-probe-wait            Time to delay before first ARP probe\n"
+"  -W, --arp-probe-num             Number of ARP probes before lease is ok\n"
+"  -m, --arp-probe-min             Min ms to wait for ARP response\n"
+"  -M, --arp-probe-max             Max ms to wait for ARP response\n"
 "  -v, --version                   Display version\n"
            );
     exit(EXIT_SUCCESS);
@@ -324,6 +328,10 @@ int main(int argc, char **argv)
         {"user",        required_argument,  0, 'u'},
         {"chroot",      required_argument,  0, 'C'},
         {"relentless-defense", no_argument, 0, 'd'},
+        {"arp-probe-wait", required_argument, 0, 'w'},
+        {"arp-probe-num", required_argument, 0, 'W'},
+        {"arp-probe-min", required_argument, 0, 'm'},
+        {"arp-probe-max", required_argument, 0, 'M'},
         {"version",     no_argument,        0, 'v'},
         {"help",        no_argument,        0, '?'},
         {0, 0, 0, 0}
@@ -331,8 +339,8 @@ int main(int argc, char **argv)
 
     while (1) {
         int option_index = 0;
-        c = getopt_long(argc, argv, "c:fbp:h:i:np:l:qr:V:u:C:dv", arg_options,
-                        &option_index);
+        c = getopt_long(argc, argv, "c:fbp:h:i:np:l:qr:V:u:C:dw:W:m:M:v",
+                        arg_options, &option_index);
         if (c == -1) break;
 
         switch (c) {
@@ -389,9 +397,34 @@ int main(int argc, char **argv)
             case 'd':
                 arp_relentless_def = 1;
                 break;
+            case 'w':
+            case 'W': {
+                int t = atoi(optarg);
+                if (t < 0)
+                    break;
+                if (c == 'w')
+                    arp_probe_wait = t;
+                else
+                    arp_probe_num = t;
+                break;
+            }
+            case 'm':
+            case 'M': {
+                int t = atoi(optarg);
+                if (c == 'm')
+                    arp_probe_min = t;
+                else
+                    arp_probe_max = t;
+                if (arp_probe_min > arp_probe_max) {
+                    t = arp_probe_max;
+                    arp_probe_max = arp_probe_min;
+                    arp_probe_min = t;
+                }
+                break;
+            }
             case 'v':
                 printf("ndhc %s, dhcp client.\n", NDHC_VERSION);
-                printf("Copyright (c) 2004-2012 Nicholas J. Kain\n"
+                printf("Copyright (c) 2004-2013 Nicholas J. Kain\n"
                        "All rights reserved.\n\n"
                        "Redistribution and use in source and binary forms, with or without\n"
                        "modification, are permitted provided that the following conditions are met:\n\n"

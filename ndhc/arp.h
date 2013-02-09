@@ -53,6 +53,10 @@ struct arpMsg {
     uint8_t  pad[18];       // 2a pad for min. ethernet payload (60 bytes)
 };
 
+extern int arp_probe_wait;
+extern int arp_probe_num;
+extern int arp_probe_min;
+extern int arp_probe_max;
 extern int arp_relentless_def;
 
 void arp_reset_send_stats(void);
