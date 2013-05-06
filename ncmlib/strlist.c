@@ -46,7 +46,7 @@ void add_to_strlist(strlist_t **list, char *name)
 	len = strlen(name) + 1;
 	if (len == 1) return;
 	s = xmalloc(len);
-	strlcpy(s, name, len);
+	strnkcpy(s, name, len);
 
 	item = xmalloc(sizeof (strlist_t));
 	item->str = s;

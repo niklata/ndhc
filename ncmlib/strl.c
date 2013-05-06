@@ -30,6 +30,27 @@
 #include <unistd.h>
 #include "strl.h"
 
+// true == truncated, false == no truncation
+bool strnkcpy (char *dest, const char *src, size_t size)
+{
+	if (size > 0) {
+		size_t i = 0;
+		size--;
+		for (; size > 0 && src[i] != '\0'; ++i, size--)
+			dest[i] = src[i];
+		dest[i] = '\0';
+		return size ? false : true;
+	} else
+		return true;
+}
+
+// true == truncated, false == no truncation
+bool strnkcat (char *dest, const char *src, size_t size)
+{
+	for (; size > 0 && *dest != '\0'; size--, dest++);
+	return strnkcpy(dest, src, size);
+}
+
 #ifndef HAVE_STRLCPY
 size_t strlcpy (char *dest, const char *src, size_t size)
 {

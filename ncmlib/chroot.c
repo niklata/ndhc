@@ -53,7 +53,7 @@ int chroot_enabled(void)
 
 void update_chroot(const char *path)
 {
-	strlcpy(chrootd, path, sizeof chrootd);
+	strnkcpy(chrootd, path, sizeof chrootd);
 	chroot_modified = 1;
 }
 

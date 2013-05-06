@@ -30,6 +30,11 @@
 #ifndef NCM_STRL_H_
 #define NCM_STRL_H_ 1
 
+#include <stdbool.h>
+
+bool strnkcpy (char *dest, const char *src, size_t size);
+bool strnkcat (char *dest, const char *src, size_t size);
+
 #ifndef HAVE_STRLCPY
 size_t strlcpy (char *dest, const char *src, size_t size);
 #endif /* HAVE_STRLCPY */
