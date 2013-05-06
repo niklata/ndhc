@@ -1,7 +1,6 @@
-/* strl.h - header file for strlcpy/strlcat implementation
- * Time-stamp: <2010-11-03 05:24:52 njk>
+/* strl.h - strnkcpy/strnkcat implementation
  *
- * (c) 2003-2010 Nicholas J. Kain <njkain at gmail dot com>
+ * (c) 2003-2013 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,14 +33,6 @@
 
 bool strnkcpy (char *dest, const char *src, size_t size);
 bool strnkcat (char *dest, const char *src, size_t size);
-
-#ifndef HAVE_STRLCPY
-size_t strlcpy (char *dest, const char *src, size_t size);
-#endif /* HAVE_STRLCPY */
-
-#ifndef HAVE_STRLCAT
-size_t strlcat (char *dest, const char *src, size_t size);
-#endif /* HAVE_STRLCAT */
 
 #endif
 

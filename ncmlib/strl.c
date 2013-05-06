@@ -1,7 +1,6 @@
-/* strl.c - strlcpy/strlcat implementation
- * Time-stamp: <2010-11-03 05:25:02 njk>
+/* strl.c - strnkcpy/strnkcat implementation
  *
- * (c) 2003-2010 Nicholas J. Kain <njkain at gmail dot com>
+ * (c) 2003-2013 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -50,32 +49,4 @@ bool strnkcat (char *dest, const char *src, size_t size)
 	for (; size > 0 && *dest != '\0'; size--, dest++);
 	return strnkcpy(dest, src, size);
 }
-
-#ifndef HAVE_STRLCPY
-size_t strlcpy (char *dest, const char *src, size_t size)
-{
-	register unsigned int i = 0;
-
-	if (size > 0) {
-		size--;
-		for (i=0; size > 0 && src[i] != '\0'; ++i, size--)
-			dest[i] = src[i];
-
-		dest[i] = '\0';
-	}
-	while (src[i++]);
-
-	return i;
-}
-#endif /* HAVE_STRLCPY */
-
-#ifndef HAVE_STRLCAT
-size_t strlcat (char *dest, const char *src, size_t size)
-{
-	register char *d = dest;
-
-	for (; size > 0 && *d != '\0'; size--, d++);
-	return (d - dest) + strlcpy(d, src, size);
-}
-#endif /* HAVE_STRLCAT */
 
