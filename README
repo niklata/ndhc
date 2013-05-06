@@ -214,16 +214,6 @@ most modern unix systems, but it is not standard.
 7) Numerous socket options are used, and the AF_PACKET socket family is used
 for raw sockets and ARP.  These are largely Linux-specific, too.
 
-8) ndhc uses strlcpy() and strlcat().  Native versions are provided.
-Some standard C libraries include a native implementation of strlcpy() and
-strlcat().  Such defines may conflict with my implementations in strl.c/strl.h.
-It is up to the user whether the standard C library implementations should be
-used.  Note that some machines implement strlcpy() and strlcat() with
-nonstandard semantics (notably Solaris).  On these systems, using the
-system-provided implementations may lead to security problems.  Such problems
-are the fault of the vendor.  If you are unsure whether your system is correct
-or not, I suggest using the implementation that I provide.
-
 HISTORY
 -------
 

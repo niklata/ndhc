@@ -214,7 +214,7 @@ static size_t send_client_ip(char *out, size_t olen, struct dhcpmsg *packet)
         return 0;
     inet_ntop(AF_INET, &packet->yiaddr, ip, sizeof ip);
     snprintf(ipb, sizeof ipb, "ip:%s;", ip);
-    strlcat(out, ipb, olen);
+    strnkcat(out, ipb, olen);
     log_line("Sent to ifchd: %s", out);
     return strlen(ipb);
 }
@@ -238,7 +238,7 @@ static size_t send_cmd(char *out, size_t olen, struct dhcpmsg *packet,
         return 0;
     if (ifchd_cmd(buf, sizeof buf, optdata, optlen, code) == -1)
         return 0;
-    strlcat(out, buf, olen);
+    strnkcat(out, buf, olen);
     log_line("Sent to ifchd: %s", buf);
     return strlen(buf);
 }

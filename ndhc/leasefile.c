@@ -46,7 +46,7 @@ static int leasefilefd = -1;
 
 void set_leasefile(char *lf)
 {
-    strlcpy(leasefile, lf, sizeof leasefile);
+    strnkcpy(leasefile, lf, sizeof leasefile);
 }
 
 void open_leasefile()
@@ -67,7 +67,7 @@ void write_leasefile(struct in_addr ipnum)
     if (leasefilefd < 0)
         return;
     inet_ntop(AF_INET, &ipnum, ip, sizeof ip);
-    strlcat(ip, "\n", sizeof ip);
+    strnkcat(ip, "\n", sizeof ip);
   retry_trunc:
     ret = ftruncate(leasefilefd, 0);
     switch (ret) {
@@ -85,3 +85,4 @@ void write_leasefile(struct in_addr ipnum)
     else
         fsync(leasefilefd);
 }
+

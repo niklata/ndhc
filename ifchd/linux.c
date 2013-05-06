@@ -60,7 +60,7 @@ void add_permitted_if(char *s)
 {
     if (numokif >= MAX_IFACES)
         return;
-    strlcpy(okif[numokif++], s, IFNAMSIZ);
+    strnkcpy(okif[numokif++], s, IFNAMSIZ);
 }
 
 /* Checks if changes are permitted to a given interface.  1 == allowed */
@@ -110,7 +110,7 @@ void perform_interface(struct ifchd_client *cl, char *str)
 
     /* Update interface name. */
     memset(cl->ifnam, '\0', IFNAMSIZ);
-    strlcpy(cl->ifnam, str, IFNAMSIZ);
+    strnkcpy(cl->ifnam, str, IFNAMSIZ);
 }
 
 static int set_if_flag(struct ifchd_client *cl, short flag)
@@ -128,13 +128,13 @@ static int set_if_flag(struct ifchd_client *cl, short flag)
         goto out0;
     }
 
-    strlcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
+    strnkcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
     if (ioctl(fd, SIOCGIFFLAGS, &ifrt) < 0) {
         log_line("%s: unknown interface: %s\n", cl->ifnam, strerror(errno));
         goto out1;
     }
     if (((ifrt.ifr_flags & flag ) ^ flag) & flag) {
-        strlcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
+        strnkcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
         ifrt.ifr_flags |= flag;
         if (ioctl(fd, SIOCSIFFLAGS, &ifrt) < 0) {
             log_line("%s: failed to set interface flags: %s\n",
@@ -167,7 +167,7 @@ void perform_ip(struct ifchd_client *cl, char *str)
     if (set_if_flag(cl, (IFF_UP | IFF_RUNNING)))
         return;
 
-    strlcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
+    strnkcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
     memset(&sin, 0, sizeof(struct sockaddr));
     sin.sin_family = AF_INET;
     sin.sin_addr = ipaddr;
@@ -200,7 +200,7 @@ void perform_subnet(struct ifchd_client *cl, char *str)
     if (!inet_pton(AF_INET, str, &subnet))
         return;
 
-    strlcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
+    strnkcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
     memset(&sin, 0, sizeof(struct sockaddr));
     sin.sin_family = AF_INET;
     sin.sin_addr = subnet;
@@ -283,7 +283,7 @@ void perform_mtu(struct ifchd_client *cl, char *str)
     if (mtu < 576)
         return;
     ifrt.ifr_mtu = mtu;
-    strlcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
+    strnkcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
 
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
@@ -311,7 +311,7 @@ void perform_broadcast(struct ifchd_client *cl, char *str)
     if (!inet_pton(AF_INET, str, &broadcast))
         return;
 
-    strlcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
+    strnkcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
     memset(&sin, 0, sizeof(struct sockaddr));
     sin.sin_family = AF_INET;
     sin.sin_addr = broadcast;

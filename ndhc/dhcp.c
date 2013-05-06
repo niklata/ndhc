@@ -81,7 +81,7 @@ static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
     }
     struct ifreq ifr;
     memset(&ifr, 0, sizeof (struct ifreq));
-    strlcpy(ifr.ifr_name, iface, IFNAMSIZ);
+    strnkcpy(ifr.ifr_name, iface, IFNAMSIZ);
     if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
         log_error("create_udp_socket: Set bind to device failed: %s",
                   strerror(errno));

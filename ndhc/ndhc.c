@@ -346,8 +346,8 @@ int main(int argc, char **argv)
         switch (c) {
             case 'c':
                 if (!get_clientid_mac_string(optarg, strlen(optarg)))
-                    strlcpy(client_config.clientid, optarg,
-                            sizeof client_config.clientid);
+                    strnkcpy(client_config.clientid, optarg,
+                             sizeof client_config.clientid);
                 else
                     client_config.clientid_mac = 1;
                 break;
@@ -360,14 +360,14 @@ int main(int argc, char **argv)
                 gflags_detach = 1;
                 break;
             case 'p':
-                strlcpy(pidfile, optarg, sizeof pidfile);
+                strnkcpy(pidfile, optarg, sizeof pidfile);
                 break;
             case 'l':
                 set_leasefile(optarg);
                 break;
             case 'h':
-                strlcpy(client_config.hostname, optarg,
-                        sizeof client_config.hostname);
+                strnkcpy(client_config.hostname, optarg,
+                         sizeof client_config.hostname);
                 break;
             case 'i':
                 client_config.interface = optarg;
@@ -392,7 +392,7 @@ int main(int argc, char **argv)
                 }
                 break;
             case 'C':
-                strlcpy(chroot_dir, optarg, sizeof chroot_dir);
+                strnkcpy(chroot_dir, optarg, sizeof chroot_dir);
                 break;
             case 'd':
                 arp_relentless_def = 1;
@@ -447,8 +447,8 @@ int main(int argc, char **argv)
                 exit(EXIT_SUCCESS);
                 break;
             case 'V':
-                strlcpy(client_config.vendor, optarg,
-                        sizeof client_config.vendor);
+                strnkcpy(client_config.vendor, optarg,
+                         sizeof client_config.vendor);
                 break;
             default:
                 show_usage();

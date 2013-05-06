@@ -198,7 +198,7 @@ static void write_resolve_conf(struct ifchd_client *cl)
             q = strchr(p, '\0');
         else
             *q++ = '\0';
-        strlcpy(buf, p, sizeof buf);
+        strnkcpy(buf, p, sizeof buf);
 
         writeordie(resolv_conf_fd, ns_str, strlen(ns_str));
         writeordie(resolv_conf_fd, buf, strlen(buf));
@@ -215,7 +215,7 @@ static void write_resolve_conf(struct ifchd_client *cl)
             q = strchr(p, '\0');
         else
             *q++ = '\0';
-        strlcpy(buf, p, sizeof buf);
+        strnkcpy(buf, p, sizeof buf);
 
         if (numdoms == 0) {
             writeordie(resolv_conf_fd, dom_str, strlen(dom_str));
@@ -270,7 +270,7 @@ static void perform_dns(struct ifchd_client *cl, char *str)
 {
     if (!str || resolv_conf_fd == -1)
         return;
-    strlcpy(cl->namesvrs, str, MAX_BUF);
+    strnkcpy(cl->namesvrs, str, MAX_BUF);
     write_resolve_conf(cl);
 }
 
@@ -292,7 +292,7 @@ static void perform_domain(struct ifchd_client *cl, char *str)
 {
     if (!str || resolv_conf_fd == -1)
         return;
-    strlcpy(cl->domains, str, MAX_BUF);
+    strnkcpy(cl->domains, str, MAX_BUF);
     write_resolve_conf(cl);
 }
 
@@ -387,8 +387,13 @@ static int execute_buffer(struct ifchd_client *cl, char *newbuf)
     char *p = buf, *endp;
 
     memset(buf, 0, sizeof buf);
-    strlcat(buf, cl->ibuf, sizeof buf);
-    strlcat(buf, newbuf, sizeof buf);
+    if (strnkcat(buf, cl->ibuf, sizeof buf))
+        goto buftooshort;
+    if (strnkcat(buf, newbuf, sizeof buf)) {
+buftooshort:
+        log_line("error: input is too long for buffer");
+        return -1;
+    }
 
     for (endp = p;;p = endp) {
         if (cl->state == STATE_NOTHING) {
@@ -528,7 +533,7 @@ static int execute_buffer(struct ifchd_client *cl, char *newbuf)
     size_t remsize = strlen(endp);
     if (remsize > MAX_BUF - 1)
         return -1;
-    strlcpy(cl->ibuf, endp, MAX_BUF);
+    strnkcpy(cl->ibuf, endp, MAX_BUF);
     return 0;
 }
 
@@ -842,15 +847,15 @@ int main(int argc, char** argv) {
                 break;
 
             case 'c':
-                strlcpy(chrootd, optarg, MAX_PATH_LENGTH);
+                strnkcpy(chrootd, optarg, MAX_PATH_LENGTH);
                 break;
 
             case 'p':
-                strlcpy(pidfile, optarg, MAX_PATH_LENGTH);
+                strnkcpy(pidfile, optarg, MAX_PATH_LENGTH);
                 break;
 
             case 'r':
-                strlcpy(resolv_conf_d, optarg, MAX_PATH_LENGTH);
+                strnkcpy(resolv_conf_d, optarg, MAX_PATH_LENGTH);
                 break;
 
             case 'o':
