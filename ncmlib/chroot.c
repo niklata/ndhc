@@ -1,7 +1,6 @@
-/* chroot.c - chroots ndyndns jobs
- * Time-stamp: <2010-11-03 05:23:56 njk>
+/* chroot.c - chroots jobs and drops privs
  *
- * (c) 2005-2010 Nicholas J. Kain <njkain at gmail dot com>
+ * (c) 2005-2013 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -53,44 +52,36 @@ int chroot_enabled(void)
 
 void update_chroot(const char *path)
 {
-	strnkcpy(chrootd, path, sizeof chrootd);
-	chroot_modified = 1;
+    strnkcpy(chrootd, path, sizeof chrootd);
+    chroot_modified = 1;
 }
 
 int chroot_exists(void)
 {
-	return chroot_modified;
+    return chroot_modified;
 }
 
 char *get_chroot(void)
 {
-	return chrootd;
+    return chrootd;
 }
 
 void wipe_chroot(void)
 {
-	memset(chrootd, '\0', sizeof chrootd);
+    memset(chrootd, '\0', sizeof chrootd);
 }
 
-void imprison(const char *path)
+void imprison(const char *chroot_dir)
 {
-	int ret;
-
-	if (path == NULL)
+    if (chdir(chroot_dir)) {
+        log_line("Failed to chdir(%s)!", chroot_dir);
+        exit(EXIT_FAILURE);
+    }
+    if (!chroot_enable)
         return;
-
-	ret = chdir(path);
-	if (ret) {
-		log_line("Failed to chdir(%s).  Not invoking job.", path);
-		exit(EXIT_FAILURE);
-	}
-
-    if (chroot_enable) {
-        ret = chroot(path);
-        if (ret) {
-            log_line("Failed to chroot(%s).  Not invoking job.", path);
-            exit(EXIT_FAILURE);
-        }
+    if (chroot(chroot_dir)) {
+        log_line("Failed to chroot(%s)!", chroot_dir);
+        exit(EXIT_FAILURE);
     }
 }
 
