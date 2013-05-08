@@ -256,6 +256,7 @@ void perform_dns(struct ifchd_client *cl, const char *str, size_t len)
         return;
     strnkcpy(cl->namesvrs, str, sizeof cl->namesvrs);
     write_resolve_conf(cl);
+    log_line("Added DNS server: '%s'", str);
 }
 
 /* Updates for print daemons are too non-standard to be useful. */
@@ -269,6 +270,8 @@ void perform_hostname(struct ifchd_client *cl, const char *str, size_t len)
         return;
     if (sethostname(str, strlen(str) + 1) == -1)
         log_line("sethostname returned %s", strerror(errno));
+    else
+        log_line("Set hostname: '%s'", str);
 }
 
 /* update "domain" and "search" in /etc/resolv.conf */
@@ -278,6 +281,7 @@ void perform_domain(struct ifchd_client *cl, const char *str, size_t len)
         return;
     strnkcpy(cl->domains, str, sizeof cl->domains);
     write_resolve_conf(cl);
+    log_line("Added DNS domain: '%s'", str);
 }
 
 /* I don't think this can be done without a netfilter extension

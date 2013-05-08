@@ -111,6 +111,7 @@ void perform_interface(struct ifchd_client *cl, const char *str, size_t len)
     /* Update interface name. */
     memset(cl->ifnam, '\0', IFNAMSIZ);
     strnkcpy(cl->ifnam, str, IFNAMSIZ);
+    log_line("Subsequent commands alter interface: '%s'", str);
 }
 
 static int set_if_flag(struct ifchd_client *cl, short flag)
@@ -182,6 +183,8 @@ void perform_ip(struct ifchd_client *cl, const char *str, size_t len)
     if (ioctl(fd, SIOCSIFADDR, &ifrt) < 0)
         log_line("%s: failed to configure IP: %s",
 		 cl->ifnam, strerror(errno));
+    else
+        log_line("Interface IP set to: '%s'", str);
     close(fd);
 }
 
@@ -217,7 +220,8 @@ void perform_subnet(struct ifchd_client *cl, const char *str, size_t len)
         if (ioctl(fd, SIOCSIFNETMASK, &ifrt) < 0)
             log_line("%s: failed to configure subnet: %s",
 		     cl->ifnam, strerror(errno));
-    }
+    } else
+        log_line("Interface subnet set to: '%s'", str);
     close(fd);
 }
 
@@ -263,7 +267,8 @@ void perform_router(struct ifchd_client *cl, const char *str, size_t len)
         if (errno != EEXIST)
             log_line("%s: failed to set route: %s",
                      cl->ifnam, strerror(errno));
-    }
+    } else
+        log_line("Gateway router set to: '%s'", str);
     close(fd);
 }
 
@@ -294,6 +299,8 @@ void perform_mtu(struct ifchd_client *cl, const char *str, size_t len)
     if (ioctl(fd, SIOCSIFMTU, &ifrt) < 0)
         log_line("%s: failed to set MTU (%d): %s", cl->ifnam, mtu,
 		 strerror(errno));
+    else
+        log_line("MTU set to: '%s'", str);
     close(fd);
 }
 
@@ -325,5 +332,7 @@ void perform_broadcast(struct ifchd_client *cl, const char *str, size_t len)
     if (ioctl(fd, SIOCSIFBRDADDR, &ifrt) < 0)
         log_line("%s: failed to set broadcast: %s",
 		 cl->ifnam, strerror(errno));
+    else
+        log_line("Broadcast address set to: '%s'", str);
     close(fd);
 }
