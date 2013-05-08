@@ -1,6 +1,6 @@
 /* ifchd.c - interface change daemon
  *
- * Copyright (c) 2004-2012 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright (c) 2004-2013 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -60,24 +60,6 @@
 #include "linux.h"
 #include "seccomp-bpf.h"
 
-enum states {
-    STATE_NOTHING,
-    STATE_INTERFACE,
-    STATE_IP,
-    STATE_SUBNET,
-    STATE_TIMEZONE,
-    STATE_ROUTER,
-    STATE_DNS,
-    STATE_LPRSVR,
-    STATE_HOSTNAME,
-    STATE_DOMAIN,
-    STATE_IPTTL,
-    STATE_MTU,
-    STATE_BROADCAST,
-    STATE_NTPSVR,
-    STATE_WINS
-};
-
 struct ifchd_client clients[SOCK_QUEUE];
 
 static int epollfd, signalFd;
@@ -95,6 +77,8 @@ static gid_t peer_gid;
 static pid_t peer_pid;
 
 static int gflags_verbose = 0;
+
+extern int execute_buffer(struct ifchd_client *cl, char *newbuf);
 
 static void writeordie(int fd, const char *buf, int len)
 {
@@ -240,7 +224,7 @@ static void write_resolve_conf(struct ifchd_client *cl)
 
     off = lseek(resolv_conf_fd, 0, SEEK_CUR);
     if (off == -1) {
-        log_line("write_resolve_conf: lseek returned error: %s\n",
+        log_line("write_resolve_conf: lseek returned error: %s",
                 strerror(errno));
         return;
     }
@@ -249,64 +233,64 @@ static void write_resolve_conf(struct ifchd_client *cl)
     if (r == -1) {
         if (errno == EINTR)
             goto retry;
-        log_line("write_resolve_conf: ftruncate returned error: %s\n",
+        log_line("write_resolve_conf: ftruncate returned error: %s",
                  strerror(errno));
         return;
     }
     r = fsync(resolv_conf_fd);
     if (r == -1) {
-        log_line("write_resolve_conf: fsync returned error: %s\n",
+        log_line("write_resolve_conf: fsync returned error: %s",
                  strerror(errno));
         return;
     }
 }
 
 /* XXX: addme */
-static void perform_timezone(struct ifchd_client *cl, char *str)
+void perform_timezone(struct ifchd_client *cl, const char *str, size_t len)
 {}
 
 /* Add a dns server to the /etc/resolv.conf -- we already have a fd. */
-static void perform_dns(struct ifchd_client *cl, char *str)
+void perform_dns(struct ifchd_client *cl, const char *str, size_t len)
 {
     if (!str || resolv_conf_fd == -1)
         return;
-    strnkcpy(cl->namesvrs, str, MAX_BUF);
+    strnkcpy(cl->namesvrs, str, sizeof cl->namesvrs);
     write_resolve_conf(cl);
 }
 
 /* Updates for print daemons are too non-standard to be useful. */
-static void perform_lprsvr(struct ifchd_client *cl, char *str)
+void perform_lprsvr(struct ifchd_client *cl, const char *str, size_t len)
 {}
 
 /* Sets machine hostname. */
-static void perform_hostname(struct ifchd_client *cl, char *str)
+void perform_hostname(struct ifchd_client *cl, const char *str, size_t len)
 {
     if (!allow_hostname || !str)
         return;
     if (sethostname(str, strlen(str) + 1) == -1)
-        log_line("sethostname returned %s\n", strerror(errno));
+        log_line("sethostname returned %s", strerror(errno));
 }
 
 /* update "domain" and "search" in /etc/resolv.conf */
-static void perform_domain(struct ifchd_client *cl, char *str)
+void perform_domain(struct ifchd_client *cl, const char *str, size_t len)
 {
     if (!str || resolv_conf_fd == -1)
         return;
-    strnkcpy(cl->domains, str, MAX_BUF);
+    strnkcpy(cl->domains, str, sizeof cl->domains);
     write_resolve_conf(cl);
 }
 
 /* I don't think this can be done without a netfilter extension
  * that isn't in the mainline kernels. */
-static void perform_ipttl(struct ifchd_client *cl, char *str)
+void perform_ipttl(struct ifchd_client *cl, const char *str, size_t len)
 {}
 
 /* XXX: addme */
-static void perform_ntpsrv(struct ifchd_client *cl, char *str)
+void perform_ntpsrv(struct ifchd_client *cl, const char *str, size_t len)
 {}
 
 /* Maybe Samba cares about this feature?  I don't know. */
-static void perform_wins(struct ifchd_client *cl, char *str)
+void perform_wins(struct ifchd_client *cl, const char *str, size_t len)
 {}
 
 static inline void clock_or_die(struct timespec *ts)
@@ -378,165 +362,6 @@ static void close_idle_sk(void)
     }
 }
 
-/*
- * Returns -1 on fatal error.
- */
-static int execute_buffer(struct ifchd_client *cl, char *newbuf)
-{
-    char buf[MAX_BUF * 2];
-    char *p = buf, *endp;
-
-    memset(buf, 0, sizeof buf);
-    if (strnkcat(buf, cl->ibuf, sizeof buf))
-        goto buftooshort;
-    if (strnkcat(buf, newbuf, sizeof buf)) {
-buftooshort:
-        log_line("error: input is too long for buffer");
-        return -1;
-    }
-
-    for (endp = p;;p = endp) {
-        if (cl->state == STATE_NOTHING) {
-            char *colon = strchr(p, ':');
-            if (!colon)
-                break;
-            char *semi = strchr(p, ';');
-            if (semi && semi < colon) {
-                log_line("bad syntax: STATE_NOTHING and a ';' came before ':'");
-                return -1;
-            }
-            *colon = '\0';
-            endp = colon + 1;
-        } else {
-            char *semi = strchr(p, ';');
-            if (!semi)
-                break;
-            char *colon = strchr(p, ':');
-            if (colon && colon < semi) {
-                log_line("bad syntax: !STATE_NOTHING and a ':' came before ';'");
-                return -1;
-            }
-            *semi = '\0';
-            endp = semi + 1;
-        }
-
-        if (!strlen(p))
-            continue;
-
-        switch (cl->state) {
-            case STATE_NOTHING:
-                if (strncmp(p, CMD_INTERFACE, sizeof(CMD_INTERFACE)) == 0)
-                    cl->state = STATE_INTERFACE;
-                if (strncmp(p, CMD_IP, sizeof(CMD_IP)) == 0)
-                    cl->state = STATE_IP;
-                if (strncmp(p, CMD_SUBNET, sizeof(CMD_SUBNET)) == 0)
-                    cl->state = STATE_SUBNET;
-                if (strncmp(p, CMD_TIMEZONE, sizeof(CMD_TIMEZONE)) == 0)
-                    cl->state = STATE_TIMEZONE;
-                if (strncmp(p, CMD_ROUTER, sizeof(CMD_ROUTER)) == 0)
-                    cl->state = STATE_ROUTER;
-                if (strncmp(p, CMD_DNS, sizeof(CMD_DNS)) == 0)
-                    cl->state = STATE_DNS;
-                if (strncmp(p, CMD_LPRSVR, sizeof(CMD_LPRSVR)) == 0)
-                    cl->state = STATE_LPRSVR;
-                if (strncmp(p, CMD_HOSTNAME, sizeof(CMD_HOSTNAME)) == 0)
-                    cl->state = STATE_HOSTNAME;
-                if (strncmp(p, CMD_DOMAIN, sizeof(CMD_DOMAIN)) == 0)
-                    cl->state = STATE_DOMAIN;
-                if (strncmp(p, CMD_IPTTL, sizeof(CMD_IPTTL)) == 0)
-                    cl->state = STATE_IPTTL;
-                if (strncmp(p, CMD_MTU, sizeof(CMD_MTU)) == 0)
-                    cl->state = STATE_MTU;
-                if (strncmp(p, CMD_BROADCAST, sizeof(CMD_BROADCAST)) == 0)
-                    cl->state = STATE_BROADCAST;
-                if (strncmp(p, CMD_NTPSVR, sizeof(CMD_NTPSVR)) == 0)
-                    cl->state = STATE_NTPSVR;
-                if (strncmp(p, CMD_WINS, sizeof(CMD_WINS)) == 0)
-                    cl->state = STATE_WINS;
-                break;
-
-            case STATE_INTERFACE:
-                perform_interface(cl, p);
-                cl->state = STATE_NOTHING;
-                break;
-
-            case STATE_IP:
-                perform_ip(cl, p);
-                cl->state = STATE_NOTHING;
-                break;
-
-            case STATE_SUBNET:
-                perform_subnet(cl, p);
-                cl->state = STATE_NOTHING;
-                break;
-
-            case STATE_TIMEZONE:
-                perform_timezone(cl, p);
-                cl->state = STATE_NOTHING;
-                break;
-
-            case STATE_ROUTER:
-                perform_router(cl, p);
-                cl->state = STATE_NOTHING;
-                break;
-
-            case STATE_DNS:
-                perform_dns(cl, p);
-                cl->state = STATE_NOTHING;
-                break;
-
-            case STATE_LPRSVR:
-                perform_lprsvr(cl, p);
-                cl->state = STATE_NOTHING;
-                break;
-
-            case STATE_HOSTNAME:
-                perform_hostname(cl, p);
-                cl->state = STATE_NOTHING;
-                break;
-
-            case STATE_DOMAIN:
-                perform_domain(cl, p);
-                cl->state = STATE_NOTHING;
-                break;
-
-            case STATE_IPTTL:
-                perform_ipttl(cl, p);
-                cl->state = STATE_NOTHING;
-                break;
-
-            case STATE_MTU:
-                perform_mtu(cl, p);
-                cl->state = STATE_NOTHING;
-                break;
-
-            case STATE_BROADCAST:
-                perform_broadcast(cl, p);
-                cl->state = STATE_NOTHING;
-                break;
-
-            case STATE_NTPSVR:
-                perform_ntpsrv(cl, p);
-                cl->state = STATE_NOTHING;
-                break;
-
-            case STATE_WINS:
-                perform_wins(cl, p);
-                cl->state = STATE_NOTHING;
-                break;
-
-            default:
-                log_line("warning: invalid state in dispatch_work\n");
-                break;
-        }
-    }
-    size_t remsize = strlen(endp);
-    if (remsize > MAX_BUF - 1)
-        return -1;
-    strnkcpy(cl->ibuf, endp, MAX_BUF);
-    return 0;
-}
-
 /* Opens a non-blocking listening socket with the appropriate properties. */
 static int get_listen(void)
 {
@@ -600,7 +425,7 @@ static void accept_conns(int *lsock)
             case EBADF:
             case ENOTSOCK:
             case EINVAL:
-                log_line("warning: accept returned %s!\n", strerror(errno));
+                log_line("warning: accept returned %s!", strerror(errno));
 
                 epoll_del(*lsock);
                 close(*lsock);
@@ -612,11 +437,11 @@ static void accept_conns(int *lsock)
             case ECONNABORTED:
             case EMFILE:
             case ENFILE:
-                log_line("warning: accept returned %s!\n", strerror(errno));
+                log_line("warning: accept returned %s!", strerror(errno));
                 return;
 
             default:
-                log_line("warning: accept returned a mysterious error: %s\n",
+                log_line("warning: accept returned a mysterious error: %s",
                         strerror(errno));
                 return;
         }
@@ -811,7 +636,7 @@ int main(int argc, char** argv) {
 
             case 'v':
                 printf("ifchd %s, if change daemon.\n", IFCHD_VERSION);
-                printf("Copyright (c) 2004-2012 Nicholas J. Kain\n"
+                printf("Copyright (c) 2004-2013 Nicholas J. Kain\n"
                        "All rights reserved.\n\n"
                        "Redistribution and use in source and binary forms, with or without\n"
                        "modification, are permitted provided that the following conditions are met:\n\n"

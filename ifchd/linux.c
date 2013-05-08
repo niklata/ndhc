@@ -1,6 +1,6 @@
 /* linux.c - ifchd Linux-specific functions
  *
- * Copyright (c) 2004-2012 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright (c) 2004-2013 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -76,7 +76,7 @@ static int is_permitted(char *name)
         if (strcmp(name, okif[i]) == 0)
             return 1;
     }
-    log_line("attempt to modify interface %s denied\n", name);
+    log_line("attempt to modify interface %s denied", name);
     return 0;
 }
 
@@ -99,11 +99,11 @@ int authorized_peer(int sk, pid_t pid, uid_t uid, gid_t gid)
             (gid == 0 || cr.gid == gid))
             ret = 1;
     } else
-        log_line("getsockopt returned an error: %s\n", strerror(errno));
+        log_line("getsockopt returned an error: %s", strerror(errno));
     return ret;
 }
 
-void perform_interface(struct ifchd_client *cl, char *str)
+void perform_interface(struct ifchd_client *cl, const char *str, size_t len)
 {
     if (!str)
         return;
@@ -123,21 +123,21 @@ static int set_if_flag(struct ifchd_client *cl, short flag)
 
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
-        log_line("%s: (set_if_flag) failed to open interface socket: %s\n",
+        log_line("%s: (set_if_flag) failed to open interface socket: %s",
 		 cl->ifnam, strerror(errno));
         goto out0;
     }
 
     strnkcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
     if (ioctl(fd, SIOCGIFFLAGS, &ifrt) < 0) {
-        log_line("%s: unknown interface: %s\n", cl->ifnam, strerror(errno));
+        log_line("%s: unknown interface: %s", cl->ifnam, strerror(errno));
         goto out1;
     }
     if (((ifrt.ifr_flags & flag ) ^ flag) & flag) {
         strnkcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
         ifrt.ifr_flags |= flag;
         if (ioctl(fd, SIOCSIFFLAGS, &ifrt) < 0) {
-            log_line("%s: failed to set interface flags: %s\n",
+            log_line("%s: failed to set interface flags: %s",
                      cl->ifnam, strerror(errno));
             goto out1;
         }
@@ -151,7 +151,7 @@ static int set_if_flag(struct ifchd_client *cl, short flag)
 }
 
 /* Sets IP address on an interface and brings it up. */
-void perform_ip(struct ifchd_client *cl, char *str)
+void perform_ip(struct ifchd_client *cl, const char *str, size_t len)
 {
     int fd;
     struct in_addr ipaddr;
@@ -175,18 +175,18 @@ void perform_ip(struct ifchd_client *cl, char *str)
 
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
-        log_line("%s: (perform_ip) failed to open interface socket: %s\n",
+        log_line("%s: (perform_ip) failed to open interface socket: %s",
 		 cl->ifnam, strerror(errno));
         return;
     }
     if (ioctl(fd, SIOCSIFADDR, &ifrt) < 0)
-        log_line("%s: failed to configure IP: %s\n",
+        log_line("%s: failed to configure IP: %s",
 		 cl->ifnam, strerror(errno));
     close(fd);
 }
 
 /* Sets the subnet mask on an interface. */
-void perform_subnet(struct ifchd_client *cl, char *str)
+void perform_subnet(struct ifchd_client *cl, const char *str, size_t len)
 {
     int fd;
     struct in_addr subnet;
@@ -208,20 +208,20 @@ void perform_subnet(struct ifchd_client *cl, char *str)
 
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
-        log_line("%s: (perform_ip) failed to open interface socket: %s\n",
+        log_line("%s: (perform_ip) failed to open interface socket: %s",
 		 cl->ifnam, strerror(errno));
         return;
     }
     if (ioctl(fd, SIOCSIFNETMASK, &ifrt) < 0) {
         sin.sin_addr.s_addr = 0xffffffff;
         if (ioctl(fd, SIOCSIFNETMASK, &ifrt) < 0)
-            log_line("%s: failed to configure subnet: %s\n",
+            log_line("%s: failed to configure subnet: %s",
 		     cl->ifnam, strerror(errno));
     }
     close(fd);
 }
 
-void perform_router(struct ifchd_client *cl, char *str)
+void perform_router(struct ifchd_client *cl, const char *str, size_t len)
 {
     struct rtentry rt;
     struct sockaddr_in *dest;
@@ -255,19 +255,19 @@ void perform_router(struct ifchd_client *cl, char *str)
 
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
-        log_line("%s: (perform_router) failed to open interface socket: %s\n",
+        log_line("%s: (perform_router) failed to open interface socket: %s",
 		 cl->ifnam, strerror(errno));
         return;
     }
     if (ioctl(fd, SIOCADDRT, &rt)) {
         if (errno != EEXIST)
-            log_line("%s: failed to set route: %s\n",
+            log_line("%s: failed to set route: %s",
                      cl->ifnam, strerror(errno));
     }
     close(fd);
 }
 
-void perform_mtu(struct ifchd_client *cl, char *str)
+void perform_mtu(struct ifchd_client *cl, const char *str, size_t len)
 {
     int fd;
     unsigned int mtu;
@@ -287,17 +287,17 @@ void perform_mtu(struct ifchd_client *cl, char *str)
 
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
-        log_line("%s: (perform_mtu) failed to open interface socket: %s\n",
+        log_line("%s: (perform_mtu) failed to open interface socket: %s",
 		 cl->ifnam, strerror(errno));
         return;
     }
     if (ioctl(fd, SIOCSIFMTU, &ifrt) < 0)
-        log_line("%s: failed to set MTU (%d): %s\n", cl->ifnam, mtu,
+        log_line("%s: failed to set MTU (%d): %s", cl->ifnam, mtu,
 		 strerror(errno));
     close(fd);
 }
 
-void perform_broadcast(struct ifchd_client *cl, char *str)
+void perform_broadcast(struct ifchd_client *cl, const char *str, size_t len)
 {
     int fd;
     struct in_addr broadcast;
@@ -319,11 +319,11 @@ void perform_broadcast(struct ifchd_client *cl, char *str)
 
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
-        log_line("%s: (perform_broadcast) failed to open interface socket: %s\n", cl->ifnam, strerror(errno));
+        log_line("%s: (perform_broadcast) failed to open interface socket: %s", cl->ifnam, strerror(errno));
         return;
     }
     if (ioctl(fd, SIOCSIFBRDADDR, &ifrt) < 0)
-        log_line("%s: failed to set broadcast: %s\n",
+        log_line("%s: failed to set broadcast: %s",
 		 cl->ifnam, strerror(errno));
     close(fd);
 }

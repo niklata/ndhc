@@ -32,11 +32,11 @@ void clear_if_data(struct ifchd_client *cl);
 void initialize_if_data(void);
 void add_permitted_if(char *s);
 int authorized_peer(int sk, pid_t pid, uid_t uid, gid_t gid);
-void perform_interface(struct ifchd_client *cl, char *str);
-void perform_ip(struct ifchd_client *cl, char *str);
-void perform_subnet(struct ifchd_client *cl, char *str);
-void perform_router(struct ifchd_client *cl, char *str);
-void perform_mtu(struct ifchd_client *cl, char *str);
-void perform_broadcast(struct ifchd_client *cl, char *str);
+void perform_interface(struct ifchd_client *cl, const char *str, size_t len);
+void perform_ip(struct ifchd_client *cl, const char *str, size_t len);
+void perform_subnet(struct ifchd_client *cl, const char *str, size_t len);
+void perform_router(struct ifchd_client *cl, const char *str, size_t len);
+void perform_mtu(struct ifchd_client *cl, const char *str, size_t len);
+void perform_broadcast(struct ifchd_client *cl, const char *str, size_t len);
 #endif
 
