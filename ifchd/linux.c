@@ -125,7 +125,7 @@ static int set_if_flag(struct ifchd_client *cl, short flag)
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
         log_line("%s: (set_if_flag) failed to open interface socket: %s",
-		 cl->ifnam, strerror(errno));
+                 cl->ifnam, strerror(errno));
         goto out0;
     }
 
@@ -177,12 +177,12 @@ void perform_ip(struct ifchd_client *cl, const char *str, size_t len)
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
         log_line("%s: (perform_ip) failed to open interface socket: %s",
-		 cl->ifnam, strerror(errno));
+                 cl->ifnam, strerror(errno));
         return;
     }
     if (ioctl(fd, SIOCSIFADDR, &ifrt) < 0)
         log_line("%s: failed to configure IP: %s",
-		 cl->ifnam, strerror(errno));
+                 cl->ifnam, strerror(errno));
     else
         log_line("Interface IP set to: '%s'", str);
     close(fd);
@@ -212,14 +212,14 @@ void perform_subnet(struct ifchd_client *cl, const char *str, size_t len)
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
         log_line("%s: (perform_ip) failed to open interface socket: %s",
-		 cl->ifnam, strerror(errno));
+                 cl->ifnam, strerror(errno));
         return;
     }
     if (ioctl(fd, SIOCSIFNETMASK, &ifrt) < 0) {
         sin.sin_addr.s_addr = 0xffffffff;
         if (ioctl(fd, SIOCSIFNETMASK, &ifrt) < 0)
             log_line("%s: failed to configure subnet: %s",
-		     cl->ifnam, strerror(errno));
+                     cl->ifnam, strerror(errno));
     } else
         log_line("Interface subnet set to: '%s'", str);
     close(fd);
@@ -260,7 +260,7 @@ void perform_router(struct ifchd_client *cl, const char *str, size_t len)
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
         log_line("%s: (perform_router) failed to open interface socket: %s",
-		 cl->ifnam, strerror(errno));
+                 cl->ifnam, strerror(errno));
         return;
     }
     if (ioctl(fd, SIOCADDRT, &rt)) {
@@ -293,12 +293,12 @@ void perform_mtu(struct ifchd_client *cl, const char *str, size_t len)
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
         log_line("%s: (perform_mtu) failed to open interface socket: %s",
-		 cl->ifnam, strerror(errno));
+                 cl->ifnam, strerror(errno));
         return;
     }
     if (ioctl(fd, SIOCSIFMTU, &ifrt) < 0)
         log_line("%s: failed to set MTU (%d): %s", cl->ifnam, mtu,
-		 strerror(errno));
+                 strerror(errno));
     else
         log_line("MTU set to: '%s'", str);
     close(fd);
@@ -331,7 +331,7 @@ void perform_broadcast(struct ifchd_client *cl, const char *str, size_t len)
     }
     if (ioctl(fd, SIOCSIFBRDADDR, &ifrt) < 0)
         log_line("%s: failed to set broadcast: %s",
-		 cl->ifnam, strerror(errno));
+                 cl->ifnam, strerror(errno));
     else
         log_line("Broadcast address set to: '%s'", str);
     close(fd);
