@@ -38,50 +38,49 @@ int gflags_quiet = 0;
 int gflags_detach = 1;
 char *gflags_log_name = NULL;
 
+#define log_syslog(level) do { \
+    openlog(gflags_log_name, LOG_PID, LOG_DAEMON); \
+    va_start(argp, format); \
+    vsyslog(level | LOG_DAEMON, format, argp); \
+    va_end(argp); \
+    closelog(); } while(0)
+
+#define log_stdio() do { \
+    va_start(argp, format); \
+    vfprintf(stderr, format, argp); \
+    fprintf(stderr, "\n"); \
+    va_end(argp); } while(0)
+
 void log_line_l(int level, const char *format, ...)
 {
-  va_list argp;
+    va_list argp;
 
-  if (format == NULL || gflags_quiet)
-	return;
+    if (gflags_quiet)
+        return;
 
-  if (gflags_detach) {
-    openlog(gflags_log_name, LOG_PID, LOG_DAEMON);
-    va_start(argp, format);
-    vsyslog(level | LOG_DAEMON, format, argp);
-    va_end(argp);
-    closelog();
-  } else {
-    va_start(argp, format);
-    vfprintf(stderr, format, argp);
-    fprintf(stderr, "\n");
-    va_end(argp);
-  }
-  closelog();
+    if (gflags_detach)
+        log_syslog(level);
+    else
+        log_stdio();
 }
 
 void suicide(const char *format, ...)
 {
-  va_list argp;
+    va_list argp;
 
-  if (format == NULL || gflags_quiet)
-	goto out;
+    if (gflags_quiet)
+        goto out;
 
-  if (gflags_detach) {
-    openlog(gflags_log_name, LOG_PID, LOG_DAEMON);
-    va_start(argp, format);
-    vsyslog(LOG_ERR | LOG_DAEMON, format, argp);
-    va_end(argp);
-    closelog();
-  } else {
-    va_start(argp, format);
-    vfprintf(stderr, format, argp);
-    va_end(argp);
-    fprintf(stderr, "\n");
-    perror(NULL);
-  }
-  closelog();
+    if (gflags_detach)
+        log_syslog(LOG_ERR);
+    else {
+        log_stdio();
+        perror(NULL);
+    }
 out:
-  exit(EXIT_FAILURE);
+    exit(EXIT_FAILURE);
 }
+
+#undef log_syslog
+#undef log_stdio
 
