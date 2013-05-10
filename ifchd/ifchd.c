@@ -182,7 +182,7 @@ static void write_resolve_conf(struct ifchd_client *cl)
 
     char *p = cl->namesvrs;
     while (p && (*p != '\0')) {
-        char *q = strchr(p, ' ');
+        char *q = strchr(p, ',');
         if (!q)
             q = strchr(p, '\0');
         else
@@ -199,7 +199,7 @@ static void write_resolve_conf(struct ifchd_client *cl)
     p = cl->domains;
     int numdoms = 0;
     while (p && (*p != '\0')) {
-        char *q = strchr(p, ' ');
+        char *q = strchr(p, ',');
         if (!q)
             q = strchr(p, '\0');
         else

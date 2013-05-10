@@ -97,9 +97,10 @@ static int ifchd_cmd_iplist(char *buf, size_t buflen, char *optname,
 {
     char ipbuf[INET_ADDRSTRLEN];
     char *obuf = buf;
-    if (!optdata)
+    if (!optdata || optlen < 4)
         return -1;
-    ssize_t wc = ifchd_cmd_ip(buf, buflen, optname, optdata, optlen);
+    inet_ntop(AF_INET, optdata, ipbuf, sizeof ipbuf);
+    ssize_t wc = snprintf(buf, buflen, "%s:%s", optname, ipbuf);
     if (wc <= 0)
         return wc;
     optlen -= 4;
@@ -109,13 +110,11 @@ static int ifchd_cmd_iplist(char *buf, size_t buflen, char *optname,
         inet_ntop(AF_INET, optdata, ipbuf, sizeof ipbuf);
         if (buflen < strlen(ipbuf) + (buf - obuf) + 2)
             break;
-        if (optlen >= 8)
-            buf += snprintf(buf, buflen - (buf - obuf), "%s:", ipbuf);
-        else
-            buf += snprintf(buf, buflen - (buf - obuf), "%s;", ipbuf);
+        buf += snprintf(buf, buflen - (buf - obuf), ",%s", ipbuf);
         optlen -= 4;
         optdata += 4;
     }
+    buf += snprintf(buf, buflen - (buf - obuf), ";");
     return buf - obuf;
 }
 
