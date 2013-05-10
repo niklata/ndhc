@@ -142,7 +142,7 @@ static int ifchd_cmd(char *buf, size_t buflen, uint8_t *optdata,
     int (*dofn)(char *, size_t, char *, uint8_t *, ssize_t);
     char *optname;
     switch (code) {
-        IFCHD_SW_CMD(SUBNET, iplist);
+        IFCHD_SW_CMD(SUBNET, ip);
         IFCHD_SW_CMD(DNS, iplist);
         IFCHD_SW_CMD(LPRSVR, iplist);
         IFCHD_SW_CMD(NTPSVR, iplist);
