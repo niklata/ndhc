@@ -252,7 +252,9 @@ static void write_resolve_conf(struct ifchd_client *cl)
 
 /* XXX: addme */
 void perform_timezone(struct ifchd_client *cl, const char *str, size_t len)
-{}
+{
+    log_line("Timezone setting NYI: '%s'", str);
+}
 
 /* Add a dns server to the /etc/resolv.conf -- we already have a fd. */
 void perform_dns(struct ifchd_client *cl, const char *str, size_t len)
@@ -266,7 +268,9 @@ void perform_dns(struct ifchd_client *cl, const char *str, size_t len)
 
 /* Updates for print daemons are too non-standard to be useful. */
 void perform_lprsvr(struct ifchd_client *cl, const char *str, size_t len)
-{}
+{
+    log_line("Line printer server setting NYI: '%s'", str);
+}
 
 /* Sets machine hostname. */
 void perform_hostname(struct ifchd_client *cl, const char *str, size_t len)
@@ -292,11 +296,15 @@ void perform_domain(struct ifchd_client *cl, const char *str, size_t len)
 /* I don't think this can be done without a netfilter extension
  * that isn't in the mainline kernels. */
 void perform_ipttl(struct ifchd_client *cl, const char *str, size_t len)
-{}
+{
+    log_line("TTL setting NYI: '%s'", str);
+}
 
 /* XXX: addme */
 void perform_ntpsrv(struct ifchd_client *cl, const char *str, size_t len)
-{}
+{
+    log_line("NTP server setting NYI: '%s'", str);
+}
 
 /* Maybe Samba cares about this feature?  I don't know. */
 void perform_wins(struct ifchd_client *cl, const char *str, size_t len)
