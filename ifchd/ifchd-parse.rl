@@ -72,38 +72,34 @@
         }
     }
 
-    interface = 'iface';
-    ip = 'ip';
-    subnet = 'snet';
-    dns = 'dns';
-    lprsvr = 'lpr';
-    ntpsvr = 'ntp';
-    wins = 'wins';
-    router = 'routr';
-    broadcast = 'bcast';
-    timezone = 'tzone';
-    hostname = 'host';
-    domain = 'dom';
-    ipttl = 'ipttl';
-    mtu = 'mtu';
+    terminator = ';' > Dispatch;
+    v4addr = digit{1,3} '.' digit{1,3} '.' digit{1,3} '.' digit{1,3};
+    ip_arg = (v4addr > ArgSt % ArgEn) terminator;
+    iplist_arg = (((v4addr ',')* v4addr) > ArgSt % ArgEn) terminator;
+    str_arg = ([^;\0]+ > ArgSt % ArgEn) terminator;
+    s32_arg = (extend{4} > ArgSt % ArgEn) terminator;
+    u16_arg = (extend{2} > ArgSt % ArgEn) terminator;
+    u8_arg = (extend{1} > ArgSt % ArgEn) terminator;
 
-    cmdname = (interface % { cl->state = STATE_INTERFACE; }
-              |ip % { cl->state = STATE_IP; }
-              |subnet % { cl->state = STATE_SUBNET; }
-              |dns % { cl->state = STATE_DNS; }
-              |lprsvr % { cl->state = STATE_LPRSVR; }
-              |ntpsvr % { cl->state = STATE_NTPSVR; }
-              |wins % { cl->state = STATE_WINS; }
-              |router % { cl->state = STATE_ROUTER; }
-              |broadcast % { cl->state = STATE_BROADCAST; }
-              |timezone % { cl->state = STATE_TIMEZONE; }
-              |hostname % { cl->state = STATE_HOSTNAME; }
-              |domain % { cl->state = STATE_DOMAIN; }
-              |ipttl % { cl->state = STATE_IPTTL; }
-              |mtu % { cl->state = STATE_MTU; }
-              );
+    cmd_ip = ('ip:' % { cl->state = STATE_IP; }
+             |'snet:' % { cl->state = STATE_SUBNET; }
+             |'routr:' % { cl->state = STATE_ROUTER; }
+             |'bcast:' % { cl->state = STATE_BROADCAST; }
+             ) ip_arg;
+    cmd_iplist = ('dns:' % { cl->state = STATE_DNS; }
+                 |'lpr:' % { cl->state = STATE_LPRSVR; }
+                 |'ntp:' % { cl->state = STATE_NTPSVR; }
+                 |'wins:' % { cl->state = STATE_WINS; }
+                 ) iplist_arg;
+    cmd_str = ('iface:' % { cl->state = STATE_INTERFACE; }
+              |'host:' % { cl->state = STATE_HOSTNAME; }
+              |'dom:' % { cl->state = STATE_DOMAIN; }
+              ) str_arg;
+    cmd_s32 = ('tzone:' % { cl->state = STATE_TIMEZONE; }) s32_arg;
+    cmd_u16 = ('mtu:' % { cl->state = STATE_MTU; }) u16_arg;
+    cmd_u8  = ('ipttl:' % { cl->state = STATE_IPTTL; }) u8_arg;
 
-    command = cmdname ':' ([^;\0]+ > ArgSt % ArgEn) (';' > Dispatch);
+    command = (cmd_ip|cmd_iplist|cmd_str|cmd_s32|cmd_u16|cmd_u8);
     main := (command > Reset)+;
 }%%
 
