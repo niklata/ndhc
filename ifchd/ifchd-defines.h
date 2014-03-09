@@ -13,6 +13,7 @@
 enum ifchd_states {
     STATE_NOTHING,
     STATE_INTERFACE,
+    STATE_IP4SET,
     STATE_IP,
     STATE_SUBNET,
     STATE_TIMEZONE,

@@ -1,6 +1,6 @@
 /* ifchd-parse.rl - interface change daemon parser
  *
- * Copyright (c) 2004-2013 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright (c) 2004-2014 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,6 +36,82 @@
 #include "linux.h"
 
 %%{
+    machine ipv4set_parser;
+
+    action XSt { arg_start = p; }
+    action IpEn {
+        arg_len = p - arg_start;
+        if (arg_len > sizeof ip4_addr - 1) {
+            have_ip = true;
+            memcpy(ip4_addr, arg_start, arg_len);
+        }
+        ip4_addr[arg_len] = 0;
+    }
+    action SnEn {
+        arg_len = p - arg_start;
+        if (arg_len > sizeof ip4_subnet - 1) {
+            have_subnet = true;
+            memcpy(ip4_subnet, arg_start, arg_len);
+        }
+        ip4_subnet[arg_len] = 0;
+    }
+    action BcEn {
+        arg_len = p - arg_start;
+        if (arg_len > sizeof ip4_bcast - 1) {
+            have_ip = true;
+            memcpy(ip4_bcast, arg_start, arg_len);
+        }
+        ip4_bcast[arg_len] = 0;
+    }
+
+    v4addr = digit{1,3} '.' digit{1,3} '.' digit{1,3} '.' digit{1,3};
+    ip4_nobc = (v4addr > XSt % IpEn) ',' (v4addr > XSt % SnEn);
+    ip4_bc = (v4addr > XSt % IpEn) ',' (v4addr > XSt % SnEn) ','
+             (v4addr > XSt % BcEn);
+    main := (ip4_bc|ip4_nobc);
+}%%
+
+%% write data;
+
+static void perform_ip4set(struct ifchd_client *cl, const char *buf,
+                           size_t len)
+{
+    char ip4_addr[16];
+    char ip4_subnet[16];
+    char ip4_bcast[16];
+    const char *p = buf;
+    const char *pe = p + len;
+    const char *eof = pe;
+    const char *arg_start;
+    size_t arg_len;
+    unsigned int cs = 0;
+    bool have_ip = false;
+    bool have_subnet = false;
+    bool have_bcast = false;
+
+    %% write init;
+    %% write exec;
+
+    if (cs < ipv4set_parser_first_final) {
+        log_line("%s: received invalid arguments", __func__);
+        return;
+    }
+
+    // These should never trigger because of the above check, but be safe...
+    if (!have_ip) {
+        log_line("%s: No IPv4 address specified.", __func__);
+        return;
+    }
+    if (!have_subnet) {
+        log_line("%s: No IPv4 subnet specified.", __func__);
+        return;
+    }
+
+    perform_ip_subnet_bcast(cl, ip4_addr, ip4_subnet,
+                            have_bcast ? ip4_bcast : NULL);
+}
+
+%%{
     machine ifchd_parser;
 
     action Reset { cl->state = STATE_NOTHING; }
@@ -53,6 +129,7 @@
     action Dispatch {
         switch (cl->state) {
         case STATE_INTERFACE: perform_interface(cl, tb, arg_len); break;
+        case STATE_IP4SET: perform_ip4set(cl, tb, arg_len); break;
         case STATE_IP: perform_ip(cl, tb, arg_len); break;
         case STATE_SUBNET: perform_subnet(cl, tb, arg_len); break;
         case STATE_TIMEZONE: perform_timezone(cl, tb, arg_len); break;
@@ -75,6 +152,7 @@
     terminator = ';' > Dispatch;
     v4addr = digit{1,3} '.' digit{1,3} '.' digit{1,3} '.' digit{1,3};
     ip_arg = (v4addr > ArgSt % ArgEn) terminator;
+    ip4set_arg = (((v4addr ','){1,2} v4addr) > ArgSt % ArgEn) terminator;
     iplist_arg = (((v4addr ',')* v4addr) > ArgSt % ArgEn) terminator;
     str_arg = ([^;\0]+ > ArgSt % ArgEn) terminator;
     s32_arg = (extend{4} > ArgSt % ArgEn) terminator;
@@ -86,6 +164,7 @@
              |'routr:' % { cl->state = STATE_ROUTER; }
              |'bcast:' % { cl->state = STATE_BROADCAST; }
              ) ip_arg;
+    cmd_ip4set = ('ip4:' % { cl->state = STATE_IP4SET; }) ip4set_arg;
     cmd_iplist = ('dns:' % { cl->state = STATE_DNS; }
                  |'lpr:' % { cl->state = STATE_LPRSVR; }
                  |'ntp:' % { cl->state = STATE_NTPSVR; }
