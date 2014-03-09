@@ -141,13 +141,11 @@ static int ifchd_cmd(char *buf, size_t buflen, uint8_t *optdata,
     int (*dofn)(char *, size_t, char *, uint8_t *, ssize_t);
     char *optname;
     switch (code) {
-        IFCHD_SW_CMD(SUBNET, ip);
         IFCHD_SW_CMD(DNS, iplist);
         IFCHD_SW_CMD(LPRSVR, iplist);
         IFCHD_SW_CMD(NTPSVR, iplist);
         IFCHD_SW_CMD(WINS, iplist);
         IFCHD_SW_CMD(ROUTER, ip);
-        IFCHD_SW_CMD(BROADCAST, ip);
         IFCHD_SW_CMD(TIMEZONE, s32);
         IFCHD_SW_CMD(HOSTNAME, str);
         IFCHD_SW_CMD(DOMAIN, str);
@@ -208,13 +206,58 @@ void ifchange_deconfig(void)
 
 static size_t send_client_ip(char *out, size_t olen, struct dhcpmsg *packet)
 {
-    char ip[32], ipb[64];
-    if (!memcmp(&packet->yiaddr, &cfg_packet.yiaddr, sizeof packet->yiaddr))
-        return 0;
+    static char snClassC[] = "255.255.255.0";
+    uint8_t optdata[MAX_DOPT_SIZE], olddata[MAX_DOPT_SIZE];
+    char ipb[4*INET_ADDRSTRLEN], ip[INET_ADDRSTRLEN], sn[INET_ADDRSTRLEN],
+        bc[INET_ADDRSTRLEN];
+    ssize_t optlen, oldlen;
+    bool change_ipaddr = false;
+    bool have_subnet = false;
+    bool change_subnet = false;
+    bool have_bcast = false;
+    bool change_bcast = false;
+
+    if (memcmp(&packet->yiaddr, &cfg_packet.yiaddr, sizeof packet->yiaddr))
+        change_ipaddr = true;
     inet_ntop(AF_INET, &packet->yiaddr, ip, sizeof ip);
-    snprintf(ipb, sizeof ipb, "ip:%s;", ip);
+
+    optlen = get_dhcp_opt(packet, DCODE_SUBNET, optdata, sizeof optdata);
+    if (optlen >= 4) {
+        have_subnet = true;
+        inet_ntop(AF_INET, optdata, sn, sizeof sn);
+        oldlen = get_dhcp_opt(&cfg_packet, DCODE_SUBNET, olddata,
+                              sizeof olddata);
+        if (oldlen != optlen || memcmp(optdata, olddata, optlen))
+            change_subnet = true;
+    }
+
+    optlen = get_dhcp_opt(packet, DCODE_BROADCAST, optdata, sizeof optdata);
+    if (optlen >= 4) {
+        have_bcast = true;
+        inet_ntop(AF_INET, optdata, bc, sizeof bc);
+        oldlen = get_dhcp_opt(&cfg_packet, DCODE_BROADCAST, olddata,
+                              sizeof olddata);
+        if (oldlen != optlen || memcmp(optdata, olddata, optlen))
+            change_bcast = true;
+    }
+
+    // Nothing to change.
+    if (!change_ipaddr && !change_subnet && !change_bcast)
+        return 0;
+
+    if (!have_subnet) {
+        log_line("Server did not send a subnet mask.  Assuming class C (255.255.255.0).");
+        memcpy(sn, snClassC, sizeof snClassC);
+    }
+
+    if (have_bcast) {
+        snprintf(ipb, sizeof ipb, "ip4:%s,%s,%s;", ip, sn, bc);
+    } else {
+        snprintf(ipb, sizeof ipb, "ip4:%s,%s;", ip, sn);
+    }
+
     strnkcat(out, ipb, olen);
-    log_line("Sent to ifchd: %s", out);
+    log_line("Sent to ifchd: %s", ipb);
     return strlen(ipb);
 }
 
@@ -253,13 +296,11 @@ void ifchange_bind(struct dhcpmsg *packet)
 
     snprintf(buf, sizeof buf, CMD_INTERFACE ":%s;", client_config.interface);
     tbs |= send_client_ip(buf, sizeof buf, packet);
-    tbs |= send_cmd(buf, sizeof buf, packet, DCODE_SUBNET);
     tbs |= send_cmd(buf, sizeof buf, packet, DCODE_ROUTER);
     tbs |= send_cmd(buf, sizeof buf, packet, DCODE_DNS);
     tbs |= send_cmd(buf, sizeof buf, packet, DCODE_HOSTNAME);
     tbs |= send_cmd(buf, sizeof buf, packet, DCODE_DOMAIN);
     tbs |= send_cmd(buf, sizeof buf, packet, DCODE_MTU);
-    tbs |= send_cmd(buf, sizeof buf, packet, DCODE_BROADCAST);
     tbs |= send_cmd(buf, sizeof buf, packet, DCODE_WINS);
     if (tbs) {
         sockfd = open_ifch();
