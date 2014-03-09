@@ -163,7 +163,7 @@ void perform_ip(struct ifchd_client *cl, const char *str, size_t len)
         return;
     if (!is_permitted(cl->ifnam))
         return;
-    if (!inet_pton(AF_INET, str, &ipaddr))
+    if (inet_pton(AF_INET, str, &ipaddr) <= 0)
         return;
     if (set_if_flag(cl, (IFF_UP | IFF_RUNNING)))
         return;
@@ -200,7 +200,7 @@ void perform_subnet(struct ifchd_client *cl, const char *str, size_t len)
         return;
     if (!is_permitted(cl->ifnam))
         return;
-    if (!inet_pton(AF_INET, str, &subnet))
+    if (inet_pton(AF_INET, str, &subnet) <= 0)
         return;
 
     strnkcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
@@ -238,7 +238,7 @@ void perform_router(struct ifchd_client *cl, const char *str, size_t len)
         return;
     if (!is_permitted(cl->ifnam))
         return;
-    if (!inet_pton(AF_INET, str, &router))
+    if (inet_pton(AF_INET, str, &router) <= 0)
         return;
 
     memset(&rt, 0, sizeof(struct rtentry));
@@ -315,7 +315,7 @@ void perform_broadcast(struct ifchd_client *cl, const char *str, size_t len)
         return;
     if (!is_permitted(cl->ifnam))
         return;
-    if (!inet_pton(AF_INET, str, &broadcast))
+    if (inet_pton(AF_INET, str, &broadcast) <= 0)
         return;
 
     strnkcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
