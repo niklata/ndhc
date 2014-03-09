@@ -1,6 +1,6 @@
 /* linux.h - ifchd Linux-specific functions include
  *
- * Copyright (c) 2004-2012 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright (c) 2004-2014 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,15 +28,23 @@
 
 #ifndef NJK_IFCHD_LINUX_H_
 #define NJK_IFCHD_LINUX_H_
-void clear_if_data(struct ifchd_client *cl);
-void initialize_if_data(void);
-void add_permitted_if(char *s);
-int authorized_peer(int sk, pid_t pid, uid_t uid, gid_t gid);
-void perform_interface(struct ifchd_client *cl, const char *str, size_t len);
-void perform_ip(struct ifchd_client *cl, const char *str, size_t len);
-void perform_subnet(struct ifchd_client *cl, const char *str, size_t len);
-void perform_router(struct ifchd_client *cl, const char *str, size_t len);
-void perform_mtu(struct ifchd_client *cl, const char *str, size_t len);
-void perform_broadcast(struct ifchd_client *cl, const char *str, size_t len);
+extern void clear_if_data(struct ifchd_client *cl);
+extern void initialize_if_data(void);
+extern void add_permitted_if(char *s);
+extern int authorized_peer(int sk, pid_t pid, uid_t uid, gid_t gid);
+extern void perform_interface(struct ifchd_client *cl, const char *str,
+                              size_t len);
+extern void perform_ip_subnet_bcast(struct ifchd_client *cl,
+                                    const char *str_ipaddr,
+                                    const char *str_subnet,
+                                    const char *str_bcast);
+extern void perform_ip(struct ifchd_client *cl, const char *str, size_t len);
+extern void perform_subnet(struct ifchd_client *cl, const char *str,
+                           size_t len);
+extern void perform_router(struct ifchd_client *cl, const char *str,
+                           size_t len);
+extern void perform_mtu(struct ifchd_client *cl, const char *str, size_t len);
+extern void perform_broadcast(struct ifchd_client *cl, const char *str,
+                              size_t len);
 #endif
 

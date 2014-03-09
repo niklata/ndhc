@@ -1,6 +1,6 @@
 /* linux.c - ifchd Linux-specific functions
  *
- * Copyright (c) 2004-2013 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright (c) 2004-2014 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -218,10 +218,8 @@ static inline int subnet4_to_prefixlen(uint32_t sn)
 }
 
 // str_bcast is optional.
-void perform_ip_subnet_bcast(struct ifchd_client *cl,
-                             const char *str_ipaddr,
-                             const char *str_subnet,
-                             const char *str_bcast)
+void perform_ip_subnet_bcast(struct ifchd_client *cl, const char *str_ipaddr,
+                             const char *str_subnet, const char *str_bcast)
 {
     uint8_t request[NLMSG_ALIGN(sizeof(struct nlmsghdr)) +
         NLMSG_ALIGN(sizeof(struct ifaddrmsg)) +
