@@ -28,6 +28,7 @@
 
 #include <stddef.h>
 #include <string.h>
+#include <arpa/inet.h>
 
 #include "ifchd-defines.h"
 #include "log.h"
@@ -76,9 +77,9 @@
 static void perform_ip4set(struct ifchd_client *cl, const char *buf,
                            size_t len)
 {
-    char ip4_addr[16];
-    char ip4_subnet[16];
-    char ip4_bcast[16];
+    char ip4_addr[INET_ADDRSTRLEN];
+    char ip4_subnet[INET_ADDRSTRLEN];
+    char ip4_bcast[INET_ADDRSTRLEN];
     const char *p = buf;
     const char *pe = p + len;
     const char *eof = pe;
