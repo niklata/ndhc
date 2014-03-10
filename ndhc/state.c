@@ -186,6 +186,8 @@ static void rebinding_timeout(struct client_state_t *cs, long long nowts)
 
 static void released_timeout(struct client_state_t *cs, long long nowts)
 {
+    (void)cs;
+    (void)nowts;
     dhcp_wake_ts = -1;
 }
 
@@ -369,6 +371,7 @@ void ifdown_action(struct client_state_t *cs)
 
 void ifnocarrier_action(struct client_state_t *cs)
 {
+    (void)cs;
     log_line("nl: %s carrier down.", client_config.interface);
 }
 
