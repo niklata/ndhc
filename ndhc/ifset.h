@@ -31,10 +31,7 @@
 extern void perform_ip_subnet_bcast(const char *str_ipaddr,
                                     const char *str_subnet,
                                     const char *str_bcast);
-extern void perform_ip(const char *str, size_t len);
-extern void perform_subnet(const char *str, size_t len);
 extern void perform_router(const char *str, size_t len);
 extern void perform_mtu(const char *str, size_t len);
-extern void perform_broadcast(const char *str, size_t len);
 #endif
 

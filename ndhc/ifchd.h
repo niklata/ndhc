@@ -6,8 +6,6 @@
 enum ifchd_states {
     STATE_NOTHING,
     STATE_IP4SET,
-    STATE_IP,
-    STATE_SUBNET,
     STATE_TIMEZONE,
     STATE_ROUTER,
     STATE_DNS,
@@ -16,7 +14,6 @@ enum ifchd_states {
     STATE_DOMAIN,
     STATE_IPTTL,
     STATE_MTU,
-    STATE_BROADCAST,
     STATE_NTPSVR,
     STATE_WINS
 };

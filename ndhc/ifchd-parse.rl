@@ -132,8 +132,6 @@ static void perform_ip4set(const char *buf, size_t len)
     action Dispatch {
         switch (cl.state) {
         case STATE_IP4SET: perform_ip4set(tb, arg_len); break;
-        case STATE_IP: perform_ip(tb, arg_len); break;
-        case STATE_SUBNET: perform_subnet(tb, arg_len); break;
         case STATE_TIMEZONE: perform_timezone( tb, arg_len); break;
         case STATE_ROUTER: perform_router(tb, arg_len); break;
         case STATE_DNS: perform_dns(tb, arg_len); break;
@@ -142,7 +140,6 @@ static void perform_ip4set(const char *buf, size_t len)
         case STATE_DOMAIN: perform_domain(tb, arg_len); break;
         case STATE_IPTTL: perform_ipttl(tb, arg_len); break;
         case STATE_MTU: perform_mtu(tb, arg_len); break;
-        case STATE_BROADCAST: perform_broadcast(tb, arg_len); break;
         case STATE_NTPSVR: perform_ntpsrv(tb, arg_len); break;
         case STATE_WINS: perform_wins(tb, arg_len); break;
         default:
@@ -161,11 +158,7 @@ static void perform_ip4set(const char *buf, size_t len)
     u16_arg = (extend{2} > ArgSt % ArgEn) terminator;
     u8_arg = (extend{1} > ArgSt % ArgEn) terminator;
 
-    cmd_ip = ('ip:' % { cl.state = STATE_IP; }
-             |'snet:' % { cl.state = STATE_SUBNET; }
-             |'routr:' % { cl.state = STATE_ROUTER; }
-             |'bcast:' % { cl.state = STATE_BROADCAST; }
-             ) ip_arg;
+    cmd_ip = ('routr:' % { cl.state = STATE_ROUTER; }) ip_arg;
     cmd_ip4set = ('ip4:' % { cl.state = STATE_IP4SET; }) ip4set_arg;
     cmd_iplist = ('dns:' % { cl.state = STATE_DNS; }
                  |'lpr:' % { cl.state = STATE_LPRSVR; }
