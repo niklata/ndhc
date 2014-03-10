@@ -1,6 +1,6 @@
 /* leasefile.c - functions for writing the lease file
  *
- * Copyright (c) 2011 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright (c) 2011-2014 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,6 +36,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <limits.h>
+#include "leasefile.h"
 #include "log.h"
 #include "strl.h"
 #include "io.h"
@@ -49,7 +50,7 @@ void set_leasefile(char *lf)
     strnkcpy(leasefile, lf, sizeof leasefile);
 }
 
-void open_leasefile()
+void open_leasefile(void)
 {
     if (strlen(leasefile) > 0) {
         leasefilefd = open(leasefile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
