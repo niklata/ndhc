@@ -495,7 +495,7 @@ void set_listen_none(struct client_state_t *cs)
     change_listen_mode(cs, LM_NONE);
 }
 
-static int validate_dhcp_packet(struct client_state_t *cs, int len,
+static int validate_dhcp_packet(struct client_state_t *cs, size_t len,
                                 struct dhcpmsg *packet, uint8_t *msgtype)
 {
     if (len < sizeof *packet - sizeof packet->options) {
@@ -531,22 +531,22 @@ static int validate_dhcp_packet(struct client_state_t *cs, int len,
 void handle_packet(struct client_state_t *cs)
 {
     uint8_t msgtype;
-    int len;
     struct dhcpmsg packet;
 
     if (cs->listenMode == LM_NONE)
         return;
-    len = cs->listenMode == LM_RAW ?
+    int r = cs->listenMode == LM_RAW ?
         get_raw_packet(cs, &packet) : get_cooked_packet(&packet, cs->listenFd);
-
-    if (len < 0) {
+    if (r < 0) {
         // Transient issue handled by packet collection functions.
-        if (len == -2 || (len == -1 && errno == EINTR))
+        if (r == -2 || (r == -1 && errno == EINTR))
             return;
         log_error("Error reading from listening socket: %s.  Reopening.",
                   strerror(errno));
         change_listen_mode(cs, cs->listenMode);
+        return;
     }
+    size_t len = (size_t)r;
 
     if (!validate_dhcp_packet(cs, len, &packet, &msgtype))
         return;
