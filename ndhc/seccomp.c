@@ -26,6 +26,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include <stdbool.h>
+#include "seccomp.h"
 #include "log.h"
 #include "seccomp-bpf.h"
 

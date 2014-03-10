@@ -51,6 +51,7 @@
 #include "pidfile.h"
 #include "signals.h"
 #include "ifch_proto.h"
+#include "ifchd-parse.h"
 #include "strl.h"
 #include "cap.h"
 #include "io.h"
@@ -78,8 +79,6 @@ extern int pToIfchR;
 extern int pToNdhcW;
 extern char chroot_dir[MAX_PATH_LENGTH];
 extern char resolv_conf_d[MAX_PATH_LENGTH];
-
-extern int execute_buffer(char *newbuf);
 
 static void writeordie(int fd, const char *buf, int len)
 {

@@ -30,6 +30,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 
+#include "ifchd-parse.h"
 #include "ifchd.h"
 #include "log.h"
 #include "ifch_proto.h"
