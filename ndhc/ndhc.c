@@ -125,19 +125,19 @@ static void show_usage(void)
 
 static void signal_dispatch()
 {
-    int t, off = 0;
+    int t;
+    size_t off = 0;
     struct signalfd_siginfo si;
   again:
     t = read(cs.signalFd, (char *)&si + off, sizeof si - off);
-    if (t < sizeof si - off) {
-        if (t < 0) {
-            if (t == EAGAIN || t == EWOULDBLOCK || t == EINTR)
-                goto again;
-            else
-                suicide("signalfd read error");
-        }
-        off += t;
+    if (t < 0) {
+        if (t == EAGAIN || t == EWOULDBLOCK || t == EINTR)
+            goto again;
+        else
+            suicide("signalfd read error");
     }
+    if (off + (unsigned)t < sizeof si)
+        off += t;
     switch (si.ssi_signo) {
         case SIGUSR1:
             force_renew_action(&cs);

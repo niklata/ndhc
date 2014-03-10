@@ -76,7 +76,7 @@ static const dhcp_state_t dhcp_states[] = {
 static unsigned int num_dhcp_requests;
 static long long dhcp_wake_ts = -1;
 
-static int delay_timeout(int numpackets)
+static int delay_timeout(size_t numpackets)
 {
     int to = 64;
     char tot[] = { 4, 8, 16, 32, 64 };

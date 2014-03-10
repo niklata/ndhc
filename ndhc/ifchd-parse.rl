@@ -87,7 +87,7 @@ static void perform_ip4set(const char *buf, size_t len)
     const char *eof = pe;
     const char *arg_start;
     size_t arg_len;
-    unsigned int cs = 0;
+    int cs = 0;
     bool have_ip = false;
     bool have_subnet = false;
     bool have_bcast = false;
@@ -199,7 +199,7 @@ buftooshort:
     const char *pe = p + init_siz;
     const char *arg_start;
     size_t arg_len;
-    unsigned int cs = 0;
+    int cs = 0;
 
     %% write init;
     %% write exec;

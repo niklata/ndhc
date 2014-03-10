@@ -112,7 +112,7 @@ static char arp_router_has_replied;
 static char arp_server_has_replied;
 
 static struct arpMsg arpreply;
-static int arpreply_offset;
+static size_t arpreply_offset;
 static void arpreply_clear(void)
 {
     memset(&arpreply, 0, sizeof arpreply);

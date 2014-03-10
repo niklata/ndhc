@@ -290,19 +290,19 @@ static void setup_signals_ifch()
 
 static void signal_dispatch()
 {
-    int t, off = 0;
+    int t;
+    size_t off = 0;
     struct signalfd_siginfo si;
   again:
     t = read(signalFd, (char *)&si + off, sizeof si - off);
-    if (t < sizeof si - off) {
-        if (t < 0) {
-            if (t == EAGAIN || t == EWOULDBLOCK || t == EINTR)
-                goto again;
-            else
-                suicide("signalfd read error");
-        }
-        off += t;
+    if (t < 0) {
+        if (t == EAGAIN || t == EWOULDBLOCK || t == EINTR)
+            goto again;
+        else
+            suicide("signalfd read error");
     }
+    if (off + (unsigned)t < sizeof si)
+        off += t;
     switch (si.ssi_signo) {
         case SIGINT:
         case SIGTERM:
