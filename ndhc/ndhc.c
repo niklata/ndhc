@@ -346,7 +346,7 @@ int main(int argc, char **argv)
         {"arp-probe-min",      required_argument,  0, 'm'},
         {"arp-probe-max",      required_argument,  0, 'M'},
         {"resolv-conf",        required_argument,  0, 'R'},
-        {"dhcp-hostname",      no_argument,        0, 'H'},
+        {"dhcp-set-hostname",  no_argument,        0, 'H'},
         {"version",            no_argument,        0, 'v'},
         {"help",               no_argument,        0, '?'},
         {0, 0, 0, 0}
