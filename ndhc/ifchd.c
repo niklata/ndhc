@@ -110,11 +110,11 @@ static void epoll_del(int fd)
 #endif
 
 /* Writes a new resolv.conf based on the information we have received. */
-static void write_resolve_conf()
+static void write_resolve_conf(void)
 {
-    const static char ns_str[] = "nameserver ";
-    const static char dom_str[] = "domain ";
-    const static char srch_str[] = "search ";
+    static const char ns_str[] = "nameserver ";
+    static const char dom_str[] = "domain ";
+    static const char srch_str[] = "search ";
     int r;
     off_t off;
     char buf[MAX_BUF];
@@ -200,6 +200,7 @@ static void write_resolve_conf()
 /* XXX: addme */
 void perform_timezone(const char *str, size_t len)
 {
+    (void)len;
     log_line("Timezone setting NYI: '%s'", str);
 }
 
@@ -208,6 +209,10 @@ void perform_dns(const char *str, size_t len)
 {
     if (!str || resolv_conf_fd == -1)
         return;
+    if (len > sizeof cl.namesvrs) {
+        log_line("DNS server list is too long: %zu > %zu", len, cl.namesvrs);
+        return;
+    }
     strnkcpy(cl.namesvrs, str, sizeof cl.namesvrs);
     write_resolve_conf();
     log_line("Added DNS server: '%s'", str);
@@ -216,6 +221,7 @@ void perform_dns(const char *str, size_t len)
 /* Updates for print daemons are too non-standard to be useful. */
 void perform_lprsvr(const char *str, size_t len)
 {
+    (void)len;
     log_line("Line printer server setting NYI: '%s'", str);
 }
 
@@ -224,7 +230,7 @@ void perform_hostname(const char *str, size_t len)
 {
     if (!allow_hostname || !str)
         return;
-    if (sethostname(str, strlen(str) + 1) == -1)
+    if (sethostname(str, len) == -1)
         log_line("sethostname returned %s", strerror(errno));
     else
         log_line("Set hostname: '%s'", str);
@@ -235,6 +241,10 @@ void perform_domain(const char *str, size_t len)
 {
     if (!str || resolv_conf_fd == -1)
         return;
+    if (len > sizeof cl.domains) {
+        log_line("DNS domain list is too long: %zu > %zu", len, cl.namesvrs);
+        return;
+    }
     strnkcpy(cl.domains, str, sizeof cl.domains);
     write_resolve_conf();
     log_line("Added DNS domain: '%s'", str);
@@ -244,20 +254,25 @@ void perform_domain(const char *str, size_t len)
  * that isn't in the mainline kernels. */
 void perform_ipttl(const char *str, size_t len)
 {
+    (void)len;
     log_line("TTL setting NYI: '%s'", str);
 }
 
 /* XXX: addme */
 void perform_ntpsrv(const char *str, size_t len)
 {
+    (void)len;
     log_line("NTP server setting NYI: '%s'", str);
 }
 
 /* Maybe Samba cares about this feature?  I don't know. */
 void perform_wins(const char *str, size_t len)
-{}
+{
+    (void)str;
+    (void)len;
+}
 
-static void ifchd_client_init()
+static void ifchd_client_init(void)
 {
     cl.state = STATE_NOTHING;
 
@@ -266,7 +281,7 @@ static void ifchd_client_init()
     memset(cl.domains, 0, sizeof cl.domains);
 }
 
-static void setup_signals_ifch()
+static void setup_signals_ifch(void)
 {
     sigset_t mask;
     sigemptyset(&mask);
@@ -287,7 +302,7 @@ static void setup_signals_ifch()
         suicide("signalfd failed");
 }
 
-static void signal_dispatch()
+static void signal_dispatch(void)
 {
     int t;
     size_t off = 0;
@@ -315,7 +330,7 @@ static void signal_dispatch()
     }
 }
 
-static void process_client_pipe()
+static void process_client_pipe(void)
 {
     char buf[MAX_BUF];
 
@@ -373,7 +388,8 @@ void do_ifch_work(void)
     }
 }
 
-void ifch_main() {
+void ifch_main(void)
+{
     prctl(PR_SET_NAME, "ndhc: ifch");
     if (file_exists(pidfile_ifch, "w") == -1) {
         log_line("FATAL - can't open ifch-pidfile '%s' for write!",

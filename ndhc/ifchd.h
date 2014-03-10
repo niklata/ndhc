@@ -38,5 +38,8 @@ extern void perform_ipttl(const char *str, size_t len);
 extern void perform_ntpsrv(const char *str, size_t len);
 extern void perform_wins(const char *str, size_t len);
 
+extern void do_ifch_work(void);
+extern void ifch_main(void);
+
 #endif /* NJK_IFCHD_H_ */
 
