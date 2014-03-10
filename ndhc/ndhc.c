@@ -43,6 +43,7 @@
 #include <arpa/inet.h>
 #include <sys/epoll.h>
 #include <sys/signalfd.h>
+#include <sys/prctl.h>
 #include <net/if.h>
 #include <errno.h>
 #include <pwd.h>
@@ -279,6 +280,7 @@ static void create_ipc_pipes() {
 }
 
 void ndhc_main() {
+    prctl(PR_SET_NAME, "ndhc: master");
     log_line("ndhc client " NDHC_VERSION " started on interface [%s].",
              client_config.interface);
 

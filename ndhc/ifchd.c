@@ -36,6 +36,7 @@
 #include <sys/types.h>
 #include <sys/epoll.h>
 #include <sys/signalfd.h>
+#include <sys/prctl.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 
@@ -374,6 +375,7 @@ void do_ifch_work(void)
 }
 
 void ifch_main() {
+    prctl(PR_SET_NAME, "ndhc: ifch");
     if (file_exists(pidfile_ifch, "w") == -1) {
         log_line("FATAL - can't open ifch-pidfile '%s' for write!",
                  pidfile_ifch);
