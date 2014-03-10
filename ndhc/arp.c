@@ -129,7 +129,7 @@ void arp_reset_send_stats(void)
 
 static void arp_set_bpf_basic(int fd)
 {
-    static const struct sock_filter sf_arp[] = {
+    static struct sock_filter sf_arp[] = {
         // Verify that the frame has ethernet protocol type of ARP
         // and that the ARP hardware type field indicates Ethernet.
         BPF_STMT(BPF_LD + BPF_W + BPF_ABS, 12),
@@ -147,7 +147,7 @@ static void arp_set_bpf_basic(int fd)
     };
     static const struct sock_fprog sfp_arp = {
         .len = sizeof sf_arp / sizeof sf_arp[0],
-        .filter = (struct sock_filter *)sf_arp,
+        .filter = sf_arp,
     };
     using_arp_bpf = setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &sfp_arp,
                                sizeof sfp_arp) != -1;
@@ -330,7 +330,9 @@ static int arp_send(struct client_state_t *cs, struct arpMsg *arp)
         .htype = htons(ARPHRD_ETHER),                                   \
         .ptype = htons(ETH_P_IP),                                       \
         .hlen = 6, .plen = 4,                                           \
-        .operation = htons(ARPOP_REQUEST), };                           \
+        .operation = htons(ARPOP_REQUEST),                              \
+        .smac = {0},                                                    \
+    };                                                                  \
     memcpy(arp.h_source, client_config.arp, 6);                         \
     memset(arp.h_dest, 0xff, 6);                                        \
     memcpy(arp.smac, client_config.arp, 6)
@@ -567,6 +569,7 @@ static int arp_gen_probe_wait(void)
 
 static void arp_defense_timeout(struct client_state_t *cs, long long nowts)
 {
+    (void)nowts; // Suppress warning; parameter necessary but unused.
     if (arp_wake_ts[AS_DEFENSE] != -1) {
         log_line("arp: Defending our lease IP.");
         arp_announcement(cs);
