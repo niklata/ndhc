@@ -47,6 +47,7 @@
 
 #include <errno.h>
 
+#include "ifset.h"
 #include "ifchd.h"
 #include "config.h"
 #include "log.h"
@@ -280,6 +281,8 @@ void perform_router(const char *str, size_t len)
 
     if (!str)
         return;
+    if (len < 4)
+        return;
     if (inet_pton(AF_INET, str, &router) <= 0)
         return;
 
@@ -321,6 +324,8 @@ void perform_mtu(const char *str, size_t len)
     struct ifreq ifrt;
 
     if (!str)
+        return;
+    if (len < 2)
         return;
 
     mtu = strtol(str, NULL, 10);
