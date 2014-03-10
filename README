@@ -1,4 +1,4 @@
-ndhc + ifchd, Copyright (C) 2004-2014 Nicholas J. Kain.
+ndhc, Copyright (C) 2004-2014 Nicholas J. Kain.
 See LICENSE for licensing information.  In short: Two-clause / New BSD.
 
 Requirements:
@@ -10,10 +10,9 @@ libcap (available via ftp.kernel.org)
 INTRODUCTION
 ------------
 
-ndhc consists of a set of daemons that cooperate in order to provide
-privilege-separated dhcp client services.  Each daemon runs with the minimal
-necessary privileges in order to perform its task.  Currently, ndhc consists of
-two daemons: the eponymous ndhc and ifchd.
+ndhc is a multi-process, privilege-separated dhcp client.  Each subprocess runs
+with the minimal necessary privileges in order to perform its task.  Currently,
+ndhc consists of two subprocesses: the ndhc and ifch.
 
 ndhc communicates with dhcp servers and handles the vagaries of the dhcp
 client protocol.  It runs as a non-root user inside a chroot.  ndhc retains
@@ -23,13 +22,10 @@ raw socket, and the ability to communicate on broadcast channels.  ndhc holds
 no other powers and is restricted to a chroot that contains nothing more than a
 domain socket filesystem object and a urandom device node.
 
-ifchd handles interface change requests.  It listens on a UNIX domain socket
-for such requests, and denies any client that does not match an authorized gid,
-uid, or pid.  ifchd runs as a non-root user inside a chroot, and retains only
-the power to configure network interfaces.  ifchd is designed so that it has
-the ability to service multiple client requests simultaneously; a single ifchd
-is sufficient for multiple ndhc clients.  Only exotic setups should require
-this functionality, but it does exist.
+ifch handles interface change requests.  It listens on a shared pipe for such
+requests.  ifch runs as a non-root user inside a chroot, and retains only the
+power to configure network interfaces.  ifch automatically forks from ndhc
+to perform its job.
 
 ndhc fully implements RFC5227's address conflict detection and defense.  Great
 care is taken to ensure that address conflicts will be detected, and ndhc also
@@ -48,14 +44,13 @@ to be more of an annoyance than a help.  v6 LLAs work much better in practice.
 FEATURES
 --------
 
-Privilege-separated.  Neither ifchd or ndhc runs as full root, and capabilities
-are divided between the programs.  Both programs run in a chroot.
+Privilege-separated.  ndhc does not run as root after initial startup, and
+capabilities are divided between the subprocesses.  Both programs run in a
+chroot.
 
 Robust.  ndhc performs no runtime heap allocations -- malloc() is never called
 (and neither is brk(), mmap(), etc), and ndhc never performs recursive calls
 and only stack-allocates fixed-length types, so stack depth is bounded, too.
-ifchd lightly uses malloc(), but no heap allocations have long lifetimes, and
-are bounded from being large.
 
 Active defense of IP address and IP collision avoidance.  ndhc fully implements
 RFC5227.  It is capable of both a normal level of tenacity in defense, where
@@ -64,17 +59,18 @@ in the case of a conflict, and of relentlessly defending a lease forever.  In
 either mode, it rate-limits defense messages, so it can't be tricked into
 flooding by a hostile peer or DHCP server, either.
 
-Small.  Both ndhc and ifchd avoid unnecessary outside dependencies and are
-written in plain C.  The only library used is libcap, as the raw raw kernel API
-for capabilities is not guaranteed to stay stable.
+Small.  Both ndhc avoids unnecessary outside dependencies and is written in
+plain C.  The only library used is libcap, as the raw raw kernel API for
+capabilities is not guaranteed to stay stable.
 
 Fast.  ndhc filters input using the BPF/LPF mechanism so that uninteresting
 packets are dropped by the operating system before ndhc even sees the data.
 ndhc also only listens to DHCP traffic when it's necessary.
 
 Flexible.  ndhc can request particular IPs, send user-specified client IDs,
-write a file that contains the current lease IP, write PID files, etc.  One
-ifchd session can service multiple ndhc sessions.
+write a file that contains the current lease IP, write PID files, etc.
+
+Self-contained.  ndhc does not exec other processes, or rely on the shell.
 
 Aware of the hardware link status.  If you disconnect an interface on which
 ndhc is providing dhcp service, it will be aware.  When the link status
@@ -85,33 +81,33 @@ different, it will forget about the old lease and request a new one.
 USAGE
 -----
 
-1) Compile and install ifchd and ndhc.
+1) Compile and install ndhc.
     a) gmake
-    b) Install the build/ifchd and build/ndhc executables in a normal place.  I
-       would suggest /usr/sbin or /usr/local/sbin.
+    b) Install the build/ndhc executable in a normal place.  I would suggest
+       /usr/sbin or /usr/local/sbin.
 
-1alt) Compile and install ifchd and ndhc.
+1alt) Compile and install ndhc.
     a) Create a build directory:
        mkdir build && cd build
     b) Create the makefiles:
        cmake ..
-    c) Build ifchd and ndhc:
+    c) Build ndhc:
        make
-    d) Install the ifchd/ifchd and ndhc/ndhc executables in a normal place.  I
-       would suggest /usr/sbin or /usr/local/sbin.
+    d) Install the ndhc/ndhc executable in a normal place.  I would suggest
+       /usr/sbin or /usr/local/sbin.
 
-2) Time to create the jail in which ifchd and ndhc will run.
-    a) Become root and create new group "ifchd".
+2) Time to create the jail in which ndhc will run.
+    a) Become root and create new group "ndhc".
 
         $ su -
         # umask 077
-        # groupadd ifchd
+        # groupadd ndhc
 
-    b) Create new users "ifchd" and "dhcp".  The primary group of these
-       users should be "ifchd".
+    b) Create new users "ifch" and "dhcp".  The primary group of these
+       users should be "ndhc".
 
-        # useradd -d /var/lib/ndhc -s /sbin/nologin -g ifchd ifchd
-        # useradd -d /var/lib/ndhc -s /sbin/nologin -g ifchd dhcp
+        # useradd -d /var/lib/ndhc -s /sbin/nologin -g ndhc ifch
+        # useradd -d /var/lib/ndhc -s /sbin/nologin -g ndhc dhcp
 
     b) Create the jail directory and set its ownership properly.
 
@@ -122,7 +118,7 @@ USAGE
         # mkdir var
         # mkdir var/state
         # mkdir var/run
-        # chown -R ifchd.ifchd var
+        # chown -R dhcp.ndhc var
         # chmod -R a+rx var
         # chmod g+w var/run
 
@@ -142,21 +138,18 @@ USAGE
            Since this varies per-daemon, I cannot provide a general
            configuration.
 
-3)  At this point the jail is usable; ifchd and ndhc are ready to
-    be used.  As an example of a sample configuration, here is my
-    rc.dhcp:
+3) At this point the jail is usable; ndhc is ready to be used.  As an example
+   of a sample configuration, here is my rc.dhcp:
 
 --START--
 
 #!/bin/sh
 case "$1" in
         start)
-                ifchd -i wan0 -p /var/run/ifchd.pid -u ifchd -g ifchd -U dhcp \
-                      -G ifchd -c /var/lib/ndhc &> /dev/null
-                ndhc -b -i wan0 -u dhcp -C /var/lib/ndhc &> /dev/null
+                ndhc -b -i wan0 -u dhcp -U ifch -C /var/lib/ndhc &> /dev/null
                 ;;
         stop)
-                killall ndhc ifchd
+                killall ndhc
                 ;;
 esac
 
@@ -166,20 +159,16 @@ esac
     exactly as I have outlined above.  If you have not entirely followed my
     directions, the script will of course require modifications.
 
-4o) If you encounter problems, I suggest running both ifchd and ndhc in the
-    foreground and examining the printed output.
+4o) If you encounter problems, I suggest running both ndhc in the foreground
+    and examining the printed output.
 
 
 BEHAVIOR NOTES
 --------------
 
-ifchd does not enable updates of the local hostname and resolv.conf by default.
-If you wish to enable these functions, use the --resolve (-r) and --hostname
-(-o) flags.  See ifchd --help.
-
-ifchd can be set such that it only allows clients to configure particular
-network interfaces.  The --interface (-i) argument does the trick, and may
-be used multiple times to allow multiple interfaces.
+ndhc does not enable updates of the local hostname and resolv.conf by default.
+If you wish to enable these functions, use the --resolve (-R) and --hostname
+(-H) flags.  See ndhc --help.
 
 PORTING NOTES
 -------------
@@ -189,29 +178,25 @@ of tasks that are platform-specific.  ndhc is rather platform-dependent, and it
 extensively uses Linux-specific features.  Some of these features are also
 available on the BSDs.
 
-1) Both ndhc and ifchd use the SO_PEERCRED flag of getsockopt() to discriminate
-authorized connections by uid, gid, and pid.  Similar functionality exists in
-at least the BSDs; however, it has a different API.
-
-2) ifchd takes advantage of Linux capabilities so that it does not need full
+1) ndhc takes advantage of Linux capabilities so that it does not need full
 root privileges.  Capabilities were a proposed POSIX feature that was not made
 part of the official standard, so any implemention that may exist will be
 system-dependent.
 
-3) ifchd configures network interfaces and routes.  Interface and route
+2) ndhc configures network interfaces and routes.  Interface and route
 configuration is entirely non-portable, usually requiring calls to the
 catch-all ioctl(), or even more unusual mechanisms like netlink sockets.
 
-4) ndhc uses netlink sockets extensively for both fetching data and hardware
+3) ndhc uses netlink sockets extensively for both fetching data and hardware
 link state change notification events.
 
-5) ndhc uses the Berkeley Packet Filter / Linux Packet Filter interfaces to
+4) ndhc uses the Berkeley Packet Filter / Linux Packet Filter interfaces to
 drop unwanted packets in kernelspace.  This functionality is available on
 most modern unix systems, but it is not standard.
 
-6) ndhc uses epoll() and signalfd().  These are Linux-specific.
+5) ndhc uses epoll() and signalfd().  These are Linux-specific.
 
-7) Numerous socket options are used, and the AF_PACKET socket family is used
+6) Numerous socket options are used, and the AF_PACKET socket family is used
 for raw sockets and ARP.  These are largely Linux-specific, too.
 
 HISTORY
@@ -230,10 +215,10 @@ for extreme security.  A root privileged DHCP client would be nearly the
 only root-owned process running on the machine, so I was highly motivated
 to develop an alternative.
 
-ifchd was first written entirely from scratch.  It did not take long to write,
-since it is by design rather simple, and I was already familiar with
-the quirks of Linux capabilities.  That left me with the choice of adapting
-an existing DHCP client or writing my own from scratch.
+A separate ifchd was first written entirely from scratch.  It did not take long
+to write, since it is by design rather simple, and I was already familiar with
+the quirks of Linux capabilities.  That left me with the choice of adapting an
+existing DHCP client or writing my own from scratch.
 
 At the time, I just wanted something that would work, so my choice was to
 adapt udhcpc to work with ifchd.  udhcpc was chosen since it was intended to
@@ -269,6 +254,13 @@ ifchd was in good shape and required little work.  I ended up rewriting
 ndhc.  The only parts that remained from the original were the parts that
 I had already rewritten before, and some of those were rewritten, too.
 
+Eventually ifchd was rewritten to extensively use a Ragel-generated DFA-based
+parser to make it easier to verify correct behavior for all possible inputs.
+
+Quite a while later, I eventually merged ifchd into the same binary as
+ndhc and instead rely on forking subprocesses and using pipes for IPC.  This
+brought a lot of simplifications, particularly for user configuration.
+
 The end result is a modern DHCP client is largely RFC-compliant, except where
 the RFCs dictate behavior that would be problematic, overly complex, useless,
 or exploitable.  DHCP is poorly specified, and real-world servers and clients
@@ -284,7 +276,7 @@ have known about them otherwise.
 GRSECURITY NOTES
 ----------------
 
-Make sure that CONFIG_GRKERNSEC_CHROOT_CAPS is disabled.  Otherwise, ifchd will
+Make sure that CONFIG_GRKERNSEC_CHROOT_CAPS is disabled.  Otherwise, ndhc will
 lose its capabilities (in particular, the ability to reconfigure interfaces)
 when it chroots.
 
