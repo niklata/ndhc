@@ -39,8 +39,12 @@ Do not fork into the background after obtaining a lease.
 Immediately fork into the background, even before obtaining a lease.
 .TP
 .BI \-p\  PIDFILE ,\ \-\-pidfile= PIDFILE
-Write the process id number of the ndhc instance into the specified file name.
+Write the process id number of the ndhc process into the specified file name.
 The default is to not write the process id number into any file at all.
+.TP
+.BI \-P\  PIDFILE ,\ \-\-ifch\-pidfile= PIDFILE
+Write the process id number of the ndhc-ifch process into the specified file
+name.  The default is to not write the process id number into any file at all.
 .TP
 .BI \-l\  LEASEFILE ,\ \-\-leasefile= LEASEFILE
 Write the IP address of the currently held DHCP lease into the specified file
@@ -67,21 +71,64 @@ request if it would not conflict with another host.
 .BI \-u\  USER ,\ \-\-user= USER
 This option specifies the user name or user id that ndhc will change to after
 startup.  ndhc will also change its group to match the default group of this
-user.  This user should have the ability to write to the ifchd socket of the
-associated ifchd daemon.  In practice, this requirement means that this user
-should belong to the same group as the ifchd user.
+user.
+.TP
+.BI \-U\  USER ,\ \-\-ifch\-user= USER
+This option specifies the user name or user id that ndhc-ifch will change to
+after startup.  ndhc-ifch will also change its group to match the default group
+of this user.
 .TP
 .BI \-C\  CHROOTDIR ,\ \-\-chroot= CHROOTDIR
 This option specifies the directory to which ndhc should confine itself via
-chroot() after startup.  This directory should be shared with the associated
-ifchd daemon, and should have access to dev/urandom and dev/null.  For
-logging to work, a dev/log socket or device should also exist.
+chroot() after startup.  This directory should have access to dev/urandom and
+dev/null.  For logging to work, a dev/log socket or device should also exist.
 .TP
-.BR \-d ,\  \-\-relentless-defense
+.BR \-d ,\  \-\-relentless\-defense
 If specified, ndhc will never back down in defending the IP address that it
 has been assigned by the remote DHCP server.  This behavior should not be
 specified for average machines, but is useful for servers or routers where
 the IP address of the machine must remain fixed for proper operation.
+.TP
+.TP
+.BI \-R\  RESOLVCONF ,\ \-\-resolv\-conf= RESOLVCONF
+Specifies the path to the system resolv.conf.  This file will typically be in
+/etc/resolv.conf.  If this option is specified, ndhc will update the contents
+of this file to match the DNS servers specified by the remote DHCP server.  If
+this option is not specified, ifchd will never change the system DNS resolution
+configuration.
+.TP
+.BI \-H ,\  \-\-dhcp\-set\-hostname
+If specified, ndhc will update the system host name in response to any
+hostname option field provided by a remote DHCP server on the request of
+a ndhc client.  If this option is not specified, ndhc will never change
+the system hostname.
+.BR \-S ,\  \-\-seccomp\-enforce
+Enforces seccomp-based syscall whitelisting.  System calls that ndhc and
+ndhc-ifch are not expected to need are prohibited from being called if this
+flag is set.  The lists of allowed syscalls are hardcoded, and attempts
+to call a non-listed syscall will result in the ndhc process being
+terminated.  As systems vary, it cannot be guaranteed that these system
+call lists are accurate for your system, and thus seccomp filtering will
+not be used unless this flag is set.
+.TP
+.BR \-w\  TIMEMS ,\  \-\-arp\-probe\-wait= TIMEMS
+Adjusts the time that we wait for an ARP response when checking to see if
+our lease assignment is already taken by an existing host.  Default is
+1000ms.
+.TP
+.BR \-W\  NUMPROBES ,\  \-\-arp\-probe\-num= NUMPROBES
+Adjusts the number of ARP packets that we send when probing for collisions
+with an existing host that is using our assigned IP.  Once we have sent
+the specified number of probe packets with no response, ndhc is willing
+to believe that there is no colliding host.  Default number is 3 probes.
+.TP
+.BR \-m\  TIMEMS ,\  \-\-arp\-probe\-min= TIMEMS
+Adjusts the minimum time that we wait between sending probe packets.  The
+default is 1000ms.  The precise inter-probe wait time is randomized.
+.TP
+.BR \-M\  TIMEMS ,\  \-\-arp\-probe\-max= TIMEMS
+Adjusts the maximum time that we wait between sending probe packets.  The
+default is 2000ms.  The precise inter-probe wait time is randomized.
 .TP
 .BR \-v ,\  \-\-version
 Display the ndhc version number.

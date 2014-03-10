@@ -30,11 +30,14 @@
 #include <string.h>
 #include <arpa/inet.h>
 
-#include "ifchd-defines.h"
+#include "ifchd.h"
 #include "log.h"
 #include "ifch_proto.h"
 #include "strl.h"
-#include "linux.h"
+#include "ifset.h"
+
+// XXX: Move to header
+extern struct ifchd_client cl;
 
 %%{
     machine ipv4set_parser;
@@ -74,8 +77,7 @@
 
 %% write data;
 
-static void perform_ip4set(struct ifchd_client *cl, const char *buf,
-                           size_t len)
+static void perform_ip4set(const char *buf, size_t len)
 {
     char ip4_addr[INET_ADDRSTRLEN];
     char ip4_subnet[INET_ADDRSTRLEN];
@@ -108,14 +110,14 @@ static void perform_ip4set(struct ifchd_client *cl, const char *buf,
         return;
     }
 
-    perform_ip_subnet_bcast(cl, ip4_addr, ip4_subnet,
+    perform_ip_subnet_bcast(ip4_addr, ip4_subnet,
                             have_bcast ? ip4_bcast : NULL);
 }
 
 %%{
     machine ifchd_parser;
 
-    action Reset { cl->state = STATE_NOTHING; }
+    action Reset { cl.state = STATE_NOTHING; }
     action ArgSt { arg_start = p; }
     action ArgEn {
         arg_len = p - arg_start;
@@ -128,22 +130,21 @@ static void perform_ip4set(struct ifchd_client *cl, const char *buf,
     }
 
     action Dispatch {
-        switch (cl->state) {
-        case STATE_INTERFACE: perform_interface(cl, tb, arg_len); break;
-        case STATE_IP4SET: perform_ip4set(cl, tb, arg_len); break;
-        case STATE_IP: perform_ip(cl, tb, arg_len); break;
-        case STATE_SUBNET: perform_subnet(cl, tb, arg_len); break;
-        case STATE_TIMEZONE: perform_timezone(cl, tb, arg_len); break;
-        case STATE_ROUTER: perform_router(cl, tb, arg_len); break;
-        case STATE_DNS: perform_dns(cl, tb, arg_len); break;
-        case STATE_LPRSVR: perform_lprsvr(cl, tb, arg_len); break;
-        case STATE_HOSTNAME: perform_hostname(cl, tb, arg_len); break;
-        case STATE_DOMAIN: perform_domain(cl, tb, arg_len); break;
-        case STATE_IPTTL: perform_ipttl(cl, tb, arg_len); break;
-        case STATE_MTU: perform_mtu(cl, tb, arg_len); break;
-        case STATE_BROADCAST: perform_broadcast(cl, tb, arg_len); break;
-        case STATE_NTPSVR: perform_ntpsrv(cl, tb, arg_len); break;
-        case STATE_WINS: perform_wins(cl, tb, arg_len); break;
+        switch (cl.state) {
+        case STATE_IP4SET: perform_ip4set(tb, arg_len); break;
+        case STATE_IP: perform_ip(tb, arg_len); break;
+        case STATE_SUBNET: perform_subnet(tb, arg_len); break;
+        case STATE_TIMEZONE: perform_timezone( tb, arg_len); break;
+        case STATE_ROUTER: perform_router(tb, arg_len); break;
+        case STATE_DNS: perform_dns(tb, arg_len); break;
+        case STATE_LPRSVR: perform_lprsvr(tb, arg_len); break;
+        case STATE_HOSTNAME: perform_hostname(tb, arg_len); break;
+        case STATE_DOMAIN: perform_domain(tb, arg_len); break;
+        case STATE_IPTTL: perform_ipttl(tb, arg_len); break;
+        case STATE_MTU: perform_mtu(tb, arg_len); break;
+        case STATE_BROADCAST: perform_broadcast(tb, arg_len); break;
+        case STATE_NTPSVR: perform_ntpsrv(tb, arg_len); break;
+        case STATE_WINS: perform_wins(tb, arg_len); break;
         default:
             log_line("error: invalid state in dispatch_work");
             return -1;
@@ -160,24 +161,23 @@ static void perform_ip4set(struct ifchd_client *cl, const char *buf,
     u16_arg = (extend{2} > ArgSt % ArgEn) terminator;
     u8_arg = (extend{1} > ArgSt % ArgEn) terminator;
 
-    cmd_ip = ('ip:' % { cl->state = STATE_IP; }
-             |'snet:' % { cl->state = STATE_SUBNET; }
-             |'routr:' % { cl->state = STATE_ROUTER; }
-             |'bcast:' % { cl->state = STATE_BROADCAST; }
+    cmd_ip = ('ip:' % { cl.state = STATE_IP; }
+             |'snet:' % { cl.state = STATE_SUBNET; }
+             |'routr:' % { cl.state = STATE_ROUTER; }
+             |'bcast:' % { cl.state = STATE_BROADCAST; }
              ) ip_arg;
-    cmd_ip4set = ('ip4:' % { cl->state = STATE_IP4SET; }) ip4set_arg;
-    cmd_iplist = ('dns:' % { cl->state = STATE_DNS; }
-                 |'lpr:' % { cl->state = STATE_LPRSVR; }
-                 |'ntp:' % { cl->state = STATE_NTPSVR; }
-                 |'wins:' % { cl->state = STATE_WINS; }
+    cmd_ip4set = ('ip4:' % { cl.state = STATE_IP4SET; }) ip4set_arg;
+    cmd_iplist = ('dns:' % { cl.state = STATE_DNS; }
+                 |'lpr:' % { cl.state = STATE_LPRSVR; }
+                 |'ntp:' % { cl.state = STATE_NTPSVR; }
+                 |'wins:' % { cl.state = STATE_WINS; }
                  ) iplist_arg;
-    cmd_str = ('iface:' % { cl->state = STATE_INTERFACE; }
-              |'host:' % { cl->state = STATE_HOSTNAME; }
-              |'dom:' % { cl->state = STATE_DOMAIN; }
+    cmd_str = ('host:' % { cl.state = STATE_HOSTNAME; }
+              |'dom:' % { cl.state = STATE_DOMAIN; }
               ) str_arg;
-    cmd_s32 = ('tzone:' % { cl->state = STATE_TIMEZONE; }) s32_arg;
-    cmd_u16 = ('mtu:' % { cl->state = STATE_MTU; }) u16_arg;
-    cmd_u8  = ('ipttl:' % { cl->state = STATE_IPTTL; }) u8_arg;
+    cmd_s32 = ('tzone:' % { cl.state = STATE_TIMEZONE; }) s32_arg;
+    cmd_u16 = ('mtu:' % { cl.state = STATE_MTU; }) u16_arg;
+    cmd_u8  = ('ipttl:' % { cl.state = STATE_IPTTL; }) u8_arg;
 
     command = (cmd_ip|cmd_iplist|cmd_str|cmd_s32|cmd_u16|cmd_u8);
     main := (command > Reset)+;
@@ -188,12 +188,12 @@ static void perform_ip4set(struct ifchd_client *cl, const char *buf,
 /*
  * Returns -1 on fatal error; that leads to peer connection being closed.
  */
-int execute_buffer(struct ifchd_client *cl, char *newbuf)
+int execute_buffer(char *newbuf)
 {
     char buf[MAX_BUF * 2];
     char tb[MAX_BUF];
 
-    if (strnkcpy(buf, cl->ibuf, sizeof buf))
+    if (strnkcpy(buf, cl.ibuf, sizeof buf))
         goto buftooshort;
     if (strnkcat(buf, newbuf, sizeof buf)) {
 buftooshort:
@@ -214,7 +214,7 @@ buftooshort:
     size_t bytes_left = pe - p;
     if (bytes_left > 0) {
         size_t taken = init_siz - bytes_left;
-        strnkcpy(cl->ibuf, buf + taken, MAX_BUF);
+        strnkcpy(cl.ibuf, buf + taken, MAX_BUF);
     }
 
     if (cs < ifchd_parser_first_final) {

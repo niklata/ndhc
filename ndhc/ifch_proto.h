@@ -1,7 +1,6 @@
 #ifndef NJK_IFCH_PROTO_H__
 #define NJK_IFCH_PROTO_H__ 1
 
-#define CMD_INTERFACE     "iface"
 #define CMD_IP4SET        "ip4"
 #define CMD_IP            "ip"
 #define CMD_SUBNET        "snet"

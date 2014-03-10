@@ -41,7 +41,7 @@
 
 char pidfile[MAX_PATH_LENGTH] = PID_FILE_DEFAULT;
 
-void setup_signals(struct client_state_t *cs)
+void setup_signals_ndhc(struct client_state_t *cs)
 {
     sigset_t mask;
     sigemptyset(&mask);
@@ -71,7 +71,7 @@ void background(struct client_state_t *cs)
             exit(EXIT_SUCCESS);
         }
         if (cs)
-            setup_signals(cs);
+            setup_signals_ndhc(cs);
     }
     if (file_exists(pidfile, "w") == -1) {
         log_line("Cannot open pidfile for write!");

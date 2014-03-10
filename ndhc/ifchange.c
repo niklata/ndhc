@@ -1,6 +1,6 @@
 /* ifchange.c - functions to call the interface change daemon
  *
- * Copyright (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright (c) 2004-2014 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,12 +30,8 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/types.h>
-#include <sys/un.h>
-#include <sys/wait.h>
 #include <errno.h>
 
 #include "options.h"
@@ -48,6 +44,9 @@
 #include "strl.h"
 #include "ifchange.h"
 #include "ifch_proto.h"
+
+// XXX: Move to header
+extern int pToIfchW;
 
 static int cfg_deconfig; // Set if the interface has already been deconfigured.
 static struct dhcpmsg cfg_packet; // Copy of the current configuration packet.
@@ -159,49 +158,25 @@ static int ifchd_cmd(char *buf, size_t buflen, uint8_t *optdata,
 }
 #undef IFCHD_SW_CMD
 
-static int open_ifch(void) {
-    int sockfd, ret;
-    struct sockaddr_un address = {
-        .sun_family = AF_UNIX,
-        .sun_path = "/var/state/ifchange"
-    };
-
-    sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
-    ret = connect(sockfd, (struct sockaddr *)&address, sizeof(address));
-
-    if (ret == -1) {
-        log_error("unable to connect to ifchd!");
-        exit(EXIT_FAILURE);
-    }
-
-    return sockfd;
-}
-
-static void sockwrite(int fd, const char *buf, size_t count)
+static void pipewrite(const char *buf, size_t count)
 {
-    if (safe_write(fd, buf, count) == -1)
-        log_error("sockwrite: write failed: %s", strerror(errno));
+    if (safe_write(pToIfchW, buf, count) == -1)
+        log_error("pipewrite: write failed: %s", strerror(errno));
 }
 
 void ifchange_deconfig(void)
 {
-    int sockfd;
     char buf[256];
 
     if (cfg_deconfig)
         return;
 
-    sockfd = open_ifch();
-
-    snprintf(buf, sizeof buf, CMD_INTERFACE ":%s;" CMD_IP ":0.0.0.0;",
-             client_config.interface);
+    snprintf(buf, sizeof buf, "ip4:0.0.0.0,255.255.255.255;");
     log_line("Resetting %s IP configuration.", client_config.interface);
-    sockwrite(sockfd, buf, strlen(buf));
+    pipewrite(buf, strlen(buf));
 
     cfg_deconfig = 1;
     memset(&cfg_packet, 0, sizeof cfg_packet);
-
-    close(sockfd);
 }
 
 static size_t send_client_ip(char *out, size_t olen, struct dhcpmsg *packet)
@@ -288,13 +263,11 @@ static size_t send_cmd(char *out, size_t olen, struct dhcpmsg *packet,
 void ifchange_bind(struct dhcpmsg *packet)
 {
     char buf[2048];
-    int sockfd;
     int tbs = 0;
 
     if (!packet)
         return;
 
-    snprintf(buf, sizeof buf, CMD_INTERFACE ":%s;", client_config.interface);
     tbs |= send_client_ip(buf, sizeof buf, packet);
     tbs |= send_cmd(buf, sizeof buf, packet, DCODE_ROUTER);
     tbs |= send_cmd(buf, sizeof buf, packet, DCODE_DNS);
@@ -302,11 +275,8 @@ void ifchange_bind(struct dhcpmsg *packet)
     tbs |= send_cmd(buf, sizeof buf, packet, DCODE_DOMAIN);
     tbs |= send_cmd(buf, sizeof buf, packet, DCODE_MTU);
     tbs |= send_cmd(buf, sizeof buf, packet, DCODE_WINS);
-    if (tbs) {
-        sockfd = open_ifch();
-        sockwrite(sockfd, buf, strlen(buf));
-        close(sockfd);
-    }
+    if (tbs)
+        pipewrite(buf, strlen(buf));
 
     cfg_deconfig = 0;
     memcpy(&cfg_packet, packet, sizeof cfg_packet);

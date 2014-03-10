@@ -1,6 +1,6 @@
-/* linux.h - ifchd Linux-specific functions include
+/* seccomp.h - seccomp syscall filters for ndhc
  *
- * Copyright (c) 2004-2014 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright (c) 2012-2014 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,26 +25,14 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#ifndef NJK_NDHC_SECCOMP_H_
+#define NJK_NDHC_SECCOMP_H_
 
-#ifndef NJK_IFCHD_LINUX_H_
-#define NJK_IFCHD_LINUX_H_
-extern void clear_if_data(struct ifchd_client *cl);
-extern void initialize_if_data(void);
-extern void add_permitted_if(char *s);
-extern int authorized_peer(int sk, pid_t pid, uid_t uid, gid_t gid);
-extern void perform_interface(struct ifchd_client *cl, const char *str,
-                              size_t len);
-extern void perform_ip_subnet_bcast(struct ifchd_client *cl,
-                                    const char *str_ipaddr,
-                                    const char *str_subnet,
-                                    const char *str_bcast);
-extern void perform_ip(struct ifchd_client *cl, const char *str, size_t len);
-extern void perform_subnet(struct ifchd_client *cl, const char *str,
-                           size_t len);
-extern void perform_router(struct ifchd_client *cl, const char *str,
-                           size_t len);
-extern void perform_mtu(struct ifchd_client *cl, const char *str, size_t len);
-extern void perform_broadcast(struct ifchd_client *cl, const char *str,
-                              size_t len);
-#endif
+#include <stdbool.h>
 
+extern bool seccomp_enforce;
+
+extern int enforce_seccomp_ndhc(void);
+extern int enforce_seccomp_ifch(void);
+
+#endif /* NJK_NDHC_SECCOMP_H_ */

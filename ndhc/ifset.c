@@ -1,4 +1,4 @@
-/* linux.c - ifchd Linux-specific functions
+/* ifset.c - Linux-specific net interface settings include
  *
  * Copyright (c) 2004-2014 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
@@ -47,101 +47,35 @@
 
 #include <errno.h>
 
-#include "ifchd-defines.h"
+#include "ifchd.h"
+#include "config.h"
 #include "log.h"
 #include "ifch_proto.h"
 #include "strl.h"
 
-extern struct ifchd_client clients[SOCK_QUEUE];
-
-static size_t numokif;
-static char okif[MAX_IFACES][IFNAMSIZ];
-
-/* Adds to the list of interface names ifchd clients are allowed to change. */
-void add_permitted_if(char *s)
-{
-    if (numokif >= MAX_IFACES)
-        return;
-    strnkcpy(okif[numokif++], s, IFNAMSIZ);
-}
-
-/* Checks if changes are permitted to a given interface.  1 == allowed */
-static int is_permitted(char *name)
-{
-    /* If empty, permit all. */
-    if (!numokif)
-        return 1;
-
-    if (!name || strlen(name) == 0)
-        return 0;
-    for (size_t i = 0; i < numokif; ++i) {
-        if (strcmp(name, okif[i]) == 0)
-            return 1;
-    }
-    log_line("attempt to modify interface %s denied", name);
-    return 0;
-}
-
-/* Verify that peer is authorized to connect (return 1 on success). */
-int authorized_peer(int sk, pid_t pid, uid_t uid, gid_t gid)
-{
-    int ret = 0;
-    unsigned int cl;
-    struct ucred cr;
-
-    /* No credentials to verify. */
-    if ( !(pid || uid || gid) )
-        return 1;
-
-    /* Verify that peer has authorized uid/gid/pid. */
-    cl = sizeof(struct ucred);
-    if (getsockopt(sk, SOL_SOCKET, SO_PEERCRED, &cr, &cl) != -1) {
-        if ((pid == 0 || cr.pid == pid) ||
-            (uid == 0 || cr.uid == uid) ||
-            (gid == 0 || cr.gid == gid))
-            ret = 1;
-    } else
-        log_line("getsockopt returned an error: %s", strerror(errno));
-    return ret;
-}
-
-void perform_interface(struct ifchd_client *cl, const char *str, size_t len)
-{
-    if (!str)
-        return;
-
-    /* Update interface name. */
-    memset(cl->ifnam, '\0', IFNAMSIZ);
-    strnkcpy(cl->ifnam, str, IFNAMSIZ);
-    log_line("Subsequent commands alter interface: '%s'", str);
-}
-
-static int set_if_flag(struct ifchd_client *cl, short flag)
+static int set_if_flag(short flag)
 {
     int fd, ret = -1;
     struct ifreq ifrt;
 
-    if (!is_permitted(cl->ifnam))
-        goto out0;
-
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
         log_line("%s: (set_if_flag) failed to open interface socket: %s",
-                 cl->ifnam, strerror(errno));
+                 client_config.interface, strerror(errno));
         goto out0;
     }
 
-    strnkcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
+    strnkcpy(ifrt.ifr_name, client_config.interface, IFNAMSIZ);
     if (ioctl(fd, SIOCGIFFLAGS, &ifrt) < 0) {
-        log_line("%s: unknown interface: %s", cl->ifnam, strerror(errno));
+        log_line("%s: unknown interface: %s", client_config.interface, strerror(errno));
         goto out1;
     }
     if (((ifrt.ifr_flags & flag ) ^ flag) & flag) {
-        strnkcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
+        strnkcpy(ifrt.ifr_name, client_config.interface, IFNAMSIZ);
         ifrt.ifr_flags |= flag;
         if (ioctl(fd, SIOCSIFFLAGS, &ifrt) < 0) {
             log_line("%s: failed to set interface flags: %s",
-                     cl->ifnam, strerror(errno));
+                     client_config.interface, strerror(errno));
             goto out1;
         }
     } else
@@ -218,7 +152,7 @@ static inline int subnet4_to_prefixlen(uint32_t sn)
 }
 
 // str_bcast is optional.
-void perform_ip_subnet_bcast(struct ifchd_client *cl, const char *str_ipaddr,
+void perform_ip_subnet_bcast(const char *str_ipaddr,
                              const char *str_subnet, const char *str_bcast)
 {
     uint8_t request[NLMSG_ALIGN(sizeof(struct nlmsghdr)) +
@@ -233,33 +167,31 @@ void perform_ip_subnet_bcast(struct ifchd_client *cl, const char *str_ipaddr,
 
     if (!str_ipaddr) {
         log_line("%s: (%s) interface ip address is NULL",
-                 cl->ifnam, __func__);
+                 client_config.interface, __func__);
         return;
     }
     if (!str_subnet) {
         log_line("%s: (%s) interface subnet address is NULL",
-                 cl->ifnam, __func__);
+                 client_config.interface, __func__);
         return;
     }
 
-    if (!is_permitted(cl->ifnam))
-        return;
-    ifidx = get_ifindex(cl->ifnam);
+    ifidx = get_ifindex(client_config.interface);
     if (ifidx < 0) {
         log_line("%s: (%s) can't get interface index",
-                 cl->ifnam, __func__);
+                 client_config.interface, __func__);
         return;
     }
 
     if (inet_pton(AF_INET, str_ipaddr, &ipaddr) <= 0) {
         log_line("%s: (%s) bad interface ip address: '%s'",
-                 cl->ifnam, __func__, str_ipaddr);
+                 client_config.interface, __func__, str_ipaddr);
         return;
     }
 
     if (inet_pton(AF_INET, str_subnet, &subnet) <= 0) {
         log_line("%s: (%s) bad interface subnet address: '%s'",
-                 cl->ifnam, __func__, str_subnet);
+                 client_config.interface, __func__, str_subnet);
         return;
     }
     prefixlen = subnet4_to_prefixlen(subnet.s_addr);
@@ -267,7 +199,7 @@ void perform_ip_subnet_bcast(struct ifchd_client *cl, const char *str_ipaddr,
     if (str_bcast) {
         if (inet_pton(AF_INET, str_bcast, &bcast) <= 0) {
             log_line("%s: (%s) bad interface broadcast address: '%s'",
-                     cl->ifnam, __func__, str_bcast);
+                     client_config.interface, __func__, str_bcast);
             return;
         }
     } else {
@@ -292,20 +224,20 @@ void perform_ip_subnet_bcast(struct ifchd_client *cl, const char *str_ipaddr,
     if (add_rtattr(header, sizeof request, IFA_LOCAL,
                    &ipaddr, sizeof ipaddr) < 0) {
         log_line("%s: (%s) couldn't add IFA_LOCAL to nlmsg",
-                 cl->ifnam, __func__);
+                 client_config.interface, __func__);
         return;
     }
     if (add_rtattr(header, sizeof request, IFA_BROADCAST,
                    &bcast, sizeof bcast) < 0) {
         log_line("%s: (%s) couldn't add IFA_BROADCAST to nlmsg",
-                 cl->ifnam, __func__);
+                 client_config.interface, __func__);
         return;
     }
 
     nls = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
     if (nls < 0) {
         log_line("%s: (%s) netlink socket open failed: %s",
-                 cl->ifnam, __func__, strerror(errno));
+                 client_config.interface, __func__, strerror(errno));
         return;
     }
 
@@ -320,7 +252,7 @@ retry_sendto:
             goto retry_sendto;
         else {
             log_line("%s: (%s) netlink sendto socket failed: %s",
-                     cl->ifnam, __func__, strerror(errno));
+                     client_config.interface, __func__, strerror(errno));
             close(nls);
             return;
         }
@@ -332,13 +264,13 @@ retry_sendto:
         log_line("Broadcast address set to: '%s'", str_bcast);
 
     // XXX: Would be nice to do this via netlink, too.
-    if (set_if_flag(cl, (IFF_UP | IFF_RUNNING)))
+    if (set_if_flag(IFF_UP | IFF_RUNNING))
         return;
 }
 
 
 /* Sets IP address on an interface and brings it up. */
-void perform_ip(struct ifchd_client *cl, const char *str, size_t len)
+void perform_ip(const char *str, size_t len)
 {
     int fd;
     struct in_addr ipaddr;
@@ -347,14 +279,12 @@ void perform_ip(struct ifchd_client *cl, const char *str, size_t len)
 
     if (!str)
         return;
-    if (!is_permitted(cl->ifnam))
-        return;
     if (inet_pton(AF_INET, str, &ipaddr) <= 0)
         return;
-    if (set_if_flag(cl, (IFF_UP | IFF_RUNNING)))
+    if (set_if_flag(IFF_UP | IFF_RUNNING))
         return;
 
-    strnkcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
+    strnkcpy(ifrt.ifr_name, client_config.interface, IFNAMSIZ);
     memset(&sin, 0, sizeof(struct sockaddr));
     sin.sin_family = AF_INET;
     sin.sin_addr = ipaddr;
@@ -363,19 +293,19 @@ void perform_ip(struct ifchd_client *cl, const char *str, size_t len)
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
         log_line("%s: (perform_ip) failed to open interface socket: %s",
-                 cl->ifnam, strerror(errno));
+                 client_config.interface, strerror(errno));
         return;
     }
     if (ioctl(fd, SIOCSIFADDR, &ifrt) < 0)
         log_line("%s: failed to configure IP: %s",
-                 cl->ifnam, strerror(errno));
+                 client_config.interface, strerror(errno));
     else
         log_line("Interface IP set to: '%s'", str);
     close(fd);
 }
 
 /* Sets the subnet mask on an interface. */
-void perform_subnet(struct ifchd_client *cl, const char *str, size_t len)
+void perform_subnet(const char *str, size_t len)
 {
     int fd;
     struct in_addr subnet;
@@ -384,12 +314,10 @@ void perform_subnet(struct ifchd_client *cl, const char *str, size_t len)
 
     if (!str)
         return;
-    if (!is_permitted(cl->ifnam))
-        return;
     if (inet_pton(AF_INET, str, &subnet) <= 0)
         return;
 
-    strnkcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
+    strnkcpy(ifrt.ifr_name, client_config.interface, IFNAMSIZ);
     memset(&sin, 0, sizeof(struct sockaddr));
     sin.sin_family = AF_INET;
     sin.sin_addr = subnet;
@@ -398,20 +326,20 @@ void perform_subnet(struct ifchd_client *cl, const char *str, size_t len)
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
         log_line("%s: (perform_ip) failed to open interface socket: %s",
-                 cl->ifnam, strerror(errno));
+                 client_config.interface, strerror(errno));
         return;
     }
     if (ioctl(fd, SIOCSIFNETMASK, &ifrt) < 0) {
         sin.sin_addr.s_addr = 0xffffffff;
         if (ioctl(fd, SIOCSIFNETMASK, &ifrt) < 0)
             log_line("%s: failed to configure subnet: %s",
-                     cl->ifnam, strerror(errno));
+                     client_config.interface, strerror(errno));
     } else
         log_line("Interface subnet set to: '%s'", str);
     close(fd);
 }
 
-void perform_router(struct ifchd_client *cl, const char *str, size_t len)
+void perform_router(const char *str, size_t len)
 {
     struct rtentry rt;
     struct sockaddr_in *dest;
@@ -421,8 +349,6 @@ void perform_router(struct ifchd_client *cl, const char *str, size_t len)
     int fd;
 
     if (!str)
-        return;
-    if (!is_permitted(cl->ifnam))
         return;
     if (inet_pton(AF_INET, str, &router) <= 0)
         return;
@@ -440,25 +366,25 @@ void perform_router(struct ifchd_client *cl, const char *str, size_t len)
 
     rt.rt_flags = RTF_UP | RTF_GATEWAY;
     if (mask->sin_addr.s_addr == 0xffffffff) rt.rt_flags |= RTF_HOST;
-    rt.rt_dev = cl->ifnam;
+    rt.rt_dev = client_config.interface;
     rt.rt_metric = 1;
 
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
         log_line("%s: (perform_router) failed to open interface socket: %s",
-                 cl->ifnam, strerror(errno));
+                 client_config.interface, strerror(errno));
         return;
     }
     if (ioctl(fd, SIOCADDRT, &rt)) {
         if (errno != EEXIST)
             log_line("%s: failed to set route: %s",
-                     cl->ifnam, strerror(errno));
+                     client_config.interface, strerror(errno));
     } else
         log_line("Gateway router set to: '%s'", str);
     close(fd);
 }
 
-void perform_mtu(struct ifchd_client *cl, const char *str, size_t len)
+void perform_mtu(const char *str, size_t len)
 {
     int fd;
     unsigned int mtu;
@@ -466,31 +392,29 @@ void perform_mtu(struct ifchd_client *cl, const char *str, size_t len)
 
     if (!str)
         return;
-    if (!is_permitted(cl->ifnam))
-        return;
 
     mtu = strtol(str, NULL, 10);
     // Minimum MTU for physical IPv4 links is 576 octets.
     if (mtu < 576)
         return;
     ifrt.ifr_mtu = mtu;
-    strnkcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
+    strnkcpy(ifrt.ifr_name, client_config.interface, IFNAMSIZ);
 
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
         log_line("%s: (perform_mtu) failed to open interface socket: %s",
-                 cl->ifnam, strerror(errno));
+                 client_config.interface, strerror(errno));
         return;
     }
     if (ioctl(fd, SIOCSIFMTU, &ifrt) < 0)
-        log_line("%s: failed to set MTU (%d): %s", cl->ifnam, mtu,
+        log_line("%s: failed to set MTU (%d): %s", client_config.interface, mtu,
                  strerror(errno));
     else
         log_line("MTU set to: '%s'", str);
     close(fd);
 }
 
-void perform_broadcast(struct ifchd_client *cl, const char *str, size_t len)
+void perform_broadcast(const char *str, size_t len)
 {
     int fd;
     struct in_addr broadcast;
@@ -499,12 +423,10 @@ void perform_broadcast(struct ifchd_client *cl, const char *str, size_t len)
 
     if (!str)
         return;
-    if (!is_permitted(cl->ifnam))
-        return;
     if (inet_pton(AF_INET, str, &broadcast) <= 0)
         return;
 
-    strnkcpy(ifrt.ifr_name, cl->ifnam, IFNAMSIZ);
+    strnkcpy(ifrt.ifr_name, client_config.interface, IFNAMSIZ);
     memset(&sin, 0, sizeof(struct sockaddr));
     sin.sin_family = AF_INET;
     sin.sin_addr = broadcast;
@@ -512,12 +434,12 @@ void perform_broadcast(struct ifchd_client *cl, const char *str, size_t len)
 
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
-        log_line("%s: (perform_broadcast) failed to open interface socket: %s", cl->ifnam, strerror(errno));
+        log_line("%s: (perform_broadcast) failed to open interface socket: %s", client_config.interface, strerror(errno));
         return;
     }
     if (ioctl(fd, SIOCSIFBRDADDR, &ifrt) < 0)
         log_line("%s: failed to set broadcast: %s",
-                 cl->ifnam, strerror(errno));
+                 client_config.interface, strerror(errno));
     else
         log_line("Broadcast address set to: '%s'", str);
     close(fd);

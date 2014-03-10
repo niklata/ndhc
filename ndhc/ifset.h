@@ -1,6 +1,6 @@
-/* sys.h - linux-specific signal and epoll functions
+/* ifset.h - Linux-specific net interface settings include
  *
- * Copyright (c) 2010-2011 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright (c) 2004-2014 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,25 +25,16 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef SYS_H_
-#define SYS_H_
 
-#include <time.h>
-#include "ndhc-defines.h"
-#include "config.h"
+#ifndef NJK_IFSET_H_
+#define NJK_IFSET_H_
+extern void perform_ip_subnet_bcast(const char *str_ipaddr,
+                                    const char *str_subnet,
+                                    const char *str_bcast);
+extern void perform_ip(const char *str, size_t len);
+extern void perform_subnet(const char *str, size_t len);
+extern void perform_router(const char *str, size_t len);
+extern void perform_mtu(const char *str, size_t len);
+extern void perform_broadcast(const char *str, size_t len);
+#endif
 
-static inline unsigned long long curms()
-{
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec * 1000ULL + ts.tv_nsec / 1000000ULL;
-}
-
-extern char pidfile[MAX_PATH_LENGTH];
-
-void setup_signals_ndhc(struct client_state_t *cs);
-void background(struct client_state_t *cs);
-void epoll_add(struct client_state_t *cs, int fd);
-void epoll_del(struct client_state_t *cs, int fd);
-
-#endif /* SYS_H_ */

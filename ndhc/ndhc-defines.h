@@ -4,7 +4,8 @@
 #include "defines.h"
 
 #define PID_FILE_DEFAULT "/var/run/ndhc.pid"
-#define NDHC_VERSION "1.1"
+#define PID_FILE_IFCH_DEFAULT "/var/run/ifchd.pid"
+#define NDHC_VERSION "1.5"
 #define MAX_BUF 1024
 
 #endif /* NDHC_DEFINES_H_ */
