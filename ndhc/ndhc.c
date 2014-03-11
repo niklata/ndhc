@@ -123,7 +123,7 @@ static void show_usage(void)
     exit(EXIT_SUCCESS);
 }
 
-static void signal_dispatch()
+static void signal_dispatch(void)
 {
     int t;
     size_t off = 0;
@@ -259,7 +259,7 @@ int pToNdhcW;
 int pToIfchR;
 int pToIfchW;
 
-static void create_ipc_pipes() {
+static void create_ipc_pipes(void) {
     int niPipe[2];
     int inPipe[2];
 
@@ -279,7 +279,7 @@ static void create_ipc_pipes() {
     pToIfchW = inPipe[1];
 }
 
-void ndhc_main() {
+static void ndhc_main(void) {
     prctl(PR_SET_NAME, "ndhc: master");
     log_line("ndhc client " NDHC_VERSION " started on interface [%s].",
              client_config.interface);
@@ -321,7 +321,7 @@ extern int allow_hostname;
 extern char pidfile_ifch[MAX_PATH_LENGTH];
 extern uid_t ifch_uid;
 extern gid_t ifch_gid;
-extern void ifch_main();
+extern void ifch_main(void);
 
 int main(int argc, char **argv)
 {

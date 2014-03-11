@@ -110,7 +110,7 @@ static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
 
 // Returns fd of new listen socket bound to 0.0.0.0:@68 on interface @inf
 // on success, or -1 on failure.
-static int create_udp_listen_socket(struct client_state_t *cs, char *inf)
+static int create_udp_listen_socket(char *inf)
 {
     int fd = create_udp_socket(INADDR_ANY, DHCP_CLIENT_PORT, inf);
     if (fd == -1)
@@ -443,6 +443,7 @@ static int send_dhcp_raw(struct dhcpmsg *payload)
             .source = htons(DHCP_CLIENT_PORT),
             .dest = htons(DHCP_SERVER_PORT),
             .len = htons(ud_len),
+            .check = 0,
         },
         .data = *payload,
     };
@@ -472,7 +473,7 @@ static void change_listen_mode(struct client_state_t *cs, int new_mode)
         return;
     cs->listenFd = new_mode == LM_RAW ?
         create_raw_listen_socket(cs, client_config.ifindex) :
-        create_udp_listen_socket(cs, client_config.interface);
+        create_udp_listen_socket(client_config.interface);
     if (cs->listenFd < 0) {
         log_error("FATAL: Couldn't listen on socket: %s.", strerror(errno));
         exit(EXIT_FAILURE);
