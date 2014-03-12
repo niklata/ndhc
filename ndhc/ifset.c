@@ -49,7 +49,7 @@
 
 #include "ifset.h"
 #include "ifchd.h"
-#include "config.h"
+#include "ndhc.h"
 #include "log.h"
 #include "ifch_proto.h"
 #include "strl.h"

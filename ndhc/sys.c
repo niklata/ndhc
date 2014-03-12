@@ -26,15 +26,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/epoll.h>
 #include <sys/signalfd.h>
 #include "sys.h"
-#include "config.h"
 #include "log.h"
 
 void epoll_add(int epfd, int fd)

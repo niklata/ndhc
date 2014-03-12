@@ -43,7 +43,6 @@
 #include "state.h"
 #include "dhcp.h"
 #include "sys.h"
-#include "ndhc.h"
 #include "ifchange.h"
 #include "options.h"
 #include "leasefile.h"

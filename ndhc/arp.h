@@ -31,7 +31,7 @@
 #include <stdint.h>
 #include <net/if_arp.h>
 
-#include "config.h"
+#include "ndhc.h"
 #include "dhcp.h"
 
 struct arpMsg {

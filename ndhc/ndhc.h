@@ -28,7 +28,41 @@
 #ifndef NJK_NDHC_NDHC_H_
 #define NJK_NDHC_NDHC_H_
 
+#include <stdint.h>
+#include <net/if.h>
 #include "defines.h"
+#include "random.h"
+
+struct client_state_t {
+    unsigned long long leaseStartTime;
+    int dhcpState;
+    int arpPrevState;
+    int ifsPrevState;
+    int listenMode;
+    int epollFd, signalFd, listenFd, arpFd, nlFd;
+    int nlPortId;
+    uint32_t clientAddr, serverAddr, routerAddr;
+    uint32_t lease, renewTime, rebindTime, xid;
+    struct nk_random_state_u32 rnd32_state;
+    uint8_t routerArp[6], serverArp[6];
+    uint8_t using_dhcp_bpf, init, got_router_arp, got_server_arp;
+};
+
+struct client_config_t {
+    char foreground;             // Do not fork
+    char quit_after_lease;       // Quit after obtaining lease
+    char abort_if_no_lease;      // Abort if no lease
+    char background_if_no_lease; // Fork to background if no lease
+    char clientid_mac;           // If true, then the clientid is a MAC addr
+    char interface[IFNAMSIZ];    // The name of the interface to use
+    char clientid[64];           // Optional client id to use
+    char hostname[64];           // Optional hostname to use
+    char vendor[64];             // Vendor identification that will be sent
+    int ifindex;                 // Index number of the interface to use
+    uint8_t arp[6];              // Our arp address
+};
+
+extern struct client_config_t client_config;
 
 extern int pToIfchR;
 extern int pToIfchW;

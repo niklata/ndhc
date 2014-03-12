@@ -31,8 +31,7 @@
 
 #include <netinet/udp.h>
 #include <netinet/ip.h>
-
-#include "config.h"
+#include "ndhc.h"
 
 #define DHCP_SERVER_PORT        67
 #define DHCP_CLIENT_PORT        68

@@ -51,7 +51,6 @@
 
 #include "ndhc.h"
 #include "ndhc-defines.h"
-#include "config.h"
 #include "state.h"
 #include "options.h"
 #include "dhcp.h"

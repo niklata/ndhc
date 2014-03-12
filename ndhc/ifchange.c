@@ -36,7 +36,6 @@
 
 #include "options.h"
 #include "ndhc.h"
-#include "config.h"
 #include "dhcp.h"
 #include "options.h"
 #include "arp.h"

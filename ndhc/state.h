@@ -28,7 +28,7 @@
 #ifndef NDHC_STATE_H_
 #define NDHC_STATE_H_
 
-#include "config.h"
+#include "ndhc.h"
 #include "dhcp.h"
 
 typedef enum {

@@ -30,7 +30,6 @@
 
 #include <time.h>
 #include "ndhc-defines.h"
-#include "config.h"
 
 static inline unsigned long long curms()
 {
