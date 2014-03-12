@@ -90,13 +90,16 @@ static ssize_t do_get_dhcp_opt(uint8_t *sbuf, ssize_t slen, uint8_t code,
             break;
         if (i >= slen - 2)
             break;
+        ssize_t soptsiz = sbuf[i+1];
         if (sbuf[i] == code) {
-            if (dlen - didx < sbuf[i+1])
+            if (dlen - didx < soptsiz)
                 return didx;
-            memcpy(dbuf+didx, sbuf+i+2, sbuf[i+1]);
-            didx += sbuf[i+1];
+            if (slen - i - 2 < soptsiz)
+                return didx;
+            memcpy(dbuf+didx, sbuf+i+2, soptsiz);
+            didx += soptsiz;
         }
-        i += sbuf[i+1] + 2;
+        i += soptsiz + 2;
     }
     return didx;
 }
