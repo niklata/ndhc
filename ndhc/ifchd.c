@@ -64,7 +64,7 @@ static int epollfd, signalFd;
 /* Slots are for signalFd and the ndhc -> ifchd pipe. */
 static struct epoll_event events[2];
 
-int resolv_conf_fd = -1;
+static int resolv_conf_fd = -1;
 /* int ntp_conf_fd = -1; */
 
 /* If true, allow HOSTNAME changes from dhcp server. */
