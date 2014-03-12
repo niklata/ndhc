@@ -68,6 +68,7 @@
 #include "pidfile.h"
 #include "io.h"
 #include "seccomp.h"
+#include "ifchd.h"
 
 struct client_state_t cs = {
     .init = 1,
@@ -315,13 +316,6 @@ static void ndhc_main(void) {
 
     do_ndhc_work();
 }
-
-// XXX: Move to a header.
-extern int allow_hostname;
-extern char pidfile_ifch[MAX_PATH_LENGTH];
-extern uid_t ifch_uid;
-extern gid_t ifch_gid;
-extern void ifch_main(void);
 
 int main(int argc, char **argv)
 {

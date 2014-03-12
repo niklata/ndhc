@@ -29,6 +29,11 @@ struct ifchd_client {
     char domains[MAX_BUF];
 };
 
+extern int allow_hostname;
+extern char pidfile_ifch[MAX_PATH_LENGTH];
+extern uid_t ifch_uid;
+extern gid_t ifch_gid;
+
 extern void perform_timezone(const char *str, size_t len);
 extern void perform_dns(const char *str, size_t len);
 extern void perform_lprsvr(const char *str, size_t len);
