@@ -43,6 +43,7 @@
 #include "state.h"
 #include "dhcp.h"
 #include "sys.h"
+#include "ndhc.h"
 #include "ifchange.h"
 #include "options.h"
 #include "leasefile.h"
@@ -234,7 +235,7 @@ static int arp_open_fd(struct client_state_t *cs)
     }
 
     cs->arpFd = fd;
-    epoll_add(cs, fd);
+    epoll_add(cs->epollFd, fd);
     arpreply_clear();
     return 0;
 out_fd:
@@ -274,7 +275,7 @@ static int arp_min_close_fd(struct client_state_t *cs)
 {
     if (cs->arpFd == -1)
         return 0;
-    epoll_del(cs, cs->arpFd);
+    epoll_del(cs->epollFd, cs->arpFd);
     close(cs->arpFd);
     cs->arpFd = -1;
     arpState = AS_NONE;
@@ -498,7 +499,7 @@ void arp_success(struct client_state_t *cs)
     if (client_config.quit_after_lease)
         exit(EXIT_SUCCESS);
     if (!client_config.foreground)
-        background(cs);
+        background();
 }
 
 static void arp_gw_success(struct client_state_t *cs)

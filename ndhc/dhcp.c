@@ -465,7 +465,7 @@ static void change_listen_mode(struct client_state_t *cs, int new_mode)
 {
     cs->listenMode = new_mode;
     if (cs->listenFd >= 0) {
-        epoll_del(cs, cs->listenFd);
+        epoll_del(cs->epollFd, cs->listenFd);
         close(cs->listenFd);
         cs->listenFd = -1;
     }
@@ -478,7 +478,7 @@ static void change_listen_mode(struct client_state_t *cs, int new_mode)
         log_error("FATAL: Couldn't listen on socket: %s.", strerror(errno));
         exit(EXIT_FAILURE);
     }
-    epoll_add(cs, cs->listenFd);
+    epoll_add(cs->epollFd, cs->listenFd);
 }
 
 void set_listen_raw(struct client_state_t *cs)

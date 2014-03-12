@@ -36,6 +36,7 @@
 #include "arp.h"
 #include "options.h"
 #include "log.h"
+#include "ndhc.h"
 #include "sys.h"
 #include "random.h"
 
@@ -299,7 +300,7 @@ static void selecting_timeout(struct client_state_t *cs, long long nowts)
         if (client_config.background_if_no_lease) {
             log_line("No lease, going to background.");
             cs->init = 0;
-            background(cs);
+            background();
         } else if (client_config.abort_if_no_lease) {
             log_line("No lease, failing.");
             exit(EXIT_FAILURE);

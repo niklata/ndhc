@@ -56,6 +56,7 @@
 #include "strl.h"
 #include "cap.h"
 #include "io.h"
+#include "sys.h"
 #include "ifset.h"
 #include "seccomp.h"
 
@@ -80,29 +81,6 @@ static void writeordie(int fd, const char *buf, int len)
     if (safe_write(fd, buf, len) == -1)
         suicide("write returned error");
 }
-
-static void ep_add(int fd)
-{
-    struct epoll_event ev;
-    ev.events = EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLHUP;
-    ev.data.fd = fd;
-    int r = epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &ev);
-    if (r == -1)
-        suicide("%s failed: %s", __func__, strerror(errno));
-}
-
-// XXX: Remove dead code.
-#if 0
-static void epoll_del(int fd)
-{
-    struct epoll_event ev;
-    ev.events = EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLHUP;
-    ev.data.fd = fd;
-    int r = epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, &ev);
-    if (r == -1)
-        suicide("epoll_del failed %s", strerror(errno));
-}
-#endif
 
 /* Writes a new resolv.conf based on the information we have received. */
 static void write_resolve_conf(void)
@@ -358,8 +336,8 @@ void do_ifch_work(void)
 
     ifchd_client_init();
 
-    ep_add(pToIfchR);
-    ep_add(signalFd);
+    epoll_add(epollfd, pToIfchR);
+    epoll_add(epollfd, signalFd);
 
     for (;;) {
         int r = epoll_wait(epollfd, events, 2, -1);

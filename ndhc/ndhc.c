@@ -49,6 +49,7 @@
 #include <pwd.h>
 #include <grp.h>
 
+#include "ndhc.h"
 #include "ndhc-defines.h"
 #include "config.h"
 #include "state.h"
@@ -122,6 +123,27 @@ static void show_usage(void)
 "  -v, --version                   Display version\n"
            );
     exit(EXIT_SUCCESS);
+}
+
+static void setup_signals_ndhc(void)
+{
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGUSR1);
+    sigaddset(&mask, SIGUSR2);
+    sigaddset(&mask, SIGCHLD);
+    sigaddset(&mask, SIGPIPE);
+    sigaddset(&mask, SIGTERM);
+    if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0)
+        suicide("sigprocmask failed");
+    if (cs.signalFd >= 0) {
+        epoll_del(cs.epollFd, cs.signalFd);
+        close(cs.signalFd);
+    }
+    cs.signalFd = signalfd(-1, &mask, SFD_NONBLOCK);
+    if (cs.signalFd < 0)
+        suicide("signalfd failed");
+    epoll_add(cs.epollFd, cs.signalFd);
 }
 
 static void signal_dispatch(void)
@@ -203,9 +225,9 @@ static void do_ndhc_work(void)
     if (enforce_seccomp_ndhc())
         log_line("ndhc seccomp filter cannot be installed");
 
-    setup_signals_ndhc(&cs);
+    setup_signals_ndhc();
 
-    epoll_add(&cs, cs.nlFd);
+    epoll_add(cs.epollFd, cs.nlFd);
     set_listen_raw(&cs);
     nowts = curms();
     goto jumpstart;
@@ -262,6 +284,7 @@ jumpstart:
 
 char chroot_dir[MAX_PATH_LENGTH] = "";
 char resolv_conf_d[MAX_PATH_LENGTH] = "";
+static char pidfile[MAX_PATH_LENGTH] = PID_FILE_DEFAULT;
 static uid_t ndhc_uid = 0;
 static gid_t ndhc_gid = 0;
 int pToNdhcR;
@@ -315,6 +338,22 @@ static void ndhc_main(void) {
         ifchange_deconfig();
 
     do_ndhc_work();
+}
+
+void background(void)
+{
+    static char called;
+    if (!called) {
+        called = 1;  // Do not fork again.
+        if (daemon(0, 0) == -1) {
+            perror("fork");
+            exit(EXIT_SUCCESS);
+        }
+    }
+    if (file_exists(pidfile, "w") == -1) {
+        log_line("Cannot open pidfile for write!");
+    } else
+        write_pid(pidfile);
 }
 
 int main(int argc, char **argv)

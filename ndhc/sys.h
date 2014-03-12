@@ -39,11 +39,7 @@ static inline unsigned long long curms()
     return ts.tv_sec * 1000ULL + ts.tv_nsec / 1000000ULL;
 }
 
-extern char pidfile[MAX_PATH_LENGTH];
-
-void setup_signals_ndhc(struct client_state_t *cs);
-void background(struct client_state_t *cs);
-void epoll_add(struct client_state_t *cs, int fd);
-void epoll_del(struct client_state_t *cs, int fd);
+extern void epoll_add(int epfd, int fd);
+extern void epoll_del(int epfd, int fd);
 
 #endif /* SYS_H_ */
