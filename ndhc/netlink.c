@@ -58,7 +58,9 @@ static void get_if_index_and_mac(const struct nlmsghdr *nlh,
     nl_attr_parse(nlh, sizeof *ifm, nlrtattr_assign, tb);
     if (!tb[IFLA_IFNAME])
         return;
-    if (!strcmp(client_config.interface, nlattr_get_data(tb[IFLA_IFNAME]))) {
+    if (!strncmp(client_config.interface,
+                 nlattr_get_data(tb[IFLA_IFNAME]),
+                 sizeof client_config.interface)) {
         client_config.ifindex = ifm->ifi_index;
         if (!tb[IFLA_ADDRESS])
             suicide("FATAL: Adapter %s lacks a hardware address.");

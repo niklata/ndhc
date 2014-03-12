@@ -399,7 +399,8 @@ int main(int argc, char **argv)
                          sizeof client_config.hostname);
                 break;
             case 'i':
-                client_config.interface = optarg;
+                strnkcpy(client_config.interface, optarg,
+                         sizeof client_config.interface);
                 break;
             case 'n':
                 client_config.abort_if_no_lease = 1;
