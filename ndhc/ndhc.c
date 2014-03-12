@@ -301,15 +301,6 @@ static void ndhc_main(void) {
         write_pid(pidfile);
     }
 
-    if ((cs.nlFd = nl_open(NETLINK_ROUTE, RTMGRP_LINK, &cs.nlPortId)) < 0) {
-        log_line("FATAL - failed to open netlink socket");
-        exit(EXIT_FAILURE);
-    }
-    if (nl_getifdata(&cs) < 0) {
-        log_line("FATAL - failed to get interface MAC and index");
-        exit(EXIT_FAILURE);
-    }
-
     open_leasefile();
 
     imprison(chroot_dir);
@@ -523,11 +514,21 @@ int main(int argc, char **argv)
     if (!strncmp(chroot_dir, "", sizeof chroot_dir))
         suicide("FATAL - No chroot path specified.  Refusing to run.");
 
+    if ((cs.nlFd = nl_open(NETLINK_ROUTE, RTMGRP_LINK, &cs.nlPortId)) < 0) {
+        log_line("FATAL - failed to open netlink socket");
+        exit(EXIT_FAILURE);
+    }
+    if (nl_getifdata(&cs) < 0) {
+        log_line("FATAL - failed to get interface MAC and index");
+        exit(EXIT_FAILURE);
+    }
+
     create_ipc_pipes();
     pid_t ifch_pid = fork();
     if (ifch_pid == 0) {
         close(pToNdhcR);
         close(pToIfchW);
+        close(cs.nlFd);
         ifch_main();
     } else if (ifch_pid > 0) {
         close(pToIfchR);

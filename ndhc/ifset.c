@@ -112,29 +112,6 @@ static int add_rtattr(struct nlmsghdr *n, size_t max_length, int type,
     return 0;
 }
 
-static int get_ifindex(const char *name)
-{
-    struct ifreq ifr;
-    int sk, err;
-
-    if (!name)
-        return -1;
-
-    sk = socket(PF_INET, SOCK_DGRAM, 0);
-    if (sk < 0)
-        return -1;
-
-    memset(&ifr, 0, sizeof ifr);
-    strnkcpy(ifr.ifr_name, name, sizeof ifr.ifr_name);
-
-    err = ioctl(sk, SIOCGIFINDEX, &ifr);
-    close(sk);
-    if (err < 0)
-        return -1;
-
-    return ifr.ifr_ifindex;
-}
-
 // 32-bit position values are relatively prime to 37, so the residue mod37
 // gives a unique mapping for each value.  Gives correct result for v=0.
 static int trailz(uint32_t v)
@@ -163,7 +140,7 @@ void perform_ip_subnet_bcast(const char *str_ipaddr,
     struct sockaddr_nl nl_addr;
     struct nlmsghdr *header;
     struct ifaddrmsg *ifaddrmsg;
-    int nls, ifidx, r;
+    int nls, r;
     uint8_t prefixlen;
 
     if (!str_ipaddr) {
@@ -173,13 +150,6 @@ void perform_ip_subnet_bcast(const char *str_ipaddr,
     }
     if (!str_subnet) {
         log_line("%s: (%s) interface subnet address is NULL",
-                 client_config.interface, __func__);
-        return;
-    }
-
-    ifidx = get_ifindex(client_config.interface);
-    if (ifidx < 0) {
-        log_line("%s: (%s) can't get interface index",
                  client_config.interface, __func__);
         return;
     }
@@ -220,7 +190,7 @@ void perform_ip_subnet_bcast(const char *str_ipaddr,
     ifaddrmsg->ifa_prefixlen = prefixlen;
     ifaddrmsg->ifa_flags = IFA_F_PERMANENT;
     ifaddrmsg->ifa_scope = RT_SCOPE_UNIVERSE;
-    ifaddrmsg->ifa_index = ifidx;
+    ifaddrmsg->ifa_index = client_config.ifindex;
 
     if (add_rtattr(header, sizeof request, IFA_LOCAL,
                    &ipaddr, sizeof ipaddr) < 0) {
