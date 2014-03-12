@@ -533,6 +533,7 @@ int main(int argc, char **argv)
     } else if (ifch_pid > 0) {
         close(pToIfchR);
         close(pToNdhcW);
+        nk_random_u32_init(&cs.rnd32_state);
         ndhc_main();
     } else {
         log_line("FATAL - failed to fork ndhc-ifch: %s", strerror(errno));

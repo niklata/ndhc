@@ -31,6 +31,7 @@
 
 #include <stdint.h>
 #include <net/if.h>
+#include "random.h"
 
 struct client_state_t {
     unsigned long long leaseStartTime;
@@ -42,6 +43,7 @@ struct client_state_t {
     int nlPortId;
     uint32_t clientAddr, serverAddr, routerAddr;
     uint32_t lease, renewTime, rebindTime, xid;
+    struct nk_random_state_u32 rnd32_state;
     uint8_t routerArp[6], serverArp[6];
     uint8_t using_dhcp_bpf, init, got_router_arp, got_server_arp;
 };

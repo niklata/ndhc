@@ -306,7 +306,7 @@ static void selecting_timeout(struct client_state_t *cs, long long nowts)
         }
     }
     if (num_dhcp_requests == 0)
-        cs->xid = nk_random_u32();
+        cs->xid = nk_random_u32(&cs->rnd32_state);
     send_discover(cs);
     dhcp_wake_ts = nowts + delay_timeout(num_dhcp_requests);
     num_dhcp_requests++;
