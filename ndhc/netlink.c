@@ -142,6 +142,7 @@ static int nl_sendgetlink(struct client_state_t *cs)
 {
     char nlbuf[8192];
     struct nlmsghdr *nlh = (struct nlmsghdr *)nlbuf;
+    ssize_t r;
 
     memset(nlbuf, 0, sizeof nlbuf);
     nlh->nlmsg_len = NLMSG_LENGTH(sizeof (struct rtattr));
@@ -152,9 +153,18 @@ static int nl_sendgetlink(struct client_state_t *cs)
     struct sockaddr_nl addr = {
         .nl_family = AF_NETLINK,
     };
-    if (sendto(cs->nlFd, nlbuf, nlh->nlmsg_len, 0, (struct sockaddr *)&addr,
-               sizeof addr) == -1)
-        return -1;
+retry_sendto:
+    r = sendto(cs->nlFd, nlbuf, nlh->nlmsg_len, 0,
+               (struct sockaddr *)&addr, sizeof addr);
+    if (r < 0) {
+        if (errno == EINTR)
+            goto retry_sendto;
+        else {
+            log_warning("%s: (%s) netlink sendto socket failed: %s",
+                        client_config.interface, __func__, strerror(errno));
+            return -1;
+        }
+    }
     return 0;
 }
 
