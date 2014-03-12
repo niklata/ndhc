@@ -47,6 +47,8 @@ void setup_signals_ndhc(struct client_state_t *cs)
     sigemptyset(&mask);
     sigaddset(&mask, SIGUSR1);
     sigaddset(&mask, SIGUSR2);
+    sigaddset(&mask, SIGCHLD);
+    sigaddset(&mask, SIGPIPE);
     sigaddset(&mask, SIGTERM);
     if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0)
         suicide("sigprocmask failed");

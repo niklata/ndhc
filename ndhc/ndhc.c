@@ -145,9 +145,18 @@ static void signal_dispatch(void)
         case SIGUSR2:
             force_release_action(&cs);
             break;
+        case SIGPIPE:
+            log_line("ndhc-master: IPC pipe closed.  Exiting.");
+            exit(EXIT_SUCCESS);
+            break;
+        case SIGCHLD:
+            log_line("ndhc-master: Subprocess terminated unexpectedly.  Exiting.");
+            exit(EXIT_FAILURE);
+            break;
         case SIGTERM:
             log_line("Received SIGTERM.  Exiting gracefully.");
             exit(EXIT_SUCCESS);
+            break;
         default:
             break;
     }

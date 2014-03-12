@@ -285,7 +285,6 @@ static void setup_signals_ifch(void)
 {
     sigset_t mask;
     sigemptyset(&mask);
-    // XXX: Do we need to change SIGPIPE?
     sigaddset(&mask, SIGPIPE);
     sigaddset(&mask, SIGUSR1);
     sigaddset(&mask, SIGUSR2);
@@ -323,7 +322,8 @@ static void signal_dispatch(void)
             exit(EXIT_SUCCESS);
             break;
         case SIGPIPE:
-            // XXX: Handle SIGPIPE.
+            log_line("ndhc-ifch: IPC pipe closed.  Exiting.");
+            exit(EXIT_SUCCESS);
             break;
         default:
             break;
