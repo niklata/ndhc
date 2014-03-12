@@ -35,6 +35,7 @@
 #include <errno.h>
 
 #include "options.h"
+#include "ndhc.h"
 #include "config.h"
 #include "dhcp.h"
 #include "options.h"
@@ -44,9 +45,6 @@
 #include "strl.h"
 #include "ifchange.h"
 #include "ifch_proto.h"
-
-// XXX: Move to header
-extern int pToIfchW;
 
 static int cfg_deconfig; // Set if the interface has already been deconfigured.
 static struct dhcpmsg cfg_packet; // Copy of the current configuration packet.

@@ -37,9 +37,6 @@
 #include "strl.h"
 #include "ifset.h"
 
-// XXX: Move to header
-extern struct ifchd_client cl;
-
 %%{
     machine ipv4set_parser;
 

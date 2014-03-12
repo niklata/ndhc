@@ -46,6 +46,7 @@
 #include <getopt.h>
 
 #include "ifchd.h"
+#include "ndhc.h"
 #include "log.h"
 #include "chroot.h"
 #include "pidfile.h"
@@ -73,12 +74,6 @@ int allow_hostname = 0;
 char pidfile_ifch[MAX_PATH_LENGTH] = PID_FILE_IFCH_DEFAULT;
 uid_t ifch_uid = 0;
 gid_t ifch_gid = 0;
-
-// XXX: Move to header
-extern int pToIfchR;
-extern int pToNdhcW;
-extern char chroot_dir[MAX_PATH_LENGTH];
-extern char resolv_conf_d[MAX_PATH_LENGTH];
 
 static void writeordie(int fd, const char *buf, int len)
 {

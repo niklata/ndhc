@@ -29,6 +29,8 @@ struct ifchd_client {
     char domains[MAX_BUF];
 };
 
+extern struct ifchd_client cl;
+
 extern int allow_hostname;
 extern char pidfile_ifch[MAX_PATH_LENGTH];
 extern uid_t ifch_uid;
