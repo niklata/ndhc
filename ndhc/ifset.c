@@ -53,6 +53,7 @@
 #include "log.h"
 #include "ifch_proto.h"
 #include "strl.h"
+#include "nl.h"
 
 static int set_if_flag(short flag)
 {
@@ -86,30 +87,6 @@ static int set_if_flag(short flag)
     close(fd);
   out0:
     return ret;
-}
-
-#define NLMSG_TAIL(nmsg)                               \
-    ((struct rtattr *) (((uint8_t*) (nmsg)) +          \
-                        NLMSG_ALIGN((nmsg)->nlmsg_len)))
-
-static int add_rtattr(struct nlmsghdr *n, size_t max_length, int type,
-                      const void *data, size_t data_length)
-{
-    size_t length;
-    struct rtattr *rta;
-
-    length = RTA_LENGTH(data_length);
-
-    if (NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(length) > max_length)
-        return -E2BIG;
-
-    rta = NLMSG_TAIL(n);
-    rta->rta_type = type;
-    rta->rta_len = length;
-    memcpy(RTA_DATA(rta), data, data_length);
-    n->nlmsg_len = NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(length);
-
-    return 0;
 }
 
 // 32-bit position values are relatively prime to 37, so the residue mod37
@@ -192,14 +169,14 @@ void perform_ip_subnet_bcast(const char *str_ipaddr,
     ifaddrmsg->ifa_scope = RT_SCOPE_UNIVERSE;
     ifaddrmsg->ifa_index = client_config.ifindex;
 
-    if (add_rtattr(header, sizeof request, IFA_LOCAL,
-                   &ipaddr, sizeof ipaddr) < 0) {
+    if (nl_add_rtattr(header, sizeof request, IFA_LOCAL,
+                      &ipaddr, sizeof ipaddr) < 0) {
         log_line("%s: (%s) couldn't add IFA_LOCAL to nlmsg",
                  client_config.interface, __func__);
         return;
     }
-    if (add_rtattr(header, sizeof request, IFA_BROADCAST,
-                   &bcast, sizeof bcast) < 0) {
+    if (nl_add_rtattr(header, sizeof request, IFA_BROADCAST,
+                      &bcast, sizeof bcast) < 0) {
         log_line("%s: (%s) couldn't add IFA_BROADCAST to nlmsg",
                  client_config.interface, __func__);
         return;

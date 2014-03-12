@@ -1,6 +1,6 @@
 /* nl.h - low level netlink protocol functions
  *
- * Copyright (c) 2011 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright (c) 2011-2014 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -66,16 +66,18 @@ static inline int nlmsg_get_error(const struct nlmsghdr *nlh)
     return err->error & 0x7fffffff;
 }
 
+extern int nl_add_rtattr(struct nlmsghdr *n, size_t max_length, int type,
+                         const void *data, size_t data_length);
 typedef int (*nl_attr_parse_fn)(struct nlattr *attr, int type, void *data);
-void nl_attr_parse(const struct nlmsghdr *nlh, size_t offset,
-                   nl_attr_parse_fn workfn, void *data);
+extern void nl_attr_parse(const struct nlmsghdr *nlh, size_t offset,
+                          nl_attr_parse_fn workfn, void *data);
 
-ssize_t nl_recv_buf(int fd, char *buf, size_t blen);
+extern ssize_t nl_recv_buf(int fd, char *buf, size_t blen);
 
 typedef int (*nlmsg_foreach_fn)(const struct nlmsghdr *, void *);
-int nl_foreach_nlmsg(char *buf, size_t blen, uint32_t portid,
-                     nlmsg_foreach_fn pfn, void *fnarg);
+extern int nl_foreach_nlmsg(char *buf, size_t blen, uint32_t portid,
+                            nlmsg_foreach_fn pfn, void *fnarg);
 
-int nl_open(int nltype, int nlgroup, int *nlportid);
+extern int nl_open(int nltype, int nlgroup, int *nlportid);
 
 #endif /* NK_NL_H_ */

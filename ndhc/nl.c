@@ -1,6 +1,6 @@
 /* nl.c - low level netlink protocol functions
  *
- * Copyright (c) 2011 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright (c) 2011-2014 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,12 +30,37 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <linux/rtnetlink.h>
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
 #include "log.h"
 #include "nl.h"
+
+#define NLMSG_TAIL(nmsg)                               \
+    ((struct rtattr *) (((uint8_t*) (nmsg)) +          \
+                        NLMSG_ALIGN((nmsg)->nlmsg_len)))
+
+int nl_add_rtattr(struct nlmsghdr *n, size_t max_length, int type,
+                  const void *data, size_t data_length)
+{
+    size_t length;
+    struct rtattr *rta;
+
+    length = RTA_LENGTH(data_length);
+
+    if (NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(length) > max_length)
+        return -E2BIG;
+
+    rta = NLMSG_TAIL(n);
+    rta->rta_type = type;
+    rta->rta_len = length;
+    memcpy(RTA_DATA(rta), data, data_length);
+    n->nlmsg_len = NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(length);
+
+    return 0;
+}
 
 void nl_attr_parse(const struct nlmsghdr *nlh, size_t offset,
                    nl_attr_parse_fn workfn, void *data)
