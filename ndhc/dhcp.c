@@ -636,7 +636,7 @@ int send_decline(struct client_state_t *cs, uint32_t server)
 
 int send_release(struct client_state_t *cs)
 {
-    struct dhcpmsg packet = init_packet(DHCPRELEASE, libc_random_u32());
+    struct dhcpmsg packet = init_packet(DHCPRELEASE, nk_random_u32());
     packet.ciaddr = cs->clientAddr;
     add_option_reqip(&packet, cs->clientAddr);
     add_option_serverid(&packet, cs->serverAddr);
