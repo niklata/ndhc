@@ -43,18 +43,18 @@ typedef enum {
     DS_NUM_STATES,
 } dhcp_states_t;
 
-void reinit_selecting(struct client_state_t *cs, int timeout);
+extern void reinit_selecting(struct client_state_t *cs, int timeout);
 
-void packet_action(struct client_state_t *cs, struct dhcpmsg *packet,
+extern void packet_action(struct client_state_t *cs, struct dhcpmsg *packet,
                    uint8_t msgtype);
-void timeout_action(struct client_state_t *cs, long long nowts);
-void force_renew_action(struct client_state_t *cs);
-void force_release_action(struct client_state_t *cs);
+extern void timeout_action(struct client_state_t *cs, long long nowts);
+extern void force_renew_action(struct client_state_t *cs);
+extern void force_release_action(struct client_state_t *cs);
 
-void ifup_action(struct client_state_t *cs);
-void ifnocarrier_action(struct client_state_t *cs);
-void ifdown_action(struct client_state_t *cs);
-long long dhcp_get_wake_ts(void);
+extern void ifup_action(struct client_state_t *cs);
+extern void ifnocarrier_action(struct client_state_t *cs);
+extern void ifdown_action(struct client_state_t *cs);
+extern long long dhcp_get_wake_ts(void);
 
 #endif
 
