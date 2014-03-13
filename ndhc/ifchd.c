@@ -92,7 +92,7 @@ static void write_resolve_conf(void)
     off_t off;
     char buf[MAX_BUF];
 
-    if (resolv_conf_fd == -1)
+    if (resolv_conf_fd < 0)
         return;
     if (strlen(cl.namesvrs) == 0)
         return;
