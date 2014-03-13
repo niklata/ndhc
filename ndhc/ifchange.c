@@ -114,8 +114,8 @@ static int ifchd_cmd_iplist(char *buf, size_t buflen, char *optname,
     return buf - obuf;
 }
 
-static int ifchd_cmd_str(char *buf, size_t buflen, char *optname,
-                         uint8_t *optdata, ssize_t optlen)
+static int ifchd_cmd_bytes(char *buf, size_t buflen, char *optname,
+                           uint8_t *optdata, ssize_t optlen)
 {
     char *obuf = buf;
     if (buflen < strlen(optname) + optlen + 3)
@@ -143,8 +143,8 @@ static int ifchd_cmd(char *buf, size_t buflen, uint8_t *optdata,
         IFCHD_SW_CMD(WINS, iplist);
         IFCHD_SW_CMD(ROUTER, ip);
         IFCHD_SW_CMD(TIMEZONE, s32);
-        IFCHD_SW_CMD(HOSTNAME, str);
-        IFCHD_SW_CMD(DOMAIN, str);
+        IFCHD_SW_CMD(HOSTNAME, bytes);
+        IFCHD_SW_CMD(DOMAIN, bytes);
         IFCHD_SW_CMD(IPTTL, u8);
         IFCHD_SW_CMD(MTU, u16);
     default:
