@@ -80,15 +80,15 @@ struct udp_dhcp_packet {
     struct dhcpmsg data;
 };
 
-void set_listen_raw(struct client_state_t *cs);
-void set_listen_cooked(struct client_state_t *cs);
-void set_listen_none(struct client_state_t *cs);
-void handle_packet(struct client_state_t *cs);
-int send_discover(struct client_state_t *cs);
-int send_selecting(struct client_state_t *cs);
-int send_renew(struct client_state_t *cs);
-int send_rebind(struct client_state_t *cs);
-int send_decline(struct client_state_t *cs, uint32_t server);
-int send_release(struct client_state_t *cs);
+extern void set_listen_raw(struct client_state_t *cs);
+extern void set_listen_cooked(struct client_state_t *cs);
+extern void set_listen_none(struct client_state_t *cs);
+extern void handle_packet(struct client_state_t *cs);
+extern int send_discover(struct client_state_t *cs);
+extern int send_selecting(struct client_state_t *cs);
+extern int send_renew(struct client_state_t *cs);
+extern int send_rebind(struct client_state_t *cs);
+extern int send_decline(struct client_state_t *cs, uint32_t server);
+extern int send_release(struct client_state_t *cs);
 
 #endif
