@@ -320,7 +320,7 @@ static void process_client_pipe(void)
     }
 
     if (execute_buffer(buf) == -1) {
-        log_line("ifch: execute_buffer was passed invalid commands");
+        log_line("ifch: execute_buffer was passed invalid commands: '%s'", buf);
         exit(EXIT_FAILURE);
     }
 }
