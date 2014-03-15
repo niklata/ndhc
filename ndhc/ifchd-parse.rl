@@ -43,7 +43,7 @@
     action XSt { arg_start = p; }
     action IpEn {
         arg_len = p - arg_start;
-        if (arg_len > sizeof ip4_addr - 1) {
+        if (arg_len < sizeof ip4_addr) {
             have_ip = true;
             memcpy(ip4_addr, arg_start, arg_len);
         }
@@ -51,7 +51,7 @@
     }
     action SnEn {
         arg_len = p - arg_start;
-        if (arg_len > sizeof ip4_subnet - 1) {
+        if (arg_len < sizeof ip4_subnet) {
             have_subnet = true;
             memcpy(ip4_subnet, arg_start, arg_len);
         }
@@ -59,7 +59,7 @@
     }
     action BcEn {
         arg_len = p - arg_start;
-        if (arg_len > sizeof ip4_bcast - 1) {
+        if (arg_len < sizeof ip4_bcast) {
             have_ip = true;
             memcpy(ip4_bcast, arg_start, arg_len);
         }
@@ -170,7 +170,7 @@ static void perform_ip4set(const char *buf, size_t len)
     cmd_u16 = ('mtu:' % { cl.state = STATE_MTU; }) u16_arg;
     cmd_u8  = ('ipttl:' % { cl.state = STATE_IPTTL; }) u8_arg;
 
-    command = (cmd_ip|cmd_iplist|cmd_str|cmd_s32|cmd_u16|cmd_u8);
+    command = (cmd_ip|cmd_ip4set|cmd_iplist|cmd_str|cmd_s32|cmd_u16|cmd_u8);
     main := (command > Reset)+;
 }%%
 
