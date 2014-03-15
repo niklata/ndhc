@@ -55,6 +55,8 @@
 #include "strl.h"
 #include "nl.h"
 
+static uint32_t ifset_nl_seq;
+
 static int set_if_flag(short flag)
 {
     int fd, ret = -1;
@@ -106,19 +108,212 @@ static inline int subnet4_to_prefixlen(uint32_t sn)
     return 32 - trailz(ntohl(sn));
 }
 
-// str_bcast is optional.
-void perform_ip_subnet_bcast(const char *str_ipaddr,
-                             const char *str_subnet, const char *str_bcast)
+struct ipbcpfx {
+    int fd;
+    uint32_t ipaddr;
+    uint32_t bcast;
+    uint8_t prefixlen;
+    bool already_ok;
+};
+
+static int rtattr_assign(struct rtattr *attr, int type, void *data)
+{
+    struct rtattr **tb = data;
+    if (type >= IFA_MAX)
+        return 0;
+    tb[type] = attr;
+    return 0;
+}
+
+static ssize_t rtnl_addr_broadcast_send(int fd, int type, int ifa_flags,
+                                        int ifa_scope, struct in_addr *ipaddr,
+                                        struct in_addr *bcast,
+                                        uint8_t prefixlen)
 {
     uint8_t request[NLMSG_ALIGN(sizeof(struct nlmsghdr)) +
         NLMSG_ALIGN(sizeof(struct ifaddrmsg)) +
         RTA_LENGTH(sizeof(struct in6_addr))];
     uint8_t response[NLMSG_ALIGN(sizeof(struct nlmsghdr)) + 64];
-    struct in_addr ipaddr, subnet, bcast;
-    struct sockaddr_nl nl_addr;
     struct nlmsghdr *header;
     struct ifaddrmsg *ifaddrmsg;
-    int nls, r;
+    struct sockaddr_nl nl_addr;
+    ssize_t r;
+
+    if (!ipaddr && !bcast) {
+        log_warning("%s: (%s) no ipaddr or bcast!",
+                    client_config.interface, __func__);
+        return -1;
+    }
+
+    memset(&request, 0, sizeof request);
+    header = (struct nlmsghdr *)request;
+    header->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
+    header->nlmsg_type = type;
+    header->nlmsg_flags = NLM_F_REPLACE | NLM_F_ACK | NLM_F_REQUEST;
+    header->nlmsg_seq = ifset_nl_seq++;
+
+    ifaddrmsg = NLMSG_DATA(header);
+    ifaddrmsg->ifa_family = AF_INET;
+    ifaddrmsg->ifa_prefixlen = prefixlen;
+    ifaddrmsg->ifa_flags = ifa_flags;
+    ifaddrmsg->ifa_scope = ifa_scope;
+    ifaddrmsg->ifa_index = client_config.ifindex;
+
+    if (ipaddr) {
+        if (nl_add_rtattr(header, sizeof request, IFA_LOCAL,
+                          &ipaddr, sizeof ipaddr) < 0) {
+            log_line("%s: (%s) couldn't add IFA_LOCAL to nlmsg",
+                     client_config.interface, __func__);
+            return -1;
+        }
+    }
+    if (bcast) {
+        if (nl_add_rtattr(header, sizeof request, IFA_BROADCAST,
+                          &bcast, sizeof bcast) < 0) {
+            log_line("%s: (%s) couldn't add IFA_BROADCAST to nlmsg",
+                     client_config.interface, __func__);
+            return -1;
+        }
+    }
+
+    memset(&nl_addr, 0, sizeof nl_addr);
+    nl_addr.nl_family = AF_NETLINK;
+
+  retry_sendto:
+    r = sendto(fd, request, header->nlmsg_len, 0,
+               (struct sockaddr *)&nl_addr, sizeof nl_addr);
+    if (r < 0) {
+        if (errno == EINTR)
+            goto retry_sendto;
+        else {
+            log_line("%s: (%s) netlink sendto failed: %s",
+                     client_config.interface, __func__, strerror(errno));
+            return -1;
+        }
+    }
+  retry_recv:
+    r = recv(fd, response, sizeof response, 0);
+    if (r < 0) {
+        if (errno == EINTR)
+            goto retry_recv;
+        else {
+            log_line("%s: (%s) netlink recv failed: %s",
+                     client_config.interface, __func__, strerror(errno));
+            return -1;
+        }
+    }
+    if ((size_t)r < sizeof(struct nlmsghdr)) {
+        log_line("%s: (%s) netlink recv returned a headerless response",
+                 client_config.interface, __func__);
+        return -1;
+    }
+    uint32_t nr_type;
+    memcpy(&nr_type, response + 4, 2);
+    if (nr_type == NLMSG_ERROR) {
+        log_line("%s: (%s) netlink sendto returned NLMSG_ERROR",
+                 client_config.interface, __func__);
+        return -1;
+    }
+    return 0;
+}
+
+static void ipbcpfx_clear_others_do(const struct nlmsghdr *nlh, void *data)
+{
+    struct rtattr *tb[IFA_MAX] = {0};
+    struct ifaddrmsg *ifm = nlmsg_get_data(nlh);
+    struct ipbcpfx *ipx = data;
+    int r;
+
+    switch(nlh->nlmsg_type) {
+        case RTM_NEWADDR:
+            if (ifm->ifa_index != (unsigned)client_config.ifindex) {
+                printf("not correct ifindex\n");
+                return;
+            }
+            if (ifm->ifa_family != AF_INET) {
+                printf("not AF_INET\n");
+                return;
+            }
+            if (!(ifm->ifa_flags & IFA_F_PERMANENT)) {
+                printf("not F_PERMANENT\n");
+                goto erase;
+            }
+            if (!(ifm->ifa_scope & RT_SCOPE_UNIVERSE)) {
+                printf("not SCOPE_UNIVERSE\n");
+                goto erase;
+            }
+            if (ifm->ifa_prefixlen != ipx->prefixlen) {
+                printf("different prefixlen (%u)\n", ifm->ifa_prefixlen);
+                goto erase;
+            }
+            nl_rtattr_parse(nlh, sizeof *ifm, rtattr_assign, tb);
+            if (!tb[IFA_ADDRESS]) {
+                printf("no IFA_ADDRESS\n");
+                goto erase;
+            }
+            if (memcmp(rtattr_get_data(tb[IFA_ADDRESS]), &ipx->ipaddr,
+                       sizeof ipx->ipaddr)) {
+                printf("different IFA_ADDRESS\n");
+                goto erase;
+            }
+            if (!tb[IFA_BROADCAST]) {
+                printf("no IFA_BROADCAST\n");
+                goto erase;
+            }
+            if (memcmp(rtattr_get_data(tb[IFA_BROADCAST]), &ipx->ipaddr,
+                       sizeof ipx->ipaddr)) {
+                printf("different IFA_BROADCAST\n");
+                goto erase;
+            }
+            break;
+        default:
+            return;
+    }
+    // We already have the proper IP+broadcast+prefix.
+    ipx->already_ok = true;
+    return;
+
+  erase:
+    r = rtnl_addr_broadcast_send(ipx->fd, RTM_DELADDR, ifm->ifa_flags,
+                                 ifm->ifa_scope,
+                                 rtattr_get_data(tb[IFA_ADDRESS]),
+                                 rtattr_get_data(tb[IFA_BROADCAST]),
+                                 ifm->ifa_prefixlen);
+    if (r < 0) {
+        log_warning("%s: (%s) Failed to delete IP and broadcast addresses.",
+                    client_config.interface, __func__);
+    }
+    return;
+}
+
+static int ipbcpfx_clear_others(int fd, uint32_t ipaddr, uint32_t bcast,
+                                uint8_t prefixlen)
+{
+    char nlbuf[8192];
+    struct ipbcpfx ipx = { .fd = fd, .ipaddr = ipaddr, .bcast = bcast,
+                           .prefixlen = prefixlen, .already_ok = false };
+    ssize_t ret;
+    ret = nl_sendgetaddr(fd, ifset_nl_seq++, client_config.ifindex);
+    if (ret < 0)
+        return ret;
+
+    do {
+        ret = nl_recv_buf(fd, nlbuf, sizeof nlbuf);
+        if (ret == -1)
+            break;
+        if (nl_foreach_nlmsg(nlbuf, ret, 0,
+                             ipbcpfx_clear_others_do, &ipx) == -1)
+            break;
+    } while (ret > 0);
+    return ret;
+}
+
+// str_bcast is optional.
+void perform_ip_subnet_bcast(const char *str_ipaddr,
+                             const char *str_subnet, const char *str_bcast)
+{
+    struct in_addr ipaddr, subnet, bcast;
+    int fd, r;
     uint8_t prefixlen;
 
     if (!str_ipaddr) {
@@ -156,81 +351,27 @@ void perform_ip_subnet_bcast(const char *str_ipaddr,
         bcast.s_addr = ipaddr.s_addr | htonl(0xfffffffflu >> prefixlen);
     }
 
-    memset(&request, 0, sizeof request);
-    header = (struct nlmsghdr *)request;
-    header->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
-    header->nlmsg_type = RTM_NEWADDR;
-    header->nlmsg_flags = NLM_F_REPLACE | NLM_F_ACK | NLM_F_REQUEST;
-    header->nlmsg_seq = 1;
-
-    ifaddrmsg = NLMSG_DATA(header);
-    ifaddrmsg->ifa_family = AF_INET;
-    ifaddrmsg->ifa_prefixlen = prefixlen;
-    ifaddrmsg->ifa_flags = IFA_F_PERMANENT;
-    ifaddrmsg->ifa_scope = RT_SCOPE_UNIVERSE;
-    ifaddrmsg->ifa_index = client_config.ifindex;
-
-    if (nl_add_rtattr(header, sizeof request, IFA_LOCAL,
-                      &ipaddr, sizeof ipaddr) < 0) {
-        log_line("%s: (%s) couldn't add IFA_LOCAL to nlmsg",
-                 client_config.interface, __func__);
-        return;
-    }
-    if (nl_add_rtattr(header, sizeof request, IFA_BROADCAST,
-                      &bcast, sizeof bcast) < 0) {
-        log_line("%s: (%s) couldn't add IFA_BROADCAST to nlmsg",
-                 client_config.interface, __func__);
-        return;
-    }
-
-    nls = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
-    if (nls < 0) {
+    fd = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+    if (fd < 0) {
         log_line("%s: (%s) netlink socket open failed: %s",
                  client_config.interface, __func__, strerror(errno));
         return;
     }
 
-    memset(&nl_addr, 0, sizeof nl_addr);
-    nl_addr.nl_family = AF_NETLINK;
+    r = ipbcpfx_clear_others(fd, ipaddr.s_addr, bcast.s_addr, prefixlen);
+    if (r < 0) {
+        close(fd);
+        return;
+    }
 
-  retry_sendto:
-    r = sendto(nls, request, header->nlmsg_len, 0,
-               (struct sockaddr *)&nl_addr, sizeof nl_addr);
-    if (r < 0) {
-        if (errno == EINTR)
-            goto retry_sendto;
-        else {
-            log_line("%s: (%s) netlink sendto failed: %s",
-                     client_config.interface, __func__, strerror(errno));
-            close(nls);
-            return;
-        }
-    }
-  retry_recv:
-    r = recv(nls, response, sizeof response, 0);
-    if (r < 0) {
-        if (errno == EINTR)
-            goto retry_recv;
-        else {
-            log_line("%s: (%s) netlink recv failed: %s",
-                     client_config.interface, __func__, strerror(errno));
-            close(nls);
-            return;
-        }
-    }
-    close(nls);
-    if ((size_t)r < sizeof(struct nlmsghdr)) {
-        log_line("%s: (%s) netlink recv returned a headerless response",
-                 client_config.interface, __func__);
+    r = rtnl_addr_broadcast_send(fd, RTM_NEWADDR, IFA_F_PERMANENT,
+                                 RT_SCOPE_UNIVERSE, &ipaddr, &bcast,
+                                 prefixlen);
+
+    close(fd); // XXX: Move this when we also set the link flags.
+    if (r < 0)
         return;
-    }
-    uint32_t nr_type;
-    memcpy(&nr_type, response + 4, 2);
-    if (nr_type == NLMSG_ERROR) {
-        log_line("%s: (%s) netlink sendto returned NLMSG_ERROR",
-                 client_config.interface, __func__);
-        return;
-    }
+
     log_line("Interface IP set to: '%s'", str_ipaddr);
     log_line("Interface subnet set to: '%s'", str_subnet);
     if (str_bcast)

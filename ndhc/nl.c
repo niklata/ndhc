@@ -78,6 +78,21 @@ void nl_attr_parse(const struct nlmsghdr *nlh, size_t offset,
     }
 }
 
+void nl_rtattr_parse(const struct nlmsghdr *nlh, size_t offset,
+                     nl_rtattr_parse_fn workfn, void *data)
+{
+    struct rtattr *attr;
+    for (attr = (struct rtattr *)
+             ((char *)nlh + NLMSG_HDRLEN + NLMSG_ALIGN(offset));
+         rtattr_ok(attr, (char *)nlh + NLMSG_ALIGN(nlh->nlmsg_len) -
+                    (char *)attr);
+         attr = (struct rtattr *)((char *)attr + NLMSG_ALIGN(attr->rta_len)))
+    {
+        if (workfn(attr, attr->rta_type, data) < 0)
+            break;
+    }
+}
+
 ssize_t nl_recv_buf(int fd, char *buf, size_t blen)
 {
     struct sockaddr_nl addr;
@@ -172,10 +187,11 @@ retry_sendto:
     return 0;
 }
 
-int nl_sendgetaddr(int fd, int seq)
+int nl_sendgetaddr(int fd, int seq, int ifindex)
 {
     char nlbuf[512];
     struct nlmsghdr *nlh = (struct nlmsghdr *)nlbuf;
+    struct ifaddrmsg *ifaddrmsg;
     ssize_t r;
 
     memset(nlbuf, 0, sizeof nlbuf);
@@ -183,6 +199,10 @@ int nl_sendgetaddr(int fd, int seq)
     nlh->nlmsg_type = RTM_GETADDR;
     nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_ROOT;
     nlh->nlmsg_seq = seq;
+
+    ifaddrmsg = NLMSG_DATA(nlh);
+    ifaddrmsg->ifa_family = AF_INET;
+    ifaddrmsg->ifa_index = ifindex;
 
     struct sockaddr_nl addr = {
         .nl_family = AF_NETLINK,

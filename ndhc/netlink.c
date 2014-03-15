@@ -42,7 +42,7 @@
 #include "nl.h"
 #include "state.h"
 
-static int nlrtattr_assign(struct nlattr *attr, int type, void *data)
+static int nlattr_assign(struct nlattr *attr, int type, void *data)
 {
     struct nlattr **tb = data;
     if (type >= IFLA_MAX)
@@ -55,7 +55,7 @@ static void get_if_index_and_mac(const struct nlmsghdr *nlh,
                                  struct ifinfomsg *ifm)
 {
     struct nlattr *tb[IFLA_MAX] = {0};
-    nl_attr_parse(nlh, sizeof *ifm, nlrtattr_assign, tb);
+    nl_attr_parse(nlh, sizeof *ifm, nlattr_assign, tb);
     if (!tb[IFLA_IFNAME])
         return;
     if (!strncmp(client_config.interface,
@@ -78,7 +78,7 @@ static void get_if_index_and_mac(const struct nlmsghdr *nlh,
     }
 }
 
-static int nl_process_msgs(const struct nlmsghdr *nlh, void *data)
+static void nl_process_msgs(const struct nlmsghdr *nlh, void *data)
 {
     struct ifinfomsg *ifm = nlmsg_get_data(nlh);
     struct client_state_t *cs = data;
@@ -120,7 +120,6 @@ static int nl_process_msgs(const struct nlmsghdr *nlh, void *data)
         default:
             break;
     }
-    return 1;
 }
 
 void handle_nl_message(struct client_state_t *cs)

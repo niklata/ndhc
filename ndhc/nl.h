@@ -31,6 +31,7 @@
 // Limited netlink code.  The horrors...
 
 #include <linux/netlink.h>
+#include <linux/rtnetlink.h>
 
 static inline int nl_attr_ok(const struct nlattr *attr, size_t len)
 {
@@ -43,6 +44,11 @@ static inline int nl_attr_ok(const struct nlattr *attr, size_t len)
     return 1;
 }
 
+static inline int rtattr_ok(const struct rtattr *attr, size_t len)
+{
+    return RTA_OK(attr, len);
+}
+
 static inline size_t nlattr_get_len(const struct nlattr *attr)
 {
     return attr->nla_len;
@@ -51,6 +57,11 @@ static inline size_t nlattr_get_len(const struct nlattr *attr)
 static inline void *nlattr_get_data(const struct nlattr *attr)
 {
     return (char *)attr + NLA_HDRLEN;
+}
+
+static inline void *rtattr_get_data(const struct rtattr *attr)
+{
+    return (char *)RTA_DATA(attr);
 }
 
 static inline void *nlmsg_get_data(const struct nlmsghdr *nlh)
@@ -71,14 +82,17 @@ extern int nl_add_rtattr(struct nlmsghdr *n, size_t max_length, int type,
 typedef int (*nl_attr_parse_fn)(struct nlattr *attr, int type, void *data);
 extern void nl_attr_parse(const struct nlmsghdr *nlh, size_t offset,
                           nl_attr_parse_fn workfn, void *data);
+typedef int (*nl_rtattr_parse_fn)(struct rtattr *attr, int type, void *data);
+extern void nl_rtattr_parse(const struct nlmsghdr *nlh, size_t offset,
+                            nl_rtattr_parse_fn workfn, void *data);
 
 extern ssize_t nl_recv_buf(int fd, char *buf, size_t blen);
 
-typedef int (*nlmsg_foreach_fn)(const struct nlmsghdr *, void *);
+typedef void (*nlmsg_foreach_fn)(const struct nlmsghdr *, void *);
 extern int nl_foreach_nlmsg(char *buf, size_t blen, uint32_t portid,
                             nlmsg_foreach_fn pfn, void *fnarg);
 extern int nl_sendgetlink(int fd, int seq);
-extern int nl_sendgetaddr(int fd, int seq);
+extern int nl_sendgetaddr(int fd, int seq, int ifindex);
 
 extern int nl_open(int nltype, int nlgroup, int *nlportid);
 
