@@ -113,6 +113,7 @@ void perform_ip_subnet_bcast(const char *str_ipaddr,
     uint8_t request[NLMSG_ALIGN(sizeof(struct nlmsghdr)) +
         NLMSG_ALIGN(sizeof(struct ifaddrmsg)) +
         RTA_LENGTH(sizeof(struct in6_addr))];
+    uint8_t response[NLMSG_ALIGN(sizeof(struct nlmsghdr)) + 64];
     struct in_addr ipaddr, subnet, bcast;
     struct sockaddr_nl nl_addr;
     struct nlmsghdr *header;
@@ -192,20 +193,44 @@ void perform_ip_subnet_bcast(const char *str_ipaddr,
     memset(&nl_addr, 0, sizeof nl_addr);
     nl_addr.nl_family = AF_NETLINK;
 
-retry_sendto:
+  retry_sendto:
     r = sendto(nls, request, header->nlmsg_len, 0,
                (struct sockaddr *)&nl_addr, sizeof nl_addr);
     if (r < 0) {
         if (errno == EINTR)
             goto retry_sendto;
         else {
-            log_line("%s: (%s) netlink sendto socket failed: %s",
+            log_line("%s: (%s) netlink sendto failed: %s",
+                     client_config.interface, __func__, strerror(errno));
+            close(nls);
+            return;
+        }
+    }
+  retry_recv:
+    r = recv(nls, response, sizeof response, 0);
+    if (r < 0) {
+        if (errno == EINTR)
+            goto retry_recv;
+        else {
+            log_line("%s: (%s) netlink recv failed: %s",
                      client_config.interface, __func__, strerror(errno));
             close(nls);
             return;
         }
     }
     close(nls);
+    if ((size_t)r < sizeof(struct nlmsghdr)) {
+        log_line("%s: (%s) netlink recv returned a headerless response",
+                 client_config.interface, __func__);
+        return;
+    }
+    uint32_t nr_type;
+    memcpy(&nr_type, response + 4, 2);
+    if (nr_type == NLMSG_ERROR) {
+        log_line("%s: (%s) netlink sendto returned NLMSG_ERROR",
+                 client_config.interface, __func__);
+        return;
+    }
     log_line("Interface IP set to: '%s'", str_ipaddr);
     log_line("Interface subnet set to: '%s'", str_subnet);
     if (str_bcast)
