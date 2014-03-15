@@ -157,8 +157,11 @@ static int ifchd_cmd(char *buf, size_t buflen, uint8_t *optdata,
 
 static void pipewrite(const char *buf, size_t count)
 {
-    if (safe_write(pToIfchW, buf, count) == -1)
+    if (safe_write(pToIfchW, buf, count) == -1) {
         log_error("pipewrite: write failed: %s", strerror(errno));
+        return;
+    }
+    log_line("Sent to ifchd: %s", buf);
 }
 
 void ifchange_deconfig(void)
@@ -229,7 +232,6 @@ static size_t send_client_ip(char *out, size_t olen, struct dhcpmsg *packet)
     }
 
     strnkcat(out, ipb, olen);
-    log_line("Sent to ifchd: %s", ipb);
     return strlen(ipb);
 }
 
@@ -253,7 +255,6 @@ static size_t send_cmd(char *out, size_t olen, struct dhcpmsg *packet,
     if (ifchd_cmd(buf, sizeof buf, optdata, optlen, code) == -1)
         return 0;
     strnkcat(out, buf, olen);
-    log_line("Sent to ifchd: %s", buf);
     return strlen(buf);
 }
 
@@ -265,6 +266,7 @@ void ifchange_bind(struct dhcpmsg *packet)
     if (!packet)
         return;
 
+    memset(buf, 0, sizeof buf);
     tbs |= send_client_ip(buf, sizeof buf, packet);
     tbs |= send_cmd(buf, sizeof buf, packet, DCODE_ROUTER);
     tbs |= send_cmd(buf, sizeof buf, packet, DCODE_DNS);
