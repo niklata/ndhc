@@ -33,6 +33,7 @@
 #include <net/if.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <errno.h>
 #include <poll.h>
 
@@ -139,7 +140,7 @@ void handle_nl_message(struct client_state_t *cs)
 
 int nl_getifdata(struct client_state_t *cs)
 {
-    if (nl_sendgetlink(cs->nlFd))
+    if (nl_sendgetlink(cs->nlFd, time(NULL)))
         return -1;
 
     for (int pr = 0; !pr;) {
