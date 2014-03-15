@@ -33,7 +33,6 @@
 #include <net/if.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <errno.h>
 #include <poll.h>
 
@@ -138,39 +137,9 @@ void handle_nl_message(struct client_state_t *cs)
     } while (ret > 0);
 }
 
-static int nl_sendgetlink(struct client_state_t *cs)
-{
-    char nlbuf[8192];
-    struct nlmsghdr *nlh = (struct nlmsghdr *)nlbuf;
-    ssize_t r;
-
-    memset(nlbuf, 0, sizeof nlbuf);
-    nlh->nlmsg_len = NLMSG_LENGTH(sizeof (struct rtattr));
-    nlh->nlmsg_type = RTM_GETLINK;
-    nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_ROOT;
-    nlh->nlmsg_seq = time(NULL);
-
-    struct sockaddr_nl addr = {
-        .nl_family = AF_NETLINK,
-    };
-retry_sendto:
-    r = sendto(cs->nlFd, nlbuf, nlh->nlmsg_len, 0,
-               (struct sockaddr *)&addr, sizeof addr);
-    if (r < 0) {
-        if (errno == EINTR)
-            goto retry_sendto;
-        else {
-            log_warning("%s: (%s) netlink sendto socket failed: %s",
-                        client_config.interface, __func__, strerror(errno));
-            return -1;
-        }
-    }
-    return 0;
-}
-
 int nl_getifdata(struct client_state_t *cs)
 {
-    if (nl_sendgetlink(cs))
+    if (nl_sendgetlink(cs->nlFd))
         return -1;
 
     for (int pr = 0; !pr;) {

@@ -77,6 +77,7 @@ extern ssize_t nl_recv_buf(int fd, char *buf, size_t blen);
 typedef int (*nlmsg_foreach_fn)(const struct nlmsghdr *, void *);
 extern int nl_foreach_nlmsg(char *buf, size_t blen, uint32_t portid,
                             nlmsg_foreach_fn pfn, void *fnarg);
+extern int nl_sendgetlink(int fd);
 
 extern int nl_open(int nltype, int nlgroup, int *nlportid);
 
