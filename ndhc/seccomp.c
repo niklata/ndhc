@@ -34,6 +34,7 @@ bool seccomp_enforce = false;
 
 int enforce_seccomp_ndhc(void)
 {
+#ifdef ENABLE_SECCOMP_FILTER
     if (!seccomp_enforce)
         return 0;
     struct sock_filter filter[] = {
@@ -95,11 +96,13 @@ int enforce_seccomp_ndhc(void)
     if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog))
         return -1;
     log_line("ndhc seccomp filter installed.  Please disable seccomp if you encounter problems.");
+#endif
     return 0;
 }
 
 int enforce_seccomp_ifch(void)
 {
+#ifdef ENABLE_SECCOMP_FILTER
     if (!seccomp_enforce)
         return 0;
     struct sock_filter filter[] = {
@@ -149,6 +152,7 @@ int enforce_seccomp_ifch(void)
     if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog))
         return -1;
     log_line("ndhc-ifch seccomp filter installed.  Please disable seccomp if you encounter problems.");
+#endif
     return 0;
 }
 

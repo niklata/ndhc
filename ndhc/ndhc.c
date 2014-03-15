@@ -91,7 +91,7 @@ static void show_usage(void)
 {
     printf(
 "ndhc " NDHC_VERSION ", dhcp client.  Licensed under 2-clause BSD.\n"
-"Copyright (C) 2004-2012 Nicholas J. Kain\n"
+"Copyright (C) 2004-2014 Nicholas J. Kain\n"
 "Usage: ndhc [OPTIONS]\n\n"
 "  -c, --clientid=CLIENTID         Client identifier\n"
 "  -h, --hostname=HOSTNAME         Client hostname\n"
@@ -110,7 +110,9 @@ static void show_usage(void)
 "  -u, --user=USER                 Change ndhc privileges to this user\n"
 "  -U, --ifch-user=USER            Change ndhc-ifch privileges to this user\n"
 "  -C, --chroot=DIR                Chroot to this directory\n"
+#ifdef ENABLE_SECCOMP_FILTER
 "  -S, --seccomp-enforce           Enforce seccomp syscall restrictions\n"
+#endif
 "  -d, --relentless-defense        Never back off in defending IP against\n"
 "                                  conflicting hosts (servers only)\n"
 "  -w, --arp-probe-wait            Time to delay before first ARP probe\n"
