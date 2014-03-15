@@ -103,7 +103,7 @@ static int trailz(uint32_t v)
 // sn must be in network order
 static inline int subnet4_to_prefixlen(uint32_t sn)
 {
-    return 32 - trailz(sn);
+    return 32 - trailz(ntohl(sn));
 }
 
 // str_bcast is optional.
