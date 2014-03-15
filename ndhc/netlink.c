@@ -131,7 +131,7 @@ void handle_nl_message(struct client_state_t *cs)
         ret = nl_recv_buf(cs->nlFd, nlbuf, sizeof nlbuf);
         if (ret == -1)
             break;
-        if (nl_foreach_nlmsg(nlbuf, ret, cs->nlPortId, nl_process_msgs, cs)
+        if (nl_foreach_nlmsg(nlbuf, ret, 0, cs->nlPortId, nl_process_msgs, cs)
             == -1)
             break;
     } while (ret > 0);

@@ -129,17 +129,19 @@ ssize_t nl_recv_buf(int fd, char *buf, size_t blen)
     return ret;
 }
 
-int nl_foreach_nlmsg(char *buf, size_t blen, uint32_t portid,
+int nl_foreach_nlmsg(char *buf, size_t blen, uint32_t seq, uint32_t portid,
                      nlmsg_foreach_fn pfn, void *fnarg)
 {
     const struct nlmsghdr *nlh = (const struct nlmsghdr *)buf;
 
     assert(pfn);
-    while (NLMSG_OK(nlh, blen)) {
+    for (;NLMSG_OK(nlh, blen); nlh = NLMSG_NEXT(nlh, blen)) {
         // PortID should be zero for messages from the kernel.
-        if (nlh->nlmsg_pid && nlh->nlmsg_pid != portid)
+        if (nlh->nlmsg_pid && portid && nlh->nlmsg_pid != portid)
             continue;
-        // XXX don't bother with sequence # tracking (0 = kernel, ours = ??)
+        log_line("%s: seq=%u nlh->nlmsg_seq=%u", __func__, seq, nlh->nlmsg_seq);
+        if (seq && nlh->nlmsg_seq != seq)
+            continue;
 
         if (nlh->nlmsg_type >= NLMSG_MIN_TYPE) {
             pfn(nlh, fnarg);
@@ -158,7 +160,6 @@ int nl_foreach_nlmsg(char *buf, size_t blen, uint32_t portid,
                     break;
             }
         }
-        nlh = NLMSG_NEXT(nlh, blen);
     }
     return 0;
 }

@@ -55,7 +55,7 @@
 #include "strl.h"
 #include "nl.h"
 
-static uint32_t ifset_nl_seq;
+static uint32_t ifset_nl_seq = 1;
 
 static int set_if_flag(short flag)
 {
@@ -126,9 +126,8 @@ static int rtattr_assign(struct rtattr *attr, int type, void *data)
 }
 
 static ssize_t rtnl_addr_broadcast_send(int fd, int type, int ifa_flags,
-                                        int ifa_scope, struct in_addr *ipaddr,
-                                        struct in_addr *bcast,
-                                        uint8_t prefixlen)
+                                        int ifa_scope, uint32_t *ipaddr,
+                                        uint32_t *bcast, uint8_t prefixlen)
 {
     uint8_t request[NLMSG_ALIGN(sizeof(struct nlmsghdr)) +
         NLMSG_ALIGN(sizeof(struct ifaddrmsg)) +
@@ -161,7 +160,7 @@ static ssize_t rtnl_addr_broadcast_send(int fd, int type, int ifa_flags,
 
     if (ipaddr) {
         if (nl_add_rtattr(header, sizeof request, IFA_LOCAL,
-                          &ipaddr, sizeof ipaddr) < 0) {
+                          ipaddr, sizeof *ipaddr) < 0) {
             log_line("%s: (%s) couldn't add IFA_LOCAL to nlmsg",
                      client_config.interface, __func__);
             return -1;
@@ -169,7 +168,7 @@ static ssize_t rtnl_addr_broadcast_send(int fd, int type, int ifa_flags,
     }
     if (bcast) {
         if (nl_add_rtattr(header, sizeof request, IFA_BROADCAST,
-                          &bcast, sizeof bcast) < 0) {
+                          bcast, sizeof *bcast) < 0) {
             log_line("%s: (%s) couldn't add IFA_BROADCAST to nlmsg",
                      client_config.interface, __func__);
             return -1;
@@ -224,47 +223,31 @@ static void ipbcpfx_clear_others_do(const struct nlmsghdr *nlh, void *data)
     struct ipbcpfx *ipx = data;
     int r;
 
+    nl_rtattr_parse(nlh, sizeof *ifm, rtattr_assign, tb);
     switch(nlh->nlmsg_type) {
         case RTM_NEWADDR:
             if (ifm->ifa_index != (unsigned)client_config.ifindex) {
                 printf("not correct ifindex\n");
                 return;
             }
-            if (ifm->ifa_family != AF_INET) {
-                printf("not AF_INET\n");
+            if (ifm->ifa_family != AF_INET)
                 return;
-            }
-            if (!(ifm->ifa_flags & IFA_F_PERMANENT)) {
-                printf("not F_PERMANENT\n");
+            if (!(ifm->ifa_flags & IFA_F_PERMANENT))
                 goto erase;
-            }
-            if (!(ifm->ifa_scope & RT_SCOPE_UNIVERSE)) {
-                printf("not SCOPE_UNIVERSE\n");
+            if (ifm->ifa_scope != RT_SCOPE_UNIVERSE)
                 goto erase;
-            }
-            if (ifm->ifa_prefixlen != ipx->prefixlen) {
-                printf("different prefixlen (%u)\n", ifm->ifa_prefixlen);
+            if (ifm->ifa_prefixlen != ipx->prefixlen)
                 goto erase;
-            }
-            nl_rtattr_parse(nlh, sizeof *ifm, rtattr_assign, tb);
-            if (!tb[IFA_ADDRESS]) {
-                printf("no IFA_ADDRESS\n");
+            if (!tb[IFA_ADDRESS])
                 goto erase;
-            }
             if (memcmp(rtattr_get_data(tb[IFA_ADDRESS]), &ipx->ipaddr,
-                       sizeof ipx->ipaddr)) {
-                printf("different IFA_ADDRESS\n");
+                       sizeof ipx->ipaddr))
                 goto erase;
-            }
-            if (!tb[IFA_BROADCAST]) {
-                printf("no IFA_BROADCAST\n");
+            if (!tb[IFA_BROADCAST])
                 goto erase;
-            }
-            if (memcmp(rtattr_get_data(tb[IFA_BROADCAST]), &ipx->ipaddr,
-                       sizeof ipx->ipaddr)) {
-                printf("different IFA_BROADCAST\n");
+            if (memcmp(rtattr_get_data(tb[IFA_BROADCAST]), &ipx->bcast,
+                       sizeof ipx->bcast))
                 goto erase;
-            }
             break;
         default:
             return;
@@ -276,8 +259,8 @@ static void ipbcpfx_clear_others_do(const struct nlmsghdr *nlh, void *data)
   erase:
     r = rtnl_addr_broadcast_send(ipx->fd, RTM_DELADDR, ifm->ifa_flags,
                                  ifm->ifa_scope,
-                                 rtattr_get_data(tb[IFA_ADDRESS]),
-                                 rtattr_get_data(tb[IFA_BROADCAST]),
+                                 tb[IFA_ADDRESS] ? rtattr_get_data(tb[IFA_ADDRESS]) : NULL,
+                                 tb[IFA_BROADCAST] ? rtattr_get_data(tb[IFA_BROADCAST]) : NULL,
                                  ifm->ifa_prefixlen);
     if (r < 0) {
         log_warning("%s: (%s) Failed to delete IP and broadcast addresses.",
@@ -293,19 +276,20 @@ static int ipbcpfx_clear_others(int fd, uint32_t ipaddr, uint32_t bcast,
     struct ipbcpfx ipx = { .fd = fd, .ipaddr = ipaddr, .bcast = bcast,
                            .prefixlen = prefixlen, .already_ok = false };
     ssize_t ret;
-    ret = nl_sendgetaddr(fd, ifset_nl_seq++, client_config.ifindex);
+    uint32_t seq = ifset_nl_seq++;
+    ret = nl_sendgetaddr(fd, seq, client_config.ifindex);
     if (ret < 0)
-        return ret;
+        return -1;
 
     do {
         ret = nl_recv_buf(fd, nlbuf, sizeof nlbuf);
         if (ret == -1)
-            break;
-        if (nl_foreach_nlmsg(nlbuf, ret, 0,
+            return -2;
+        if (nl_foreach_nlmsg(nlbuf, ret, seq, 0,
                              ipbcpfx_clear_others_do, &ipx) == -1)
-            break;
+            return -3;
     } while (ret > 0);
-    return ret;
+    return ipx.already_ok ? 1 : 0;
 }
 
 // str_bcast is optional.
@@ -359,23 +343,30 @@ void perform_ip_subnet_bcast(const char *str_ipaddr,
     }
 
     r = ipbcpfx_clear_others(fd, ipaddr.s_addr, bcast.s_addr, prefixlen);
-    if (r < 0) {
+    if (r < 0 && r > -3) {
+	if (r == -1)
+            log_line("sending getaddrinfo packet failed");
+        else if (r == -2)
+            log_line("receiving getaddrinfo reply failed");
         close(fd);
         return;
     }
 
-    r = rtnl_addr_broadcast_send(fd, RTM_NEWADDR, IFA_F_PERMANENT,
-                                 RT_SCOPE_UNIVERSE, &ipaddr, &bcast,
-                                 prefixlen);
+    if (r < 1) {
+        r = rtnl_addr_broadcast_send(fd, RTM_NEWADDR, IFA_F_PERMANENT,
+                                     RT_SCOPE_UNIVERSE, &ipaddr.s_addr, &bcast.s_addr,
+                                     prefixlen);
 
-    close(fd); // XXX: Move this when we also set the link flags.
-    if (r < 0)
-        return;
+        close(fd); // XXX: Move this when we also set the link flags.
+        if (r < 0)
+            return;
 
-    log_line("Interface IP set to: '%s'", str_ipaddr);
-    log_line("Interface subnet set to: '%s'", str_subnet);
-    if (str_bcast)
-        log_line("Broadcast address set to: '%s'", str_bcast);
+        log_line("Interface IP set to: '%s'", str_ipaddr);
+        log_line("Interface subnet set to: '%s'", str_subnet);
+        if (str_bcast)
+            log_line("Broadcast address set to: '%s'", str_bcast);
+    } else
+        log_line("Interface IP, subnet, and broadcast were already OK.");
 
     // XXX: Would be nice to do this via netlink, too.
     if (set_if_flag(IFF_UP | IFF_RUNNING))
