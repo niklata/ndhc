@@ -6,6 +6,7 @@ Requirements:
 Linux kernel
 GNU Make (tested: 3.82) or CMake (tested: 2.8)
 libcap (available via ftp.kernel.org)
+Ragel (tested: 6.7)
 
 INTRODUCTION
 ------------
