@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #define __USE_GNU 1
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -157,6 +158,35 @@ static ssize_t rtnl_if_flags_send(int fd, int type, int ifi_flags)
     ifinfomsg->ifi_flags = ifi_flags;
     ifinfomsg->ifi_index = client_config.ifindex;
     ifinfomsg->ifi_change = 0xffffffff;
+
+    return rtnl_do_send(fd, request, header->nlmsg_len, __func__);
+}
+
+static ssize_t rtnl_if_mtu_set(int fd, unsigned int mtu)
+{
+    uint8_t request[NLMSG_ALIGN(sizeof(struct nlmsghdr)) +
+        NLMSG_ALIGN(sizeof(struct ifinfomsg)) +
+                    RTA_LENGTH(sizeof(uint32_t))];
+    struct nlmsghdr *header;
+    struct ifinfomsg *ifinfomsg;
+
+    memset(&request, 0, sizeof request);
+    header = (struct nlmsghdr *)request;
+    header->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+    header->nlmsg_type = RTM_SETLINK;
+    header->nlmsg_flags = NLM_F_REPLACE | NLM_F_ACK | NLM_F_REQUEST;
+    header->nlmsg_seq = ifset_nl_seq++;
+
+    ifinfomsg = NLMSG_DATA(header);
+    ifinfomsg->ifi_index = client_config.ifindex;
+    ifinfomsg->ifi_change = 0xffffffff;
+
+    if (nl_add_rtattr(header, sizeof request, IFLA_MTU,
+                      &mtu, sizeof mtu) < 0) {
+        log_line("%s: (%s) couldn't add IFLA_MTU to nlmsg",
+                 client_config.interface, __func__);
+        return -1;
+    }
 
     return rtnl_do_send(fd, request, header->nlmsg_len, __func__);
 }
@@ -497,31 +527,46 @@ void perform_router(const char *str, size_t len)
 
 void perform_mtu(const char *str, size_t len)
 {
-    int fd;
-    unsigned int mtu;
-    struct ifreq ifrt;
-
     if (!str)
         return;
     if (len < 2)
         return;
 
-    mtu = strtol(str, NULL, 10);
-    // Minimum MTU for physical IPv4 links is 576 octets.
-    if (mtu < 576)
-        return;
-    ifrt.ifr_mtu = mtu;
-    strnkcpy(ifrt.ifr_name, client_config.interface, IFNAMSIZ);
-
-    fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (fd == -1) {
-        log_line("%s: (perform_mtu) failed to open interface socket: %s",
-                 client_config.interface, strerror(errno));
+    char *estr;
+    long tmtu = strtol(str, &estr, 10);
+    if (estr == str) {
+        log_line("%s: (%s) provided mtu arg isn't a valid number",
+                 client_config.interface, __func__);
         return;
     }
-    if (ioctl(fd, SIOCSIFMTU, &ifrt) < 0)
-        log_line("%s: failed to set MTU (%d): %s", client_config.interface, mtu,
-                 strerror(errno));
+    if ((tmtu == LONG_MAX || tmtu == LONG_MIN) && errno == ERANGE) {
+        log_line("%s: (%s) provided mtu arg would overflow a long",
+                 client_config.interface, __func__);
+        return;
+    }
+    if (tmtu > UINT_MAX) {
+        log_line("%s: (%s) provided mtu arg would overflow unsigned int",
+                 client_config.interface, __func__);
+        return;
+    }
+    // 68 bytes for IPv4.  1280 bytes for IPv6.
+    if (tmtu < 68) {
+        log_line("%s: (%s) provided mtu arg (%ul) less than minimum MTU (68)",
+                 client_config.interface, __func__, tmtu);
+        return;
+    }
+    unsigned int mtu = (unsigned int)tmtu;
+
+    int fd = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+    if (fd < 0) {
+        log_line("%s: (%s) netlink socket open failed: %s",
+                 client_config.interface, __func__, strerror(errno));
+        return;
+    }
+
+    if (rtnl_if_mtu_set(fd, mtu) < 0)
+        log_line("%s: (%s) failed to set MTU [%d]",
+                 client_config.interface, __func__, mtu);
     else
         log_line("MTU set to: '%s'", str);
     close(fd);
