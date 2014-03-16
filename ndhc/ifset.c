@@ -300,10 +300,8 @@ static void ipbcpfx_clear_others_do(const struct nlmsghdr *nlh, void *data)
     nl_rtattr_parse(nlh, sizeof *ifm, rtattr_assign, tb);
     switch(nlh->nlmsg_type) {
         case RTM_NEWADDR:
-            if (ifm->ifa_index != (unsigned)client_config.ifindex) {
-                printf("not correct ifindex\n");
+            if (ifm->ifa_index != (unsigned)client_config.ifindex)
                 return;
-            }
             if (ifm->ifa_family != AF_INET)
                 return;
             if (!(ifm->ifa_flags & IFA_F_PERMANENT))
@@ -417,10 +415,12 @@ void perform_ip_subnet_bcast(const char *str_ipaddr,
 
     r = ipbcpfx_clear_others(fd, ipaddr.s_addr, bcast.s_addr, prefixlen);
     if (r < 0 && r > -3) {
-	if (r == -1)
-            log_line("sending getaddrinfo packet failed");
+        if (r == -1)
+            log_line("%s: (%s) error requesting link ip address list",
+                     client_config.interface, __func__);
         else if (r == -2)
-            log_line("receiving getaddrinfo reply failed");
+            log_line("%s: (%s) error receiving link ip address list",
+                     client_config.interface, __func__);
         close(fd);
         return;
     }
