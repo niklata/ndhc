@@ -164,10 +164,11 @@ int nl_foreach_nlmsg(char *buf, size_t blen, uint32_t seq, uint32_t portid,
     return 0;
 }
 
-int nl_sendgetlink(int fd, int seq)
+static int nl_sendgetlink_do(int fd, int seq, int ifindex, int by_ifindex)
 {
     char nlbuf[512];
     struct nlmsghdr *nlh = (struct nlmsghdr *)nlbuf;
+    struct ifinfomsg *ifinfomsg;
     ssize_t r;
 
     memset(nlbuf, 0, sizeof nlbuf);
@@ -175,6 +176,11 @@ int nl_sendgetlink(int fd, int seq)
     nlh->nlmsg_type = RTM_GETLINK;
     nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_ROOT;
     nlh->nlmsg_seq = seq;
+
+    if (by_ifindex) {
+        ifinfomsg = NLMSG_DATA(nlh);
+        ifinfomsg->ifi_index = ifindex;
+    }
 
     struct sockaddr_nl addr = {
         .nl_family = AF_NETLINK,
@@ -192,6 +198,16 @@ retry_sendto:
         }
     }
     return 0;
+}
+
+int nl_sendgetlinks(int fd, int seq)
+{
+    return nl_sendgetlink_do(fd, seq, 0, 0);
+}
+
+int nl_sendgetlink(int fd, int seq, int ifindex)
+{
+    return nl_sendgetlink_do(fd, seq, ifindex, 1);
 }
 
 int nl_sendgetaddr(int fd, int seq, int ifindex)

@@ -57,40 +57,6 @@
 
 static uint32_t ifset_nl_seq = 1;
 
-static int set_if_flag(short flag)
-{
-    int fd, ret = -1;
-    struct ifreq ifrt;
-
-    fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (fd == -1) {
-        log_line("%s: (set_if_flag) failed to open interface socket: %s",
-                 client_config.interface, strerror(errno));
-        goto out0;
-    }
-
-    strnkcpy(ifrt.ifr_name, client_config.interface, IFNAMSIZ);
-    if (ioctl(fd, SIOCGIFFLAGS, &ifrt) < 0) {
-        log_line("%s: unknown interface: %s", client_config.interface, strerror(errno));
-        goto out1;
-    }
-    if (((ifrt.ifr_flags & flag ) ^ flag) & flag) {
-        strnkcpy(ifrt.ifr_name, client_config.interface, IFNAMSIZ);
-        ifrt.ifr_flags |= flag;
-        if (ioctl(fd, SIOCSIFFLAGS, &ifrt) < 0) {
-            log_line("%s: failed to set interface flags: %s",
-                     client_config.interface, strerror(errno));
-            goto out1;
-        }
-    } else
-        ret = 0;
-
-  out1:
-    close(fd);
-  out0:
-    return ret;
-}
-
 // 32-bit position values are relatively prime to 37, so the residue mod37
 // gives a unique mapping for each value.  Gives correct result for v=0.
 static int trailz(uint32_t v)
@@ -125,18 +91,85 @@ static int rtattr_assign(struct rtattr *attr, int type, void *data)
     return 0;
 }
 
+static ssize_t rtnl_do_send(int fd, uint8_t *sbuf, size_t slen,
+                            const char *fnname)
+{
+    uint8_t response[NLMSG_ALIGN(sizeof(struct nlmsghdr)) + 64];
+    struct sockaddr_nl nl_addr;
+    ssize_t r;
+
+    memset(&nl_addr, 0, sizeof nl_addr);
+    nl_addr.nl_family = AF_NETLINK;
+
+  retry_sendto:
+    r = sendto(fd, sbuf, slen, 0, (struct sockaddr *)&nl_addr,
+               sizeof nl_addr);
+    if (r < 0) {
+        if (errno == EINTR)
+            goto retry_sendto;
+        else {
+            log_line("%s: (%s) netlink sendto failed: %s",
+                     client_config.interface, fnname, strerror(errno));
+            return -1;
+        }
+    }
+  retry_recv:
+    r = recv(fd, response, sizeof response, 0);
+    if (r < 0) {
+        if (errno == EINTR)
+            goto retry_recv;
+        else {
+            log_line("%s: (%s) netlink recv failed: %s",
+                     client_config.interface, fnname, strerror(errno));
+            return -1;
+        }
+    }
+    if ((size_t)r < sizeof(struct nlmsghdr)) {
+        log_line("%s: (%s) netlink recv returned a headerless response",
+                 client_config.interface, fnname);
+        return -1;
+    }
+    uint32_t nr_type;
+    memcpy(&nr_type, response + 4, 2);
+    if (nr_type == NLMSG_ERROR) {
+        log_line("%s: (%s) netlink sendto returned NLMSG_ERROR",
+                 client_config.interface, fnname);
+        return -1;
+    }
+    return 0;
+}
+
+static ssize_t rtnl_if_flags_send(int fd, int type, int ifi_flags)
+{
+    uint8_t request[NLMSG_ALIGN(sizeof(struct nlmsghdr)) +
+        NLMSG_ALIGN(sizeof(struct ifinfomsg))];
+    struct nlmsghdr *header;
+    struct ifinfomsg *ifinfomsg;
+
+    memset(&request, 0, sizeof request);
+    header = (struct nlmsghdr *)request;
+    header->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+    header->nlmsg_type = type;
+    header->nlmsg_flags = NLM_F_REPLACE | NLM_F_ACK | NLM_F_REQUEST;
+    header->nlmsg_seq = ifset_nl_seq++;
+
+    ifinfomsg = NLMSG_DATA(header);
+    ifinfomsg->ifi_flags = ifi_flags;
+    ifinfomsg->ifi_index = client_config.ifindex;
+    ifinfomsg->ifi_change = 0xffffffff;
+
+    return rtnl_do_send(fd, request, header->nlmsg_len, __func__);
+}
+
 static ssize_t rtnl_addr_broadcast_send(int fd, int type, int ifa_flags,
                                         int ifa_scope, uint32_t *ipaddr,
                                         uint32_t *bcast, uint8_t prefixlen)
 {
     uint8_t request[NLMSG_ALIGN(sizeof(struct nlmsghdr)) +
         NLMSG_ALIGN(sizeof(struct ifaddrmsg)) +
-        RTA_LENGTH(sizeof(struct in6_addr))];
-    uint8_t response[NLMSG_ALIGN(sizeof(struct nlmsghdr)) + 64];
+        2 * RTA_LENGTH(sizeof(struct in6_addr))];
     struct nlmsghdr *header;
     struct ifaddrmsg *ifaddrmsg;
-    struct sockaddr_nl nl_addr;
-    ssize_t r;
 
     if (!ipaddr && !bcast) {
         log_warning("%s: (%s) no ipaddr or bcast!",
@@ -175,46 +208,87 @@ static ssize_t rtnl_addr_broadcast_send(int fd, int type, int ifa_flags,
         }
     }
 
-    memset(&nl_addr, 0, sizeof nl_addr);
-    nl_addr.nl_family = AF_NETLINK;
-
-  retry_sendto:
-    r = sendto(fd, request, header->nlmsg_len, 0,
-               (struct sockaddr *)&nl_addr, sizeof nl_addr);
-    if (r < 0) {
-        if (errno == EINTR)
-            goto retry_sendto;
-        else {
-            log_line("%s: (%s) netlink sendto failed: %s",
-                     client_config.interface, __func__, strerror(errno));
-            return -1;
-        }
-    }
-  retry_recv:
-    r = recv(fd, response, sizeof response, 0);
-    if (r < 0) {
-        if (errno == EINTR)
-            goto retry_recv;
-        else {
-            log_line("%s: (%s) netlink recv failed: %s",
-                     client_config.interface, __func__, strerror(errno));
-            return -1;
-        }
-    }
-    if ((size_t)r < sizeof(struct nlmsghdr)) {
-        log_line("%s: (%s) netlink recv returned a headerless response",
-                 client_config.interface, __func__);
-        return -1;
-    }
-    uint32_t nr_type;
-    memcpy(&nr_type, response + 4, 2);
-    if (nr_type == NLMSG_ERROR) {
-        log_line("%s: (%s) netlink sendto returned NLMSG_ERROR",
-                 client_config.interface, __func__);
-        return -1;
-    }
-    return 0;
+    return rtnl_do_send(fd, request, header->nlmsg_len, __func__);
 }
+
+struct link_flag_data {
+    int fd;
+    uint32_t flags;
+    bool got_flags;
+};
+
+static void link_flags_get_do(const struct nlmsghdr *nlh, void *data)
+{
+    struct ifinfomsg *ifm = nlmsg_get_data(nlh);
+    struct link_flag_data *ifd = data;
+
+    switch(nlh->nlmsg_type) {
+        case RTM_NEWLINK:
+            if (ifm->ifi_index != client_config.ifindex)
+                break;
+            ifd->flags = ifm->ifi_flags;
+            ifd->got_flags = true;
+            break;
+        case RTM_DELLINK:
+            log_line("%s: got RTM_DELLINK", __func__);
+            break;
+        default:
+            log_line("%s: got %u", __func__, nlh->nlmsg_type);
+            break;
+    }
+}
+
+static int link_flags_get(int fd, uint32_t *flags)
+{
+    char nlbuf[8192];
+    struct link_flag_data ipx = { .fd = fd, .flags = 0, .got_flags = false };
+    ssize_t ret;
+    uint32_t seq = ifset_nl_seq++;
+    if (nl_sendgetlink(fd, seq, client_config.ifindex) < 0)
+        return -1;
+
+    do {
+        ret = nl_recv_buf(fd, nlbuf, sizeof nlbuf);
+        if (ret == -1)
+            return -2;
+        if (nl_foreach_nlmsg(nlbuf, ret, seq, 0, link_flags_get_do,
+                             &ipx) == -1)
+            return -3;
+    } while (ret > 0);
+    if (ipx.got_flags) {
+        *flags = ipx.flags;
+        return 0;
+    }
+    return -4;
+}
+
+static int link_set_flags(int fd, uint32_t flags)
+{
+    uint32_t oldflags;
+
+    int r = link_flags_get(fd, &oldflags);
+    if (r < 0) {
+        log_line("%s: (%s) failed to get old link flags: %u",
+                 client_config.interface, __func__, r);
+        return -1;
+    }
+    return (int)rtnl_if_flags_send(fd, RTM_SETLINK, flags | oldflags);
+}
+
+#if 0
+static int link_unset_flags(int fd, uint32_t flags)
+{
+    uint32_t oldflags;
+
+    int r = link_flags_get(fd, &oldflags);
+    if (r < 0) {
+        log_line("%s: (%s) failed to get old link flags: %u",
+                 client_config.interface, __func__, r);
+        return -1;
+    }
+    return (int)rtnl_if_flags_send(fd, RTM_SETLINK, oldflags & ~flags);
+}
+#endif
 
 static void ipbcpfx_clear_others_do(const struct nlmsghdr *nlh, void *data)
 {
@@ -277,8 +351,7 @@ static int ipbcpfx_clear_others(int fd, uint32_t ipaddr, uint32_t bcast,
                            .prefixlen = prefixlen, .already_ok = false };
     ssize_t ret;
     uint32_t seq = ifset_nl_seq++;
-    ret = nl_sendgetaddr(fd, seq, client_config.ifindex);
-    if (ret < 0)
+    if (nl_sendgetaddr(fd, seq, client_config.ifindex) < 0)
         return -1;
 
     do {
@@ -356,10 +429,10 @@ void perform_ip_subnet_bcast(const char *str_ipaddr,
         r = rtnl_addr_broadcast_send(fd, RTM_NEWADDR, IFA_F_PERMANENT,
                                      RT_SCOPE_UNIVERSE, &ipaddr.s_addr, &bcast.s_addr,
                                      prefixlen);
-
-        close(fd); // XXX: Move this when we also set the link flags.
-        if (r < 0)
+        if (r < 0) {
+            close(fd);
             return;
+        }
 
         log_line("Interface IP set to: '%s'", str_ipaddr);
         log_line("Interface subnet set to: '%s'", str_subnet);
@@ -368,9 +441,10 @@ void perform_ip_subnet_bcast(const char *str_ipaddr,
     } else
         log_line("Interface IP, subnet, and broadcast were already OK.");
 
-    // XXX: Would be nice to do this via netlink, too.
-    if (set_if_flag(IFF_UP | IFF_RUNNING))
-        return;
+    if (link_set_flags(fd, IFF_UP | IFF_RUNNING) < 0)
+        log_line("%s: (%s) Failed to set link to be up and running.",
+                 client_config.interface, __func__);
+    close(fd);
 }
 
 
