@@ -182,35 +182,6 @@ static ssize_t rtnl_if_flags_send(int fd, int type, int ifi_flags)
     return rtnl_do_send(fd, request, header->nlmsg_len, __func__);
 }
 
-static ssize_t rtnl_if_mtu_set(int fd, unsigned int mtu)
-{
-    uint8_t request[NLMSG_ALIGN(sizeof(struct nlmsghdr)) +
-                    NLMSG_ALIGN(sizeof(struct ifinfomsg)) +
-                    RTA_LENGTH(sizeof(unsigned int))];
-    struct nlmsghdr *header;
-    struct ifinfomsg *ifinfomsg;
-
-    memset(&request, 0, sizeof request);
-    header = (struct nlmsghdr *)request;
-    header->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
-    header->nlmsg_type = RTM_SETLINK;
-    header->nlmsg_flags = NLM_F_ACK | NLM_F_REQUEST;
-    header->nlmsg_seq = ifset_nl_seq++;
-
-    ifinfomsg = NLMSG_DATA(header);
-    ifinfomsg->ifi_index = client_config.ifindex;
-    ifinfomsg->ifi_change = 0xffffffff;
-
-    if (nl_add_rtattr(header, sizeof request, IFLA_MTU,
-                      &mtu, sizeof mtu) < 0) {
-        log_line("%s: (%s) couldn't add IFLA_MTU to nlmsg",
-                 client_config.interface, __func__);
-        return -1;
-    }
-
-    return rtnl_do_send(fd, request, header->nlmsg_len, __func__);
-}
-
 static ssize_t rtnl_addr_broadcast_send(int fd, int type, int ifa_flags,
                                         int ifa_scope, uint32_t *ipaddr,
                                         uint32_t *bcast, uint8_t prefixlen)
@@ -466,6 +437,44 @@ static int ipbcpfx_clear_others(int fd, uint32_t ipaddr, uint32_t bcast,
             return -3;
     } while (ret > 0);
     return ipx.already_ok ? 1 : 0;
+}
+
+static ssize_t rtnl_if_mtu_set(int fd, unsigned int mtu)
+{
+    uint8_t request[NLMSG_ALIGN(sizeof(struct nlmsghdr)) +
+                    NLMSG_ALIGN(sizeof(struct ifinfomsg)) +
+                    RTA_LENGTH(sizeof(unsigned int))];
+    struct nlmsghdr *header;
+    struct ifinfomsg *ifinfomsg;
+    uint32_t oldflags;
+
+    int r = link_flags_get(fd, &oldflags);
+    if (r < 0) {
+        log_line("%s: (%s) failed to get old link flags: %u",
+                 client_config.interface, __func__, r);
+        return -1;
+    }
+
+    memset(&request, 0, sizeof request);
+    header = (struct nlmsghdr *)request;
+    header->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+    header->nlmsg_type = RTM_SETLINK;
+    header->nlmsg_flags = NLM_F_ACK | NLM_F_REQUEST;
+    header->nlmsg_seq = ifset_nl_seq++;
+
+    ifinfomsg = NLMSG_DATA(header);
+    ifinfomsg->ifi_flags = oldflags;
+    ifinfomsg->ifi_index = client_config.ifindex;
+    ifinfomsg->ifi_change = 0xffffffff;
+
+    if (nl_add_rtattr(header, sizeof request, IFLA_MTU,
+                      &mtu, sizeof mtu) < 0) {
+        log_line("%s: (%s) couldn't add IFLA_MTU to nlmsg",
+                 client_config.interface, __func__);
+        return -1;
+    }
+
+    return rtnl_do_send(fd, request, header->nlmsg_len, __func__);
 }
 
 // str_bcast is optional.
