@@ -594,10 +594,6 @@ void perform_router(const char *str_router, size_t len)
     else
         log_line("Gateway router set to: '%s'", str_router);
     close(fd);
-
-    // XXX
-    //static char xxxz[] = "1500";
-    //perform_mtu(xxxz, sizeof xxxz);
 }
 
 void perform_mtu(const char *str, size_t len)
