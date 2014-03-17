@@ -26,6 +26,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <unistd.h>
 #include <arpa/inet.h>
 #include <assert.h>
 #include <asm/types.h>
@@ -51,33 +52,6 @@ static int nlattr_assign(struct nlattr *attr, int type, void *data)
     return 0;
 }
 
-static void get_if_index_and_mac(const struct nlmsghdr *nlh,
-                                 struct ifinfomsg *ifm)
-{
-    struct nlattr *tb[IFLA_MAX] = {0};
-    nl_attr_parse(nlh, sizeof *ifm, nlattr_assign, tb);
-    if (!tb[IFLA_IFNAME])
-        return;
-    if (!strncmp(client_config.interface,
-                 nlattr_get_data(tb[IFLA_IFNAME]),
-                 sizeof client_config.interface)) {
-        client_config.ifindex = ifm->ifi_index;
-        if (!tb[IFLA_ADDRESS])
-            suicide("FATAL: Adapter %s lacks a hardware address.");
-        int maclen = nlattr_get_len(tb[IFLA_ADDRESS]) - 4;
-        if (maclen != 6)
-            suicide("FATAL: Adapter hardware address length should be 6, but is %u.",
-                    maclen);
-
-        const unsigned char *mac =
-            (unsigned char *)nlattr_get_data(tb[IFLA_ADDRESS]);
-        log_line("%s hardware address %x:%x:%x:%x:%x:%x",
-                 client_config.interface,
-                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-        memcpy(client_config.arp, mac, 6);
-    }
-}
-
 static void nl_process_msgs(const struct nlmsghdr *nlh, void *data)
 {
     struct ifinfomsg *ifm = nlmsg_get_data(nlh);
@@ -85,8 +59,6 @@ static void nl_process_msgs(const struct nlmsghdr *nlh, void *data)
 
     switch(nlh->nlmsg_type) {
         case RTM_NEWLINK:
-            if (!client_config.ifindex)
-                get_if_index_and_mac(nlh, ifm);
             if (ifm->ifi_index != client_config.ifindex)
                 break;
             // IFF_UP corresponds to ifconfig down or ifconfig up.
@@ -137,18 +109,89 @@ void handle_nl_message(struct client_state_t *cs)
     } while (ret > 0);
 }
 
-int nl_getifdata(struct client_state_t *cs)
+static int get_if_index_and_mac(const struct nlmsghdr *nlh,
+                                struct ifinfomsg *ifm)
 {
-    if (nl_sendgetlinks(cs->nlFd, time(NULL)))
-        return -1;
+    struct nlattr *tb[IFLA_MAX] = {0};
+    nl_attr_parse(nlh, sizeof *ifm, nlattr_assign, tb);
+    if (tb[IFLA_IFNAME] && !strncmp(client_config.interface,
+                                    nlattr_get_data(tb[IFLA_IFNAME]),
+                                    sizeof client_config.interface)) {
+        client_config.ifindex = ifm->ifi_index;
+        if (!tb[IFLA_ADDRESS])
+            suicide("FATAL: Adapter %s lacks a hardware address.");
+        int maclen = nlattr_get_len(tb[IFLA_ADDRESS]) - 4;
+        if (maclen != 6)
+            suicide("FATAL: Adapter hardware address length should be 6, but is %u.",
+                    maclen);
 
-    for (int pr = 0; !pr;) {
-        pr = poll(&((struct pollfd){.fd=cs->nlFd,.events=POLLIN}), 1, -1);
-        if (pr == 1)
-            handle_nl_message(cs);
-        else if (pr == -1)
-            suicide("nl: poll failed");
+        const unsigned char *mac =
+            (unsigned char *)nlattr_get_data(tb[IFLA_ADDRESS]);
+        log_line("%s hardware address %x:%x:%x:%x:%x:%x",
+                 client_config.interface,
+                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        memcpy(client_config.arp, mac, 6);
+        return 1;
     }
     return 0;
+}
+
+static void do_handle_getifdata(const struct nlmsghdr *nlh, void *data)
+{
+    int *got_ifdata = (int *)data;
+    struct ifinfomsg *ifm = nlmsg_get_data(nlh);
+
+    switch(nlh->nlmsg_type) {
+        case RTM_NEWLINK:
+            *got_ifdata |= get_if_index_and_mac(nlh, ifm);
+            break;
+        default:
+            break;
+    }
+}
+
+static int handle_getifdata(int fd)
+{
+    char nlbuf[8192];
+    ssize_t ret;
+    int got_ifdata = 0;
+    do {
+        ret = nl_recv_buf(fd, nlbuf, sizeof nlbuf);
+        if (ret == -1)
+            return -1;
+        if (nl_foreach_nlmsg(nlbuf, ret, 0, 0,
+                             do_handle_getifdata, &got_ifdata) == -1)
+            return -1;
+    } while (ret > 0);
+    return got_ifdata ? 0 : -1;
+}
+
+int nl_getifdata(void)
+{
+    int ret = -1;
+    int fd = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+    if (fd < 0) {
+        log_line("%s: (%s) netlink socket open failed: %s",
+                 client_config.interface, __func__, strerror(errno));
+        goto fail;
+    }
+
+    if (nl_sendgetlinks(fd, time(NULL))) {
+        log_line("%s: (%s) nl_sendgetlinks failed",
+                 client_config.interface, __func__);
+        goto fail_fd;
+    }
+
+    for (int pr = 0; !pr;) {
+        pr = poll(&((struct pollfd){.fd=fd,.events=POLLIN}), 1, -1);
+        if (pr == 1)
+            ret = handle_getifdata(fd);
+        else if (pr == -1 && errno != EINTR)
+            goto fail_fd;
+    }
+  fail_fd:
+    close(fd);
+  fail:
+    return ret;
 }
 

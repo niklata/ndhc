@@ -60,6 +60,7 @@
 #include "nl.h"
 #include "netlink.h"
 #include "leasefile.h"
+#include "ifset.h"
 
 #include "log.h"
 #include "chroot.h"
@@ -343,6 +344,11 @@ static void ndhc_main(void) {
     log_line("ndhc client " NDHC_VERSION " started on interface [%s].",
              client_config.interface);
 
+    if ((cs.nlFd = nl_open(NETLINK_ROUTE, RTMGRP_LINK, &cs.nlPortId)) < 0) {
+        log_line("FATAL - failed to open netlink socket");
+        exit(EXIT_FAILURE);
+    }
+
     if (client_config.foreground && !client_config.background_if_no_lease) {
         if (file_exists(pidfile, "w") == -1) {
             log_line("FATAL - can't open pidfile '%s' for write!", pidfile);
@@ -573,12 +579,18 @@ int main(int argc, char **argv)
     if (!strncmp(chroot_dir, "", sizeof chroot_dir))
         suicide("FATAL - No chroot path specified.  Refusing to run.");
 
-    if ((cs.nlFd = nl_open(NETLINK_ROUTE, RTMGRP_LINK, &cs.nlPortId)) < 0) {
-        log_line("FATAL - failed to open netlink socket");
+    if (nl_getifdata() < 0) {
+        log_line("FATAL - failed to get interface MAC or index");
         exit(EXIT_FAILURE);
     }
-    if (nl_getifdata(&cs) < 0) {
-        log_line("FATAL - failed to get interface MAC and index");
+
+    switch (perform_ifup()) {
+    case 1:
+    cs.ifsPrevState = IFS_UP;
+    case 0:
+        break;
+    default:
+        log_error("FATAL - failed to set the interface to up state");
         exit(EXIT_FAILURE);
     }
 
@@ -587,7 +599,6 @@ int main(int argc, char **argv)
     if (ifch_pid == 0) {
         close(pToNdhcR);
         close(pToIfchW);
-        close(cs.nlFd);
         ifch_main();
     } else if (ifch_pid > 0) {
         close(pToIfchR);

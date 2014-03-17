@@ -483,6 +483,23 @@ static ssize_t rtnl_if_mtu_set(int fd, unsigned int mtu)
     return rtnl_do_send(fd, request, header->nlmsg_len, __func__);
 }
 
+int perform_ifup(void)
+{
+    int fd = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+    if (fd < 0) {
+        log_line("%s: (%s) netlink socket open failed: %s",
+                 client_config.interface, __func__, strerror(errno));
+        return fd;
+    }
+
+    int r = link_set_flags(fd, IFF_UP);
+    if (r < 0)
+        log_line("%s: (%s) Failed to set link to be up.",
+                 client_config.interface, __func__);
+    close(fd);
+    return r;
+}
+
 // str_bcast is optional.
 void perform_ip_subnet_bcast(const char *str_ipaddr,
                              const char *str_subnet, const char *str_bcast)
