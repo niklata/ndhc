@@ -172,7 +172,7 @@ static int nl_sendgetlink_do(int fd, int seq, int ifindex, int by_ifindex)
     ssize_t r;
 
     memset(nlbuf, 0, sizeof nlbuf);
-    nlh->nlmsg_len = NLMSG_LENGTH(sizeof (struct rtattr));
+    nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
     nlh->nlmsg_type = RTM_GETLINK;
     nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_ROOT;
     nlh->nlmsg_seq = seq;
@@ -218,7 +218,7 @@ int nl_sendgetaddr(int fd, int seq, int ifindex)
     ssize_t r;
 
     memset(nlbuf, 0, sizeof nlbuf);
-    nlh->nlmsg_len = NLMSG_LENGTH(sizeof (struct rtattr));
+    nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
     nlh->nlmsg_type = RTM_GETADDR;
     nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_ROOT;
     nlh->nlmsg_seq = seq;
