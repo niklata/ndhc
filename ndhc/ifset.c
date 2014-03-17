@@ -35,7 +35,6 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/types.h>
-#include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <net/route.h>

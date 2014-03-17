@@ -160,8 +160,8 @@ esac
     exactly as I have outlined above.  If you have not entirely followed my
     directions, the script will of course require modifications.
 
-4o) If you encounter problems, I suggest running both ndhc in the foreground
-    and examining the printed output.
+4o) If you encounter problems, I suggest running ndhc in the foreground and
+    examining the printed output.
 
 
 BEHAVIOR NOTES
@@ -185,11 +185,10 @@ part of the official standard, so any implemention that may exist will be
 system-dependent.
 
 2) ndhc configures network interfaces and routes.  Interface and route
-configuration is entirely non-portable, usually requiring calls to the
-catch-all ioctl(), or even more unusual mechanisms like netlink sockets.
+configuration is entirely non-portable.
 
-3) ndhc uses netlink sockets extensively for both fetching data and hardware
-link state change notification events.
+3) ndhc uses netlink sockets extensively for fetching data, setting data,
+and hardware link state change notification events.
 
 4) ndhc uses the Berkeley Packet Filter / Linux Packet Filter interfaces to
 drop unwanted packets in kernelspace.  This functionality is available on
@@ -199,6 +198,9 @@ most modern unix systems, but it is not standard.
 
 6) Numerous socket options are used, and the AF_PACKET socket family is used
 for raw sockets and ARP.  These are largely Linux-specific, too.
+
+7) ndhc can optionally use seccomp-filter to allow only a set of whitelisted
+syscalls.  This functionality is Linux-specific.
 
 HISTORY
 -------
