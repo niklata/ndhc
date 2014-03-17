@@ -88,7 +88,7 @@ static int delay_timeout(size_t numpackets)
 
 static void reinit_shared_deconfig(struct client_state_t *cs)
 {
-    ifchange_deconfig();
+    ifchange_deconfig(cs);
     arp_close_fd(cs);
     cs->clientAddr = 0;
     num_dhcp_requests = 0;

@@ -29,7 +29,7 @@
 #ifndef IFCHANGE_H_
 #define IFCHANGE_H_
 
-void ifchange_bind(struct dhcpmsg *packet);
-void ifchange_deconfig(void);
+void ifchange_bind(struct client_state_t *cs, struct dhcpmsg *packet);
+void ifchange_deconfig(struct client_state_t *cs);
 
 #endif

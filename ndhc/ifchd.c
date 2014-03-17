@@ -303,6 +303,24 @@ static void signal_dispatch(void)
     }
 }
 
+static void inform_execute(int success)
+{
+    int r;
+    char c = success ? '+' : '-';
+  retry:
+    r = safe_write(pToNdhcW, &c, sizeof c);
+    if (r == 0) {
+        // Remote end hung up.
+        exit(EXIT_SUCCESS);
+    } else if (r < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            goto retry;
+        log_line("%s: (%s) error writing to ifch -> ndhc pipe: %s",
+                 client_config.interface, __func__, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+}
+
 static void process_client_pipe(void)
 {
     char buf[MAX_BUF];
@@ -315,14 +333,18 @@ static void process_client_pipe(void)
     } else if (r < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return;
-        log_line("ifch: error reading from ndhc -> ifch pipe: %s", strerror(errno));
+        log_line("%s: (%s) error reading from ndhc -> ifch pipe: %s",
+                 client_config.interface, __func__, strerror(errno));
         exit(EXIT_FAILURE);
     }
 
     if (execute_buffer(buf) == -1) {
-        log_line("ifch: execute_buffer was passed invalid commands: '%s'", buf);
+        log_line("%s: (%s) execute_buffer was passed invalid commands: '%s'",
+                 client_config.interface, __func__, buf);
+        inform_execute(0);
         exit(EXIT_FAILURE);
-    }
+    } else
+        inform_execute(1);
 }
 
 void do_ifch_work(void)

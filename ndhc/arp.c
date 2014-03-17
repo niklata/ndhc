@@ -485,7 +485,7 @@ void arp_success(struct client_state_t *cs)
     cs->init = 0;
     last_conflict_ts = 0;
     arp_wake_ts[AS_COLLISION_CHECK] = -1;
-    ifchange_bind(&arp_dhcp_packet);
+    ifchange_bind(cs, &arp_dhcp_packet);
     if (cs->arpPrevState == DS_RENEWING || cs->arpPrevState == DS_REBINDING) {
         arp_switch_state(cs, AS_DEFENSE);
     } else {

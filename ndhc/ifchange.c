@@ -45,7 +45,6 @@
 #include "ifchange.h"
 #include "ifch_proto.h"
 
-static int cfg_deconfig; // Set if the interface has already been deconfigured.
 static struct dhcpmsg cfg_packet; // Copy of the current configuration packet.
 
 static int ifchd_cmd_u8(char *buf, size_t buflen, char *optname,
@@ -155,8 +154,9 @@ static int ifchd_cmd(char *buf, size_t buflen, uint8_t *optdata,
 }
 #undef IFCHD_SW_CMD
 
-static void pipewrite(const char *buf, size_t count)
+static void pipewrite(struct client_state_t *cs, const char *buf, size_t count)
 {
+    cs->ifchWorking = 1;
     if (safe_write(pToIfchW, buf, count) == -1) {
         log_error("pipewrite: write failed: %s", strerror(errno));
         return;
@@ -164,18 +164,18 @@ static void pipewrite(const char *buf, size_t count)
     log_line("Sent to ifchd: %s", buf);
 }
 
-void ifchange_deconfig(void)
+void ifchange_deconfig(struct client_state_t *cs)
 {
     char buf[256];
 
-    if (cfg_deconfig)
+    if (cs->ifDeconfig)
         return;
+    cs->ifDeconfig = 1;
 
     snprintf(buf, sizeof buf, "ip4:0.0.0.0,255.255.255.255;");
     log_line("Resetting %s IP configuration.", client_config.interface);
-    pipewrite(buf, strlen(buf));
+    pipewrite(cs, buf, strlen(buf));
 
-    cfg_deconfig = 1;
     memset(&cfg_packet, 0, sizeof cfg_packet);
 }
 
@@ -258,7 +258,7 @@ static size_t send_cmd(char *out, size_t olen, struct dhcpmsg *packet,
     return strlen(buf);
 }
 
-void ifchange_bind(struct dhcpmsg *packet)
+void ifchange_bind(struct client_state_t *cs, struct dhcpmsg *packet)
 {
     char buf[2048];
     int tbs = 0;
@@ -275,8 +275,8 @@ void ifchange_bind(struct dhcpmsg *packet)
     tbs |= send_cmd(buf, sizeof buf, packet, DCODE_MTU);
     tbs |= send_cmd(buf, sizeof buf, packet, DCODE_WINS);
     if (tbs)
-        pipewrite(buf, strlen(buf));
+        pipewrite(cs, buf, strlen(buf));
 
-    cfg_deconfig = 0;
+    cs->ifDeconfig = 0;
     memcpy(&cfg_packet, packet, sizeof cfg_packet);
 }

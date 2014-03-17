@@ -71,6 +71,8 @@
 #include "ifchd.h"
 
 struct client_state_t cs = {
+    .ifchWorking = 0,
+    .ifDeconfig = 0,
     .init = 1,
     .epollFd = -1,
     .signalFd = -1,
@@ -213,9 +215,29 @@ static int get_clientid_mac_string(char *str, size_t slen)
     return 1;
 }
 
+static void handle_ifch_message(void)
+{
+    char c;
+    int r = safe_read(pToNdhcR, &c, sizeof c);
+    if (r == 0) {
+        // Remote end hung up.
+        exit(EXIT_SUCCESS);
+    } else if (r < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return;
+        log_line("%s: (%s) error reading from ifch -> ndhc pipe: %s",
+                 client_config.interface, __func__, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    if (c == '+')
+        cs.ifchWorking = 0;
+}
+
+#define NDHC_NUM_EP_FDS 4
 static void do_ndhc_work(void)
 {
-    struct epoll_event events[3];
+    struct epoll_event events[NDHC_NUM_EP_FDS];
     long long nowts;
     int timeout;
 
@@ -229,12 +251,13 @@ static void do_ndhc_work(void)
     setup_signals_ndhc();
 
     epoll_add(cs.epollFd, cs.nlFd);
+    epoll_add(cs.epollFd, pToNdhcR);
     set_listen_raw(&cs);
     nowts = curms();
     goto jumpstart;
 
     for (;;) {
-        int r = epoll_wait(cs.epollFd, events, 3, timeout);
+        int r = epoll_wait(cs.epollFd, events, NDHC_NUM_EP_FDS, timeout);
         if (r == -1) {
             if (errno == EINTR)
                 continue;
@@ -251,6 +274,8 @@ static void do_ndhc_work(void)
                 handle_arp_response(&cs);
             else if (fd == cs.nlFd)
                 handle_nl_message(&cs);
+            else if (fd == pToNdhcR)
+                handle_ifch_message();
             else
                 suicide("epoll_wait: unknown fd");
         }
@@ -336,7 +361,7 @@ static void ndhc_main(void) {
     drop_root(ndhc_uid, ndhc_gid);
 
     if (cs.ifsPrevState != IFS_UP)
-        ifchange_deconfig();
+        ifchange_deconfig(&cs);
 
     do_ndhc_work();
 }
