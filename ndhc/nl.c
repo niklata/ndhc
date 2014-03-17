@@ -113,17 +113,18 @@ ssize_t nl_recv_buf(int fd, char *buf, size_t blen)
         if (errno == EINTR)
             goto retry;
         if (errno != EAGAIN && errno != EWOULDBLOCK) {
-            log_error("nl_fill_buf: recvmsg failed: %s", strerror(errno));
+            log_error("%s: recvmsg failed: %s", __func__, strerror(errno));
             return -1;
         }
         return 0;
     }
     if (msg.msg_flags & MSG_TRUNC) {
-        log_error("nl_fill_buf: Buffer not long enough for message.");
+        log_error("%s: Buffer not long enough for message.", __func__);
         return -1;
     }
     if (msg.msg_namelen != sizeof addr) {
-        log_error("nl_fill_buf: Response was not of the same address family.");
+        log_error("%s: Response was not of the same address family.",
+                  __func__);
         return -1;
     }
     return ret;
@@ -139,7 +140,6 @@ int nl_foreach_nlmsg(char *buf, size_t blen, uint32_t seq, uint32_t portid,
         // PortID should be zero for messages from the kernel.
         if (nlh->nlmsg_pid && portid && nlh->nlmsg_pid != portid)
             continue;
-        log_line("%s: seq=%u nlh->nlmsg_seq=%u", __func__, seq, nlh->nlmsg_seq);
         if (seq && nlh->nlmsg_seq != seq)
             continue;
 
@@ -148,13 +148,13 @@ int nl_foreach_nlmsg(char *buf, size_t blen, uint32_t seq, uint32_t portid,
         } else {
             switch (nlh->nlmsg_type) {
                 case NLMSG_ERROR:
-                    log_line("nl: Received a NLMSG_ERROR: %s",
-                             strerror(nlmsg_get_error(nlh)));
+                    log_line("%s: Received a NLMSG_ERROR: %s",
+                             __func__, strerror(nlmsg_get_error(nlh)));
                     return -1;
                 case NLMSG_DONE:
                     return 0;
                 case NLMSG_OVERRUN:
-                    log_line("nl: Received a NLMSG_OVERRUN.");
+                    log_line("%s: Received a NLMSG_OVERRUN.", __func__);
                 case NLMSG_NOOP:
                 default:
                     break;
@@ -250,15 +250,17 @@ int nl_open(int nltype, int nlgroup, int *nlportid)
     int fd;
     fd = socket(AF_NETLINK, SOCK_RAW, nltype);
     if (fd == -1) {
-        log_error("nl_open: socket failed: %s", strerror(errno));
+        log_error("%s: socket failed: %s", __func__, strerror(errno));
         return -1;
     }
     if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
-        log_error("nl_open: Set non-blocking failed: %s", strerror(errno));
+        log_error("%s: Set non-blocking failed: %s",
+                  __func__, strerror(errno));
         goto err_close;
     }
     if (fcntl(fd, F_SETFD, FD_CLOEXEC)) {
-        log_error("nl_open: Set close-on-exec failed: %s", strerror(errno));
+        log_error("%s: Set close-on-exec failed: %s",
+                  __func__, strerror(errno));
         goto err_close;
     }
     socklen_t al;
@@ -267,20 +269,24 @@ int nl_open(int nltype, int nlgroup, int *nlportid)
         .nl_groups = nlgroup,
     };
     if (bind(fd, (struct sockaddr *)&nlsock, sizeof nlsock) == -1) {
-        log_error("nl_open: bind to group failed: %s", strerror(errno));
+        log_error("%s: bind to group failed: %s",
+                  __func__, strerror(errno));
         goto err_close;
     }
     al = sizeof nlsock;
     if (getsockname(fd, (struct sockaddr *)&nlsock, &al) == -1) {
-        log_error("nl_open: getsockname failed: %s", strerror(errno));
+        log_error("%s: getsockname failed: %s",
+                  __func__, strerror(errno));
         goto err_close;
     }
     if (al != sizeof nlsock) {
-        log_error("nl_open: Bound socket doesn't have right family size.");
+        log_error("%s: Bound socket doesn't have right family size.",
+                  __func__);
         goto err_close;
     }
     if (nlsock.nl_family != AF_NETLINK) {
-        log_error("nl_open: Bound socket isn't AF_NETLINK.");
+        log_error("%s: Bound socket isn't AF_NETLINK.",
+                  __func__);
         goto err_close;
     }
     if (nlportid)
