@@ -113,28 +113,52 @@ static ssize_t rtnl_do_send(int fd, uint8_t *sbuf, size_t slen,
             return -1;
         }
     }
+    struct iovec iov = {
+        .iov_base = response,
+        .iov_len = sizeof response,
+    };
+    struct msghdr msg = {
+        .msg_name = &nl_addr,
+        .msg_namelen = sizeof nl_addr,
+        .msg_iov = &iov,
+        .msg_iovlen = 1,
+    };
   retry_recv:
-    r = recv(fd, response, sizeof response, 0);
+    r = recvmsg(fd, &msg, 0);
     if (r < 0) {
         if (errno == EINTR)
             goto retry_recv;
         else {
-            log_line("%s: (%s) netlink recv failed: %s",
+            log_line("%s: (%s) netlink recvmsg failed: %s",
                      client_config.interface, fnname, strerror(errno));
             return -1;
         }
     }
+    if (msg.msg_flags & MSG_TRUNC) {
+        log_error("%s: (%s) Buffer not long enough for message.",
+                  client_config.interface, fnname);
+        return -1;
+    }
     if ((size_t)r < sizeof(struct nlmsghdr)) {
-        log_line("%s: (%s) netlink recv returned a headerless response",
+        log_line("%s: (%s) netlink recvmsg returned a headerless response",
                  client_config.interface, fnname);
         return -1;
     }
-    uint32_t nr_type;
-    memcpy(&nr_type, response + 4, 2);
-    if (nr_type == NLMSG_ERROR) {
-        log_line("%s: (%s) netlink sendto returned NLMSG_ERROR",
-                 client_config.interface, fnname);
+    const struct nlmsghdr *nlh = (const struct nlmsghdr *)response;
+    switch (nlh->nlmsg_type) {
+    case NLMSG_ERROR:
+        log_line("%s: (%s) netlink sendto returned NLMSG_ERROR: %s",
+                 client_config.interface, fnname,
+                 strerror(nlmsg_get_error(nlh)));
         return -1;
+    case NLMSG_DONE:
+        return 0;
+    case NLMSG_OVERRUN:
+        log_line("%s: (%s) Received a NLMSG_OVERRUN.",
+                 client_config.interface, __func__);
+    case NLMSG_NOOP:
+    default:
+        break;
     }
     return 0;
 }
