@@ -241,6 +241,58 @@ static ssize_t rtnl_addr_broadcast_send(int fd, int type, int ifa_flags,
     return rtnl_do_send(fd, request, header->nlmsg_len, __func__);
 }
 
+static ssize_t rtnl_set_default_gw_v4(int fd, uint32_t gw4, int metric)
+{
+    uint8_t request[NLMSG_ALIGN(sizeof(struct nlmsghdr)) +
+        NLMSG_ALIGN(sizeof(struct ifinfomsg)) +
+                    RTA_LENGTH(sizeof(uint32_t))];
+    struct nlmsghdr *header;
+    struct rtmsg *rtmsg;
+
+    memset(&request, 0, sizeof request);
+    header = (struct nlmsghdr *)request;
+    header->nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
+    header->nlmsg_type = RTM_NEWROUTE;
+    header->nlmsg_flags = NLM_F_REPLACE | NLM_F_ACK | NLM_F_REQUEST;
+    header->nlmsg_seq = ifset_nl_seq++;
+
+    rtmsg = NLMSG_DATA(header);
+    rtmsg->rtm_family = AF_INET;
+    rtmsg->rtm_table = RT_TABLE_DEFAULT;
+    rtmsg->rtm_protocol = RTPROT_STATIC;
+    rtmsg->rtm_scope = RT_SCOPE_UNIVERSE;
+    rtmsg->rtm_type = RTN_UNICAST;
+
+    uint32_t dstaddr4 = 0;
+    if (nl_add_rtattr(header, sizeof request, RTA_DST,
+                      &dstaddr4, sizeof dstaddr4) < 0) {
+        log_line("%s: (%s) couldn't add RTA_DST to nlmsg",
+                 client_config.interface, __func__);
+        return -1;
+    }
+    if (nl_add_rtattr(header, sizeof request, RTA_OIF,
+                      &client_config.ifindex,
+                      sizeof client_config.ifindex) < 0) {
+        log_line("%s: (%s) couldn't add RTA_OIF to nlmsg",
+                 client_config.interface, __func__);
+        return -1;
+    }
+    if (nl_add_rtattr(header, sizeof request, RTA_GATEWAY,
+                      &gw4, sizeof gw4) < 0) {
+        log_line("%s: (%s) couldn't add RTA_GATEWAY to nlmsg",
+                 client_config.interface, __func__);
+        return -1;
+    }
+    if (nl_add_rtattr(header, sizeof request, RTA_METRICS,
+                      &metric, sizeof metric) < 0) {
+        log_line("%s: (%s) couldn't add RTA_METRICS to nlmsg",
+                 client_config.interface, __func__);
+        return -1;
+    }
+
+    return rtnl_do_send(fd, request, header->nlmsg_len, __func__);
+}
+
 struct link_flag_data {
     int fd;
     uint32_t flags;
@@ -478,50 +530,33 @@ void perform_ip_subnet_bcast(const char *str_ipaddr,
 }
 
 
-void perform_router(const char *str, size_t len)
+void perform_router(const char *str_router, size_t len)
 {
-    struct rtentry rt;
-    struct sockaddr_in *dest;
-    struct sockaddr_in *gateway;
-    struct sockaddr_in *mask;
+    if (!str_router)
+        return;
+    if (len < 7)
+        return;
     struct in_addr router;
-    int fd;
-
-    if (!str)
-        return;
-    if (len < 4)
-        return;
-    if (inet_pton(AF_INET, str, &router) <= 0)
-        return;
-
-    memset(&rt, 0, sizeof(struct rtentry));
-    dest = (struct sockaddr_in *) &rt.rt_dst;
-    dest->sin_family = AF_INET;
-    dest->sin_addr.s_addr = 0x00000000;
-    gateway = (struct sockaddr_in *) &rt.rt_gateway;
-    gateway->sin_family = AF_INET;
-    gateway->sin_addr = router;
-    mask = (struct sockaddr_in *) &rt.rt_genmask;
-    mask->sin_family = AF_INET;
-    mask->sin_addr.s_addr = 0x00000000;
-
-    rt.rt_flags = RTF_UP | RTF_GATEWAY;
-    if (mask->sin_addr.s_addr == 0xffffffff) rt.rt_flags |= RTF_HOST;
-    rt.rt_dev = client_config.interface;
-    rt.rt_metric = 1;
-
-    fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (fd == -1) {
-        log_line("%s: (perform_router) failed to open interface socket: %s",
-                 client_config.interface, strerror(errno));
+    if (inet_pton(AF_INET, str_router, &router) <= 0) {
+        log_line("%s: (%s) bad router ip address: '%s'",
+                 client_config.interface, __func__, str_router);
         return;
     }
-    if (ioctl(fd, SIOCADDRT, &rt)) {
-        if (errno != EEXIST)
-            log_line("%s: failed to set route: %s",
-                     client_config.interface, strerror(errno));
-    } else
-        log_line("Gateway router set to: '%s'", str);
+
+    int fd = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+    if (fd < 0) {
+        log_line("%s: (%s) netlink socket open failed: %s",
+                 client_config.interface, __func__, strerror(errno));
+        return;
+    }
+
+    // XXX: Probably need to clear out the old default gw.
+
+    if (rtnl_set_default_gw_v4(fd, router.s_addr, 1) < 0)
+        log_line("%s: (%s) failed to set route: %s",
+                 client_config.interface, __func__, strerror(errno));
+    else
+        log_line("Gateway router set to: '%s'", str_router);
     close(fd);
 }
 
