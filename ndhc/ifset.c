@@ -155,6 +155,8 @@ static ssize_t rtnl_do_send(int fd, uint8_t *sbuf, size_t slen,
             return -1;
         }
     }
+    if (nlh->nlmsg_type == NLMSG_DONE)
+        return -2;
     log_line("%s: (%s) netlink sendto returned an error.",
              client_config.interface, __func__);
     return -1;
@@ -414,7 +416,7 @@ static void ipbcpfx_clear_others_do(const struct nlmsghdr *nlh, void *data)
                                  tb[IFA_ADDRESS] ? rtattr_get_data(tb[IFA_ADDRESS]) : NULL,
                                  tb[IFA_BROADCAST] ? rtattr_get_data(tb[IFA_BROADCAST]) : NULL,
                                  ifm->ifa_prefixlen);
-    if (r < 0) {
+    if (r < 0 && r != -2) {
         log_warning("%s: (%s) Failed to delete IP and broadcast addresses.",
                     client_config.interface, __func__);
     }
