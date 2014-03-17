@@ -150,7 +150,7 @@ static void do_handle_getifdata(const struct nlmsghdr *nlh, void *data)
     }
 }
 
-static int handle_getifdata(int fd)
+static int handle_getifdata(int fd, uint32_t seq)
 {
     char nlbuf[8192];
     ssize_t ret;
@@ -159,7 +159,7 @@ static int handle_getifdata(int fd)
         ret = nl_recv_buf(fd, nlbuf, sizeof nlbuf);
         if (ret == -1)
             return -1;
-        if (nl_foreach_nlmsg(nlbuf, ret, 0, 0,
+        if (nl_foreach_nlmsg(nlbuf, ret, seq, 0,
                              do_handle_getifdata, &got_ifdata) == -1)
             return -1;
     } while (ret > 0);
@@ -176,7 +176,14 @@ int nl_getifdata(void)
         goto fail;
     }
 
-    if (nl_sendgetlinks(fd, time(NULL))) {
+    struct timespec ts;
+    if (clock_gettime(CLOCK_REALTIME, &ts) < 0) {
+        log_line("%s: (%s) clock_gettime failed",
+                 client_config.interface, __func__);
+        goto fail_fd;
+    }
+    uint32_t seq = ts.tv_nsec;
+    if (nl_sendgetlinks(fd, seq)) {
         log_line("%s: (%s) nl_sendgetlinks failed",
                  client_config.interface, __func__);
         goto fail_fd;
@@ -185,7 +192,7 @@ int nl_getifdata(void)
     for (int pr = 0; !pr;) {
         pr = poll(&((struct pollfd){.fd=fd,.events=POLLIN}), 1, -1);
         if (pr == 1)
-            ret = handle_getifdata(fd);
+            ret = handle_getifdata(fd, seq);
         else if (pr == -1 && errno != EINTR)
             goto fail_fd;
     }
