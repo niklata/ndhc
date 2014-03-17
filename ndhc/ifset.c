@@ -348,6 +348,8 @@ static int link_set_flags(int fd, uint32_t flags)
                  client_config.interface, __func__, r);
         return -1;
     }
+    if ((oldflags & flags) == flags)
+        return 1;
     return (int)rtnl_if_flags_send(fd, RTM_SETLINK, flags | oldflags);
 }
 
@@ -362,6 +364,8 @@ static int link_unset_flags(int fd, uint32_t flags)
                  client_config.interface, __func__, r);
         return -1;
     }
+    if ((oldflags & flags) == 0)
+        return 1;
     return (int)rtnl_if_flags_send(fd, RTM_SETLINK, oldflags & ~flags);
 }
 #endif
