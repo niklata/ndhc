@@ -245,15 +245,6 @@ void perform_wins(const char *str, size_t len)
     (void)len;
 }
 
-static void ifchd_client_init(void)
-{
-    cl.state = STATE_NOTHING;
-
-    memset(cl.ibuf, 0, sizeof cl.ibuf);
-    memset(cl.namesvrs, 0, sizeof cl.namesvrs);
-    memset(cl.domains, 0, sizeof cl.domains);
-}
-
 static void setup_signals_ifch(void)
 {
     sigset_t mask;
@@ -303,10 +294,9 @@ static void signal_dispatch(void)
     }
 }
 
-static void inform_execute(int success)
+static void inform_execute(char c)
 {
     int r;
-    char c = success ? '+' : '-';
   retry:
     r = safe_write(pToNdhcW, &c, sizeof c);
     if (r == 0) {
@@ -341,10 +331,10 @@ static void process_client_pipe(void)
     if (execute_buffer(buf) == -1) {
         log_line("%s: (%s) execute_buffer was passed invalid commands: '%s'",
                  client_config.interface, __func__, buf);
-        inform_execute(0);
+        inform_execute('-');
         exit(EXIT_FAILURE);
     } else
-        inform_execute(1);
+        inform_execute('+');
 }
 
 void do_ifch_work(void)
@@ -356,7 +346,10 @@ void do_ifch_work(void)
     if (enforce_seccomp_ifch())
         log_line("ifch seccomp filter cannot be installed");
 
-    ifchd_client_init();
+    cl.state = STATE_NOTHING;
+    memset(cl.ibuf, 0, sizeof cl.ibuf);
+    memset(cl.namesvrs, 0, sizeof cl.namesvrs);
+    memset(cl.domains, 0, sizeof cl.domains);
 
     epoll_add(epollfd, pToIfchR);
     epoll_add(epollfd, signalFd);
