@@ -145,28 +145,25 @@ static ssize_t rtnl_do_send(int fd, uint8_t *sbuf, size_t slen,
         return -1;
     }
     const struct nlmsghdr *nlh = (const struct nlmsghdr *)response;
-    switch (nlh->nlmsg_type) {
-    case NLMSG_ERROR:
-        log_line("%s: (%s) netlink sendto returned NLMSG_ERROR: %s",
-                 client_config.interface, fnname,
-                 strerror(nlmsg_get_error(nlh)));
-        return -1;
-    case NLMSG_DONE:
-        return 0;
-    case NLMSG_OVERRUN:
-        log_line("%s: (%s) Received a NLMSG_OVERRUN.",
-                 client_config.interface, __func__);
-    case NLMSG_NOOP:
-    default:
-        break;
+    if (nlh->nlmsg_type == NLMSG_ERROR) {
+        if (nlmsg_get_error(nlh) == 0)
+            return 0;
+        else {
+            log_line("%s: (%s) netlink sendto returned NLMSG_ERROR: %s",
+                     client_config.interface, fnname,
+                     strerror(nlmsg_get_error(nlh)));
+            return -1;
+        }
     }
-    return 0;
+    log_line("%s: (%s) netlink sendto returned an error.",
+             client_config.interface, __func__);
+    return -1;
 }
 
 static ssize_t rtnl_if_flags_send(int fd, int type, int ifi_flags)
 {
     uint8_t request[NLMSG_ALIGN(sizeof(struct nlmsghdr)) +
-        NLMSG_ALIGN(sizeof(struct ifinfomsg))];
+                    NLMSG_ALIGN(sizeof(struct ifinfomsg))];
     struct nlmsghdr *header;
     struct ifinfomsg *ifinfomsg;
 
@@ -174,7 +171,7 @@ static ssize_t rtnl_if_flags_send(int fd, int type, int ifi_flags)
     header = (struct nlmsghdr *)request;
     header->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
     header->nlmsg_type = type;
-    header->nlmsg_flags = NLM_F_REPLACE | NLM_F_ACK | NLM_F_REQUEST;
+    header->nlmsg_flags = NLM_F_ACK | NLM_F_REQUEST;
     header->nlmsg_seq = ifset_nl_seq++;
 
     ifinfomsg = NLMSG_DATA(header);
@@ -188,8 +185,8 @@ static ssize_t rtnl_if_flags_send(int fd, int type, int ifi_flags)
 static ssize_t rtnl_if_mtu_set(int fd, unsigned int mtu)
 {
     uint8_t request[NLMSG_ALIGN(sizeof(struct nlmsghdr)) +
-        NLMSG_ALIGN(sizeof(struct ifinfomsg)) +
-                    RTA_LENGTH(sizeof(uint32_t))];
+                    NLMSG_ALIGN(sizeof(struct ifinfomsg)) +
+                    RTA_LENGTH(sizeof(unsigned int))];
     struct nlmsghdr *header;
     struct ifinfomsg *ifinfomsg;
 
@@ -197,7 +194,7 @@ static ssize_t rtnl_if_mtu_set(int fd, unsigned int mtu)
     header = (struct nlmsghdr *)request;
     header->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
     header->nlmsg_type = RTM_SETLINK;
-    header->nlmsg_flags = NLM_F_REPLACE | NLM_F_ACK | NLM_F_REQUEST;
+    header->nlmsg_flags = NLM_F_ACK | NLM_F_REQUEST;
     header->nlmsg_seq = ifset_nl_seq++;
 
     ifinfomsg = NLMSG_DATA(header);
@@ -219,8 +216,8 @@ static ssize_t rtnl_addr_broadcast_send(int fd, int type, int ifa_flags,
                                         uint32_t *bcast, uint8_t prefixlen)
 {
     uint8_t request[NLMSG_ALIGN(sizeof(struct nlmsghdr)) +
-        NLMSG_ALIGN(sizeof(struct ifaddrmsg)) +
-        2 * RTA_LENGTH(sizeof(struct in6_addr))];
+                    NLMSG_ALIGN(sizeof(struct ifaddrmsg)) +
+                    2 * RTA_LENGTH(sizeof(struct in6_addr))];
     struct nlmsghdr *header;
     struct ifaddrmsg *ifaddrmsg;
 
@@ -267,8 +264,9 @@ static ssize_t rtnl_addr_broadcast_send(int fd, int type, int ifa_flags,
 static ssize_t rtnl_set_default_gw_v4(int fd, uint32_t gw4, int metric)
 {
     uint8_t request[NLMSG_ALIGN(sizeof(struct nlmsghdr)) +
-        NLMSG_ALIGN(sizeof(struct ifinfomsg)) +
-                    RTA_LENGTH(sizeof(uint32_t))];
+                    NLMSG_ALIGN(sizeof(struct rtmsg)) +
+                    3 * RTA_LENGTH(sizeof(struct in6_addr)) +
+                    RTA_LENGTH(sizeof(int))];
     struct nlmsghdr *header;
     struct rtmsg *rtmsg;
 
@@ -276,13 +274,13 @@ static ssize_t rtnl_set_default_gw_v4(int fd, uint32_t gw4, int metric)
     header = (struct nlmsghdr *)request;
     header->nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
     header->nlmsg_type = RTM_NEWROUTE;
-    header->nlmsg_flags = NLM_F_REPLACE | NLM_F_ACK | NLM_F_REQUEST;
+    header->nlmsg_flags = NLM_F_CREATE | NLM_F_REPLACE | NLM_F_ACK
+                        | NLM_F_REQUEST;
     header->nlmsg_seq = ifset_nl_seq++;
 
     rtmsg = NLMSG_DATA(header);
     rtmsg->rtm_family = AF_INET;
-    rtmsg->rtm_table = RT_TABLE_DEFAULT;
-    rtmsg->rtm_protocol = RTPROT_STATIC;
+    rtmsg->rtm_protocol = RTPROT_DHCP;
     rtmsg->rtm_scope = RT_SCOPE_UNIVERSE;
     rtmsg->rtm_type = RTN_UNICAST;
 
@@ -306,11 +304,13 @@ static ssize_t rtnl_set_default_gw_v4(int fd, uint32_t gw4, int metric)
                  client_config.interface, __func__);
         return -1;
     }
-    if (nl_add_rtattr(header, sizeof request, RTA_METRICS,
-                      &metric, sizeof metric) < 0) {
-        log_line("%s: (%s) couldn't add RTA_METRICS to nlmsg",
-                 client_config.interface, __func__);
-        return -1;
+    if (metric > 0) {
+        if (nl_add_rtattr(header, sizeof request, RTA_PRIORITY,
+                          &metric, sizeof metric) < 0) {
+            log_line("%s: (%s) couldn't add RTA_PRIORITY to nlmsg",
+                     client_config.interface, __func__);
+            return -1;
+        }
     }
 
     return rtnl_do_send(fd, request, header->nlmsg_len, __func__);
@@ -573,14 +573,16 @@ void perform_router(const char *str_router, size_t len)
         return;
     }
 
-    // XXX: Probably need to clear out the old default gw.
-
-    if (rtnl_set_default_gw_v4(fd, router.s_addr, 1) < 0)
+    if (rtnl_set_default_gw_v4(fd, router.s_addr, 0) < 0)
         log_line("%s: (%s) failed to set route: %s",
                  client_config.interface, __func__, strerror(errno));
     else
         log_line("Gateway router set to: '%s'", str_router);
     close(fd);
+
+    // XXX
+    //static char xxxz[] = "1500";
+    //perform_mtu(xxxz, sizeof xxxz);
 }
 
 void perform_mtu(const char *str, size_t len)
@@ -602,8 +604,8 @@ void perform_mtu(const char *str, size_t len)
                  client_config.interface, __func__);
         return;
     }
-    if (tmtu > UINT_MAX) {
-        log_line("%s: (%s) provided mtu arg would overflow unsigned int",
+    if (tmtu > INT_MAX) {
+        log_line("%s: (%s) provided mtu arg would overflow int",
                  client_config.interface, __func__);
         return;
     }
