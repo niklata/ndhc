@@ -89,8 +89,6 @@ static void nl_process_msgs(const struct nlmsghdr *nlh, void *data)
                 get_if_index_and_mac(nlh, ifm);
             if (ifm->ifi_index != client_config.ifindex)
                 break;
-            if (cs->ifchWorking)
-                break;
             // IFF_UP corresponds to ifconfig down or ifconfig up.
             if (ifm->ifi_flags & IFF_UP) {
                 // IFF_RUNNING is the hardware carrier.
@@ -112,8 +110,6 @@ static void nl_process_msgs(const struct nlmsghdr *nlh, void *data)
             break;
         case RTM_DELLINK:
             if (ifm->ifi_index != client_config.ifindex)
-                break;
-            if (cs->ifchWorking)
                 break;
             if (cs->ifsPrevState != IFS_REMOVED) {
                 cs->ifsPrevState = IFS_REMOVED;
