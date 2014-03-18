@@ -76,6 +76,8 @@ void add_option_maxsize(struct dhcpmsg *packet);
 void add_option_vendor(struct dhcpmsg *packet);
 void add_option_clientid(struct dhcpmsg *packet);
 void add_option_hostname(struct dhcpmsg *packet);
+#else
+void add_option_clientid(struct dhcpmsg *packet, char *clientid, size_t clen);
 #endif
 uint32_t get_option_router(struct dhcpmsg *packet);
 uint8_t get_option_msgtype(struct dhcpmsg *packet);

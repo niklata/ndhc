@@ -195,6 +195,7 @@ static size_t add_u8_option(struct dhcpmsg *packet, uint8_t code, uint8_t data)
     return 3;
 }
 
+#ifndef NDHS_BUILD
 // Data should be in network byte order.
 static size_t add_u16_option(struct dhcpmsg *packet, uint8_t code,
                              uint16_t data)
@@ -210,6 +211,7 @@ static size_t add_u16_option(struct dhcpmsg *packet, uint8_t code,
     packet->options[end+4] = DCODE_END;
     return 4;
 }
+#endif
 
 // Data should be in network byte order.
 size_t add_u32_option(struct dhcpmsg *packet, uint8_t code, uint32_t data)
@@ -310,6 +312,11 @@ void add_option_hostname(struct dhcpmsg *packet)
     size_t len = strlen(client_config.hostname);
     if (len)
         add_option_string(packet, DCODE_HOSTNAME, client_config.hostname, len);
+}
+#else
+void add_option_clientid(struct dhcpmsg *packet, char *clientid, size_t clen)
+{
+    add_option_string(packet, DCODE_CLIENT_ID, clientid, clen);
 }
 #endif
 
