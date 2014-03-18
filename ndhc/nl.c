@@ -81,13 +81,10 @@ void nl_attr_parse(const struct nlmsghdr *nlh, size_t offset,
 void nl_rtattr_parse(const struct nlmsghdr *nlh, size_t offset,
                      nl_rtattr_parse_fn workfn, void *data)
 {
-    struct rtattr *attr;
-    for (attr = (struct rtattr *)
-             ((char *)nlh + NLMSG_HDRLEN + NLMSG_ALIGN(offset));
-         rtattr_ok(attr, (char *)nlh + NLMSG_ALIGN(nlh->nlmsg_len) -
-                    (char *)attr);
-         attr = (struct rtattr *)((char *)attr + NLMSG_ALIGN(attr->rta_len)))
-    {
+    struct rtattr *attr =
+        (struct rtattr *)((char *)NLMSG_DATA(nlh) + NLMSG_ALIGN(offset));
+    size_t rtlen = nlh->nlmsg_len - NLMSG_HDRLEN - NLMSG_ALIGN(offset);
+    for (; RTA_OK(attr, rtlen); attr = RTA_NEXT(attr, rtlen)) {
         if (workfn(attr, attr->rta_type, data) < 0)
             break;
     }

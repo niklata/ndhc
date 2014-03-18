@@ -44,11 +44,6 @@ static inline int nl_attr_ok(const struct nlattr *attr, size_t len)
     return 1;
 }
 
-static inline int rtattr_ok(const struct rtattr *attr, size_t len)
-{
-    return RTA_OK(attr, len);
-}
-
 static inline size_t nlattr_get_len(const struct nlattr *attr)
 {
     return attr->nla_len;
