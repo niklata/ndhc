@@ -1,6 +1,6 @@
 /* options.c - DHCP options handling
  *
- * Copyright (c) 2004-2011 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright (c) 2004-2014 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,7 +34,7 @@
 #include "options.h"
 #include "log.h"
 
-static int do_overload_value(uint8_t *buf, ssize_t blen, int overload)
+static int do_overload_value(const uint8_t *buf, ssize_t blen, int overload)
 {
     ssize_t i = 0;
     while (i < blen) {
@@ -58,7 +58,7 @@ static int do_overload_value(uint8_t *buf, ssize_t blen, int overload)
     return overload;
 }
 
-static int overload_value(struct dhcpmsg *packet)
+static int overload_value(const struct dhcpmsg *packet)
 {
     int ol = do_overload_value(packet->options, sizeof packet->options, 0);
     if (ol & 1 && ol & 2)
@@ -74,7 +74,7 @@ static int overload_value(struct dhcpmsg *packet)
     return ol; // ol == 0
 }
 
-static ssize_t do_get_dhcp_opt(uint8_t *sbuf, ssize_t slen, uint8_t code,
+static ssize_t do_get_dhcp_opt(const uint8_t *sbuf, ssize_t slen, uint8_t code,
                                uint8_t *dbuf, ssize_t dlen, ssize_t didx)
 {
     ssize_t i = 0;
@@ -101,7 +101,7 @@ static ssize_t do_get_dhcp_opt(uint8_t *sbuf, ssize_t slen, uint8_t code,
     return didx;
 }
 
-ssize_t get_dhcp_opt(struct dhcpmsg *packet, uint8_t code, uint8_t *dbuf,
+ssize_t get_dhcp_opt(const struct dhcpmsg *packet, uint8_t code, uint8_t *dbuf,
                      ssize_t dlen)
 {
     int ol = overload_value(packet);
@@ -117,7 +117,7 @@ ssize_t get_dhcp_opt(struct dhcpmsg *packet, uint8_t code, uint8_t *dbuf,
 }
 
 // return the position of the 'end' option
-ssize_t get_end_option_idx(struct dhcpmsg *packet)
+ssize_t get_end_option_idx(const struct dhcpmsg *packet)
 {
     for (size_t i = 0; i < sizeof packet->options; ++i) {
         if (packet->options[i] == DCODE_END)
@@ -241,7 +241,7 @@ size_t add_option_request_list(struct dhcpmsg *packet)
                              (char *)reqdata, sizeof reqdata);
 }
 
-size_t add_option_domain_name(struct dhcpmsg *packet, char *dom,
+size_t add_option_domain_name(struct dhcpmsg *packet, const char *dom,
                               size_t domlen)
 {
     return add_option_string(packet, DCODE_DOMAIN, dom, domlen);
@@ -272,7 +272,8 @@ void add_option_serverid(struct dhcpmsg *packet, uint32_t sid)
     add_u32_option(packet, DCODE_SERVER_ID, sid);
 }
 
-void add_option_clientid(struct dhcpmsg *packet, char *clientid, size_t clen)
+void add_option_clientid(struct dhcpmsg *packet, const char *clientid,
+                         size_t clen)
 {
     add_option_string(packet, DCODE_CLIENT_ID, clientid, clen);
 }
@@ -301,7 +302,7 @@ void add_option_hostname(struct dhcpmsg *packet)
 }
 #endif
 
-uint32_t get_option_router(struct dhcpmsg *packet)
+uint32_t get_option_router(const struct dhcpmsg *packet)
 {
     ssize_t ol;
     uint32_t ret = 0;
@@ -312,7 +313,7 @@ uint32_t get_option_router(struct dhcpmsg *packet)
     return ret;
 }
 
-uint8_t get_option_msgtype(struct dhcpmsg *packet)
+uint8_t get_option_msgtype(const struct dhcpmsg *packet)
 {
     ssize_t ol;
     uint8_t ret = 0;
@@ -323,7 +324,7 @@ uint8_t get_option_msgtype(struct dhcpmsg *packet)
     return ret;
 }
 
-uint32_t get_option_serverid(struct dhcpmsg *packet, int *found)
+uint32_t get_option_serverid(const struct dhcpmsg *packet, int *found)
 {
     ssize_t ol;
     uint32_t ret = 0;
@@ -337,7 +338,7 @@ uint32_t get_option_serverid(struct dhcpmsg *packet, int *found)
     return ret;
 }
 
-uint32_t get_option_leasetime(struct dhcpmsg *packet)
+uint32_t get_option_leasetime(const struct dhcpmsg *packet)
 {
     ssize_t ol;
     uint32_t ret = 0;
@@ -351,7 +352,8 @@ uint32_t get_option_leasetime(struct dhcpmsg *packet)
 }
 
 // Returned buffer is not nul-terminated.
-size_t get_option_clientid(struct dhcpmsg *packet, char *cbuf, size_t clen)
+size_t get_option_clientid(const struct dhcpmsg *packet, const char *cbuf,
+                           size_t clen)
 {
     if (clen < 1)
         return 0;
