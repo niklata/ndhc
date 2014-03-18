@@ -121,6 +121,11 @@ static int get_if_index_and_mac(const struct nlmsghdr *nlh,
                  client_config.interface,
                  mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
         memcpy(client_config.arp, mac, 6);
+        if (client_config.clientid_len < 2) {
+            client_config.clientid[0] = 1; // Ethernet MAC type
+            memcpy(&client_config.clientid + 1, mac, 6);
+            client_config.clientid_len = 7;
+        }
         return 1;
     }
     return 0;

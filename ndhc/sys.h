@@ -38,6 +38,11 @@ static inline unsigned long long curms()
     return ts.tv_sec * 1000ULL + ts.tv_nsec / 1000000ULL;
 }
 
+static inline size_t min_size_t(size_t a, size_t b)
+{
+    return a < b ? a : b;
+}
+
 void epoll_add(int epfd, int fd);
 void epoll_del(int epfd, int fd);
 

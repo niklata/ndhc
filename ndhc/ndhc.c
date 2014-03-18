@@ -88,6 +88,7 @@ struct client_state_t cs = {
 struct client_config_t client_config = {
     .interface = "eth0",
     .arp = "\0\0\0\0\0\0",
+    .clientid_len = 0,
 };
 
 static void show_usage(void)
@@ -202,17 +203,24 @@ static int is_string_hwaddr(char *str, size_t slen)
     return 0;
 }
 
-static int get_clientid_mac_string(char *str, size_t slen)
+static int get_clientid_string(char *str, size_t slen)
 {
-    if (!is_string_hwaddr(str, slen))
+    if (!slen)
+        return -1;
+    if (!is_string_hwaddr(str, slen)) {
+        client_config.clientid[0] = 0;
+        memcpy(&client_config.clientid + 1, str,
+               min_size_t(slen, sizeof client_config.clientid - 1));
+        client_config.clientid_len = slen + 1;
         return 0;
-    client_config.clientid[0] = strtol(str, NULL, 16);
-    client_config.clientid[1] = strtol(str+3, NULL, 16);
-    client_config.clientid[2] = strtol(str+6, NULL, 16);
-    client_config.clientid[3] = strtol(str+9, NULL, 16);
-    client_config.clientid[4] = strtol(str+12, NULL, 16);
-    client_config.clientid[5] = strtol(str+15, NULL, 16);
-    client_config.clientid[6] = '\0';
+    }
+
+    uint8_t mac[6];
+    for (size_t i = 0; i < sizeof mac; ++i)
+        mac[i] = strtol(str+i*3, NULL, 16);
+    client_config.clientid[0] = 1; // Ethernet MAC type
+    memcpy(&client_config.clientid + 1, mac, sizeof mac);
+    client_config.clientid_len = 7;
     return 1;
 }
 
@@ -427,11 +435,7 @@ int main(int argc, char **argv)
 
         switch (c) {
             case 'c':
-                if (!get_clientid_mac_string(optarg, strlen(optarg)))
-                    strnkcpy(client_config.clientid, optarg,
-                             sizeof client_config.clientid);
-                else
-                    client_config.clientid_mac = 1;
+                get_clientid_string(optarg, strlen(optarg));
                 break;
             case 'f':
                 client_config.foreground = 1;

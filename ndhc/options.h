@@ -71,17 +71,16 @@ void add_option_broadcast(struct dhcpmsg *packet, uint32_t bc);
 void add_option_msgtype(struct dhcpmsg *packet, uint8_t type);
 void add_option_reqip(struct dhcpmsg *packet, uint32_t ip);
 void add_option_serverid(struct dhcpmsg *packet, uint32_t sid);
+void add_option_clientid(struct dhcpmsg *packet, char *clientid, size_t clen);
 #ifndef NDHS_BUILD
 void add_option_maxsize(struct dhcpmsg *packet);
 void add_option_vendor(struct dhcpmsg *packet);
-void add_option_clientid(struct dhcpmsg *packet);
 void add_option_hostname(struct dhcpmsg *packet);
-#else
-void add_option_clientid(struct dhcpmsg *packet, char *clientid, size_t clen);
 #endif
 uint32_t get_option_router(struct dhcpmsg *packet);
 uint8_t get_option_msgtype(struct dhcpmsg *packet);
 uint32_t get_option_serverid(struct dhcpmsg *packet, int *found);
 uint32_t get_option_leasetime(struct dhcpmsg *packet);
+size_t get_option_clientid(struct dhcpmsg *packet, char *cbuf, size_t clen);
 
 #endif

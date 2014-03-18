@@ -527,6 +527,15 @@ static int validate_dhcp_packet(struct client_state_t *cs, size_t len,
         log_line("Packet does not specify a DHCP message type.  Ignoring.");
         return 0;
     }
+    char clientid[MAX_DOPT_SIZE];
+    size_t cidlen = get_option_clientid(packet, clientid, MAX_DOPT_SIZE);
+    if (cidlen == 0)
+        return 1;
+    if (memcmp(client_config.clientid, clientid,
+               min_size_t(cidlen, client_config.clientid_len))) {
+        log_line("Packet clientid does not match our clientid.  Ignoring.");
+        return 0;
+    }
     return 1;
 }
 
@@ -568,7 +577,8 @@ static struct dhcpmsg init_packet(char type, uint32_t xid)
     };
     add_option_msgtype(&packet, type);
     memcpy(packet.chaddr, client_config.arp, 6);
-    add_option_clientid(&packet);
+    add_option_clientid(&packet, client_config.clientid,
+                        client_config.clientid_len);
     return packet;
 }
 
