@@ -54,15 +54,12 @@ int rtattr_assign(struct rtattr *attr, int type, void *data)
 int nl_add_rtattr(struct nlmsghdr *n, size_t max_length, int type,
                   const void *data, size_t data_length)
 {
-    size_t length;
-    struct rtattr *rta;
-
-    length = RTA_LENGTH(data_length);
+    size_t length = RTA_LENGTH(data_length);
 
     if (NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(length) > max_length)
         return -E2BIG;
 
-    rta = NLMSG_TAIL(n);
+    struct rtattr *rta = NLMSG_TAIL(n);
     rta->rta_type = type;
     rta->rta_len = length;
     memcpy(RTA_DATA(rta), data, data_length);
