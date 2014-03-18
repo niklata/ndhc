@@ -106,7 +106,7 @@ static int get_if_index_and_mac(const struct nlmsghdr *nlh,
     struct rtattr *tb[IFLA_MAX] = {0};
     nl_rtattr_parse(nlh, sizeof *ifm, rtattr_assign, tb);
     if (tb[IFLA_IFNAME] && !strncmp(client_config.interface,
-                                    rtattr_get_data(tb[IFLA_IFNAME]),
+                                    RTA_DATA(tb[IFLA_IFNAME]),
                                     sizeof client_config.interface)) {
         client_config.ifindex = ifm->ifi_index;
         if (!tb[IFLA_ADDRESS])
@@ -116,8 +116,7 @@ static int get_if_index_and_mac(const struct nlmsghdr *nlh,
             suicide("FATAL: Adapter hardware address length should be 6, but is %u.",
                     maclen);
 
-        const unsigned char *mac =
-            (unsigned char *)rtattr_get_data(tb[IFLA_ADDRESS]);
+        const unsigned char *mac = RTA_DATA(tb[IFLA_ADDRESS]);
         log_line("%s hardware address %x:%x:%x:%x:%x:%x",
                  client_config.interface,
                  mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);

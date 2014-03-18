@@ -385,12 +385,12 @@ static void ipbcpfx_clear_others_do(const struct nlmsghdr *nlh, void *data)
                 goto erase;
             if (!tb[IFA_ADDRESS])
                 goto erase;
-            if (memcmp(rtattr_get_data(tb[IFA_ADDRESS]), &ipx->ipaddr,
+            if (memcmp(RTA_DATA(tb[IFA_ADDRESS]), &ipx->ipaddr,
                        sizeof ipx->ipaddr))
                 goto erase;
             if (!tb[IFA_BROADCAST])
                 goto erase;
-            if (memcmp(rtattr_get_data(tb[IFA_BROADCAST]), &ipx->bcast,
+            if (memcmp(RTA_DATA(tb[IFA_BROADCAST]), &ipx->bcast,
                        sizeof ipx->bcast))
                 goto erase;
             break;
@@ -404,8 +404,8 @@ static void ipbcpfx_clear_others_do(const struct nlmsghdr *nlh, void *data)
   erase:
     r = rtnl_addr_broadcast_send(ipx->fd, RTM_DELADDR, ifm->ifa_flags,
                                  ifm->ifa_scope,
-                                 tb[IFA_ADDRESS] ? rtattr_get_data(tb[IFA_ADDRESS]) : NULL,
-                                 tb[IFA_BROADCAST] ? rtattr_get_data(tb[IFA_BROADCAST]) : NULL,
+                                 tb[IFA_ADDRESS] ? RTA_DATA(tb[IFA_ADDRESS]) : NULL,
+                                 tb[IFA_BROADCAST] ? RTA_DATA(tb[IFA_BROADCAST]) : NULL,
                                  ifm->ifa_prefixlen);
     if (r < 0 && r != -2) {
         log_warning("%s: (%s) Failed to delete IP and broadcast addresses.",

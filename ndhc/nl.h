@@ -33,11 +33,6 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 
-static inline void *rtattr_get_data(const struct rtattr *attr)
-{
-    return (char *)RTA_DATA(attr);
-}
-
 static inline int nlmsg_get_error(const struct nlmsghdr *nlh)
 {
     const struct nlmsgerr *err = NLMSG_DATA(nlh);
