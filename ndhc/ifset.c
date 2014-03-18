@@ -82,15 +82,6 @@ struct ipbcpfx {
     bool already_ok;
 };
 
-static int rtattr_assign(struct rtattr *attr, int type, void *data)
-{
-    struct rtattr **tb = data;
-    if (type >= IFA_MAX)
-        return 0;
-    tb[type] = attr;
-    return 0;
-}
-
 static ssize_t rtnl_do_send(int fd, uint8_t *sbuf, size_t slen,
                             const char *fnname)
 {

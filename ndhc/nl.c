@@ -38,6 +38,15 @@
 #include "log.h"
 #include "nl.h"
 
+int rtattr_assign(struct rtattr *attr, int type, void *data)
+{
+    struct rtattr **tb = data;
+    if (type >= IFA_MAX)
+        return 0;
+    tb[type] = attr;
+    return 0;
+}
+
 #define NLMSG_TAIL(nmsg)                               \
     ((struct rtattr *) (((uint8_t*) (nmsg)) +          \
                         NLMSG_ALIGN((nmsg)->nlmsg_len)))
@@ -60,22 +69,6 @@ int nl_add_rtattr(struct nlmsghdr *n, size_t max_length, int type,
     n->nlmsg_len = NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(length);
 
     return 0;
-}
-
-void nl_attr_parse(const struct nlmsghdr *nlh, size_t offset,
-                   nl_attr_parse_fn workfn, void *data)
-{
-    struct nlattr *attr;
-    for (attr = (struct nlattr *)
-             ((char *)nlh + NLMSG_HDRLEN + NLMSG_ALIGN(offset));
-         nl_attr_ok(attr, (char *)nlh + NLMSG_ALIGN(nlh->nlmsg_len) -
-                    (char *)attr);
-         attr = (struct nlattr *)((char *)attr + NLMSG_ALIGN(attr->nla_len)))
-    {
-        int type = attr->nla_type & NLA_TYPE_MASK;
-        if (workfn(attr, type, data) < 0)
-            break;
-    }
 }
 
 void nl_rtattr_parse(const struct nlmsghdr *nlh, size_t offset,

@@ -43,15 +43,6 @@
 #include "nl.h"
 #include "state.h"
 
-static int nlattr_assign(struct nlattr *attr, int type, void *data)
-{
-    struct nlattr **tb = data;
-    if (type >= IFLA_MAX)
-        return 0;
-    tb[type] = attr;
-    return 0;
-}
-
 static void nl_process_msgs(const struct nlmsghdr *nlh, void *data)
 {
     struct ifinfomsg *ifm = nlmsg_get_data(nlh);
@@ -112,21 +103,21 @@ void handle_nl_message(struct client_state_t *cs)
 static int get_if_index_and_mac(const struct nlmsghdr *nlh,
                                 struct ifinfomsg *ifm)
 {
-    struct nlattr *tb[IFLA_MAX] = {0};
-    nl_attr_parse(nlh, sizeof *ifm, nlattr_assign, tb);
+    struct rtattr *tb[IFLA_MAX] = {0};
+    nl_rtattr_parse(nlh, sizeof *ifm, rtattr_assign, tb);
     if (tb[IFLA_IFNAME] && !strncmp(client_config.interface,
-                                    nlattr_get_data(tb[IFLA_IFNAME]),
+                                    rtattr_get_data(tb[IFLA_IFNAME]),
                                     sizeof client_config.interface)) {
         client_config.ifindex = ifm->ifi_index;
         if (!tb[IFLA_ADDRESS])
             suicide("FATAL: Adapter %s lacks a hardware address.");
-        int maclen = nlattr_get_len(tb[IFLA_ADDRESS]) - 4;
+        int maclen = tb[IFLA_ADDRESS]->rta_len - 4;
         if (maclen != 6)
             suicide("FATAL: Adapter hardware address length should be 6, but is %u.",
                     maclen);
 
         const unsigned char *mac =
-            (unsigned char *)nlattr_get_data(tb[IFLA_ADDRESS]);
+            (unsigned char *)rtattr_get_data(tb[IFLA_ADDRESS]);
         log_line("%s hardware address %x:%x:%x:%x:%x:%x",
                  client_config.interface,
                  mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);

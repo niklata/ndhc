@@ -33,27 +33,6 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 
-static inline int nl_attr_ok(const struct nlattr *attr, size_t len)
-{
-    if (len < sizeof *attr)
-        return 0;
-    if (attr->nla_len < sizeof *attr)
-        return 0;
-    if (attr->nla_len > len)
-        return 0;
-    return 1;
-}
-
-static inline size_t nlattr_get_len(const struct nlattr *attr)
-{
-    return attr->nla_len;
-}
-
-static inline void *nlattr_get_data(const struct nlattr *attr)
-{
-    return (char *)attr + NLA_HDRLEN;
-}
-
 static inline void *rtattr_get_data(const struct rtattr *attr)
 {
     return (char *)RTA_DATA(attr);
@@ -72,11 +51,9 @@ static inline int nlmsg_get_error(const struct nlmsghdr *nlh)
     return err->error & 0x7fffffff;
 }
 
+extern int rtattr_assign(struct rtattr *attr, int type, void *data);
 extern int nl_add_rtattr(struct nlmsghdr *n, size_t max_length, int type,
                          const void *data, size_t data_length);
-typedef int (*nl_attr_parse_fn)(struct nlattr *attr, int type, void *data);
-extern void nl_attr_parse(const struct nlmsghdr *nlh, size_t offset,
-                          nl_attr_parse_fn workfn, void *data);
 typedef int (*nl_rtattr_parse_fn)(struct rtattr *attr, int type, void *data);
 extern void nl_rtattr_parse(const struct nlmsghdr *nlh, size_t offset,
                             nl_rtattr_parse_fn workfn, void *data);
