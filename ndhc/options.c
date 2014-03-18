@@ -124,8 +124,9 @@ ssize_t get_end_option_idx(struct dhcpmsg *packet)
             return i;
         if (packet->options[i] == DCODE_PADDING)
             continue;
-        if (packet->options[i] != DCODE_PADDING)
-            i += packet->options[i+1] + 1;
+        if (i + 1 >= sizeof packet->options)
+            break;
+        i += packet->options[i+1] + 1;
     }
     log_warning("get_end_option_idx: Did not find DCODE_END marker.");
     return -1;
