@@ -59,14 +59,14 @@ extern int arp_probe_min;
 extern int arp_probe_max;
 extern int arp_relentless_def;
 
-extern void arp_reset_send_stats(void);
-extern int arp_close_fd(struct client_state_t *cs);
-extern int arp_check(struct client_state_t *cs, struct dhcpmsg *packet);
-extern int arp_gw_check(struct client_state_t *cs);
-extern void arp_set_defense_mode(struct client_state_t *cs);
-extern void arp_success(struct client_state_t *cs);
-extern void handle_arp_response(struct client_state_t *cs);
-extern void handle_arp_timeout(struct client_state_t *cs, long long nowts);
-extern long long arp_get_wake_ts(void);
+void arp_reset_send_stats(void);
+int arp_close_fd(struct client_state_t *cs);
+int arp_check(struct client_state_t *cs, struct dhcpmsg *packet);
+int arp_gw_check(struct client_state_t *cs);
+void arp_set_defense_mode(struct client_state_t *cs);
+void arp_success(struct client_state_t *cs);
+void handle_arp_response(struct client_state_t *cs);
+void handle_arp_timeout(struct client_state_t *cs, long long nowts);
+long long arp_get_wake_ts(void);
 
 #endif /* ARP_H_ */

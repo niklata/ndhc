@@ -36,17 +36,17 @@ extern char pidfile_ifch[MAX_PATH_LENGTH];
 extern uid_t ifch_uid;
 extern gid_t ifch_gid;
 
-extern void perform_timezone(const char *str, size_t len);
-extern void perform_dns(const char *str, size_t len);
-extern void perform_lprsvr(const char *str, size_t len);
-extern void perform_hostname(const char *str, size_t len);
-extern void perform_domain(const char *str, size_t len);
-extern void perform_ipttl(const char *str, size_t len);
-extern void perform_ntpsrv(const char *str, size_t len);
-extern void perform_wins(const char *str, size_t len);
+void perform_timezone(const char *str, size_t len);
+void perform_dns(const char *str, size_t len);
+void perform_lprsvr(const char *str, size_t len);
+void perform_hostname(const char *str, size_t len);
+void perform_domain(const char *str, size_t len);
+void perform_ipttl(const char *str, size_t len);
+void perform_ntpsrv(const char *str, size_t len);
+void perform_wins(const char *str, size_t len);
 
-extern void do_ifch_work(void);
-extern void ifch_main(void);
+void do_ifch_work(void);
+void ifch_main(void);
 
 #endif /* NJK_IFCHD_H_ */
 

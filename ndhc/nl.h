@@ -41,23 +41,23 @@ static inline int nlmsg_get_error(const struct nlmsghdr *nlh)
     return err->error & 0x7fffffff;
 }
 
-extern int rtattr_assign(struct rtattr *attr, int type, void *data);
-extern int nl_add_rtattr(struct nlmsghdr *n, size_t max_length, int type,
-                         const void *data, size_t data_length);
+int rtattr_assign(struct rtattr *attr, int type, void *data);
+int nl_add_rtattr(struct nlmsghdr *n, size_t max_length, int type,
+                  const void *data, size_t data_length);
 typedef int (*nl_rtattr_parse_fn)(struct rtattr *attr, int type, void *data);
-extern void nl_rtattr_parse(const struct nlmsghdr *nlh, size_t offset,
-                            nl_rtattr_parse_fn workfn, void *data);
+void nl_rtattr_parse(const struct nlmsghdr *nlh, size_t offset,
+                     nl_rtattr_parse_fn workfn, void *data);
 
-extern ssize_t nl_recv_buf(int fd, char *buf, size_t blen);
+ssize_t nl_recv_buf(int fd, char *buf, size_t blen);
 
 typedef void (*nlmsg_foreach_fn)(const struct nlmsghdr *, void *);
-extern int nl_foreach_nlmsg(char *buf, size_t blen, uint32_t seq,
-                            uint32_t portid,
-                            nlmsg_foreach_fn pfn, void *fnarg);
-extern int nl_sendgetlinks(int fd, int seq);
-extern int nl_sendgetlink(int fd, int seq, int ifindex);
-extern int nl_sendgetaddr(int fd, int seq, int ifindex);
+int nl_foreach_nlmsg(char *buf, size_t blen, uint32_t seq,
+                     uint32_t portid,
+                     nlmsg_foreach_fn pfn, void *fnarg);
+int nl_sendgetlinks(int fd, int seq);
+int nl_sendgetlink(int fd, int seq, int ifindex);
+int nl_sendgetaddr(int fd, int seq, int ifindex);
 
-extern int nl_open(int nltype, int nlgroup, int *nlportid);
+int nl_open(int nltype, int nlgroup, int *nlportid);
 
 #endif /* NK_NL_H_ */

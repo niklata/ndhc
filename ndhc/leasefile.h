@@ -29,9 +29,9 @@
 #ifndef NJK_NDHC_LEASEFILE_H_
 #define NJK_NDHC_LEASEFILE_H_
 
-extern void set_leasefile(char *lf);
-extern void open_leasefile(void);
-extern void write_leasefile(struct in_addr ipnum);
+void set_leasefile(char *lf);
+void open_leasefile(void);
+void write_leasefile(struct in_addr ipnum);
 
 #endif /* NJK_NDHC_LEASEFILE_H_ */
 

@@ -40,7 +40,7 @@ enum {
     IFS_REMOVED
 };
 
-extern void handle_nl_message(struct client_state_t *cs);
-extern int nl_getifdata(void);
+void handle_nl_message(struct client_state_t *cs);
+int nl_getifdata(void);
 
 #endif /* NK_NETLINK_H_ */

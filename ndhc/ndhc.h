@@ -73,6 +73,6 @@ extern int pToNdhcW;
 extern char chroot_dir[MAX_PATH_LENGTH];
 extern char resolv_conf_d[MAX_PATH_LENGTH];
 
-extern void background(void);
+void background(void);
 
 #endif /* NJK_NDHC_NDHC_H_ */

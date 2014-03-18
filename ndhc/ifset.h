@@ -28,11 +28,11 @@
 
 #ifndef NJK_IFSET_H_
 #define NJK_IFSET_H_
-extern int perform_ifup(void);
-extern void perform_ip_subnet_bcast(const char *str_ipaddr,
-                                    const char *str_subnet,
-                                    const char *str_bcast);
-extern void perform_router(const char *str, size_t len);
-extern void perform_mtu(const char *str, size_t len);
+int perform_ifup(void);
+void perform_ip_subnet_bcast(const char *str_ipaddr,
+                             const char *str_subnet,
+                             const char *str_bcast);
+void perform_router(const char *str, size_t len);
+void perform_mtu(const char *str, size_t len);
 #endif
 
