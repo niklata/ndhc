@@ -45,7 +45,7 @@
 
 static void nl_process_msgs(const struct nlmsghdr *nlh, void *data)
 {
-    struct ifinfomsg *ifm = nlmsg_get_data(nlh);
+    struct ifinfomsg *ifm = NLMSG_DATA(nlh);
     struct client_state_t *cs = data;
 
     switch(nlh->nlmsg_type) {
@@ -130,7 +130,7 @@ static int get_if_index_and_mac(const struct nlmsghdr *nlh,
 static void do_handle_getifdata(const struct nlmsghdr *nlh, void *data)
 {
     int *got_ifdata = (int *)data;
-    struct ifinfomsg *ifm = nlmsg_get_data(nlh);
+    struct ifinfomsg *ifm = NLMSG_DATA(nlh);
 
     switch(nlh->nlmsg_type) {
         case RTM_NEWLINK:

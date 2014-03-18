@@ -288,7 +288,7 @@ struct link_flag_data {
 
 static void link_flags_get_do(const struct nlmsghdr *nlh, void *data)
 {
-    struct ifinfomsg *ifm = nlmsg_get_data(nlh);
+    struct ifinfomsg *ifm = NLMSG_DATA(nlh);
     struct link_flag_data *ifd = data;
 
     switch(nlh->nlmsg_type) {
@@ -366,7 +366,7 @@ static int link_unset_flags(int fd, uint32_t flags)
 static void ipbcpfx_clear_others_do(const struct nlmsghdr *nlh, void *data)
 {
     struct rtattr *tb[IFA_MAX] = {0};
-    struct ifaddrmsg *ifm = nlmsg_get_data(nlh);
+    struct ifaddrmsg *ifm = NLMSG_DATA(nlh);
     struct ipbcpfx *ipx = data;
     int r;
 

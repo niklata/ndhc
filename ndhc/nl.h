@@ -38,14 +38,9 @@ static inline void *rtattr_get_data(const struct rtattr *attr)
     return (char *)RTA_DATA(attr);
 }
 
-static inline void *nlmsg_get_data(const struct nlmsghdr *nlh)
-{
-    return (char *)nlh + NLMSG_HDRLEN;
-}
-
 static inline int nlmsg_get_error(const struct nlmsghdr *nlh)
 {
-    const struct nlmsgerr *err = nlmsg_get_data(nlh);
+    const struct nlmsgerr *err = NLMSG_DATA(nlh);
     if (nlh->nlmsg_len < sizeof(struct nlmsgerr) + NLMSG_HDRLEN)
         return EBADMSG;
     return err->error & 0x7fffffff;
