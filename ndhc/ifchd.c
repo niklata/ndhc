@@ -51,7 +51,6 @@
 #include "chroot.h"
 #include "pidfile.h"
 #include "signals.h"
-#include "ifch_proto.h"
 #include "ifchd-parse.h"
 #include "strl.h"
 #include "cap.h"

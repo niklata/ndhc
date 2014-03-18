@@ -43,7 +43,6 @@
 #include "io.h"
 #include "strl.h"
 #include "ifchange.h"
-#include "ifch_proto.h"
 
 static struct dhcpmsg cfg_packet; // Copy of the current configuration packet.
 
@@ -126,6 +125,18 @@ static int ifchd_cmd_bytes(char *buf, size_t buflen, char *optname,
     return (buf - obuf) + optlen + 1;
 }
 
+#define CMD_ROUTER        "routr"
+#define CMD_IP4SET        "ip4"
+#define CMD_DNS           "dns"
+#define CMD_LPRSVR        "lpr"
+#define CMD_NTPSVR        "ntp"
+#define CMD_WINS          "wins"
+#define CMD_HOSTNAME      "host"
+#define CMD_DOMAIN        "dom"
+#define CMD_TIMEZONE      "tzone"
+#define CMD_MTU           "mtu"
+#define CMD_IPTTL         "ipttl"
+#define CMD_NULL          "NULL"
 #define IFCHD_SW_CMD(x, y) case DCODE_##x: \
                            optname = CMD_##x; \
                            dofn = ifchd_cmd_##y; \
@@ -136,16 +147,16 @@ static int ifchd_cmd(char *buf, size_t buflen, uint8_t *optdata,
     int (*dofn)(char *, size_t, char *, uint8_t *, ssize_t);
     char *optname;
     switch (code) {
+        IFCHD_SW_CMD(ROUTER, ip);
         IFCHD_SW_CMD(DNS, iplist);
         IFCHD_SW_CMD(LPRSVR, iplist);
         IFCHD_SW_CMD(NTPSVR, iplist);
         IFCHD_SW_CMD(WINS, iplist);
-        IFCHD_SW_CMD(ROUTER, ip);
-        IFCHD_SW_CMD(TIMEZONE, s32);
         IFCHD_SW_CMD(HOSTNAME, bytes);
         IFCHD_SW_CMD(DOMAIN, bytes);
-        IFCHD_SW_CMD(IPTTL, u8);
+        IFCHD_SW_CMD(TIMEZONE, s32);
         IFCHD_SW_CMD(MTU, u16);
+        IFCHD_SW_CMD(IPTTL, u8);
     default:
         log_line("Invalid option code (%c) for ifchd cmd.", code);
         return -1;

@@ -51,7 +51,6 @@
 #include "ifchd.h"
 #include "ndhc.h"
 #include "log.h"
-#include "ifch_proto.h"
 #include "strl.h"
 #include "nl.h"
 
