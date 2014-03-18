@@ -27,6 +27,7 @@
  */
 
 #include <stdlib.h>
+#include <stddef.h>
 #include <unistd.h>
 #include <string.h>
 #include <netinet/in.h>
@@ -499,7 +500,7 @@ void set_listen_none(struct client_state_t *cs)
 static int validate_dhcp_packet(struct client_state_t *cs, size_t len,
                                 struct dhcpmsg *packet, uint8_t *msgtype)
 {
-    if (len < sizeof *packet - sizeof packet->options) {
+    if (len < offsetof(struct dhcpmsg, options)) {
         log_line("Packet is too short to contain magic cookie.  Ignoring.");
         return 0;
     }
