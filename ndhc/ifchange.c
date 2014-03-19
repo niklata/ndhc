@@ -59,8 +59,12 @@ static int ifcmd_raw(char *buf, size_t buflen, char *optname,
     int ioptlen = (int)optlen;
     ssize_t olen = snprintf(buf, buflen, "%s:%.*s;",
                             optname, ioptlen, optdata);
-    if (olen < 0 || (size_t)olen >= buflen)
-        return -2;
+    if (olen < 0 || (size_t)olen >= buflen) {
+        log_warning("%s: (%s) '%s' option would truncate, so it was dropped.",
+                    client_config.interface, __func__, optname);
+        memset(buf, 0, buflen);
+        return -1;
+    }
     return olen;
 }
 
@@ -306,13 +310,8 @@ static size_t send_cmd(char *out, size_t olen, struct dhcpmsg *packet,
     oldlen = get_dhcp_opt(&cfg_packet, code, olddata, sizeof olddata);
     if (oldlen == optlen && !memcmp(optdata, olddata, optlen))
         return 0;
-    int r = ifchd_cmd(buf, sizeof buf, optdata, optlen, code);
-    if (r == -1)
+    if (ifchd_cmd(buf, sizeof buf, optdata, optlen, code) < 0)
         return 0;
-    else if (r < -1) {
-        log_warning("Error happened generating ifch cmd string.");
-        return 0;
-    }
     strnkcat(out, buf, olen);
     return strlen(buf);
 }
