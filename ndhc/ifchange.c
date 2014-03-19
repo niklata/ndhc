@@ -123,11 +123,7 @@ static int ifcmd_ip(char *buf, size_t buflen, char *optname,
     if (!optdata || optlen < 4)
         return -1;
     char ipbuf[INET_ADDRSTRLEN];
-    if (!inet_ntop(AF_INET, optdata, ipbuf, sizeof ipbuf)) {
-        log_warning("%s: (%s) inet_ntop failed: %s",
-                    client_config.interface, __func__, strerror(errno));
-        return -1;
-    }
+    inet_ntop(AF_INET, optdata, ipbuf, sizeof ipbuf);
     return ifcmd_raw(buf, buflen, optname, ipbuf, strlen(ipbuf));
 }
 
@@ -142,11 +138,7 @@ static int ifcmd_iplist(char *out, size_t outlen, char *optname,
     if (!optdata || optlen < 4)
         return -1;
 
-    if (!inet_ntop(AF_INET, optdata + optoff, ipbuf, sizeof ipbuf)) {
-        log_warning("%s: (%s) inet_ntop failed: %s",
-                    client_config.interface, __func__, strerror(errno));
-        return -1;
-    }
+    inet_ntop(AF_INET, optdata + optoff, ipbuf, sizeof ipbuf);
     ssize_t wc = snprintf(buf + bufoff, sizeof buf, "%s:%s", optname, ipbuf);
     if (wc < 0 || (size_t)wc >= sizeof buf)
         return -1;
@@ -154,11 +146,7 @@ static int ifcmd_iplist(char *out, size_t outlen, char *optname,
     bufoff += wc;
 
     while (optlen - optoff >= 4) {
-        if (!inet_ntop(AF_INET, optdata + optoff, ipbuf, sizeof ipbuf)) {
-            log_warning("%s: (%s) inet_ntop failed: %s",
-                        client_config.interface, __func__, strerror(errno));
-            return -1;
-        }
+        inet_ntop(AF_INET, optdata + optoff, ipbuf, sizeof ipbuf);
         wc = snprintf(buf + bufoff, sizeof buf, ",%s", ipbuf);
         if (wc < 0 || (size_t)wc >= sizeof buf)
             return -1;
@@ -229,20 +217,12 @@ static size_t send_client_ip(char *out, size_t olen, struct dhcpmsg *packet)
 
     if (memcmp(&packet->yiaddr, &cfg_packet.yiaddr, sizeof packet->yiaddr))
         change_ipaddr = true;
-    if (!inet_ntop(AF_INET, &packet->yiaddr, ip, sizeof ip)) {
-        log_warning("%s: (%s) inet_ntop for ip failed: %s",
-                    client_config.interface, __func__, strerror(errno));
-        return 0;
-    }
+    inet_ntop(AF_INET, &packet->yiaddr, ip, sizeof ip);
 
     optlen = get_dhcp_opt(packet, DCODE_SUBNET, optdata, sizeof optdata);
     if (optlen >= 4) {
         have_subnet = true;
-        if (!inet_ntop(AF_INET, optdata, sn, sizeof sn)) {
-            log_warning("%s: (%s) inet_ntop for subnet failed: %s",
-                        client_config.interface, __func__, strerror(errno));
-            return 0;
-        }
+        inet_ntop(AF_INET, optdata, sn, sizeof sn);
         oldlen = get_dhcp_opt(&cfg_packet, DCODE_SUBNET, olddata,
                               sizeof olddata);
         if (oldlen != optlen || memcmp(optdata, olddata, optlen))
@@ -252,11 +232,7 @@ static size_t send_client_ip(char *out, size_t olen, struct dhcpmsg *packet)
     optlen = get_dhcp_opt(packet, DCODE_BROADCAST, optdata, sizeof optdata);
     if (optlen >= 4) {
         have_bcast = true;
-        if (!inet_ntop(AF_INET, optdata, bc, sizeof bc)) {
-            log_warning("%s: (%s) inet_ntop for broadcast failed: %s",
-                        client_config.interface, __func__, strerror(errno));
-            return 0;
-        }
+        inet_ntop(AF_INET, optdata, bc, sizeof bc);
         oldlen = get_dhcp_opt(&cfg_packet, DCODE_BROADCAST, olddata,
                               sizeof olddata);
         if (oldlen != optlen || memcmp(optdata, olddata, optlen))
