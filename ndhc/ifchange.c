@@ -33,6 +33,7 @@
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <errno.h>
+#include <limits.h>
 
 #include "options.h"
 #include "ndhc.h"
@@ -46,12 +47,40 @@
 
 static struct dhcpmsg cfg_packet; // Copy of the current configuration packet.
 
+static int ifcmd_raw(char *buf, size_t buflen, char *optname,
+                     char *optdata, ssize_t optlen)
+{
+    if (!optdata)
+        return -1;
+    if (buflen < strlen(optname) + optlen + 3)
+        return -1;
+    if (optlen > INT_MAX || optlen < 0)
+        return -1;
+    int ioptlen = (int)optlen;
+    ssize_t olen = snprintf(buf, buflen, "%s:%.*s;",
+                            optname, ioptlen, optdata);
+    if (olen < 0 || (size_t)olen >= buflen)
+        return -2;
+    return olen;
+}
+
+static int ifchd_cmd_bytes(char *buf, size_t buflen, char *optname,
+                           uint8_t *optdata, ssize_t optlen)
+{
+    return ifcmd_raw(buf, buflen, optname, (char *)optdata, optlen);
+}
+
 static int ifchd_cmd_u8(char *buf, size_t buflen, char *optname,
                         uint8_t *optdata, ssize_t optlen)
 {
     if (!optdata || optlen < 1)
         return -1;
-    return snprintf(buf, buflen, "%s:%c;", optname, *optdata);
+    char numbuf[16];
+    uint8_t c = optdata[0];
+    ssize_t olen = snprintf(numbuf, sizeof numbuf, "%c", c);
+    if (olen < 0 || (size_t)olen >= sizeof numbuf)
+        return -1;
+    return ifcmd_raw(buf, buflen, optname, numbuf, strlen(numbuf));
 }
 
 static int ifchd_cmd_u16(char *buf, size_t buflen, char *optname,
@@ -59,10 +88,14 @@ static int ifchd_cmd_u16(char *buf, size_t buflen, char *optname,
 {
     if (!optdata || optlen < 2)
         return -1;
+    char numbuf[16];
     uint16_t v;
     memcpy(&v, optdata, 2);
     v = ntohs(v);
-    return snprintf(buf, buflen, "%s:%hu;", optname, v);
+    ssize_t olen = snprintf(numbuf, sizeof numbuf, "%hu", v);
+    if (olen < 0 || (size_t)olen >= sizeof numbuf)
+        return -1;
+    return ifcmd_raw(buf, buflen, optname, numbuf, strlen(numbuf));
 }
 
 static int ifchd_cmd_s32(char *buf, size_t buflen, char *optname,
@@ -70,59 +103,69 @@ static int ifchd_cmd_s32(char *buf, size_t buflen, char *optname,
 {
     if (!optdata || optlen < 4)
         return -1;
+    char numbuf[16];
     int32_t v;
     memcpy(&v, optdata, 4);
     v = ntohl(v);
-    return snprintf(buf, buflen, "%s:%d;", optname, v);
+    ssize_t olen = snprintf(numbuf, sizeof numbuf, "%d", v);
+    if (olen < 0 || (size_t)olen >= sizeof numbuf)
+        return -1;
+    return ifcmd_raw(buf, buflen, optname, numbuf, strlen(numbuf));
 }
 
 static int ifchd_cmd_ip(char *buf, size_t buflen, char *optname,
                         uint8_t *optdata, ssize_t optlen)
 {
-    char ipbuf[INET_ADDRSTRLEN];
     if (!optdata || optlen < 4)
         return -1;
-    inet_ntop(AF_INET, optdata, ipbuf, sizeof ipbuf);
-    return snprintf(buf, buflen, "%s:%s;", optname, ipbuf);
+    char ipbuf[INET_ADDRSTRLEN];
+    if (!inet_ntop(AF_INET, optdata, ipbuf, sizeof ipbuf)) {
+        log_warning("%s: (%s) inet_ntop failed: %s",
+                    client_config.interface, __func__, strerror(errno));
+        return -1;
+    }
+    return ifcmd_raw(buf, buflen, optname, ipbuf, strlen(ipbuf));
 }
 
-static int ifchd_cmd_iplist(char *buf, size_t buflen, char *optname,
+static int ifchd_cmd_iplist(char *out, size_t outlen, char *optname,
                             uint8_t *optdata, ssize_t optlen)
 {
+    char buf[2048];
     char ipbuf[INET_ADDRSTRLEN];
-    char *obuf = buf;
+    size_t bufoff = 0;
+    size_t optoff = 0;
+
     if (!optdata || optlen < 4)
         return -1;
-    inet_ntop(AF_INET, optdata, ipbuf, sizeof ipbuf);
-    ssize_t wc = snprintf(buf, buflen, "%s:%s", optname, ipbuf);
-    if (wc <= 0)
-        return wc;
-    optlen -= 4;
-    optdata += 4;
-    buf += wc;
-    while (optlen >= 4) {
-        inet_ntop(AF_INET, optdata, ipbuf, sizeof ipbuf);
-        if (buflen < strlen(ipbuf) + (buf - obuf) + 2)
-            break;
-        buf += snprintf(buf, buflen - (buf - obuf), ",%s", ipbuf);
-        optlen -= 4;
-        optdata += 4;
-    }
-    buf += snprintf(buf, buflen - (buf - obuf), ";");
-    return buf - obuf;
-}
 
-static int ifchd_cmd_bytes(char *buf, size_t buflen, char *optname,
-                           uint8_t *optdata, ssize_t optlen)
-{
-    char *obuf = buf;
-    if (buflen < strlen(optname) + optlen + 3)
+    if (!inet_ntop(AF_INET, optdata + optoff, ipbuf, sizeof ipbuf)) {
+        log_warning("%s: (%s) inet_ntop failed: %s",
+                    client_config.interface, __func__, strerror(errno));
         return -1;
-    buf += snprintf(buf, buflen, "%s:", optname);
-    memcpy(buf, optdata, optlen);
-    buf[optlen] = ';';
-    buf[optlen+1] = '\0';
-    return (buf - obuf) + optlen + 1;
+    }
+    ssize_t wc = snprintf(buf + bufoff, sizeof buf, "%s:%s", optname, ipbuf);
+    if (wc < 0 || (size_t)wc >= sizeof buf)
+        return -1;
+    optoff += 4;
+    bufoff += wc;
+
+    while (optlen - optoff >= 4) {
+        if (!inet_ntop(AF_INET, optdata + optoff, ipbuf, sizeof ipbuf)) {
+            log_warning("%s: (%s) inet_ntop failed: %s",
+                        client_config.interface, __func__, strerror(errno));
+            return -1;
+        }
+        wc = snprintf(buf + bufoff, sizeof buf, ",%s", ipbuf);
+        if (wc < 0 || (size_t)wc >= sizeof buf)
+            return -1;
+        optoff += 4;
+        bufoff += wc;
+    }
+
+    wc = snprintf(buf + bufoff, sizeof buf, ";");
+    if (wc < 0 || (size_t)wc >= sizeof buf)
+        return -1;
+    return ifcmd_raw(out, outlen, optname, buf, strlen(buf));
 }
 
 #define CMD_ROUTER        "routr"
@@ -263,8 +306,13 @@ static size_t send_cmd(char *out, size_t olen, struct dhcpmsg *packet,
     oldlen = get_dhcp_opt(&cfg_packet, code, olddata, sizeof olddata);
     if (oldlen == optlen && !memcmp(optdata, olddata, optlen))
         return 0;
-    if (ifchd_cmd(buf, sizeof buf, optdata, optlen, code) == -1)
+    int r = ifchd_cmd(buf, sizeof buf, optdata, optlen, code);
+    if (r == -1)
         return 0;
+    else if (r < -1) {
+        log_warning("Error happened generating ifch cmd string.");
+        return 0;
+    }
     strnkcat(out, buf, olen);
     return strlen(buf);
 }
