@@ -172,45 +172,24 @@ static int ifcmd_iplist(char *out, size_t outlen, char *optname,
     return ifcmd_raw(out, outlen, optname, buf, strlen(buf));
 }
 
-#define CMD_ROUTER        "routr"
-#define CMD_IP4SET        "ip4"
-#define CMD_DNS           "dns"
-#define CMD_LPRSVR        "lpr"
-#define CMD_NTPSVR        "ntp"
-#define CMD_WINS          "wins"
-#define CMD_HOSTNAME      "host"
-#define CMD_DOMAIN        "dom"
-#define CMD_TIMEZONE      "tzone"
-#define CMD_MTU           "mtu"
-#define CMD_IPTTL         "ipttl"
-#define CMD_NULL          "NULL"
-#define IFCHD_SW_CMD(x, y) case DCODE_##x: \
-                           optname = CMD_##x; \
-                           dofn = ifcmd_##y; \
-                           break
-static int ifchd_cmd(char *buf, size_t buflen, uint8_t *optdata,
-                     ssize_t optlen, uint8_t code)
+static int ifchd_cmd(char *b, size_t bl, uint8_t *od, ssize_t ol, uint8_t code)
 {
-    int (*dofn)(char *, size_t, char *, uint8_t *, ssize_t);
-    char *optname;
     switch (code) {
-        IFCHD_SW_CMD(ROUTER, ip);
-        IFCHD_SW_CMD(DNS, iplist);
-        IFCHD_SW_CMD(LPRSVR, iplist);
-        IFCHD_SW_CMD(NTPSVR, iplist);
-        IFCHD_SW_CMD(WINS, iplist);
-        IFCHD_SW_CMD(HOSTNAME, bytes);
-        IFCHD_SW_CMD(DOMAIN, bytes);
-        IFCHD_SW_CMD(TIMEZONE, s32);
-        IFCHD_SW_CMD(MTU, u16);
-        IFCHD_SW_CMD(IPTTL, u8);
-    default:
-        log_line("Invalid option code (%c) for ifchd cmd.", code);
-        return -1;
+    case DCODE_ROUTER: return ifcmd_ip(b, bl, "routr", od, ol);
+    case DCODE_DNS: return ifcmd_iplist(b, bl, "dns", od, ol);
+    case DCODE_LPRSVR: return ifcmd_iplist(b, bl, "lpr", od, ol);
+    case DCODE_NTPSVR: return ifcmd_iplist(b, bl, "ntp", od, ol);
+    case DCODE_WINS: return ifcmd_iplist(b, bl, "wins", od, ol);
+    case DCODE_HOSTNAME: return ifcmd_bytes(b, bl, "host", od, ol);
+    case DCODE_DOMAIN: return ifcmd_bytes(b, bl, "dom", od, ol);
+    case DCODE_TIMEZONE: return ifcmd_s32(b, bl, "tzone", od, ol);
+    case DCODE_MTU: return ifcmd_u16(b, bl, "mtu", od, ol);
+    case DCODE_IPTTL: return ifcmd_u8(b, bl, "ipttl", od, ol);
+    default: break;
     }
-    return dofn(buf, buflen, optname, optdata, optlen);
+    log_line("Invalid option code (%c) for ifchd cmd.", code);
+    return -1;
 }
-#undef IFCHD_SW_CMD
 
 static void pipewrite(struct client_state_t *cs, const char *buf, size_t count)
 {
