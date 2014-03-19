@@ -30,7 +30,6 @@
 
 #include "ndhc.h"
 
-void set_clientid_path(char *df);
 void get_clientid(struct client_state_t *cs, struct client_config_t *cc);
 
 #endif /* NJK_NDHC_DUIAID_H_ */

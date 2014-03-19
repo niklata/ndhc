@@ -107,7 +107,6 @@ static void show_usage(void)
 "                                  immediately negotiated.\n"
 "  -p, --pidfile=FILE              File where the ndhc pid will be written\n"
 "  -P, --ifch-pidfile=FILE         File where the ndhc-ifch pid will be written\n"
-"  -l, --leasefile=FILE            File to which the lease IP will be written\n"
 "  -i, --interface=INTERFACE       Interface to use (default: eth0)\n"
 "  -n, --now                       Exit with failure if lease cannot be\n"
 "                                  immediately negotiated.\n"
@@ -228,6 +227,25 @@ static int get_clientid_string(char *str, size_t slen)
     return 1;
 }
 
+static void fail_if_state_dir_dne(void)
+{
+    if (strlen(state_dir) == 0) {
+        log_error("state_dir path is empty; it must be specified");
+        exit(EXIT_FAILURE);
+    }
+    struct stat st;
+    if (stat(state_dir, &st) < 0) {
+        log_error("failed to stat state_dir path '%s': %s",
+                  state_dir, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    if (!S_ISDIR(st.st_mode)) {
+        log_error("state_dir path '%s' does not specify a directory",
+                  state_dir);
+        exit(EXIT_FAILURE);
+    }
+}
+
 static void handle_ifch_message(void)
 {
     char c;
@@ -321,6 +339,7 @@ jumpstart:
     }
 }
 
+char state_dir[MAX_PATH_LENGTH] = "/etc/ndhc";
 char chroot_dir[MAX_PATH_LENGTH] = "";
 char resolv_conf_d[MAX_PATH_LENGTH] = "";
 static char pidfile[MAX_PATH_LENGTH] = PID_FILE_DEFAULT;
@@ -408,7 +427,6 @@ int main(int argc, char **argv)
         {"background",         no_argument,        0, 'b'},
         {"pidfile",            required_argument,  0, 'p'},
         {"ifch-pidfile",       required_argument,  0, 'P'},
-        {"leasefile",          required_argument,  0, 'l'},
         {"hostname",           required_argument,  0, 'h'},
         {"interface",          required_argument,  0, 'i'},
         {"now",                no_argument,        0, 'n'},
@@ -435,7 +453,7 @@ int main(int argc, char **argv)
 
     while (1) {
         int c;
-        c = getopt_long(argc, argv, "c:fbp:P:l:h:i:nqr:V:u:U:C:s:Sdw:W:m:M:t:R:Hv?",
+        c = getopt_long(argc, argv, "c:fbp:P:h:i:nqr:V:u:U:C:s:Sdw:W:m:M:t:R:Hv?",
                         arg_options, NULL);
         if (c == -1) break;
 
@@ -456,9 +474,6 @@ int main(int argc, char **argv)
                 break;
             case 'P':
                 strnkcpy(pidfile_ifch, optarg, sizeof pidfile_ifch);
-                break;
-            case 'l':
-                set_leasefile(optarg);
                 break;
             case 'h':
                 strnkcpy(client_config.hostname, optarg,
@@ -515,7 +530,7 @@ int main(int argc, char **argv)
                 strnkcpy(chroot_dir, optarg, sizeof chroot_dir);
                 break;
             case 's':
-                set_clientid_path(optarg);
+                strnkcpy(state_dir, optarg, sizeof state_dir);
                 break;
             case 'S':
                 seccomp_enforce = true;
@@ -610,6 +625,7 @@ int main(int argc, char **argv)
         suicide("FATAL - I need to be started as root.");
     if (!strncmp(chroot_dir, "", sizeof chroot_dir))
         suicide("FATAL - No chroot path specified.  Refusing to run.");
+    fail_if_state_dir_dne();
 
     if (nl_getifdata() < 0) {
         log_line("FATAL - failed to get interface MAC or index");

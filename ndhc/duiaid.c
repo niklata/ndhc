@@ -42,36 +42,9 @@
 #include "io.h"
 #include "ndhc.h"
 
-static char clientid_path[PATH_MAX] = "/etc/ndhc";
-
-void set_clientid_path(char *df)
-{
-    strnkcpy(clientid_path, df, sizeof clientid_path);
-}
-
-static void fail_if_clientid_path_dne(void)
-{
-    if (strlen(clientid_path) == 0) {
-        log_error("clientid path is empty; it must be specified");
-        exit(EXIT_FAILURE);
-    }
-    struct stat st;
-    if (stat(clientid_path, &st) < 0) {
-        log_error("failed to stat clientid path '%s': %s",
-                  clientid_path, strerror(errno));
-        exit(EXIT_FAILURE);
-    }
-    if (!S_ISDIR(st.st_mode)) {
-        log_error("clientid path '%s' does not specify a directory",
-                  clientid_path);
-        exit(EXIT_FAILURE);
-    }
-}
-
 static void get_duid_path(char *duidfile, size_t dlen)
 {
-    fail_if_clientid_path_dne();
-    int splen = snprintf(duidfile, sizeof dlen, "%s/DUID", clientid_path);
+    int splen = snprintf(duidfile, sizeof dlen, "%s/DUID", state_dir);
     if (splen < 0) {
         log_line("%s: snprintf failed; return=%d", __func__, splen);
         exit(EXIT_FAILURE);
@@ -86,7 +59,6 @@ static void get_duid_path(char *duidfile, size_t dlen)
 static void get_iaid_path(char *iaidfile, size_t ilen, uint8_t *hwaddr,
                           size_t hwaddrlen)
 {
-    fail_if_clientid_path_dne();
     if (hwaddrlen != 6) {
         log_line("%s: Hardware address length=%u != 6 bytes",
                  __func__, hwaddrlen);
@@ -95,7 +67,7 @@ static void get_iaid_path(char *iaidfile, size_t ilen, uint8_t *hwaddr,
     int splen = snprintf
         (iaidfile, sizeof ilen,
          "%s/IAID-%.2hhx:%.2hhx:%.2hhx:%.2hhx:%.2hhx:%.2hhx",
-         clientid_path, hwaddr[0], hwaddr[1], hwaddr[2],
+         state_dir, hwaddr[0], hwaddr[1], hwaddr[2],
          hwaddr[3], hwaddr[4], hwaddr[5]);
     if (splen < 0) {
         log_line("%s: snprintf failed; return=%d", __func__, splen);

@@ -27,6 +27,7 @@
  */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdint.h>
@@ -37,27 +38,39 @@
 #include <errno.h>
 #include <limits.h>
 #include "leasefile.h"
+#include "ndhc.h"
 #include "log.h"
 #include "strl.h"
 #include "io.h"
 #include "defines.h"
 
-static char leasefile[PATH_MAX] = "\0";
 static int leasefilefd = -1;
 
-void set_leasefile(char *lf)
+static void get_leasefile_path(char *leasefile, size_t dlen, char *ifname)
 {
-    strnkcpy(leasefile, lf, sizeof leasefile);
+    int splen = snprintf(leasefile, sizeof dlen, "%s/LEASE-%s",
+                         state_dir, ifname);
+    if (splen < 0) {
+        log_line("%s: (%s) snprintf failed; return=%d",
+                 client_config.interface, __func__, splen);
+        exit(EXIT_FAILURE);
+    }
+    if ((size_t)splen >= sizeof dlen) {
+        log_line("%s: (%s) snprintf dest buffer too small %d >= %u",
+                 client_config.interface, __func__, splen, sizeof dlen);
+        exit(EXIT_FAILURE);
+    }
 }
 
 void open_leasefile(void)
 {
-    if (strlen(leasefile) > 0) {
-        leasefilefd = open(leasefile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
-        if (leasefilefd < 0) {
-            log_line("Failed to create lease file (%s).", leasefile);
-            exit(EXIT_FAILURE);
-        }
+    char leasefile[PATH_MAX];
+    get_leasefile_path(leasefile, sizeof leasefile, client_config.interface);
+    leasefilefd = open(leasefile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+    if (leasefilefd < 0) {
+        log_line("%s: Failed to create lease file '%s': %s",
+                 client_config.interface, leasefile, strerror(errno));
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -76,13 +89,15 @@ void write_leasefile(struct in_addr ipnum)
         case -1:
             if (errno == EINTR)
                 goto retry_trunc;
-            log_warning("Failed to truncate lease file.");
+            log_warning("%s: Failed to truncate lease file: %s",
+                        client_config.interface, strerror(errno));
             return;
     }
     lseek(leasefilefd, 0, SEEK_SET);
     ret = safe_write(leasefilefd, ip, strlen(ip));
     if (ret == -1)
-        log_warning("Failed to write ip to lease file.");
+        log_warning("%s: Failed to write ip to lease file.",
+                    client_config.interface);
     else
         fsync(leasefilefd);
 }

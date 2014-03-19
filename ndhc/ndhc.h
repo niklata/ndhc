@@ -71,6 +71,7 @@ extern int pToIfchR;
 extern int pToIfchW;
 extern int pToNdhcR;
 extern int pToNdhcW;
+extern char state_dir[MAX_PATH_LENGTH];
 extern char chroot_dir[MAX_PATH_LENGTH];
 extern char resolv_conf_d[MAX_PATH_LENGTH];
 
