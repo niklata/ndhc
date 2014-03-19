@@ -28,6 +28,7 @@
 
 #include <stdlib.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <netinet/in.h>
@@ -52,7 +53,6 @@
 #include "log.h"
 #include "io.h"
 #include "options.h"
-#include "strl.h"
 #include "random.h"
 
 typedef enum {
@@ -66,31 +66,37 @@ static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
 {
     int fd;
     if ((fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
-        log_error("create_udp_socket: socket failed: %s", strerror(errno));
+        log_error("%s: (%s) socket failed: %s",
+                  client_config.interface, __func__, strerror(errno));
         goto out;
     }
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt) == -1) {
-        log_error("create_udp_socket: Set reuse addr failed: %s",
-                  strerror(errno));
+        log_error("%s: (%s) Set reuse addr failed: %s",
+                  client_config.interface, __func__, strerror(errno));
         goto out_fd;
     }
     if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) == -1) {
-        log_error("create_udp_socket: Set don't route failed: %s",
-                  strerror(errno));
+        log_error("%s: (%s) Set don't route failed: %s",
+                  client_config.interface, __func__, strerror(errno));
         goto out_fd;
     }
     struct ifreq ifr;
-    memset(&ifr, 0, sizeof (struct ifreq));
-    strnkcpy(ifr.ifr_name, iface, IFNAMSIZ);
+    memset(&ifr, 0, sizeof ifr);
+    ssize_t sl = snprintf(ifr.ifr_name, sizeof ifr.ifr_name, "%s", iface);
+    if (sl < 0 || (size_t)sl >= sizeof ifr.ifr_name) {
+        log_error("%s: (%s) Set interface name failed.",
+                  client_config.interface, __func__);
+        goto out_fd;
+    }
     if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
-        log_error("create_udp_socket: Set bind to device failed: %s",
-                  strerror(errno));
+        log_error("%s: (%s) Set bind to device failed: %s",
+                  client_config.interface, __func__, strerror(errno));
         goto out_fd;
     }
     if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
-        log_error("create_udp_socket: Set non-blocking failed: %s",
-                  strerror(errno));
+        log_error("%s: (%s) Set non-blocking failed: %s",
+                  client_config.interface, __func__, strerror(errno));
         goto out_fd;
     }
 
@@ -118,8 +124,8 @@ static int create_udp_listen_socket(char *inf)
         return -1;
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &opt, sizeof opt) == -1) {
-        log_error("create_udp_listen_socket: Set broadcast failed: %s",
-                  strerror(errno));
+        log_error("%s: (%s) Set broadcast failed: %s",
+                  client_config.interface, __func__, strerror(errno));
         close(fd);
         return -1;
     }

@@ -52,7 +52,6 @@
 #include "pidfile.h"
 #include "signals.h"
 #include "ifchd-parse.h"
-#include "strl.h"
 #include "cap.h"
 #include "io.h"
 #include "sys.h"
@@ -106,7 +105,11 @@ static void write_resolve_conf(void)
             q = strchr(p, '\0');
         else
             *q++ = '\0';
-        strnkcpy(buf, p, sizeof buf);
+        ssize_t sl = snprintf(buf, sizeof buf, "%s", p);
+        if (sl < 0 || (size_t)sl >= sizeof buf) {
+            log_warning("%s: (%s) snprintf failed appending nameservers",
+                        client_config.interface, __func__);
+        }
 
         writeordie(resolv_conf_fd, ns_str, strlen(ns_str));
         writeordie(resolv_conf_fd, buf, strlen(buf));
@@ -123,7 +126,11 @@ static void write_resolve_conf(void)
             q = strchr(p, '\0');
         else
             *q++ = '\0';
-        strnkcpy(buf, p, sizeof buf);
+        ssize_t sl = snprintf(buf, sizeof buf, "%s", p);
+        if (sl < 0 || (size_t)sl >= sizeof buf) {
+            log_warning("%s: (%s) snprintf failed appending domains",
+                        client_config.interface, __func__);
+        }
 
         if (numdoms == 0) {
             writeordie(resolv_conf_fd, dom_str, strlen(dom_str));
@@ -185,7 +192,11 @@ void perform_dns(const char *str, size_t len)
         log_line("DNS server list is too long: %zu > %zu", len, cl.namesvrs);
         return;
     }
-    strnkcpy(cl.namesvrs, str, sizeof cl.namesvrs);
+    ssize_t sl = snprintf(cl.namesvrs, sizeof cl.namesvrs, "%s", str);
+    if (sl < 0 || (size_t)sl >= sizeof cl.namesvrs) {
+        log_warning("%s: (%s) snprintf failed",
+                    client_config.interface, __func__);
+    }
     write_resolve_conf();
     log_line("Added DNS server: '%s'", str);
 }
@@ -217,7 +228,11 @@ void perform_domain(const char *str, size_t len)
         log_line("DNS domain list is too long: %zu > %zu", len, cl.namesvrs);
         return;
     }
-    strnkcpy(cl.domains, str, sizeof cl.domains);
+    ssize_t sl = snprintf(cl.domains, sizeof cl.domains, "%s", str);
+    if (sl < 0 || (size_t)sl >= sizeof cl.domains) {
+        log_warning("%s: (%s) snprintf failed",
+                    client_config.interface, __func__);
+    }
     write_resolve_conf();
     log_line("Added DNS domain: '%s'", str);
 }
