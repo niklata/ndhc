@@ -241,6 +241,7 @@ size_t add_option_request_list(struct dhcpmsg *packet)
                              (char *)reqdata, sizeof reqdata);
 }
 
+#ifdef NDHS_BUILD
 size_t add_option_domain_name(struct dhcpmsg *packet, const char *dom,
                               size_t domlen)
 {
@@ -256,6 +257,7 @@ void add_option_broadcast(struct dhcpmsg *packet, uint32_t bc)
 {
     add_u32_option(packet, DCODE_BROADCAST, bc);
 }
+#endif
 
 void add_option_msgtype(struct dhcpmsg *packet, uint8_t type)
 {

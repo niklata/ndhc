@@ -65,10 +65,12 @@ size_t add_option_string(struct dhcpmsg *packet, uint8_t code, const char *str,
 size_t add_u32_option(struct dhcpmsg *packet, uint8_t code, uint32_t data);
 
 size_t add_option_request_list(struct dhcpmsg *packet);
+#ifdef NDHS_BUILD
 size_t add_option_domain_name(struct dhcpmsg *packet, const char *dom,
                               size_t domlen);
 void add_option_subnet_mask(struct dhcpmsg *packet, uint32_t subnet);
 void add_option_broadcast(struct dhcpmsg *packet, uint32_t bc);
+#endif
 void add_option_msgtype(struct dhcpmsg *packet, uint8_t type);
 void add_option_reqip(struct dhcpmsg *packet, uint32_t ip);
 void add_option_serverid(struct dhcpmsg *packet, uint32_t sid);
