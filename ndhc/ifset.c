@@ -595,7 +595,8 @@ void perform_router(const char *str_router, size_t len)
         return;
     }
 
-    if (rtnl_set_default_gw_v4(fd, router.s_addr, 0) < 0)
+    if (rtnl_set_default_gw_v4(fd, router.s_addr,
+                               client_config.metric) < 0)
         log_line("%s: (%s) failed to set route: %s",
                  client_config.interface, __func__, strerror(errno));
     else

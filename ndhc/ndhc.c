@@ -48,6 +48,7 @@
 #include <errno.h>
 #include <pwd.h>
 #include <grp.h>
+#include <limits.h>
 
 #include "ndhc.h"
 #include "ndhc-defines.h"
@@ -89,6 +90,7 @@ struct client_config_t client_config = {
     .interface = "eth0",
     .arp = "\0\0\0\0\0\0",
     .clientid_len = 0,
+    .metric = 0,
 };
 
 static void show_usage(void)
@@ -124,6 +126,7 @@ static void show_usage(void)
 "  -W, --arp-probe-num             Number of ARP probes before lease is ok\n"
 "  -m, --arp-probe-min             Min ms to wait for ARP response\n"
 "  -M, --arp-probe-max             Max ms to wait for ARP response\n"
+"  -t, --gw-metric                 Route metric for default gw (default: 0)\n"
 "  -R, --resolve-conf=FILE         Path to resolv.conf or equivalent\n"
 "  -H, --dhcp-hostname             Allow DHCP to set machine hostname\n"
 "  -v, --version                   Display version\n"
@@ -422,6 +425,7 @@ int main(int argc, char **argv)
         {"arp-probe-num",      required_argument,  0, 'W'},
         {"arp-probe-min",      required_argument,  0, 'm'},
         {"arp-probe-max",      required_argument,  0, 'M'},
+        {"gw-metric",          required_argument,  0, 't'},
         {"resolv-conf",        required_argument,  0, 'R'},
         {"dhcp-set-hostname",  no_argument,        0, 'H'},
         {"version",            no_argument,        0, 'v'},
@@ -431,7 +435,7 @@ int main(int argc, char **argv)
 
     while (1) {
         int c;
-        c = getopt_long(argc, argv, "c:fbp:P:l:h:i:nqr:V:u:U:C:s:Sdw:W:m:M:R:Hv?",
+        c = getopt_long(argc, argv, "c:fbp:P:l:h:i:nqr:V:u:U:C:s:Sdw:W:m:M:t:R:Hv?",
                         arg_options, NULL);
         if (c == -1) break;
 
@@ -572,6 +576,23 @@ int main(int argc, char **argv)
                 strnkcpy(client_config.vendor, optarg,
                          sizeof client_config.vendor);
                 break;
+            case 't': {
+                char *p;
+                long mt = strtol(optarg, &p, 10);
+                if (p == optarg) {
+                    log_error("gw-metric arg '%s' isn't a valid number",
+                              optarg);
+                    exit(EXIT_FAILURE);
+                }
+                if (mt > INT_MAX) {
+                    log_error("gw-metric arg '%s' is too large", optarg);
+                    exit(EXIT_FAILURE);
+                }
+                if (mt < 0)
+                    mt = 0;
+                client_config.metric = (int)mt;
+                break;
+            }
             case 'R':
                 strnkcpy(resolv_conf_d, optarg, sizeof resolv_conf_d);
                 break;

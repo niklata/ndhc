@@ -60,6 +60,7 @@ struct client_config_t {
     uint8_t clientid_len;        // Length of the clientid
     char hostname[64];           // Optional hostname to use
     char vendor[64];             // Vendor identification that will be sent
+    int metric;                  // Metric for the default route
     int ifindex;                 // Index number of the interface to use
     uint8_t arp[6];              // Our arp address
 };
