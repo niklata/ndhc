@@ -27,6 +27,7 @@
  */
 
 #include <string.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,7 +43,6 @@
 #include "arp.h"
 #include "log.h"
 #include "io.h"
-#include "strl.h"
 #include "ifchange.h"
 
 static struct dhcpmsg cfg_packet; // Copy of the current configuration packet.
