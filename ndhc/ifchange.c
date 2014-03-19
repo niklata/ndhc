@@ -192,7 +192,6 @@ void ifchange_deconfig(struct client_state_t *cs)
 
 static size_t send_client_ip(char *out, size_t olen, struct dhcpmsg *packet)
 {
-    static char snClassC[] = "255.255.255.0";
     uint8_t optdata[MAX_DOPT_SIZE], olddata[MAX_DOPT_SIZE];
     char ipb[4*INET_ADDRSTRLEN], ip[INET_ADDRSTRLEN], sn[INET_ADDRSTRLEN],
         bc[INET_ADDRSTRLEN];
@@ -232,6 +231,7 @@ static size_t send_client_ip(char *out, size_t olen, struct dhcpmsg *packet)
         return 0;
 
     if (!have_subnet) {
+        static char snClassC[] = "255.255.255.0";
         log_line("Server did not send a subnet mask.  Assuming class C (255.255.255.0).");
         memcpy(sn, snClassC, sizeof snClassC);
     }

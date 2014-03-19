@@ -158,7 +158,7 @@ static void signal_dispatch(void)
 {
     int t;
     size_t off = 0;
-    struct signalfd_siginfo si;
+    struct signalfd_siginfo si = {0};
   again:
     t = read(cs.signalFd, (char *)&si + off, sizeof si - off);
     if (t < 0) {
