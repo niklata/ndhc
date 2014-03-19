@@ -68,14 +68,14 @@ static int ifcmd_raw(char *buf, size_t buflen, char *optname,
     return olen;
 }
 
-static int ifchd_cmd_bytes(char *buf, size_t buflen, char *optname,
-                           uint8_t *optdata, ssize_t optlen)
+static int ifcmd_bytes(char *buf, size_t buflen, char *optname,
+                       uint8_t *optdata, ssize_t optlen)
 {
     return ifcmd_raw(buf, buflen, optname, (char *)optdata, optlen);
 }
 
-static int ifchd_cmd_u8(char *buf, size_t buflen, char *optname,
-                        uint8_t *optdata, ssize_t optlen)
+static int ifcmd_u8(char *buf, size_t buflen, char *optname,
+                    uint8_t *optdata, ssize_t optlen)
 {
     if (!optdata || optlen < 1)
         return -1;
@@ -87,8 +87,8 @@ static int ifchd_cmd_u8(char *buf, size_t buflen, char *optname,
     return ifcmd_raw(buf, buflen, optname, numbuf, strlen(numbuf));
 }
 
-static int ifchd_cmd_u16(char *buf, size_t buflen, char *optname,
-                        uint8_t *optdata, ssize_t optlen)
+static int ifcmd_u16(char *buf, size_t buflen, char *optname,
+                     uint8_t *optdata, ssize_t optlen)
 {
     if (!optdata || optlen < 2)
         return -1;
@@ -102,8 +102,8 @@ static int ifchd_cmd_u16(char *buf, size_t buflen, char *optname,
     return ifcmd_raw(buf, buflen, optname, numbuf, strlen(numbuf));
 }
 
-static int ifchd_cmd_s32(char *buf, size_t buflen, char *optname,
-                        uint8_t *optdata, ssize_t optlen)
+static int ifcmd_s32(char *buf, size_t buflen, char *optname,
+                     uint8_t *optdata, ssize_t optlen)
 {
     if (!optdata || optlen < 4)
         return -1;
@@ -117,8 +117,8 @@ static int ifchd_cmd_s32(char *buf, size_t buflen, char *optname,
     return ifcmd_raw(buf, buflen, optname, numbuf, strlen(numbuf));
 }
 
-static int ifchd_cmd_ip(char *buf, size_t buflen, char *optname,
-                        uint8_t *optdata, ssize_t optlen)
+static int ifcmd_ip(char *buf, size_t buflen, char *optname,
+                    uint8_t *optdata, ssize_t optlen)
 {
     if (!optdata || optlen < 4)
         return -1;
@@ -131,8 +131,8 @@ static int ifchd_cmd_ip(char *buf, size_t buflen, char *optname,
     return ifcmd_raw(buf, buflen, optname, ipbuf, strlen(ipbuf));
 }
 
-static int ifchd_cmd_iplist(char *out, size_t outlen, char *optname,
-                            uint8_t *optdata, ssize_t optlen)
+static int ifcmd_iplist(char *out, size_t outlen, char *optname,
+                        uint8_t *optdata, ssize_t optlen)
 {
     char buf[2048];
     char ipbuf[INET_ADDRSTRLEN];
@@ -186,7 +186,7 @@ static int ifchd_cmd_iplist(char *out, size_t outlen, char *optname,
 #define CMD_NULL          "NULL"
 #define IFCHD_SW_CMD(x, y) case DCODE_##x: \
                            optname = CMD_##x; \
-                           dofn = ifchd_cmd_##y; \
+                           dofn = ifcmd_##y; \
                            break
 static int ifchd_cmd(char *buf, size_t buflen, uint8_t *optdata,
                      ssize_t optlen, uint8_t code)
