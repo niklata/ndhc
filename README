@@ -13,20 +13,21 @@ INTRODUCTION
 
 ndhc is a multi-process, privilege-separated dhcp client.  Each subprocess runs
 with the minimal necessary privileges in order to perform its task.  Currently,
-ndhc consists of two subprocesses: the ndhc and ifch.
+ndhc consists of two subprocesses: the ndhc-master and ndhc-ifch.
 
-ndhc communicates with dhcp servers and handles the vagaries of the dhcp
+ndhc-master communicates with dhcp servers and handles the vagaries of the dhcp
 client protocol.  It runs as a non-root user inside a chroot.  ndhc retains
 only the minimum necessary set of privileges required to perform its duties.
 These powers include the ability to bind to a low port, the ability to open a
 raw socket, and the ability to communicate on broadcast channels.  ndhc holds
 no other powers and is restricted to a chroot that contains nothing more than a
-domain socket filesystem object and a urandom device node.
+domain socket filesystem object (if using syslog), a urandom device node, and a
+null device node.
 
-ifch handles interface change requests.  It listens on a shared pipe for such
-requests.  ifch runs as a non-root user inside a chroot, and retains only the
-power to configure network interfaces.  ifch automatically forks from ndhc
-to perform its job.
+ndhc-ifch handles interface change requests.  It listens on a shared pipe for
+such requests.  ndhc-ifch runs as a non-root user inside a chroot, and retains
+only the power to configure network interfaces.  ndhc-ifch automatically forks
+from ndhc-master to perform its job.
 
 ndhc fully implements RFC5227's address conflict detection and defense.  Great
 care is taken to ensure that address conflicts will be detected, and ndhc also
@@ -83,7 +84,7 @@ USAGE
 -----
 
 1) Compile and install ndhc.
-    a) gmake
+    a) make
     b) Install the build/ndhc executable in a normal place.  I would suggest
        /usr/sbin or /usr/local/sbin.
 
@@ -104,13 +105,19 @@ USAGE
         # umask 077
         # groupadd ndhc
 
-    b) Create new users "ifch" and "dhcp".  The primary group of these
+    b) Create new users "dhcpifch" and "dhcp".  The primary group of these
        users should be "ndhc".
 
-        # useradd -d /var/lib/ndhc -s /sbin/nologin -g ndhc ifch
+        # useradd -d /var/lib/ndhc -s /sbin/nologin -g ndhc dhcpifch
         # useradd -d /var/lib/ndhc -s /sbin/nologin -g ndhc dhcp
 
-    b) Create the jail directory and set its ownership properly.
+    c) Create the state directory where DUIDs and IAIDs will be stored.
+
+        # mkdir /etc/ndhc
+        # chown root.root /etc/ndhc
+        # chmod 0755 /etc/ndhc
+
+    d) Create the jail directory and set its ownership properly.
 
         # mkdir /var/lib/ndhc
         # chown root.root /var/lib/ndhc
@@ -123,7 +130,7 @@ USAGE
         # chmod -R a+rx var
         # chmod g+w var/run
 
-    c) Create a urandom device for ndhc to use within the jail.
+    e) Create a urandom device for ndhc to use within the jail.
 
         # mkdir dev
         # mknod dev/urandom c 1 9
@@ -133,32 +140,16 @@ USAGE
         # chmod a+r dev/urandom
         # chmod a+rw dev/null
 
-        d) (optional) If you wish for logging to properly work, you
+        f) (optional) If you wish for logging to properly work, you
            will need to properly configure your logging daemon so that it
            opens a domain socket in the proper location within the jail.
            Since this varies per-daemon, I cannot provide a general
            configuration.
 
-3) At this point the jail is usable; ndhc is ready to be used.  As an example
-   of a sample configuration, here is my rc.dhcp:
+3) At this point the jail is usable; ndhc is ready to be used.  An example
+   of invoking ndhc:
 
---START--
-
-#!/bin/sh
-case "$1" in
-        start)
-                ndhc -b -i wan0 -u dhcp -U ifch -C /var/lib/ndhc &> /dev/null
-                ;;
-        stop)
-                killall ndhc
-                ;;
-esac
-
---END--
-
-    This script works fine with my personal machines, which are set up
-    exactly as I have outlined above.  If you have not entirely followed my
-    directions, the script will of course require modifications.
+    # ndhc -b -i wan0 -u dhcp -U dhcpifch -C /var/lib/ndhc -l /var/state/wan0.lease
 
 4o) If you encounter problems, I suggest running ndhc in the foreground and
     examining the printed output.
@@ -170,6 +161,33 @@ BEHAVIOR NOTES
 ndhc does not enable updates of the local hostname and resolv.conf by default.
 If you wish to enable these functions, use the --resolve (-R) and --hostname
 (-H) flags.  See ndhc --help.
+
+STATE STORAGE NOTES
+-------------------
+
+ndhc requires a read/writable directory to store the DUID/IAID states.  By
+default this directory is /etc/ndhc.  It exists outside the chroot.  The DUID
+will be stored in a single file, DUID.  The IAIDs exist per-interface and are
+stored in files with names similar to IAID-xx:xx:xx:xx:xx:xx, where the xx
+values are replaced by the Ethernet hardware address of the interface.
+
+If it is impossible to read or store the DUIDs or IAIDs, ndhc will
+fail at start time before it performs any network activity or forks any
+subprocesses.
+
+If the host system lacks volatile storage, then a clientid should manually
+be specified using the -c or --clientid command arguments.
+
+RANDOMNESS NOTES
+----------------
+
+Each ndhc subprocess maintains a combined Tausworthe PRNG that is uniquely
+seeded from the kernel random device at startup.  Each PRNG consumes 128 bits
+of entropy for its initial state.
+
+DHCP does not require cryptographic randomness, so this arrangement should
+be more than sufficient to ensure proper UUIDs, assuming only that the
+kernel random device is even minimally seeded with real entropy.
 
 PORTING NOTES
 -------------
@@ -219,7 +237,7 @@ only root-owned process running on the machine, so I was highly motivated
 to develop an alternative.
 
 A separate ifchd was first written entirely from scratch.  It did not take long
-to write, since it is by design rather simple, and I was already familiar with
+to write, since it was by design rather simple, and I was already familiar with
 the quirks of Linux capabilities.  That left me with the choice of adapting an
 existing DHCP client or writing my own from scratch.
 

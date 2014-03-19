@@ -114,6 +114,7 @@ static void show_usage(void)
 "  -u, --user=USER                 Change ndhc privileges to this user\n"
 "  -U, --ifch-user=USER            Change ndhc-ifch privileges to this user\n"
 "  -C, --chroot=DIR                Chroot to this directory\n"
+"  -s, --state-dir=DIR             State storage dir (default: /etc/ndhc)\n"
 #ifdef ENABLE_SECCOMP_FILTER
 "  -S, --seccomp-enforce           Enforce seccomp syscall restrictions\n"
 #endif
@@ -414,6 +415,7 @@ int main(int argc, char **argv)
         {"user",               required_argument,  0, 'u'},
         {"ifch-user",          required_argument,  0, 'U'},
         {"chroot",             required_argument,  0, 'C'},
+        {"state-dir",          required_argument,  0, 's'},
         {"seccomp-enforce",    no_argument,        0, 'S'},
         {"relentless-defense", no_argument,        0, 'd'},
         {"arp-probe-wait",     required_argument,  0, 'w'},
@@ -429,7 +431,7 @@ int main(int argc, char **argv)
 
     while (1) {
         int c;
-        c = getopt_long(argc, argv, "c:fbp:P:l:h:i:nqr:V:u:U:C:S:dw:W:m:M:R:Hv?",
+        c = getopt_long(argc, argv, "c:fbp:P:l:h:i:nqr:V:u:U:C:s:Sdw:W:m:M:R:Hv?",
                         arg_options, NULL);
         if (c == -1) break;
 
@@ -507,6 +509,9 @@ int main(int argc, char **argv)
             }
             case 'C':
                 strnkcpy(chroot_dir, optarg, sizeof chroot_dir);
+                break;
+            case 's':
+                set_clientid_path(optarg);
                 break;
             case 'S':
                 seccomp_enforce = true;
