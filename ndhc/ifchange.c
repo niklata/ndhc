@@ -240,8 +240,7 @@ void ifchange_deconfig(struct client_state_t *cs)
 static size_t send_client_ip(char *out, size_t olen, struct dhcpmsg *packet)
 {
     uint8_t optdata[MAX_DOPT_SIZE], olddata[MAX_DOPT_SIZE];
-    char ipb[4*INET_ADDRSTRLEN], ip[INET_ADDRSTRLEN], sn[INET_ADDRSTRLEN],
-        bc[INET_ADDRSTRLEN];
+    char ip[INET_ADDRSTRLEN], sn[INET_ADDRSTRLEN], bc[INET_ADDRSTRLEN];
     ssize_t optlen, oldlen;
     bool change_ipaddr = false;
     bool have_subnet = false;
@@ -251,12 +250,20 @@ static size_t send_client_ip(char *out, size_t olen, struct dhcpmsg *packet)
 
     if (memcmp(&packet->yiaddr, &cfg_packet.yiaddr, sizeof packet->yiaddr))
         change_ipaddr = true;
-    inet_ntop(AF_INET, &packet->yiaddr, ip, sizeof ip);
+    if (!inet_ntop(AF_INET, &packet->yiaddr, ip, sizeof ip)) {
+        log_warning("%s: (%s) inet_ntop for ip failed: %s",
+                    client_config.interface, __func__, strerror(errno));
+        return 0;
+    }
 
     optlen = get_dhcp_opt(packet, DCODE_SUBNET, optdata, sizeof optdata);
     if (optlen >= 4) {
         have_subnet = true;
-        inet_ntop(AF_INET, optdata, sn, sizeof sn);
+        if (!inet_ntop(AF_INET, optdata, sn, sizeof sn)) {
+            log_warning("%s: (%s) inet_ntop for subnet failed: %s",
+                        client_config.interface, __func__, strerror(errno));
+            return 0;
+        }
         oldlen = get_dhcp_opt(&cfg_packet, DCODE_SUBNET, olddata,
                               sizeof olddata);
         if (oldlen != optlen || memcmp(optdata, olddata, optlen))
@@ -266,7 +273,11 @@ static size_t send_client_ip(char *out, size_t olen, struct dhcpmsg *packet)
     optlen = get_dhcp_opt(packet, DCODE_BROADCAST, optdata, sizeof optdata);
     if (optlen >= 4) {
         have_bcast = true;
-        inet_ntop(AF_INET, optdata, bc, sizeof bc);
+        if (!inet_ntop(AF_INET, optdata, bc, sizeof bc)) {
+            log_warning("%s: (%s) inet_ntop for broadcast failed: %s",
+                        client_config.interface, __func__, strerror(errno));
+            return 0;
+        }
         oldlen = get_dhcp_opt(&cfg_packet, DCODE_BROADCAST, olddata,
                               sizeof olddata);
         if (oldlen != optlen || memcmp(optdata, olddata, optlen))
@@ -283,57 +294,58 @@ static size_t send_client_ip(char *out, size_t olen, struct dhcpmsg *packet)
         memcpy(sn, snClassC, sizeof snClassC);
     }
 
+    int snlen;
     if (have_bcast) {
-        snprintf(ipb, sizeof ipb, "ip4:%s,%s,%s;", ip, sn, bc);
+        snlen = snprintf(out, olen, "ip4:%s,%s,%s;", ip, sn, bc);
     } else {
-        snprintf(ipb, sizeof ipb, "ip4:%s,%s;", ip, sn);
+        snlen = snprintf(out, olen, "ip4:%s,%s;", ip, sn);
     }
-
-    strnkcat(out, ipb, olen);
-    return strlen(ipb);
+    if (snlen < 0 || (size_t)snlen >= olen) {
+        log_warning("%s: (%s) ip4 command would truncate so it was dropped.",
+                    client_config.interface, __func__);
+        memset(out, 0, olen);
+        return 0;
+    }
+    return snlen;
 }
 
 static size_t send_cmd(char *out, size_t olen, struct dhcpmsg *packet,
                        uint8_t code)
 {
-    char buf[2048];
     uint8_t optdata[MAX_DOPT_SIZE], olddata[MAX_DOPT_SIZE];
     ssize_t optlen, oldlen;
 
     if (!packet)
         return 0;
 
-    memset(buf, '\0', sizeof buf);
     optlen = get_dhcp_opt(packet, code, optdata, sizeof optdata);
     if (!optlen)
         return 0;
     oldlen = get_dhcp_opt(&cfg_packet, code, olddata, sizeof olddata);
     if (oldlen == optlen && !memcmp(optdata, olddata, optlen))
         return 0;
-    if (ifchd_cmd(buf, sizeof buf, optdata, optlen, code) < 0)
-        return 0;
-    strnkcat(out, buf, olen);
-    return strlen(buf);
+    int r = ifchd_cmd(out, olen, optdata, optlen, code);
+    return r > 0 ? r : 0;
 }
 
 void ifchange_bind(struct client_state_t *cs, struct dhcpmsg *packet)
 {
     char buf[2048];
-    int tbs = 0;
+    size_t bo;
 
     if (!packet)
         return;
 
     memset(buf, 0, sizeof buf);
-    tbs |= send_client_ip(buf, sizeof buf, packet);
-    tbs |= send_cmd(buf, sizeof buf, packet, DCODE_ROUTER);
-    tbs |= send_cmd(buf, sizeof buf, packet, DCODE_DNS);
-    tbs |= send_cmd(buf, sizeof buf, packet, DCODE_HOSTNAME);
-    tbs |= send_cmd(buf, sizeof buf, packet, DCODE_DOMAIN);
-    tbs |= send_cmd(buf, sizeof buf, packet, DCODE_MTU);
-    tbs |= send_cmd(buf, sizeof buf, packet, DCODE_WINS);
-    if (tbs)
-        pipewrite(cs, buf, strlen(buf));
+    bo = send_client_ip(buf, sizeof buf, packet);
+    bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_ROUTER);
+    bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_DNS);
+    bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_HOSTNAME);
+    bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_DOMAIN);
+    bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_MTU);
+    bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_WINS);
+    if (bo)
+        pipewrite(cs, buf, bo);
 
     cs->ifDeconfig = 0;
     memcpy(&cfg_packet, packet, sizeof cfg_packet);
