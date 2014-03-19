@@ -61,7 +61,6 @@
 #include "netlink.h"
 #include "leasefile.h"
 #include "ifset.h"
-
 #include "log.h"
 #include "chroot.h"
 #include "cap.h"
@@ -70,6 +69,7 @@
 #include "io.h"
 #include "seccomp.h"
 #include "ifchd.h"
+#include "duiaid.h"
 
 struct client_state_t cs = {
     .ifchWorking = 0,
@@ -578,6 +578,8 @@ int main(int argc, char **argv)
         }
     }
 
+    nk_random_u32_init(&cs.rnd32_state);
+
     if (getuid())
         suicide("FATAL - I need to be started as root.");
     if (!strncmp(chroot_dir, "", sizeof chroot_dir))
@@ -587,6 +589,8 @@ int main(int argc, char **argv)
         log_line("FATAL - failed to get interface MAC or index");
         exit(EXIT_FAILURE);
     }
+
+    get_clientid(&cs, &client_config);
 
     switch (perform_ifup()) {
     case 1:
@@ -603,11 +607,12 @@ int main(int argc, char **argv)
     if (ifch_pid == 0) {
         close(pToNdhcR);
         close(pToIfchW);
+        // Don't share the RNG state with the master process.
+        nk_random_u32_init(&cs.rnd32_state);
         ifch_main();
     } else if (ifch_pid > 0) {
         close(pToIfchR);
         close(pToNdhcW);
-        nk_random_u32_init(&cs.rnd32_state);
         ndhc_main();
     } else {
         log_line("FATAL - failed to fork ndhc-ifch: %s", strerror(errno));
