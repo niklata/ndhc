@@ -40,7 +40,6 @@
 #include "leasefile.h"
 #include "ndhc.h"
 #include "log.h"
-#include "strl.h"
 #include "io.h"
 #include "defines.h"
 
@@ -76,12 +75,21 @@ void open_leasefile(void)
 
 void write_leasefile(struct in_addr ipnum)
 {
-    char ip[INET_ADDRSTRLEN+2];
+    char ip[INET_ADDRSTRLEN];
+    char out[INET_ADDRSTRLEN*2];
     int ret;
-    if (leasefilefd < 0)
+    if (leasefilefd < 0) {
+        log_error("%s: (%s) leasefile fd < 0; no leasefile will be written",
+                  client_config.interface, __func__);
         return;
+    }
     inet_ntop(AF_INET, &ipnum, ip, sizeof ip);
-    strnkcat(ip, "\n", sizeof ip);
+    ssize_t olen = snprintf(out, sizeof out, "%s\n", ip);
+    if (olen < 0 || (size_t)olen >= sizeof ip) {
+        log_error("%s: (%s) snprintf failed; return=%d",
+                  client_config.interface, __func__, olen);
+        return;
+    }
   retry_trunc:
     ret = ftruncate(leasefilefd, 0);
     switch (ret) {
@@ -94,7 +102,7 @@ void write_leasefile(struct in_addr ipnum)
             return;
     }
     lseek(leasefilefd, 0, SEEK_SET);
-    ret = safe_write(leasefilefd, ip, strlen(ip));
+    ret = safe_write(leasefilefd, out, strlen(out));
     if (ret == -1)
         log_warning("%s: Failed to write ip to lease file.",
                     client_config.interface);

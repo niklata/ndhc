@@ -36,7 +36,6 @@
 #include <limits.h>
 #include <errno.h>
 #include "duiaid.h"
-#include "strl.h"
 #include "log.h"
 #include "random.h"
 #include "io.h"

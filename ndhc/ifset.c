@@ -27,6 +27,7 @@
  */
 
 #include <unistd.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,7 +52,6 @@
 #include "ifchd.h"
 #include "ndhc.h"
 #include "log.h"
-#include "strl.h"
 #include "nl.h"
 
 static uint32_t ifset_nl_seq = 1;

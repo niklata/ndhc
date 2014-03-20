@@ -27,14 +27,16 @@
  */
 
 #include <stddef.h>
+#include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 #include <arpa/inet.h>
 
 #include "ifchd-parse.h"
 #include "ifchd.h"
 #include "log.h"
-#include "strl.h"
 #include "ifset.h"
+#include "ndhc.h"
 
 %%{
     machine ipv4set_parser;
@@ -183,11 +185,15 @@ int execute_buffer(char *newbuf)
     char buf[MAX_BUF * 2];
     char tb[MAX_BUF];
 
-    if (strnkcpy(buf, cl.ibuf, sizeof buf))
-        goto buftooshort;
-    if (strnkcat(buf, newbuf, sizeof buf)) {
-buftooshort:
-        log_line("error: input is too long for buffer");
+    ssize_t buflen = snprintf(buf, sizeof buf, "%s%s", cl.ibuf, newbuf);
+    if (buflen < 0) {
+        log_error("%s: (%s) snprintf1 failed; your system is broken?",
+                  client_config.interface, __func__);
+        return -1;
+    }
+    if ((size_t)buflen >= sizeof buf) {
+        log_error("%s: (%s) input is too long for buffer",
+                  client_config.interface, __func__);
         return -1;
     }
 
@@ -204,14 +210,26 @@ buftooshort:
     size_t bytes_left = pe - p;
     if (bytes_left > 0) {
         size_t taken = init_siz - bytes_left;
-        strnkcpy(cl.ibuf, buf + taken, MAX_BUF);
+        ssize_t ilen = snprintf(cl.ibuf, sizeof cl.ibuf, "%s", buf + taken);
+        if (ilen < 0) {
+            log_error("%s: (%s) snprintf2 failed; your system is broken?",
+                      client_config.interface, __func__);
+            return -1;
+        }
+        if ((size_t)ilen >= sizeof buf) {
+            log_error("%s: (%s) unconsumed input too long for buffer",
+                      client_config.interface, __func__);
+            return -1;
+        }
     }
 
     if (cs < ifchd_parser_first_final) {
-        log_line("error: received invalid commands");
+        log_error("%s: ifch received invalid commands",
+                  client_config.interface);
         return -1;
     }
-    log_line("Commands received and successfully executed.");
+    log_line("%s: Commands received and successfully executed.",
+             client_config.interface);
     return 0;
 }
 

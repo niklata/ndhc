@@ -65,7 +65,6 @@
 #include "log.h"
 #include "chroot.h"
 #include "cap.h"
-#include "strl.h"
 #include "pidfile.h"
 #include "io.h"
 #include "seccomp.h"
@@ -419,6 +418,19 @@ void background(void)
         write_pid(pidfile);
 }
 
+static void copy_cmdarg(char *dest, char *src, size_t destlen, char *argname)
+{
+    ssize_t olen = snprintf(dest, destlen, "%s", src);
+    if (olen < 0) {
+        log_error("snprintf failed on %s; your system is broken?", argname);
+        exit(EXIT_FAILURE);
+    }
+    if ((size_t)olen >= destlen) {
+        log_error("snprintf would truncate %s arg; it's too long", argname);
+        exit(EXIT_FAILURE);
+    }
+}
+
 int main(int argc, char **argv)
 {
     static const struct option arg_options[] = {
@@ -470,18 +482,19 @@ int main(int argc, char **argv)
                 gflags_detach = 1;
                 break;
             case 'p':
-                strnkcpy(pidfile, optarg, sizeof pidfile);
+                copy_cmdarg(pidfile, optarg, sizeof pidfile, "pidfile");
                 break;
             case 'P':
-                strnkcpy(pidfile_ifch, optarg, sizeof pidfile_ifch);
+                copy_cmdarg(pidfile_ifch, optarg, sizeof pidfile_ifch,
+                            "ifch-pidfile");
                 break;
             case 'h':
-                strnkcpy(client_config.hostname, optarg,
-                         sizeof client_config.hostname);
+                copy_cmdarg(client_config.hostname, optarg,
+                            sizeof client_config.hostname, "hostname");
                 break;
             case 'i':
-                strnkcpy(client_config.interface, optarg,
-                         sizeof client_config.interface);
+                copy_cmdarg(client_config.interface, optarg,
+                            sizeof client_config.interface, "interface");
                 break;
             case 'n':
                 client_config.abort_if_no_lease = 1;
@@ -527,10 +540,10 @@ int main(int argc, char **argv)
                 break;
             }
             case 'C':
-                strnkcpy(chroot_dir, optarg, sizeof chroot_dir);
+                copy_cmdarg(chroot_dir, optarg, sizeof chroot_dir, "chroot");
                 break;
             case 's':
-                strnkcpy(state_dir, optarg, sizeof state_dir);
+                copy_cmdarg(state_dir, optarg, sizeof state_dir, "state-dir");
                 break;
             case 'S':
                 seccomp_enforce = true;
@@ -588,8 +601,8 @@ int main(int argc, char **argv)
                 exit(EXIT_SUCCESS);
                 break;
             case 'V':
-                strnkcpy(client_config.vendor, optarg,
-                         sizeof client_config.vendor);
+                copy_cmdarg(client_config.vendor, optarg,
+                            sizeof client_config.vendor, "vendorid");
                 break;
             case 't': {
                 char *p;
@@ -609,7 +622,8 @@ int main(int argc, char **argv)
                 break;
             }
             case 'R':
-                strnkcpy(resolv_conf_d, optarg, sizeof resolv_conf_d);
+                copy_cmdarg(resolv_conf_d, optarg, sizeof resolv_conf_d,
+                            "resolv-conf");
                 break;
             case 'H':
                 allow_hostname = 1;
