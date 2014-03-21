@@ -47,14 +47,14 @@ static int leasefilefd = -1;
 
 static void get_leasefile_path(char *leasefile, size_t dlen, char *ifname)
 {
-    int splen = snprintf(leasefile, sizeof dlen, "%s/LEASE-%s",
+    int splen = snprintf(leasefile, dlen, "%s/LEASE-%s",
                          state_dir, ifname);
     if (splen < 0) {
         log_line("%s: (%s) snprintf failed; return=%d",
                  client_config.interface, __func__, splen);
         exit(EXIT_FAILURE);
     }
-    if ((size_t)splen >= sizeof dlen) {
+    if ((size_t)splen >= dlen) {
         log_line("%s: (%s) snprintf dest buffer too small %d >= %u",
                  client_config.interface, __func__, splen, sizeof dlen);
         exit(EXIT_FAILURE);

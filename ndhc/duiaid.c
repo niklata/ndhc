@@ -43,12 +43,12 @@
 
 static void get_duid_path(char *duidfile, size_t dlen)
 {
-    int splen = snprintf(duidfile, sizeof dlen, "%s/DUID", state_dir);
+    int splen = snprintf(duidfile, dlen, "%s/DUID", state_dir);
     if (splen < 0) {
         log_line("%s: snprintf failed; return=%d", __func__, splen);
         exit(EXIT_FAILURE);
     }
-    if ((size_t)splen >= sizeof dlen) {
+    if ((size_t)splen >= dlen) {
         log_line("%s: snprintf dest buffer too small %d >= %u",
                  __func__, splen, sizeof dlen);
         exit(EXIT_FAILURE);
@@ -64,7 +64,7 @@ static void get_iaid_path(char *iaidfile, size_t ilen, uint8_t *hwaddr,
         exit(EXIT_FAILURE);
     }
     int splen = snprintf
-        (iaidfile, sizeof ilen,
+        (iaidfile, ilen,
          "%s/IAID-%.2hhx:%.2hhx:%.2hhx:%.2hhx:%.2hhx:%.2hhx",
          state_dir, hwaddr[0], hwaddr[1], hwaddr[2],
          hwaddr[3], hwaddr[4], hwaddr[5]);
@@ -72,7 +72,7 @@ static void get_iaid_path(char *iaidfile, size_t ilen, uint8_t *hwaddr,
         log_line("%s: snprintf failed; return=%d", __func__, splen);
         exit(EXIT_FAILURE);
     }
-    if ((size_t)splen >= sizeof ilen) {
+    if ((size_t)splen >= ilen) {
         log_line("%s: snprintf dest buffer too small %d >= %u",
                  __func__, splen, sizeof ilen);
         exit(EXIT_FAILURE);
@@ -81,7 +81,7 @@ static void get_iaid_path(char *iaidfile, size_t ilen, uint8_t *hwaddr,
 
 static int open_duidfile_read(void)
 {
-    char duidfile[PATH_MAX];
+    char duidfile[MAX_PATH_LENGTH];
     get_duid_path(duidfile, sizeof duidfile);
     int fd = open(duidfile, O_RDONLY, 0);
     if (fd < 0) {
@@ -93,7 +93,7 @@ static int open_duidfile_read(void)
 
 static int open_duidfile_write(void)
 {
-    char duidfile[PATH_MAX];
+    char duidfile[MAX_PATH_LENGTH];
     get_duid_path(duidfile, sizeof duidfile);
     int fd = open(duidfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
     if (fd < 0) {
@@ -106,7 +106,7 @@ static int open_duidfile_write(void)
 
 static int open_iaidfile_read(uint8_t *hwaddr, size_t hwaddrlen)
 {
-    char iaidfile[PATH_MAX];
+    char iaidfile[MAX_PATH_LENGTH];
     get_iaid_path(iaidfile, sizeof iaidfile, hwaddr, hwaddrlen);
     int fd = open(iaidfile, O_RDONLY, 0);
     if (fd < 0) {
@@ -118,7 +118,7 @@ static int open_iaidfile_read(uint8_t *hwaddr, size_t hwaddrlen)
 
 static int open_iaidfile_write(uint8_t *hwaddr, size_t hwaddrlen)
 {
-    char iaidfile[PATH_MAX];
+    char iaidfile[MAX_PATH_LENGTH];
     get_iaid_path(iaidfile, sizeof iaidfile, hwaddr, hwaddrlen);
     int fd = open(iaidfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
     if (fd < 0) {
@@ -153,7 +153,7 @@ static size_t generate_duid(struct nk_random_state_u32 *s, char *dest,
         memcpy(dest+off, &r32, sizeof r32);
         off += sizeof r32;
     }
-    return dlen - off;
+    return off;
 }
 
 // RFC6355 specifies the IAID as a 32-bit value that uniquely identifies
@@ -170,7 +170,7 @@ static size_t generate_iaid(struct nk_random_state_u32 *s, char *dest,
     uint32_t r32 = nk_random_u32(s);
     memcpy(dest+off, &r32, sizeof r32);
     off += sizeof r32;
-    return dlen - off;
+    return off;
 }
 
 // Failures are all fatal.
@@ -182,6 +182,7 @@ void get_clientid(struct client_state_t *cs, struct client_config_t *cc)
     char duid[sizeof cc->clientid];
     size_t iaid_len;
     size_t duid_len;
+
     int fd = open_iaidfile_read(cc->arp, sizeof cc->arp);
     if (fd < 0) {
         iaid_len = generate_iaid(&cs->rnd32_state, iaid, sizeof iaid);
@@ -213,18 +214,20 @@ void get_clientid(struct client_state_t *cs, struct client_config_t *cc)
     close(fd);
 
     const uint8_t cid_type = 255;
-    if (sizeof cid_type + iaid_len + duid_len > sizeof cc->clientid) {
-        log_error("%s: (%s) clientid length > %s",
-                  cc->interface, __func__, sizeof cc->clientid);
+    size_t cdl = sizeof cid_type + iaid_len + duid_len;
+    if (cdl > sizeof cc->clientid) {
+        log_error("%s: (%s) clientid length %u > %u",
+                  cc->interface, __func__, cdl, sizeof cc->clientid);
         exit(EXIT_FAILURE);
     }
 
     uint8_t cid_len = 0;
-    memcpy(&cc->clientid + cid_len, &cid_type, sizeof cid_type);
+    memcpy(cc->clientid + cid_len, &cid_type, sizeof cid_type);
     cid_len += sizeof cid_type;
-    memcpy(&cc->clientid + cid_len, iaid, iaid_len);
+    memcpy(cc->clientid + cid_len, iaid, iaid_len);
     cid_len += iaid_len;
-    memcpy(&cc->clientid + cid_len, duid, duid_len);
+    memcpy(cc->clientid + cid_len, duid, duid_len);
     cid_len += duid_len;
     cc->clientid_len = cid_len;
 }
+
