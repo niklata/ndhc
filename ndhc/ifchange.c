@@ -50,12 +50,21 @@ static struct dhcpmsg cfg_packet; // Copy of the current configuration packet.
 static int ifcmd_raw(char *buf, size_t buflen, char *optname,
                      char *optdata, ssize_t optlen)
 {
-    if (!optdata)
+    if (!optdata) {
+        log_warning("%s: (%s) '%s' option has no data",
+                    client_config.interface, __func__, optname);
         return -1;
-    if (buflen < strlen(optname) + optlen + 3)
+    }
+    if (optlen > INT_MAX || optlen < 0) {
+        log_warning("%s: (%s) '%s' option optlen out of bounds",
+                    client_config.interface, __func__, optname);
         return -1;
-    if (optlen > INT_MAX || optlen < 0)
+    }
+    if (buflen < strlen(optname) + optlen + 3) {
+        log_warning("%s: (%s) '%s' option buf too short",
+                    client_config.interface, __func__, optname);
         return -1;
+    }
     int ioptlen = (int)optlen;
     ssize_t olen = snprintf(buf, buflen, "%s:%.*s;",
                             optname, ioptlen, optdata);
@@ -139,12 +148,11 @@ static int ifcmd_iplist(char *out, size_t outlen, char *optname,
         return -1;
 
     inet_ntop(AF_INET, optdata + optoff, ipbuf, sizeof ipbuf);
-    ssize_t wc = snprintf(buf + bufoff, sizeof buf, "%s:%s", optname, ipbuf);
+    ssize_t wc = snprintf(buf + bufoff, sizeof buf, "%s", ipbuf);
     if (wc < 0 || (size_t)wc >= sizeof buf)
         return -1;
     optoff += 4;
     bufoff += wc;
-
     while (optlen - optoff >= 4) {
         inet_ntop(AF_INET, optdata + optoff, ipbuf, sizeof ipbuf);
         wc = snprintf(buf + bufoff, sizeof buf, ",%s", ipbuf);
@@ -153,10 +161,6 @@ static int ifcmd_iplist(char *out, size_t outlen, char *optname,
         optoff += 4;
         bufoff += wc;
     }
-
-    wc = snprintf(buf + bufoff, sizeof buf, ";");
-    if (wc < 0 || (size_t)wc >= sizeof buf)
-        return -1;
     return ifcmd_raw(out, outlen, optname, buf, strlen(buf));
 }
 
