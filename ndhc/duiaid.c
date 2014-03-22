@@ -65,7 +65,7 @@ static void get_iaid_path(char *iaidfile, size_t ilen, uint8_t *hwaddr,
     }
     int splen = snprintf
         (iaidfile, ilen,
-         "%s/IAID-%.2hhx:%.2hhx:%.2hhx:%.2hhx:%.2hhx:%.2hhx",
+         "%s/IAID-%2.2hhx:%2.2hhx:%2.2hhx:%2.2hhx:%2.2hhx:%2.2hhx",
          state_dir, hwaddr[0], hwaddr[1], hwaddr[2],
          hwaddr[3], hwaddr[4], hwaddr[5]);
     if (splen < 0) {

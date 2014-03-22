@@ -520,7 +520,7 @@ static int validate_dhcp_packet(struct client_state_t *cs, size_t len,
         return 0;
     }
     if (memcmp(packet->chaddr, client_config.arp, sizeof client_config.arp)) {
-        log_line("Packet client MAC %.2hhx:%.2hhx:%.2hhx:%.2hhx:%.2hhx:%.2hhx does not equal our MAC %.2hhx:%.2hhx:%.2hhx:%.2hhx:%.2hhx:%.2hhx.  Ignoring it.",
+        log_line("Packet client MAC %2.2hhx:%2.2hhx:%2.2hhx:%2.2hhx:%2.2hhx:%2.2hhx does not equal our MAC %2.2hhx:%2.2hhx:%2.2hhx:%2.2hhx:%2.2hhx:%2.2hhx.  Ignoring it.",
                  packet->chaddr[0], packet->chaddr[1], packet->chaddr[2],
                  packet->chaddr[3], packet->chaddr[4], packet->chaddr[5],
                  client_config.arp[0], client_config.arp[1],
