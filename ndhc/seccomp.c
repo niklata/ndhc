@@ -40,20 +40,30 @@ int enforce_seccomp_ndhc(void)
     struct sock_filter filter[] = {
         VALIDATE_ARCHITECTURE,
         EXAMINE_SYSCALL,
-        ALLOW_SYSCALL(sendto), // used for glibc syslog routines
         ALLOW_SYSCALL(epoll_wait),
         ALLOW_SYSCALL(epoll_ctl),
         ALLOW_SYSCALL(read),
         ALLOW_SYSCALL(write),
         ALLOW_SYSCALL(close),
+
+#if defined(__x86_64__) || (defined(__arm__) && defined(__ARM_EABI__))
+        ALLOW_SYSCALL(sendto), // used for glibc syslog routines
         ALLOW_SYSCALL(recvmsg),
         ALLOW_SYSCALL(socket),
         ALLOW_SYSCALL(setsockopt),
-        ALLOW_SYSCALL(fcntl),
-        ALLOW_SYSCALL(bind),
-        ALLOW_SYSCALL(open),
-        ALLOW_SYSCALL(connect),
         ALLOW_SYSCALL(getsockname),
+        ALLOW_SYSCALL(connect),
+        ALLOW_SYSCALL(bind),
+        ALLOW_SYSCALL(socketpair),
+#elif defined(__i386__)
+        ALLOW_SYSCALL(socketcall),
+        ALLOW_SYSCALL(fcntl64),
+#else
+#error Target platform does not support seccomp-filter.
+#endif
+
+        ALLOW_SYSCALL(fcntl),
+        ALLOW_SYSCALL(open),
 
         // Allowed by vDSO
         ALLOW_SYSCALL(getcpu),
@@ -67,7 +77,6 @@ int enforce_seccomp_ndhc(void)
         ALLOW_SYSCALL(fsync),
 
         // These are for 'background()'
-        ALLOW_SYSCALL(socketpair),
         ALLOW_SYSCALL(clone),
         ALLOW_SYSCALL(set_robust_list),
         ALLOW_SYSCALL(setsid),
@@ -110,23 +119,33 @@ int enforce_seccomp_ifch(void)
         EXAMINE_SYSCALL,
         ALLOW_SYSCALL(read),
         ALLOW_SYSCALL(write),
-        ALLOW_SYSCALL(sendto),
         ALLOW_SYSCALL(epoll_wait),
         ALLOW_SYSCALL(epoll_ctl),
         ALLOW_SYSCALL(close),
+
+#if defined(__x86_64__) || (defined(__arm__) && defined(__ARM_EABI__))
+        ALLOW_SYSCALL(sendto), // used for glibc syslog routines
+        ALLOW_SYSCALL(recvmsg),
         ALLOW_SYSCALL(socket),
-        ALLOW_SYSCALL(ioctl),
+        ALLOW_SYSCALL(setsockopt),
         ALLOW_SYSCALL(getsockname),
+        ALLOW_SYSCALL(connect),
+        ALLOW_SYSCALL(bind),
+        ALLOW_SYSCALL(socketpair),
+#elif defined(__i386__)
+        ALLOW_SYSCALL(socketcall),
+        ALLOW_SYSCALL(fcntl64),
+#else
+#error Target platform does not support seccomp-filter.
+#endif
+
         ALLOW_SYSCALL(open),
         ALLOW_SYSCALL(fstat),
-        ALLOW_SYSCALL(connect),
-        ALLOW_SYSCALL(recvmsg),
         ALLOW_SYSCALL(fsync),
         ALLOW_SYSCALL(lseek),
         ALLOW_SYSCALL(truncate),
         ALLOW_SYSCALL(fcntl),
         ALLOW_SYSCALL(unlink),
-        ALLOW_SYSCALL(bind),
         ALLOW_SYSCALL(chmod),
 
         ALLOW_SYSCALL(rt_sigreturn),
