@@ -561,10 +561,11 @@ static int arp_is_query_reply(struct arpMsg *am)
     return 1;
 }
 
-static int arp_gen_probe_wait(void)
+static int arp_gen_probe_wait(struct client_state_t *cs)
 {
     // This is not a uniform distribution but it doesn't matter here.
-    return arp_probe_min + rand() % (arp_probe_max - arp_probe_min);
+    return arp_probe_min + (nk_random_u32(&cs->rnd32_state) & 0x7fffffffu)
+        % (arp_probe_max - arp_probe_min);
 }
 
 static void arp_defense_timeout(struct client_state_t *cs, long long nowts)
@@ -642,7 +643,7 @@ static void arp_collision_timeout(struct client_state_t *cs, long long nowts)
     }
     if (arp_ip_anon_ping(cs, arp_dhcp_packet.yiaddr) == -1)
         log_warning("arp: Failed to send ARP ping in retransmission.");
-    probe_wait_time = arp_gen_probe_wait();
+    probe_wait_time = arp_gen_probe_wait(cs);
     arp_wake_ts[AS_COLLISION_CHECK] =
         arp_send_stats[ASEND_COLLISION_CHECK].ts + probe_wait_time;
 }

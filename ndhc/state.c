@@ -77,13 +77,14 @@ static const dhcp_state_t dhcp_states[] = {
 static unsigned int num_dhcp_requests;
 static long long dhcp_wake_ts = -1;
 
-static int delay_timeout(size_t numpackets)
+static int delay_timeout(struct client_state_t *cs, size_t numpackets)
 {
     int to = 64;
     char tot[] = { 4, 8, 16, 32, 64 };
     if (numpackets < sizeof tot)
         to = tot[numpackets];
-    return to * 1000 + rand() % 1000;
+    // Distribution is a bit biased but it doesn't really matter.
+    return to * 1000 + (nk_random_u32(&cs->rnd32_state) & 0x7fffffffu) % 1000;
 }
 
 static void reinit_shared_deconfig(struct client_state_t *cs)
@@ -123,7 +124,7 @@ static void requesting_timeout(struct client_state_t *cs, long long nowts)
 {
     if (num_dhcp_requests < 5) {
         send_selecting(cs);
-        dhcp_wake_ts = nowts + delay_timeout(num_dhcp_requests);
+        dhcp_wake_ts = nowts + delay_timeout(cs, num_dhcp_requests);
         num_dhcp_requests++;
     } else
         reinit_selecting(cs, 0);
@@ -309,7 +310,7 @@ static void selecting_timeout(struct client_state_t *cs, long long nowts)
     if (num_dhcp_requests == 0)
         cs->xid = nk_random_u32(&cs->rnd32_state);
     send_discover(cs);
-    dhcp_wake_ts = nowts + delay_timeout(num_dhcp_requests);
+    dhcp_wake_ts = nowts + delay_timeout(cs, num_dhcp_requests);
     num_dhcp_requests++;
 }
 
