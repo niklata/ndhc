@@ -145,8 +145,6 @@ int enforce_seccomp_ifch(void)
         ALLOW_SYSCALL(lseek),
         ALLOW_SYSCALL(truncate),
         ALLOW_SYSCALL(fcntl),
-        ALLOW_SYSCALL(unlink),
-        ALLOW_SYSCALL(chmod),
 
         ALLOW_SYSCALL(rt_sigreturn),
 #ifdef __NR_sigreturn
