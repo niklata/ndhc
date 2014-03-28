@@ -91,6 +91,7 @@ struct client_config_t client_config = {
     .arp = "\0\0\0\0\0\0",
     .clientid_len = 0,
     .metric = 0,
+    .foreground = 1,
 };
 
 static void show_usage(void)
@@ -102,7 +103,6 @@ static void show_usage(void)
 "  -c, --clientid=CLIENTID         Client identifier\n"
 "  -h, --hostname=HOSTNAME         Client hostname\n"
 "  -V, --vendorid=VENDORID         Client vendor identification string\n"
-"  -f, --foreground                Do not fork after getting lease\n"
 "  -b, --background                Fork to background if lease cannot be\n"
 "                                  immediately negotiated.\n"
 "  -p, --pidfile=FILE              File where the ndhc pid will be written\n"
@@ -423,7 +423,6 @@ int main(int argc, char **argv)
 {
     static const struct option arg_options[] = {
         {"clientid",           required_argument,  0, 'c'},
-        {"foreground",         no_argument,        0, 'f'},
         {"background",         no_argument,        0, 'b'},
         {"pidfile",            required_argument,  0, 'p'},
         {"ifch-pidfile",       required_argument,  0, 'P'},
@@ -453,17 +452,13 @@ int main(int argc, char **argv)
 
     while (1) {
         int c;
-        c = getopt_long(argc, argv, "c:fbp:P:h:i:nqr:V:u:U:C:s:Sdw:W:m:M:t:R:Hv?",
+        c = getopt_long(argc, argv, "c:bp:P:h:i:nqr:V:u:U:C:s:Sdw:W:m:M:t:R:Hv?",
                         arg_options, NULL);
         if (c == -1) break;
 
         switch (c) {
             case 'c':
                 get_clientid_string(optarg, strlen(optarg));
-                break;
-            case 'f':
-                client_config.foreground = 1;
-                gflags_detach = 0;
                 break;
             case 'b':
                 client_config.background_if_no_lease = 1;
