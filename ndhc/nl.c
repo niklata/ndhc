@@ -197,7 +197,8 @@ int nl_sendgetlink(int fd, int seq, int ifindex)
     return nl_sendgetlink_do(fd, seq, ifindex, 1);
 }
 
-int nl_sendgetaddr(int fd, int seq, int ifindex)
+static int nl_sendgetaddr_do(int fd, int seq, int ifindex, int by_ifindex,
+                             int afamily, int by_afamily)
 {
     char nlbuf[512];
     struct nlmsghdr *nlh = (struct nlmsghdr *)nlbuf;
@@ -211,8 +212,10 @@ int nl_sendgetaddr(int fd, int seq, int ifindex)
     nlh->nlmsg_seq = seq;
 
     ifaddrmsg = NLMSG_DATA(nlh);
-    ifaddrmsg->ifa_family = AF_INET;
-    ifaddrmsg->ifa_index = ifindex;
+    if (by_afamily)
+        ifaddrmsg->ifa_family = afamily;
+    if (by_ifindex)
+        ifaddrmsg->ifa_index = ifindex;
 
     struct sockaddr_nl addr = {
         .nl_family = AF_NETLINK,
@@ -230,6 +233,31 @@ retry_sendto:
         }
     }
     return 0;
+}
+
+int nl_sendgetaddrs(int fd, int seq)
+{
+    return nl_sendgetaddr_do(fd, seq, 0, 0, 0, 0);
+}
+
+int nl_sendgetaddrs4(int fd, int seq)
+{
+    return nl_sendgetaddr_do(fd, seq, 0, 0, AF_INET, 1);
+}
+
+int nl_sendgetaddrs6(int fd, int seq)
+{
+    return nl_sendgetaddr_do(fd, seq, 0, 0, AF_INET6, 1);
+}
+
+int nl_sendgetaddr4(int fd, int seq, int ifindex)
+{
+    return nl_sendgetaddr_do(fd, seq, ifindex, 1, AF_INET, 1);
+}
+
+int nl_sendgetaddr6(int fd, int seq, int ifindex)
+{
+    return nl_sendgetaddr_do(fd, seq, ifindex, 1, AF_INET6, 1);
 }
 
 int nl_open(int nltype, int nlgroup, int *nlportid)

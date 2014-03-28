@@ -421,7 +421,7 @@ static int ipbcpfx_clear_others(int fd, uint32_t ipaddr, uint32_t bcast,
                            .prefixlen = prefixlen, .already_ok = false };
     ssize_t ret;
     uint32_t seq = ifset_nl_seq++;
-    if (nl_sendgetaddr(fd, seq, client_config.ifindex) < 0)
+    if (nl_sendgetaddr4(fd, seq, client_config.ifindex) < 0)
         return -1;
 
     do {
