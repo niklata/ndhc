@@ -32,7 +32,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
-#define __USE_GNU 1
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/types.h>
