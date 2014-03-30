@@ -30,8 +30,9 @@
 #include <errno.h>
 #include <sys/epoll.h>
 #include <sys/signalfd.h>
+#include "nk/log.h"
+
 #include "sys.h"
-#include "log.h"
 
 void epoll_add(int epfd, int fd)
 {

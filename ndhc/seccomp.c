@@ -27,8 +27,8 @@
  */
 #include <stdbool.h>
 #include "seccomp.h"
-#include "log.h"
-#include "seccomp-bpf.h"
+#include "nk/log.h"
+#include "nk/seccomp-bpf.h"
 
 bool seccomp_enforce = false;
 

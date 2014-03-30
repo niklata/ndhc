@@ -35,7 +35,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
-#include "log.h"
+#include "nk/log.h"
 #include "nl.h"
 
 int rtattr_assign(struct rtattr *attr, int type, void *data)

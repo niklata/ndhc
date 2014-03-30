@@ -35,10 +35,10 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <errno.h>
+#include "nk/log.h"
+#include "nk/random.h"
+#include "nk/io.h"
 #include "duiaid.h"
-#include "log.h"
-#include "random.h"
-#include "io.h"
 #include "ndhc.h"
 
 static void get_duid_path(char *duidfile, size_t dlen)
@@ -81,7 +81,7 @@ static void get_iaid_path(char *iaidfile, size_t ilen, uint8_t *hwaddr,
 
 static int open_duidfile_read(void)
 {
-    char duidfile[MAX_PATH_LENGTH];
+    char duidfile[PATH_MAX];
     get_duid_path(duidfile, sizeof duidfile);
     int fd = open(duidfile, O_RDONLY, 0);
     if (fd < 0) {
@@ -93,7 +93,7 @@ static int open_duidfile_read(void)
 
 static int open_duidfile_write(void)
 {
-    char duidfile[MAX_PATH_LENGTH];
+    char duidfile[PATH_MAX];
     get_duid_path(duidfile, sizeof duidfile);
     int fd = open(duidfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
     if (fd < 0) {
@@ -106,7 +106,7 @@ static int open_duidfile_write(void)
 
 static int open_iaidfile_read(uint8_t *hwaddr, size_t hwaddrlen)
 {
-    char iaidfile[MAX_PATH_LENGTH];
+    char iaidfile[PATH_MAX];
     get_iaid_path(iaidfile, sizeof iaidfile, hwaddr, hwaddrlen);
     int fd = open(iaidfile, O_RDONLY, 0);
     if (fd < 0) {
@@ -118,7 +118,7 @@ static int open_iaidfile_read(uint8_t *hwaddr, size_t hwaddrlen)
 
 static int open_iaidfile_write(uint8_t *hwaddr, size_t hwaddrlen)
 {
-    char iaidfile[MAX_PATH_LENGTH];
+    char iaidfile[PATH_MAX];
     get_iaid_path(iaidfile, sizeof iaidfile, hwaddr, hwaddrlen);
     int fd = open(iaidfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
     if (fd < 0) {

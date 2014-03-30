@@ -1,8 +1,6 @@
 #ifndef NDHC_DEFINES_H_
 #define NDHC_DEFINES_H_
 
-#include "defines.h"
-
 #define PID_FILE_DEFAULT "/var/run/ndhc.pid"
 #define PID_FILE_IFCH_DEFAULT "/var/run/ifchd.pid"
 #define NDHC_VERSION "1.5"

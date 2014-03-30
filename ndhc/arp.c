@@ -39,6 +39,8 @@
 #include <linux/filter.h>
 #include <fcntl.h>
 #include <errno.h>
+#include "nk/log.h"
+#include "nk/io.h"
 #include "arp.h"
 #include "state.h"
 #include "dhcp.h"
@@ -46,8 +48,6 @@
 #include "ifchange.h"
 #include "options.h"
 #include "leasefile.h"
-#include "log.h"
-#include "io.h"
 
 #define ARP_MSG_SIZE 0x2a
 #define ARP_RETRANS_DELAY 5000 // ms

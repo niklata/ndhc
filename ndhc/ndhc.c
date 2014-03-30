@@ -49,9 +49,15 @@
 #include <pwd.h>
 #include <grp.h>
 #include <limits.h>
+#include "nk/log.h"
+#include "nk/privilege.h"
+#include "nk/pidfile.h"
+#include "nk/io.h"
+#include "nk/copy_cmdarg.h"
 
 #include "ndhc.h"
 #include "ndhc-defines.h"
+#include "seccomp.h"
 #include "state.h"
 #include "options.h"
 #include "dhcp.h"
@@ -62,15 +68,8 @@
 #include "netlink.h"
 #include "leasefile.h"
 #include "ifset.h"
-#include "log.h"
-#include "chroot.h"
-#include "cap.h"
-#include "pidfile.h"
-#include "io.h"
-#include "seccomp.h"
 #include "ifchd.h"
 #include "duiaid.h"
-#include "copy_cmdarg.h"
 
 struct client_state_t cs = {
     .ifchWorking = 0,
@@ -339,10 +338,10 @@ jumpstart:
     }
 }
 
-char state_dir[MAX_PATH_LENGTH] = "/etc/ndhc";
-char chroot_dir[MAX_PATH_LENGTH] = "";
-char resolv_conf_d[MAX_PATH_LENGTH] = "";
-static char pidfile[MAX_PATH_LENGTH] = PID_FILE_DEFAULT;
+char state_dir[PATH_MAX] = "/etc/ndhc";
+char chroot_dir[PATH_MAX] = "";
+char resolv_conf_d[PATH_MAX] = "";
+static char pidfile[PATH_MAX] = PID_FILE_DEFAULT;
 static uid_t ndhc_uid = 0;
 static gid_t ndhc_gid = 0;
 int pToNdhcR;
@@ -390,12 +389,11 @@ static void ndhc_main(void) {
 
     open_leasefile();
 
-    imprison(chroot_dir);
+    nk_set_chroot(chroot_dir);
     memset(chroot_dir, '\0', sizeof chroot_dir);
 
-    set_cap(ndhc_uid, ndhc_gid,
-            "cap_net_bind_service,cap_net_broadcast,cap_net_raw=ep");
-    drop_root(ndhc_uid, ndhc_gid);
+    nk_set_capability("cap_net_bind_service,cap_net_broadcast,cap_net_raw=ep");
+    nk_set_uidgid(ndhc_uid, ndhc_gid);
 
     if (cs.ifsPrevState != IFS_UP)
         ifchange_deconfig(&cs);

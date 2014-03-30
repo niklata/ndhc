@@ -31,14 +31,15 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include "nk/log.h"
+#include "nk/random.h"
+
 #include "state.h"
 #include "ifchange.h"
 #include "arp.h"
 #include "options.h"
-#include "log.h"
 #include "ndhc.h"
 #include "sys.h"
-#include "random.h"
 
 static void selecting_packet(struct client_state_t *cs, struct dhcpmsg *packet,
                              uint8_t msgtype);

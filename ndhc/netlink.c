@@ -37,9 +37,9 @@
 #include <time.h>
 #include <errno.h>
 #include <poll.h>
+#include "nk/log.h"
 
 #include "netlink.h"
-#include "log.h"
 #include "nl.h"
 #include "state.h"
 

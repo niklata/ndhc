@@ -29,6 +29,7 @@
 #ifndef NDHC_DHCP_H_
 #define NDHC_DHCP_H_
 
+#include <stdint.h>
 #include <netinet/udp.h>
 #include <netinet/ip.h>
 #include "ndhc.h"

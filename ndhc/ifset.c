@@ -44,13 +44,12 @@
 #include <linux/rtnetlink.h>
 #include <pwd.h>
 #include <grp.h>
-
 #include <errno.h>
+#include "nk/log.h"
 
 #include "ifset.h"
 #include "ifchd.h"
 #include "ndhc.h"
-#include "log.h"
 #include "nl.h"
 
 static uint32_t ifset_nl_seq = 1;

@@ -2,8 +2,8 @@ project (ndhcp)
 
 cmake_minimum_required (VERSION 2.6)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -pedantic -Wall -Wextra -Wformat=2 -Wformat-nonliteral -Wformat-security -Wshadow -Wpointer-arith -Wmissing-prototypes -lrt -lcap -D_GNU_SOURCE -DHAVE_CLEARENV")
-set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -pedantic -Wall -Wextra -Wformat=2 -Wformat-nonliteral -Wformat-security -Wshadow -Wpointer-arith -Wmissing-prototypes -lrt -lcap -D_GNU_SOURCE -DHAVE_CLEARENV")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -pedantic -Wall -Wextra -Wformat=2 -Wformat-nonliteral -Wformat-security -Wshadow -Wpointer-arith -Wmissing-prototypes -lrt -lcap -D_GNU_SOURCE -DNK_USE_CAPABILITY")
+set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -pedantic -Wall -Wextra -Wformat=2 -Wformat-nonliteral -Wformat-security -Wshadow -Wpointer-arith -Wmissing-prototypes -lrt -lcap -D_GNU_SOURCE -DNK_USE_CAPABILITY")
 
 if (WIN32)
   set(OSNAME "Win32")

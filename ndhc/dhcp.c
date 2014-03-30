@@ -44,16 +44,16 @@
 #include <linux/filter.h>
 #include <time.h>
 #include <errno.h>
+#include "nk/log.h"
+#include "nk/io.h"
+#include "nk/random.h"
 
 #include "dhcp.h"
 #include "state.h"
 #include "arp.h"
 #include "ifchange.h"
 #include "sys.h"
-#include "log.h"
-#include "io.h"
 #include "options.h"
-#include "random.h"
 
 typedef enum {
     LM_NONE = 0,

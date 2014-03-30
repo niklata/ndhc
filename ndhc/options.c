@@ -30,9 +30,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include "nk/log.h"
 
 #include "options.h"
-#include "log.h"
 
 static int do_overload_value(const uint8_t *buf, ssize_t blen, int overload)
 {

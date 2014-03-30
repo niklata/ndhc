@@ -30,7 +30,6 @@
 
 #include <stdint.h>
 #include <net/if_arp.h>
-
 #include "ndhc.h"
 #include "dhcp.h"
 

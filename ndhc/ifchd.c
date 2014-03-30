@@ -39,24 +39,21 @@
 #include <sys/prctl.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-
 #include <signal.h>
 #include <errno.h>
-
 #include <getopt.h>
+#include "nk/log.h"
+#include "nk/privilege.h"
+#include "nk/pidfile.h"
+#include "nk/signals.h"
+#include "nk/io.h"
 
+#include "seccomp.h"
 #include "ifchd.h"
 #include "ndhc.h"
-#include "log.h"
-#include "chroot.h"
-#include "pidfile.h"
-#include "signals.h"
 #include "ifchd-parse.h"
-#include "cap.h"
-#include "io.h"
 #include "sys.h"
 #include "ifset.h"
-#include "seccomp.h"
 
 struct ifchd_client cl;
 
@@ -70,7 +67,7 @@ static int resolv_conf_fd = -1;
 /* If true, allow HOSTNAME changes from dhcp server. */
 int allow_hostname = 0;
 
-char pidfile_ifch[MAX_PATH_LENGTH] = PID_FILE_IFCH_DEFAULT;
+char pidfile_ifch[PATH_MAX] = PID_FILE_IFCH_DEFAULT;
 uid_t ifch_uid = 0;
 gid_t ifch_gid = 0;
 
@@ -417,10 +414,10 @@ void ifch_main(void)
     }
     memset(resolv_conf_d, '\0', sizeof resolv_conf_d);
 
-    imprison(chroot_dir);
+    nk_set_chroot(chroot_dir);
     memset(chroot_dir, '\0', sizeof chroot_dir);
-    set_cap(ifch_uid, ifch_gid, "cap_net_admin=ep");
-    drop_root(ifch_uid, ifch_gid);
+    nk_set_capability("cap_net_admin=ep");
+    nk_set_uidgid(ifch_uid, ifch_gid);
 
     do_ifch_work();
 }

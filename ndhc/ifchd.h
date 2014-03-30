@@ -1,6 +1,7 @@
 #ifndef NJK_IFCHD_H_
 #define NJK_IFCHD_H_
 
+#include <limits.h>
 #include "ndhc-defines.h"
 
 enum ifchd_states {
@@ -32,7 +33,7 @@ struct ifchd_client {
 extern struct ifchd_client cl;
 
 extern int allow_hostname;
-extern char pidfile_ifch[MAX_PATH_LENGTH];
+extern char pidfile_ifch[PATH_MAX];
 extern uid_t ifch_uid;
 extern gid_t ifch_gid;
 

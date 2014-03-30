@@ -37,11 +37,10 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <limits.h>
+#include "nk/log.h"
+#include "nk/io.h"
 #include "leasefile.h"
 #include "ndhc.h"
-#include "log.h"
-#include "io.h"
-#include "defines.h"
 
 static int leasefilefd = -1;
 

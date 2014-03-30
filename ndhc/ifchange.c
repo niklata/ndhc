@@ -35,14 +35,14 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <limits.h>
+#include "nk/log.h"
+#include "nk/io.h"
 
 #include "options.h"
 #include "ndhc.h"
 #include "dhcp.h"
 #include "options.h"
 #include "arp.h"
-#include "log.h"
-#include "io.h"
 #include "ifchange.h"
 
 static struct dhcpmsg cfg_packet; // Copy of the current configuration packet.

@@ -29,9 +29,9 @@
 #define NJK_NDHC_NDHC_H_
 
 #include <stdint.h>
+#include <limits.h>
 #include <net/if.h>
-#include "defines.h"
-#include "random.h"
+#include "nk/random.h"
 
 struct client_state_t {
     unsigned long long leaseStartTime;
@@ -71,9 +71,9 @@ extern int pToIfchR;
 extern int pToIfchW;
 extern int pToNdhcR;
 extern int pToNdhcW;
-extern char state_dir[MAX_PATH_LENGTH];
-extern char chroot_dir[MAX_PATH_LENGTH];
-extern char resolv_conf_d[MAX_PATH_LENGTH];
+extern char state_dir[PATH_MAX];
+extern char chroot_dir[PATH_MAX];
+extern char resolv_conf_d[PATH_MAX];
 
 void background(void);
 

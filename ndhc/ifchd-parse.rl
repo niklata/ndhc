@@ -31,10 +31,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include "nk/log.h"
 
 #include "ifchd-parse.h"
 #include "ifchd.h"
-#include "log.h"
 #include "ifset.h"
 #include "ndhc.h"
 
