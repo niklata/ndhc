@@ -481,10 +481,8 @@ static void change_listen_mode(struct client_state_t *cs, int new_mode)
     cs->listenFd = new_mode == LM_RAW ?
         create_raw_listen_socket(cs, client_config.ifindex) :
         create_udp_listen_socket(client_config.interface);
-    if (cs->listenFd < 0) {
-        log_error("FATAL: Couldn't listen on socket: %s.", strerror(errno));
-        exit(EXIT_FAILURE);
-    }
+    if (cs->listenFd < 0)
+        suicide("FATAL: Couldn't listen on socket: %s.", strerror(errno));
     epoll_add(cs->epollFd, cs->listenFd);
 }
 

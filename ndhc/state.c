@@ -303,10 +303,8 @@ static void selecting_timeout(struct client_state_t *cs, long long nowts)
             log_line("No lease, going to background.");
             cs->init = 0;
             background();
-        } else if (client_config.abort_if_no_lease) {
-            log_line("No lease, failing.");
-            exit(EXIT_FAILURE);
-        }
+        } else if (client_config.abort_if_no_lease)
+            suicide("No lease, failing.");
     }
     if (num_dhcp_requests == 0)
         cs->xid = nk_random_u32(&cs->rnd32_state);

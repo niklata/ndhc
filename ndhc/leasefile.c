@@ -48,16 +48,12 @@ static void get_leasefile_path(char *leasefile, size_t dlen, char *ifname)
 {
     int splen = snprintf(leasefile, dlen, "%s/LEASE-%s",
                          state_dir, ifname);
-    if (splen < 0) {
-        log_line("%s: (%s) snprintf failed; return=%d",
-                 client_config.interface, __func__, splen);
-        exit(EXIT_FAILURE);
-    }
-    if ((size_t)splen >= dlen) {
-        log_line("%s: (%s) snprintf dest buffer too small %d >= %u",
-                 client_config.interface, __func__, splen, sizeof dlen);
-        exit(EXIT_FAILURE);
-    }
+    if (splen < 0)
+        suicide("%s: (%s) snprintf failed; return=%d",
+                client_config.interface, __func__, splen);
+    if ((size_t)splen >= dlen)
+        suicide("%s: (%s) snprintf dest buffer too small %d >= %u",
+                client_config.interface, __func__, splen, sizeof dlen);
 }
 
 void open_leasefile(void)
@@ -65,11 +61,9 @@ void open_leasefile(void)
     char leasefile[PATH_MAX];
     get_leasefile_path(leasefile, sizeof leasefile, client_config.interface);
     leasefilefd = open(leasefile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
-    if (leasefilefd < 0) {
-        log_line("%s: Failed to create lease file '%s': %s",
-                 client_config.interface, leasefile, strerror(errno));
-        exit(EXIT_FAILURE);
-    }
+    if (leasefilefd < 0)
+        suicide("%s: Failed to create lease file '%s': %s",
+                client_config.interface, leasefile, strerror(errno));
 }
 
 void write_leasefile(struct in_addr ipnum)

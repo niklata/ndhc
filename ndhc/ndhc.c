@@ -180,8 +180,7 @@ static void signal_dispatch(void)
             exit(EXIT_SUCCESS);
             break;
         case SIGCHLD:
-            log_line("ndhc-master: Subprocess terminated unexpectedly.  Exiting.");
-            exit(EXIT_FAILURE);
+            suicide("ndhc-master: Subprocess terminated unexpectedly.  Exiting.");
             break;
         case SIGTERM:
             log_line("Received SIGTERM.  Exiting gracefully.");
@@ -228,21 +227,14 @@ static int get_clientid_string(char *str, size_t slen)
 
 static void fail_if_state_dir_dne(void)
 {
-    if (strlen(state_dir) == 0) {
-        log_error("state_dir path is empty; it must be specified");
-        exit(EXIT_FAILURE);
-    }
+    if (strlen(state_dir) == 0)
+        suicide("state_dir path is empty; it must be specified");
     struct stat st;
-    if (stat(state_dir, &st) < 0) {
-        log_error("failed to stat state_dir path '%s': %s",
-                  state_dir, strerror(errno));
-        exit(EXIT_FAILURE);
-    }
-    if (!S_ISDIR(st.st_mode)) {
-        log_error("state_dir path '%s' does not specify a directory",
-                  state_dir);
-        exit(EXIT_FAILURE);
-    }
+    if (stat(state_dir, &st) < 0)
+        suicide("failed to stat state_dir path '%s': %s",
+                state_dir, strerror(errno));
+    if (!S_ISDIR(st.st_mode))
+        suicide("state_dir path '%s' does not specify a directory", state_dir);
 }
 
 static void handle_ifch_message(void)
@@ -255,9 +247,8 @@ static void handle_ifch_message(void)
     } else if (r < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return;
-        log_line("%s: (%s) error reading from ifch -> ndhc pipe: %s",
-                 client_config.interface, __func__, strerror(errno));
-        exit(EXIT_FAILURE);
+        suicide("%s: (%s) error reading from ifch -> ndhc pipe: %s",
+                client_config.interface, __func__, strerror(errno));
     }
 
     if (c == '+')
@@ -353,18 +344,14 @@ static void create_ipc_pipes(void) {
     int niPipe[2];
     int inPipe[2];
 
-    if (pipe2(niPipe, O_NONBLOCK)) {
-        log_line("FATAL - can't create ndhc -> ndhc-ifch pipe: %s",
-                 strerror(errno));
-        exit(EXIT_FAILURE);
-    }
+    if (pipe2(niPipe, O_NONBLOCK))
+        suicide("FATAL - can't create ndhc -> ndhc-ifch pipe: %s",
+                strerror(errno));
     pToNdhcR = niPipe[0];
     pToNdhcW = niPipe[1];
-    if (pipe2(inPipe, O_NONBLOCK)) {
-        log_line("FATAL - can't create ndhc-ifch -> ndhc pipe: %s",
-                 strerror(errno));
-        exit(EXIT_FAILURE);
-    }
+    if (pipe2(inPipe, O_NONBLOCK))
+        suicide("FATAL - can't create ndhc-ifch -> ndhc pipe: %s",
+                strerror(errno));
     pToIfchR = inPipe[0];
     pToIfchW = inPipe[1];
 }
@@ -374,16 +361,13 @@ static void ndhc_main(void) {
     log_line("ndhc client " NDHC_VERSION " started on interface [%s].",
              client_config.interface);
 
-    if ((cs.nlFd = nl_open(NETLINK_ROUTE, RTMGRP_LINK, &cs.nlPortId)) < 0) {
-        log_line("FATAL - failed to open netlink socket");
-        exit(EXIT_FAILURE);
-    }
+    if ((cs.nlFd = nl_open(NETLINK_ROUTE, RTMGRP_LINK, &cs.nlPortId)) < 0)
+        suicide("%s: failed to open netlink socket", __func__);
 
     if (client_config.foreground && !client_config.background_if_no_lease) {
-        if (file_exists(pidfile, "w") == -1) {
-            log_line("FATAL - can't open pidfile '%s' for write!", pidfile);
-            exit(EXIT_FAILURE);
-        }
+        if (file_exists(pidfile, "w") == -1)
+            suicide("%s: can't open pidfile '%s' for write!",
+                    __func__, pidfile);
         write_pid(pidfile);
     }
 
@@ -412,7 +396,7 @@ void background(void)
         }
     }
     if (file_exists(pidfile, "w") == -1) {
-        log_line("Cannot open pidfile for write!");
+        log_warning("Cannot open pidfile for write!");
     } else
         write_pid(pidfile);
 }
@@ -497,10 +481,8 @@ int main(int argc, char **argv)
                 if (pwd) {
                     ndhc_uid = (int)pwd->pw_uid;
                     ndhc_gid = (int)pwd->pw_gid;
-                } else {
-                    printf("Bad username provided to '-u'.\n");
-                    exit(EXIT_FAILURE);
-                }
+                } else
+                    suicide("Bad username provided to '-u'.");
                 break;
             }
             case 'U': {
@@ -514,10 +496,8 @@ int main(int argc, char **argv)
                 if (pwd) {
                     ifch_uid = (int)pwd->pw_uid;
                     ifch_gid = (int)pwd->pw_gid;
-                } else {
-                    printf("Bad username provided to '-U'.\n");
-                    exit(EXIT_FAILURE);
-                }
+                } else
+                    suicide("Bad username provided to '-U'.");
                 break;
             }
             case 'C':
@@ -588,15 +568,10 @@ int main(int argc, char **argv)
             case 't': {
                 char *p;
                 long mt = strtol(optarg, &p, 10);
-                if (p == optarg) {
-                    log_error("gw-metric arg '%s' isn't a valid number",
-                              optarg);
-                    exit(EXIT_FAILURE);
-                }
-                if (mt > INT_MAX) {
-                    log_error("gw-metric arg '%s' is too large", optarg);
-                    exit(EXIT_FAILURE);
-                }
+                if (p == optarg)
+                    suicide("gw-metric arg '%s' isn't a valid number", optarg);
+                if (mt > INT_MAX)
+                    suicide("gw-metric arg '%s' is too large", optarg);
                 if (mt < 0)
                     mt = 0;
                 client_config.metric = (int)mt;
@@ -617,15 +592,13 @@ int main(int argc, char **argv)
     nk_random_u32_init(&cs.rnd32_state);
 
     if (getuid())
-        suicide("FATAL - I need to be started as root.");
+        suicide("I need to be started as root.");
     if (!strncmp(chroot_dir, "", sizeof chroot_dir))
-        suicide("FATAL - No chroot path specified.  Refusing to run.");
+        suicide("No chroot path is specified.  Refusing to run.");
     fail_if_state_dir_dne();
 
-    if (nl_getifdata() < 0) {
-        log_line("FATAL - failed to get interface MAC or index");
-        exit(EXIT_FAILURE);
-    }
+    if (nl_getifdata() < 0)
+        suicide("failed to get interface MAC or index");
 
     get_clientid(&cs, &client_config);
 
@@ -635,8 +608,7 @@ int main(int argc, char **argv)
     case 0:
         break;
     default:
-        log_error("FATAL - failed to set the interface to up state");
-        exit(EXIT_FAILURE);
+        suicide("failed to set the interface to up state");
     }
 
     create_ipc_pipes();
@@ -651,10 +623,8 @@ int main(int argc, char **argv)
         close(pToIfchR);
         close(pToNdhcW);
         ndhc_main();
-    } else {
-        log_line("FATAL - failed to fork ndhc-ifch: %s", strerror(errno));
-        exit(EXIT_FAILURE);
-    }
+    } else
+        suicide("failed to fork ndhc-ifch: %s", strerror(errno));
     exit(EXIT_SUCCESS);
 }
     

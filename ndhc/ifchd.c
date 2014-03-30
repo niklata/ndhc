@@ -316,9 +316,8 @@ static void inform_execute(char c)
     } else if (r < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             goto retry;
-        log_line("%s: (%s) error writing to ifch -> ndhc pipe: %s",
-                 client_config.interface, __func__, strerror(errno));
-        exit(EXIT_FAILURE);
+        suicide("%s: (%s) error writing to ifch -> ndhc pipe: %s",
+                client_config.interface, __func__, strerror(errno));
     }
 }
 
@@ -334,16 +333,14 @@ static void process_client_pipe(void)
     } else if (r < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return;
-        log_line("%s: (%s) error reading from ndhc -> ifch pipe: %s",
-                 client_config.interface, __func__, strerror(errno));
-        exit(EXIT_FAILURE);
+        suicide("%s: (%s) error reading from ndhc -> ifch pipe: %s",
+                client_config.interface, __func__, strerror(errno));
     }
 
     if (execute_buffer(buf) == -1) {
-        log_line("%s: (%s) execute_buffer was passed invalid commands: '%s'",
-                 client_config.interface, __func__, buf);
         inform_execute('-');
-        exit(EXIT_FAILURE);
+        suicide("%s: (%s) execute_buffer was passed invalid commands: '%s'",
+                client_config.interface, __func__, buf);
     } else
         inform_execute('+');
 }
@@ -375,14 +372,12 @@ void do_ifch_work(void)
         }
         for (int i = 0; i < r; ++i) {
             int fd = events[i].data.fd;
-            if (fd == pToIfchR) {
+            if (fd == pToIfchR)
                 process_client_pipe();
-            } else if (fd == signalFd) {
+            else if (fd == signalFd)
                 signal_dispatch();
-            } else {
-                log_line("ifch: unexpected fd while performing epoll");
-                exit(EXIT_FAILURE);
-            }
+            else
+                suicide("ifch: unexpected fd while performing epoll");
         }
     }
 }
@@ -390,11 +385,9 @@ void do_ifch_work(void)
 void ifch_main(void)
 {
     prctl(PR_SET_NAME, "ndhc: ifch");
-    if (file_exists(pidfile_ifch, "w") == -1) {
-        log_line("FATAL - can't open ifch-pidfile '%s' for write!",
-                 pidfile_ifch);
-        exit(EXIT_FAILURE);
-    }
+    if (file_exists(pidfile_ifch, "w") == -1)
+        suicide("FATAL - can't open ifch-pidfile '%s' for write!",
+                pidfile_ifch);
     write_pid(pidfile_ifch);
     memset(pidfile_ifch, '\0', sizeof pidfile_ifch);
 
