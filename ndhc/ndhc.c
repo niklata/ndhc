@@ -470,36 +470,12 @@ int main(int argc, char **argv)
             case 'r':
                 cs.clientAddr = inet_addr(optarg);
                 break;
-            case 'u': {
-                struct passwd *pwd;
-                char *p;
-                uid_t uidt = strtol(optarg, &p, 10);
-                if (*p != '\0')
-                    pwd = getpwnam(optarg);
-                else
-                    pwd = getpwuid(uidt);
-                if (pwd) {
-                    ndhc_uid = (int)pwd->pw_uid;
-                    ndhc_gid = (int)pwd->pw_gid;
-                } else
-                    suicide("Bad username provided to '-u'.");
+            case 'u':
+                ndhc_uid = nk_uidgidbyname(optarg, &ndhc_gid);
                 break;
-            }
-            case 'U': {
-                struct passwd *pwd;
-                char *p;
-                uid_t uidt = strtol(optarg, &p, 10);
-                if (*p != '\0')
-                    pwd = getpwnam(optarg);
-                else
-                    pwd = getpwuid(uidt);
-                if (pwd) {
-                    ifch_uid = (int)pwd->pw_uid;
-                    ifch_gid = (int)pwd->pw_gid;
-                } else
-                    suicide("Bad username provided to '-U'.");
+            case 'U':
+                ifch_uid = nk_uidgidbyname(optarg, &ifch_gid);
                 break;
-            }
             case 'C':
                 copy_cmdarg(chroot_dir, optarg, sizeof chroot_dir, "chroot");
                 break;
