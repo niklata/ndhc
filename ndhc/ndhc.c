@@ -471,10 +471,12 @@ int main(int argc, char **argv)
                 cs.clientAddr = inet_addr(optarg);
                 break;
             case 'u':
-                ndhc_uid = nk_uidgidbyname(optarg, &ndhc_gid);
+                if (nk_uidgidbyname(optarg, &ndhc_uid, &ndhc_gid))
+                    suicide("invalid ndhc user '%s' specified", optarg);
                 break;
             case 'U':
-                ifch_uid = nk_uidgidbyname(optarg, &ifch_gid);
+                if (nk_uidgidbyname(optarg, &ifch_uid, &ifch_gid))
+                    suicide("invalid ifch user '%s' specified", optarg);
                 break;
             case 'C':
                 copy_cmdarg(chroot_dir, optarg, sizeof chroot_dir, "chroot");

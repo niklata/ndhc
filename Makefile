@@ -14,7 +14,7 @@ OBJ_DIR = $(BUILD_DIR)/objs
 CC = gcc
 AR = ar
 RANLIB = ranlib
-CFLAGS = -O2 -s -std=gnu99 -pedantic -Wall -D_GNU_SOURCE -DHAVE_CLEARENV -DLINUX
+CFLAGS = -O2 -s -std=gnu99 -pedantic -Wall -D_GNU_SOURCE
 
 all: makedir ifchd-parse.o ncmlib.a ndhc
 
