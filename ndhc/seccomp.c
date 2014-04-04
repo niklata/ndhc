@@ -173,3 +173,63 @@ int enforce_seccomp_ifch(void)
     return 0;
 }
 
+int enforce_seccomp_sockd(void)
+{
+#ifdef ENABLE_SECCOMP_FILTER
+    if (!seccomp_enforce)
+        return 0;
+    struct sock_filter filter[] = {
+        VALIDATE_ARCHITECTURE,
+        EXAMINE_SYSCALL,
+        ALLOW_SYSCALL(epoll_wait),
+        ALLOW_SYSCALL(epoll_ctl),
+        ALLOW_SYSCALL(read),
+        ALLOW_SYSCALL(write),
+        ALLOW_SYSCALL(close),
+
+#if defined(__x86_64__) || (defined(__arm__) && defined(__ARM_EABI__))
+        ALLOW_SYSCALL(sendto), // used for glibc syslog routines
+        ALLOW_SYSCALL(recvmsg),
+        ALLOW_SYSCALL(socket),
+        ALLOW_SYSCALL(setsockopt),
+        ALLOW_SYSCALL(getsockname),
+        ALLOW_SYSCALL(connect),
+        ALLOW_SYSCALL(bind),
+        ALLOW_SYSCALL(socketpair),
+#elif defined(__i386__)
+        ALLOW_SYSCALL(socketcall),
+        ALLOW_SYSCALL(fcntl64),
+#else
+#error Target platform does not support seccomp-filter.
+#endif
+
+        ALLOW_SYSCALL(fcntl),
+        ALLOW_SYSCALL(open),
+
+        // Allowed by vDSO
+        ALLOW_SYSCALL(getcpu),
+        ALLOW_SYSCALL(time),
+        ALLOW_SYSCALL(gettimeofday),
+        ALLOW_SYSCALL(clock_gettime),
+
+        ALLOW_SYSCALL(rt_sigreturn),
+#ifdef __NR_sigreturn
+        ALLOW_SYSCALL(sigreturn),
+#endif
+        ALLOW_SYSCALL(exit_group),
+        ALLOW_SYSCALL(exit),
+        KILL_PROCESS,
+    };
+    struct sock_fprog prog = {
+        .len = (unsigned short)(sizeof filter / sizeof filter[0]),
+        .filter = filter,
+    };
+    if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0))
+        return -1;
+    if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog))
+        return -1;
+    log_line("ndhc-sockd seccomp filter installed.  Please disable seccomp if you encounter problems.");
+#endif
+    return 0;
+}
+

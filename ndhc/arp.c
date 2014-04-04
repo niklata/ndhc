@@ -29,15 +29,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <netinet/if_ether.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
-#include <sys/time.h>
 #include <linux/if_packet.h>
 #include <linux/filter.h>
-#include <fcntl.h>
 #include <errno.h>
 #include "nk/log.h"
 #include "nk/io.h"
@@ -48,6 +43,7 @@
 #include "ifchange.h"
 #include "options.h"
 #include "leasefile.h"
+#include "sockd.h"
 
 #define ARP_MSG_SIZE 0x2a
 #define ARP_RETRANS_DELAY 5000 // ms
@@ -206,44 +202,23 @@ static void arp_set_bpf_defense(struct client_state_t *cs, int fd)
                                sizeof sfp_arp) != -1;
 }
 
+static int get_arp_socket(void)
+{
+    return request_sockd_fd("a", 1, NULL);
+}
+
 static int arp_open_fd(struct client_state_t *cs)
 {
     if (cs->arpFd != -1)
         return 0;
-
-    int fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ARP));
-    if (fd == -1) {
+    cs->arpFd = get_arp_socket();
+    if (cs->arpFd == -1) {
         log_error("arp: Failed to create socket: %s", strerror(errno));
-        goto out;
+        return -1;
     }
-
-    int opt = 1;
-    if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &opt, sizeof opt) == -1) {
-        log_error("arp: Failed to set broadcast: %s", strerror(errno));
-        goto out_fd;
-    }
-    if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
-        log_error("arp: Failed to set non-blocking: %s", strerror(errno));
-        goto out_fd;
-    }
-    struct sockaddr_ll saddr = {
-        .sll_family = AF_PACKET,
-        .sll_protocol = htons(ETH_P_ARP),
-        .sll_ifindex = client_config.ifindex,
-    };
-    if (bind(fd, (struct sockaddr *)&saddr, sizeof(struct sockaddr_ll)) < 0) {
-        log_error("arp: bind failed: %s", strerror(errno));
-        goto out_fd;
-    }
-
-    cs->arpFd = fd;
-    epoll_add(cs->epollFd, fd);
+    epoll_add(cs->epollFd, cs->arpFd);
     arpreply_clear();
     return 0;
-out_fd:
-    close(fd);
-out:
-    return -1;
 }
 
 static void arp_switch_state(struct client_state_t *cs, arp_state_t state)

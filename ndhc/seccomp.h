@@ -34,5 +34,6 @@ extern bool seccomp_enforce;
 
 int enforce_seccomp_ndhc(void);
 int enforce_seccomp_ifch(void);
+int enforce_seccomp_sockd(void);
 
 #endif /* NJK_NDHC_SECCOMP_H_ */

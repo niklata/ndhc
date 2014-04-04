@@ -70,6 +70,7 @@
 #include "ifset.h"
 #include "ifchd.h"
 #include "duiaid.h"
+#include "sockd.h"
 
 struct client_state_t cs = {
     .ifchWorking = 0,
@@ -341,20 +342,84 @@ int pToNdhcW;
 int pToIfchR;
 int pToIfchW;
 
-static void create_ipc_pipes(void) {
+int psToNdhcR;
+int psToNdhcW;
+int pToSockdR;
+int pToSockdW;
+
+static void create_ifch_ipc_pipes(void) {
     int niPipe[2];
     int inPipe[2];
 
-    if (pipe2(niPipe, O_NONBLOCK))
+    if (pipe2(niPipe, 0))
         suicide("FATAL - can't create ndhc -> ndhc-ifch pipe: %s",
+                strerror(errno));
+    if (fcntl(niPipe[0], F_SETFL, fcntl(niPipe[0], F_GETFL) | O_NONBLOCK) < 0)
+        suicide("FATAL - failed to set ndhc -> ndhc-ifch read-side nonblocking: %s",
                 strerror(errno));
     pToNdhcR = niPipe[0];
     pToNdhcW = niPipe[1];
-    if (pipe2(inPipe, O_NONBLOCK))
+    if (pipe2(inPipe, 0))
         suicide("FATAL - can't create ndhc-ifch -> ndhc pipe: %s",
+                strerror(errno));
+    if (fcntl(inPipe[0], F_SETFL, fcntl(inPipe[0], F_GETFL) | O_NONBLOCK) < 0)
+        suicide("FATAL - failed to set ndhc-ifch -> ndhc read-side nonblocking: %s",
                 strerror(errno));
     pToIfchR = inPipe[0];
     pToIfchW = inPipe[1];
+}
+
+static void create_sockd_ipc_pipes(void) {
+    int nsPipe[2];
+    int snPipe[2];
+
+    if (pipe2(nsPipe, 0))
+        suicide("FATAL - can't create ndhc -> ndhc-sockd pipe: %s",
+                strerror(errno));
+    psToNdhcR = nsPipe[0];
+    psToNdhcW = nsPipe[1];
+    if (pipe2(snPipe, 0))
+        suicide("FATAL - can't create ndhc-sockd -> ndhc pipe: %s",
+                strerror(errno));
+    if (fcntl(snPipe[0], F_SETFL, fcntl(snPipe[0], F_GETFL) | O_NONBLOCK) < 0)
+        suicide("FATAL - failed to set ndhc-sockd -> ndhc read-side nonblocking: %s",
+                strerror(errno));
+    pToSockdR = snPipe[0];
+    pToSockdW = snPipe[1];
+}
+
+static void spawn_ifch(void)
+{
+    create_ifch_ipc_pipes();
+    pid_t ifch_pid = fork();
+    if (ifch_pid == 0) {
+        close(pToNdhcR);
+        close(pToIfchW);
+        // Don't share the RNG state with the master process.
+        nk_random_u32_init(&cs.rnd32_state);
+        ifch_main();
+    } else if (ifch_pid > 0) {
+        close(pToIfchR);
+        close(pToNdhcW);
+    } else
+        suicide("failed to fork ndhc-ifch: %s", strerror(errno));
+}
+
+static void spawn_sockd(void)
+{
+    create_sockd_ipc_pipes();
+    pid_t sockd_pid = fork();
+    if (sockd_pid == 0) {
+        close(psToNdhcR);
+        close(pToSockdW);
+        // Don't share the RNG state with the master process.
+        nk_random_u32_init(&cs.rnd32_state);
+        sockd_main();
+    } else if (sockd_pid > 0) {
+        close(pToSockdR);
+        close(psToNdhcW);
+    } else
+        suicide("failed to fork ndhc-sockd: %s", strerror(errno));
 }
 
 static void ndhc_main(void) {
@@ -376,8 +441,6 @@ static void ndhc_main(void) {
 
     nk_set_chroot(chroot_dir);
     memset(chroot_dir, '\0', sizeof chroot_dir);
-
-    nk_set_capability("cap_net_bind_service,cap_net_broadcast,cap_net_raw=ep");
     nk_set_uidgid(ndhc_uid, ndhc_gid);
 
     if (cs.ifsPrevState != IFS_UP)
@@ -402,7 +465,7 @@ void background(void)
         write_pid(pidfile);
 }
 
-int main(int argc, char **argv)
+static void parse_program_options(int argc, char *argv[])
 {
     static const struct option arg_options[] = {
         {"clientid",           required_argument,  0, 'c'},
@@ -417,6 +480,7 @@ int main(int argc, char **argv)
         {"vendorid",           required_argument,  0, 'V'},
         {"user",               required_argument,  0, 'u'},
         {"ifch-user",          required_argument,  0, 'U'},
+        {"sockd-user",         required_argument,  0, 'D'},
         {"chroot",             required_argument,  0, 'C'},
         {"state-dir",          required_argument,  0, 's'},
         {"seccomp-enforce",    no_argument,        0, 'S'},
@@ -435,7 +499,7 @@ int main(int argc, char **argv)
 
     while (1) {
         int c;
-        c = getopt_long(argc, argv, "c:bp:P:h:i:nqr:V:u:U:C:s:Sdw:W:m:M:t:R:Hv?",
+        c = getopt_long(argc, argv, "c:bp:P:h:i:nqr:V:u:U:D:C:s:Sdw:W:m:M:t:R:Hv?",
                         arg_options, NULL);
         if (c == -1) break;
 
@@ -478,6 +542,10 @@ int main(int argc, char **argv)
             case 'U':
                 if (nk_uidgidbyname(optarg, &ifch_uid, &ifch_gid))
                     suicide("invalid ifch user '%s' specified", optarg);
+                break;
+            case 'D':
+                if (nk_uidgidbyname(optarg, &sockd_uid, &sockd_gid))
+                    suicide("invalid sockd user '%s' specified", optarg);
                 break;
             case 'C':
                 copy_cmdarg(chroot_dir, optarg, sizeof chroot_dir, "chroot");
@@ -567,6 +635,11 @@ int main(int argc, char **argv)
                 show_usage();
         }
     }
+}
+
+int main(int argc, char *argv[])
+{
+    parse_program_options(argc, argv);
 
     nk_random_u32_init(&cs.rnd32_state);
 
@@ -582,28 +655,14 @@ int main(int argc, char **argv)
     get_clientid(&cs, &client_config);
 
     switch (perform_ifup()) {
-    case 1:
-    cs.ifsPrevState = IFS_UP;
-    case 0:
-        break;
-    default:
-        suicide("failed to set the interface to up state");
+    case 1: cs.ifsPrevState = IFS_UP;
+    case 0: break;
+    default: suicide("failed to set the interface to up state");
     }
 
-    create_ipc_pipes();
-    pid_t ifch_pid = fork();
-    if (ifch_pid == 0) {
-        close(pToNdhcR);
-        close(pToIfchW);
-        // Don't share the RNG state with the master process.
-        nk_random_u32_init(&cs.rnd32_state);
-        ifch_main();
-    } else if (ifch_pid > 0) {
-        close(pToIfchR);
-        close(pToNdhcW);
-        ndhc_main();
-    } else
-        suicide("failed to fork ndhc-ifch: %s", strerror(errno));
+    spawn_ifch();
+    spawn_sockd();
+    ndhc_main();
     exit(EXIT_SUCCESS);
 }
-    
+

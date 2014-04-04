@@ -31,18 +31,10 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
-#include <net/if.h>
 #include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/socket.h>
-#include <fcntl.h>
-#include <features.h>
 #include <netpacket/packet.h>
 #include <net/ethernet.h>
-#include <linux/filter.h>
-#include <time.h>
 #include <errno.h>
 #include "nk/log.h"
 #include "nk/io.h"
@@ -54,6 +46,7 @@
 #include "ifchange.h"
 #include "sys.h"
 #include "options.h"
+#include "sockd.h"
 
 typedef enum {
     LM_NONE = 0,
@@ -61,73 +54,33 @@ typedef enum {
     LM_RAW
 } listen_mode_t;
 
-// Returns fd of new udp socket bound on success, or -1 on failure.
-static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
+static int get_udp_unicast_socket(void)
 {
-    int fd;
-    if ((fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
-        log_error("%s: (%s) socket failed: %s",
-                  client_config.interface, __func__, strerror(errno));
-        goto out;
-    }
-    int opt = 1;
-    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt) == -1) {
-        log_error("%s: (%s) Set reuse addr failed: %s",
-                  client_config.interface, __func__, strerror(errno));
-        goto out_fd;
-    }
-    if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) == -1) {
-        log_error("%s: (%s) Set don't route failed: %s",
-                  client_config.interface, __func__, strerror(errno));
-        goto out_fd;
-    }
-    struct ifreq ifr;
-    memset(&ifr, 0, sizeof ifr);
-    ssize_t sl = snprintf(ifr.ifr_name, sizeof ifr.ifr_name, "%s", iface);
-    if (sl < 0 || (size_t)sl >= sizeof ifr.ifr_name) {
-        log_error("%s: (%s) Set interface name failed.",
-                  client_config.interface, __func__);
-        goto out_fd;
-    }
-    if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
-        log_error("%s: (%s) Set bind to device failed: %s",
-                  client_config.interface, __func__, strerror(errno));
-        goto out_fd;
-    }
-    if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
-        log_error("%s: (%s) Set non-blocking failed: %s",
-                  client_config.interface, __func__, strerror(errno));
-        goto out_fd;
-    }
-
-    struct sockaddr_in sa = {
-        .sin_family = AF_INET,
-        .sin_port = htons(port),
-        .sin_addr.s_addr = ip,
-    };
-    if (bind(fd, (struct sockaddr *)&sa, sizeof sa) == -1)
-        goto out_fd;
-
-    return fd;
-  out_fd:
-    close(fd);
-  out:
-    return -1;
+    return request_sockd_fd("u", 1, NULL);
 }
 
-// Returns fd of new listen socket bound to 0.0.0.0:@68 on interface @inf
-// on success, or -1 on failure.
-static int create_udp_listen_socket(char *inf)
+static int get_raw_broadcast_socket(void)
 {
-    int fd = create_udp_socket(INADDR_ANY, DHCP_CLIENT_PORT, inf);
-    if (fd == -1)
-        return -1;
-    int opt = 1;
-    if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &opt, sizeof opt) == -1) {
-        log_error("%s: (%s) Set broadcast failed: %s",
-                  client_config.interface, __func__, strerror(errno));
-        close(fd);
-        return -1;
+    return request_sockd_fd("s", 1, NULL);
+}
+
+static int get_udp_listen_socket(struct client_state_t *cs)
+{
+    char buf[32];
+    buf[0] = 'u';
+    memcpy(buf + 1, &cs->clientAddr, sizeof cs->clientAddr);
+    return request_sockd_fd(buf, 1 + sizeof cs->clientAddr, NULL);
+}
+
+static int get_raw_listen_socket(struct client_state_t *cs)
+{
+    char resp;
+    int fd = request_sockd_fd("L", 1, &resp);
+    switch (resp) {
+    case 'L': cs->using_dhcp_bpf = 1; break;
+    case 'l': cs->using_dhcp_bpf = 0; break;
+    default: suicide("%s: (%s) expected l or L sockd reply but got %c",
+                     client_config.interface, __func__, resp);
     }
     return fd;
 }
@@ -136,8 +89,7 @@ static int create_udp_listen_socket(char *inf)
 static int send_dhcp_cooked(struct client_state_t *cs, struct dhcpmsg *payload)
 {
     int ret = -1;
-    int fd = create_udp_socket(cs->clientAddr, DHCP_CLIENT_PORT,
-                               client_config.interface);
+    int fd = get_udp_unicast_socket();
     if (fd == -1)
         goto out;
 
@@ -324,110 +276,11 @@ static int get_raw_packet(struct client_state_t *cs, struct dhcpmsg *payload)
     return l;
 }
 
-static int create_raw_socket(struct client_state_t *cs, struct sockaddr_ll *sa,
-                             const struct sock_fprog *filter_prog)
-{
-    int fd;
-    if ((fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IP))) < 0) {
-        log_error("create_raw_socket: socket failed: %s", strerror(errno));
-        goto out;
-    }
-
-    if (cs) {
-        if (filter_prog && (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER,
-                            filter_prog, sizeof *filter_prog) != -1))
-            cs->using_dhcp_bpf = 1;
-        else
-            cs->using_dhcp_bpf = 0;
-    }
-
-    int opt = 1;
-    if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) == -1) {
-        log_error("create_raw_socket: Failed to set don't route: %s",
-                  strerror(errno));
-        goto out_fd;
-    }
-    if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
-        log_error("create_raw_socket: Set non-blocking failed: %s",
-                  strerror(errno));
-        goto out_fd;
-    }
-    if (bind(fd, (struct sockaddr *)sa, sizeof *sa) < 0) {
-        log_error("create_raw_socket: bind failed: %s", strerror(errno));
-        goto out_fd;
-    }
-    return fd;
-out_fd:
-    close(fd);
-out:
-    return -1;
-}
-
-static int create_raw_listen_socket(struct client_state_t *cs, int ifindex)
-{
-    static const struct sock_filter sf_dhcp[] = {
-        // Verify that the packet has a valid IPv4 version nibble and
-        // that no IP options are defined.
-        BPF_STMT(BPF_LD + BPF_B + BPF_ABS, 0),
-        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x45, 1, 0),
-        BPF_STMT(BPF_RET + BPF_K, 0),
-        // Verify that the IP header has a protocol number indicating UDP.
-        BPF_STMT(BPF_LD + BPF_B + BPF_ABS, 9),
-        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, IPPROTO_UDP, 1, 0),
-        BPF_STMT(BPF_RET + BPF_K, 0),
-        // Make certain that the packet is not a fragment.  All bits in
-        // the flag and fragment offset field must be set to zero except
-        // for the Evil and DF bits (0,1).
-        BPF_STMT(BPF_LD + BPF_H + BPF_ABS, 6),
-        BPF_JUMP(BPF_JMP + BPF_JSET + BPF_K, 0x3fff, 0, 1),
-        BPF_STMT(BPF_RET + BPF_K, 0),
-        // Packet is UDP.  Advance X past the IP header.
-        BPF_STMT(BPF_LDX + BPF_B + BPF_MSH, 0),
-        // Verify that the UDP client and server ports match that of the
-        // IANA-assigned DHCP ports.
-        BPF_STMT(BPF_LD + BPF_W + BPF_IND, 0),
-        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K,
-                 (DHCP_SERVER_PORT << 16) + DHCP_CLIENT_PORT, 1, 0),
-        BPF_STMT(BPF_RET + BPF_K, 0),
-        // Get the UDP length field and store it in X.
-        BPF_STMT(BPF_LD + BPF_H + BPF_IND, 4),
-        BPF_STMT(BPF_MISC + BPF_TAX, 0),
-        // Get the IPv4 length field and store it in A and M[0].
-        BPF_STMT(BPF_LD + BPF_H + BPF_ABS, 2),
-        BPF_STMT(BPF_ST, 0),
-        // Verify that UDP length = IP length - IP header size
-        BPF_STMT(BPF_ALU + BPF_SUB + BPF_K, 20),
-        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_X, 0, 1, 0),
-        BPF_STMT(BPF_RET + BPF_K, 0),
-        // Pass the number of octets that are specified in the IPv4 header.
-        BPF_STMT(BPF_LD + BPF_MEM, 0),
-        BPF_STMT(BPF_RET + BPF_A, 0),
-    };
-    static const struct sock_fprog sfp_dhcp = {
-        .len = sizeof sf_dhcp / sizeof sf_dhcp[0],
-        .filter = (struct sock_filter *)sf_dhcp,
-    };
-    struct sockaddr_ll sa = {
-        .sll_family = AF_PACKET,
-        .sll_protocol = htons(ETH_P_IP),
-        .sll_ifindex = ifindex,
-    };
-    return create_raw_socket(cs, &sa, &sfp_dhcp);
-}
-
 // Broadcast a DHCP message using a raw socket.
 static int send_dhcp_raw(struct dhcpmsg *payload)
 {
     int ret = -1;
-    struct sockaddr_ll da = {
-        .sll_family = AF_PACKET,
-        .sll_protocol = htons(ETH_P_IP),
-        .sll_pkttype = PACKET_BROADCAST,
-        .sll_ifindex = client_config.ifindex,
-        .sll_halen = 6,
-    };
-    memcpy(da.sll_addr, "\xff\xff\xff\xff\xff\xff", 6);
-    int fd = create_raw_socket(NULL, &da, NULL);
+    int fd = get_raw_broadcast_socket();
     if (fd == -1)
         return ret;
 
@@ -459,19 +312,25 @@ static int send_dhcp_raw(struct dhcpmsg *payload)
             .version = IPVERSION,
             .ttl = IPDEFTTL,
         },
-        .udp = {
-            .source = htons(DHCP_CLIENT_PORT),
-            .dest = htons(DHCP_SERVER_PORT),
-            .len = htons(ud_len),
-            .check = 0,
-        },
         .data = *payload,
     };
+    iudmsg.udp.source = htons(DHCP_CLIENT_PORT);
+    iudmsg.udp.dest = htons(DHCP_SERVER_PORT);
+    iudmsg.udp.len = htons(ud_len);
+    iudmsg.udp.check = 0;
     uint16_t udpcs = net_checksum(&iudmsg.udp, ud_len);
     uint16_t phcs = net_checksum(&ph, sizeof ph);
     iudmsg.udp.check = net_checksum_add(udpcs, phcs);
     iudmsg.ip.check = net_checksum(&iudmsg.ip, sizeof iudmsg.ip);
 
+    struct sockaddr_ll da = {
+        .sll_family = AF_PACKET,
+        .sll_protocol = htons(ETH_P_IP),
+        .sll_pkttype = PACKET_BROADCAST,
+        .sll_ifindex = client_config.ifindex,
+        .sll_halen = 6,
+    };
+    memcpy(da.sll_addr, "\xff\xff\xff\xff\xff\xff", 6);
     ret = safe_sendto(fd, (const char *)&iudmsg, iud_len, 0,
                       (struct sockaddr *)&da, sizeof da);
     if (ret == -1)
@@ -490,11 +349,11 @@ static void change_listen_mode(struct client_state_t *cs, int new_mode)
         close(cs->listenFd);
         cs->listenFd = -1;
     }
-    if (new_mode == LM_NONE)
-        return;
-    cs->listenFd = new_mode == LM_RAW ?
-        create_raw_listen_socket(cs, client_config.ifindex) :
-        create_udp_listen_socket(client_config.interface);
+    switch (cs->listenMode) {
+    default: return;
+    case LM_RAW: cs->listenFd = get_raw_listen_socket(cs); break;
+    case LM_COOKED: cs->listenFd = get_udp_listen_socket(cs); break;
+    }
     if (cs->listenFd < 0)
         suicide("%s: FATAL: Couldn't listen on socket: %s",
                 client_config.interface, strerror(errno));
