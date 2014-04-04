@@ -151,6 +151,9 @@ static void arp_set_bpf_basic(int fd)
     };
     using_arp_bpf = setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &sfp_arp,
                                sizeof sfp_arp) != -1;
+    if (!using_arp_bpf)
+        log_warning("%s: Failed to set BPF for ARP socket: %s",
+                    client_config.interface, strerror(errno));
 }
 
 static void arp_set_bpf_defense(struct client_state_t *cs, int fd)
