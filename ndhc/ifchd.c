@@ -71,10 +71,12 @@ char pidfile_ifch[PATH_MAX] = PID_FILE_IFCH_DEFAULT;
 uid_t ifch_uid = 0;
 gid_t ifch_gid = 0;
 
-static void writeordie(int fd, const char *buf, int len)
+static void writeordie(int fd, const char *buf, size_t len)
 {
-    if (safe_write(fd, buf, len) == -1)
-        suicide("write returned error");
+    ssize_t r = safe_write(fd, buf, len) == -1;
+    if (r < 0 || (size_t)r != len)
+        suicide("%s: (%s) write failed: %d", client_config.interface,
+                __func__, r);
 }
 
 /* Writes a new resolv.conf based on the information we have received. */
@@ -307,18 +309,13 @@ static void signal_dispatch(void)
 
 static void inform_execute(char c)
 {
-    int r;
-  retry:
-    r = safe_write(pToNdhcW, &c, sizeof c);
+    ssize_t r = safe_write(pToNdhcW, &c, sizeof c);
     if (r == 0) {
         // Remote end hung up.
         exit(EXIT_SUCCESS);
-    } else if (r < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-            goto retry;
+    } else if (r < 0)
         suicide("%s: (%s) error writing to ifch -> ndhc pipe: %s",
                 client_config.interface, __func__, strerror(errno));
-    }
 }
 
 static void process_client_pipe(void)
@@ -326,7 +323,7 @@ static void process_client_pipe(void)
     char buf[MAX_BUF];
 
     memset(buf, '\0', sizeof buf);
-    int r = safe_read(pToIfchR, buf, sizeof buf - 1);
+    ssize_t r = safe_read(pToIfchR, buf, sizeof buf - 1);
     if (r == 0) {
         // Remote end hung up.
         exit(EXIT_SUCCESS);
@@ -339,13 +336,13 @@ static void process_client_pipe(void)
 
     if (execute_buffer(buf) == -1) {
         inform_execute('-');
-        suicide("%s: (%s) execute_buffer was passed invalid commands: '%s'",
+        suicide("%s: (%s) received invalid commands: '%s'",
                 client_config.interface, __func__, buf);
     } else
         inform_execute('+');
 }
 
-void do_ifch_work(void)
+static void do_ifch_work(void)
 {
     epollfd = epoll_create1(0);
     if (epollfd == -1)

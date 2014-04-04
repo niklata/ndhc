@@ -95,8 +95,9 @@ void write_leasefile(struct in_addr ipnum)
             return;
     }
     lseek(leasefilefd, 0, SEEK_SET);
-    ret = safe_write(leasefilefd, out, strlen(out));
-    if (ret == -1)
+    size_t outlen = strlen(out);
+    ret = safe_write(leasefilefd, out, outlen);
+    if (ret < 0 || (size_t)ret != outlen)
         log_warning("%s: Failed to write ip to lease file.",
                     client_config.interface);
     else

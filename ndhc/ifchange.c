@@ -179,18 +179,20 @@ static int ifchd_cmd(char *b, size_t bl, uint8_t *od, ssize_t ol, uint8_t code)
     case DCODE_IPTTL: return ifcmd_u8(b, bl, "ipttl", od, ol);
     default: break;
     }
-    log_line("Invalid option code (%c) for ifchd cmd.", code);
+    log_warning("%s: Invalid option code (%c) for ifchd cmd.",
+                client_config.interface, code);
     return -1;
 }
 
 static void pipewrite(struct client_state_t *cs, const char *buf, size_t count)
 {
     cs->ifchWorking = 1;
-    if (safe_write(pToIfchW, buf, count) == -1) {
-        log_error("pipewrite: write failed: %s", strerror(errno));
+    int r = safe_write(pToIfchW, buf, count);
+    if (r < 0 || (size_t)r != count) {
+        log_error("%s: (%s) write failed: %d", client_config.interface);
         return;
     }
-    log_line("Sent to ifchd: %s", buf);
+    log_line("%s: Sent to ifchd: '%s'", client_config.interface, buf);
 }
 
 void ifchange_deconfig(struct client_state_t *cs)
@@ -202,7 +204,7 @@ void ifchange_deconfig(struct client_state_t *cs)
     cs->ifDeconfig = 1;
 
     snprintf(buf, sizeof buf, "ip4:0.0.0.0,255.255.255.255;");
-    log_line("Resetting %s IP configuration.", client_config.interface);
+    log_line("%s: Resetting IP configuration.", client_config.interface);
     pipewrite(cs, buf, strlen(buf));
 
     memset(&cfg_packet, 0, sizeof cfg_packet);
@@ -249,7 +251,8 @@ static size_t send_client_ip(char *out, size_t olen, struct dhcpmsg *packet)
 
     if (!have_subnet) {
         static char snClassC[] = "255.255.255.0";
-        log_line("Server did not send a subnet mask.  Assuming class C (255.255.255.0).");
+        log_line("%s: Server did not send a subnet mask.  Assuming 255.255.255.0.",
+                 client_config.interface);
         memcpy(sn, snClassC, sizeof snClassC);
     }
 

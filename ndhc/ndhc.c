@@ -335,6 +335,7 @@ char resolv_conf_d[PATH_MAX] = "";
 static char pidfile[PATH_MAX] = PID_FILE_DEFAULT;
 static uid_t ndhc_uid = 0;
 static gid_t ndhc_gid = 0;
+
 int pToNdhcR;
 int pToNdhcW;
 int pToIfchR;

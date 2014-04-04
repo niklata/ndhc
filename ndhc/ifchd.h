@@ -46,7 +46,6 @@ void perform_ipttl(const char *str, size_t len);
 void perform_ntpsrv(const char *str, size_t len);
 void perform_wins(const char *str, size_t len);
 
-void do_ifch_work(void);
 void ifch_main(void);
 
 #endif /* NJK_IFCHD_H_ */
