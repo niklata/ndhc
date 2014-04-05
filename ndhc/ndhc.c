@@ -114,6 +114,7 @@ static void show_usage(void)
 "  -r, --request=IP                IP address to request (default: none)\n"
 "  -u, --user=USER                 Change ndhc privileges to this user\n"
 "  -U, --ifch-user=USER            Change ndhc-ifch privileges to this user\n"
+"  -D, --sockd-user=USER           Change ndhc-sockd privileges to this user\n"
 "  -C, --chroot=DIR                Chroot to this directory\n"
 "  -s, --state-dir=DIR             State storage dir (default: /etc/ndhc)\n"
 #ifdef ENABLE_SECCOMP_FILTER
