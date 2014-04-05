@@ -343,10 +343,8 @@ int pToNdhcW;
 int pToIfchR;
 int pToIfchW;
 
-int psToNdhcR;
-int psToNdhcW;
-int pToSockdR;
-int pToSockdW;
+int sockdSock[2];
+int sockdPipe[2];
 
 static void create_ifch_ipc_pipes(void) {
     int niPipe[2];
@@ -371,22 +369,10 @@ static void create_ifch_ipc_pipes(void) {
 }
 
 static void create_sockd_ipc_pipes(void) {
-    int nsPipe[2];
-    int snPipe[2];
-
-    if (pipe2(nsPipe, 0))
-        suicide("FATAL - can't create ndhc -> ndhc-sockd pipe: %s",
-                strerror(errno));
-    psToNdhcR = nsPipe[0];
-    psToNdhcW = nsPipe[1];
-    if (pipe2(snPipe, 0))
-        suicide("FATAL - can't create ndhc-sockd -> ndhc pipe: %s",
-                strerror(errno));
-    if (fcntl(snPipe[0], F_SETFL, fcntl(snPipe[0], F_GETFL) | O_NONBLOCK) < 0)
-        suicide("FATAL - failed to set ndhc-sockd -> ndhc read-side nonblocking: %s",
-                strerror(errno));
-    pToSockdR = snPipe[0];
-    pToSockdW = snPipe[1];
+    if (pipe2(sockdPipe, 0))
+        suicide("FATAL - can't create ndhc/sockd pipe: %s", strerror(errno));
+    if (socketpair(AF_UNIX, SOCK_DGRAM, 0, sockdSock) < 0)
+        suicide("FATAL - can't create ndhc/sockd socket: %s", strerror(errno));
 }
 
 static void spawn_ifch(void)
@@ -411,14 +397,14 @@ static void spawn_sockd(void)
     create_sockd_ipc_pipes();
     pid_t sockd_pid = fork();
     if (sockd_pid == 0) {
-        close(psToNdhcR);
-        close(pToSockdW);
+        close(sockdPipe[0]);
+        close(sockdSock[0]);
         // Don't share the RNG state with the master process.
         nk_random_u32_init(&cs.rnd32_state);
         sockd_main();
     } else if (sockd_pid > 0) {
-        close(pToSockdR);
-        close(psToNdhcW);
+        close(sockdSock[1]);
+        close(sockdPipe[1]);
     } else
         suicide("failed to fork ndhc-sockd: %s", strerror(errno));
 }

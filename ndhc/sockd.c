@@ -70,7 +70,7 @@ int request_sockd_fd(char *buf, size_t buflen, char *response)
 {
     if (!buflen)
         return -1;
-    ssize_t r = safe_write(pToSockdW, buf, buflen);
+    ssize_t r = safe_write(sockdSock[0], buf, buflen);
     if (r < 0 || (size_t)r != buflen)
         suicide("%s: (%s) write failed: %d", client_config.interface,
                 __func__, r);
@@ -87,7 +87,7 @@ int request_sockd_fd(char *buf, size_t buflen, char *response)
         .msg_controllen = sizeof control
     };
   retry:
-    r = recvmsg(psToNdhcR, &msg, 0);
+    r = recvmsg(sockdSock[0], &msg, 0);
     if (r == 0) {
         suicide("%s: (%s) recvmsg received EOF", client_config.interface,
                 __func__);
@@ -405,7 +405,7 @@ static void xfer_fd(int fd, char cmd)
     *cmsg_fd = fd;
     msg.msg_controllen = cmsg->cmsg_len;
   retry:
-    if (sendmsg(psToNdhcW, &msg, 0) < 0) {
+    if (sendmsg(sockdSock[1], &msg, 0) < 0) {
         if (errno == EINTR)
             goto retry;
         suicide("%s: (%s) sendmsg failed: %s", client_config.interface,
@@ -451,7 +451,8 @@ static void process_client_pipe(void)
         suicide("%s: (%s) receive buffer exhausted", client_config.interface,
                 __func__);
 
-    int r = safe_read(pToSockdR, buf + buflen, sizeof buf - buflen);
+    int r = safe_recv(sockdSock[1], buf + buflen, sizeof buf - buflen,
+                      MSG_DONTWAIT);
     if (r == 0) {
         // Remote end hung up.
         exit(EXIT_SUCCESS);
@@ -474,7 +475,7 @@ static void do_sockd_work(void)
     if (enforce_seccomp_sockd())
         log_line("sockd seccomp filter cannot be installed");
 
-    epoll_add(epollfd, pToSockdR);
+    epoll_add(epollfd, sockdSock[1]);
     epoll_add(epollfd, signalFd);
 
     for (;;) {
@@ -487,7 +488,7 @@ static void do_sockd_work(void)
         }
         for (int i = 0; i < r; ++i) {
             int fd = events[i].data.fd;
-            if (fd == pToSockdR)
+            if (fd == sockdSock[1])
                 process_client_pipe();
             else if (fd == signalFd)
                 signal_dispatch();
