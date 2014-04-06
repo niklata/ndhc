@@ -71,7 +71,7 @@ gid_t ifch_gid = 0;
 
 static void writeordie(int fd, const char *buf, size_t len)
 {
-    ssize_t r = safe_write(fd, buf, len) == -1;
+    ssize_t r = safe_write(fd, buf, len);
     if (r < 0 || (size_t)r != len)
         suicide("%s: (%s) write failed: %d", client_config.interface,
                 __func__, r);
