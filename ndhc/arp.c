@@ -175,7 +175,7 @@ static int arp_open_fd(struct client_state_t *cs, arp_state_t state)
     case AS_GW_CHECK: cs->arpFd = get_arp_basic_socket(); break;
     case AS_DEFENSE: cs->arpFd = get_arp_defense_socket(cs); break;
     }
-    if (cs->arpFd == -1) {
+    if (cs->arpFd < 0) {
         log_error("arp: Failed to create socket: %s", strerror(errno));
         return -1;
     }
@@ -186,7 +186,7 @@ static int arp_open_fd(struct client_state_t *cs, arp_state_t state)
 
 static void arp_min_close_fd(struct client_state_t *cs)
 {
-    if (cs->arpFd == -1)
+    if (cs->arpFd < 0)
         return;
     epoll_del(cs->epollFd, cs->arpFd);
     close(cs->arpFd);
@@ -236,7 +236,7 @@ static int arp_send(struct client_state_t *cs, struct arpMsg *arp)
     };
     memcpy(addr.sll_addr, client_config.arp, 6);
 
-    if (cs->arpFd == -1) {
+    if (cs->arpFd < 0) {
         log_warning("arp: Send attempted when no ARP fd is open.");
         return -1;
     }
@@ -268,7 +268,7 @@ static int arp_ping(struct client_state_t *cs, uint32_t test_ip)
     BASE_ARPMSG();
     memcpy(arp.sip4, &cs->clientAddr, sizeof cs->clientAddr);
     memcpy(arp.dip4, &test_ip, sizeof test_ip);
-    if (arp_send(cs, &arp) == -1)
+    if (arp_send(cs, &arp) < 0)
         return -1;
     arp_send_stats[ASEND_GW_PING].count++;
     arp_send_stats[ASEND_GW_PING].ts = curms();
@@ -281,7 +281,7 @@ static int arp_ip_anon_ping(struct client_state_t *cs, uint32_t test_ip)
     BASE_ARPMSG();
     memcpy(arp.dip4, &test_ip, sizeof test_ip);
     log_line("arp: Probing for hosts that may conflict with our lease...");
-    if (arp_send(cs, &arp) == -1)
+    if (arp_send(cs, &arp) < 0)
         return -1;
     arp_send_stats[ASEND_COLLISION_CHECK].count++;
     arp_send_stats[ASEND_COLLISION_CHECK].ts = curms();
@@ -293,7 +293,7 @@ static int arp_announcement(struct client_state_t *cs)
     BASE_ARPMSG();
     memcpy(arp.sip4, &cs->clientAddr, 4);
     memcpy(arp.dip4, &cs->clientAddr, 4);
-    if (arp_send(cs, &arp) == -1)
+    if (arp_send(cs, &arp) < 0)
         return -1;
     arp_send_stats[ASEND_ANNOUNCE].count++;
     arp_send_stats[ASEND_ANNOUNCE].ts = curms();
@@ -306,7 +306,7 @@ int arp_check(struct client_state_t *cs, struct dhcpmsg *packet)
 {
     memcpy(&arp_dhcp_packet, packet, sizeof (struct dhcpmsg));
     arp_switch_state(cs, AS_COLLISION_CHECK);
-    if (arp_ip_anon_ping(cs, arp_dhcp_packet.yiaddr) == -1)
+    if (arp_ip_anon_ping(cs, arp_dhcp_packet.yiaddr) < 0)
         return -1;
     cs->arpPrevState = cs->dhcpState;
     cs->dhcpState = DS_COLLISION_CHECK;
@@ -323,11 +323,11 @@ int arp_gw_check(struct client_state_t *cs)
         return 0;
     gw_check_init_pingcount = arp_send_stats[ASEND_GW_PING].count;
     arp_server_has_replied = 0;
-    if (arp_ping(cs, cs->serverAddr) == -1)
+    if (arp_ping(cs, cs->serverAddr) < 0)
         return -1;
     if (cs->routerAddr) {
         arp_router_has_replied = 0;
-        if (arp_ping(cs, cs->routerAddr) == -1)
+        if (arp_ping(cs, cs->routerAddr) < 0)
             return -1;
     } else
         arp_router_has_replied = 1;
@@ -350,11 +350,11 @@ static int arp_get_gw_hwaddr(struct client_state_t *cs)
     else
         log_line("arp: Searching for dhcp server address...");
     cs->got_server_arp = 0;
-    if (arp_ping(cs, cs->serverAddr) == -1)
+    if (arp_ping(cs, cs->serverAddr) < 0)
         return -1;
     if (cs->routerAddr) {
         cs->got_router_arp = 0;
-        if (arp_ping(cs, cs->routerAddr) == -1)
+        if (arp_ping(cs, cs->routerAddr) < 0)
             return -1;
     } else
         cs->got_router_arp = 1;
@@ -516,12 +516,12 @@ static void arp_gw_check_timeout(struct client_state_t *cs, long long nowts)
     }
     if (!arp_router_has_replied) {
         log_line("arp: Still waiting for gateway to reply to arp ping...");
-        if (arp_ping(cs, cs->routerAddr) == -1)
+        if (arp_ping(cs, cs->routerAddr) < 0)
             log_warning("arp: Failed to send ARP ping in retransmission.");
     }
     if (!arp_server_has_replied) {
         log_line("arp: Still waiting for DHCP server to reply to arp ping...");
-        if (arp_ping(cs, cs->serverAddr) == -1)
+        if (arp_ping(cs, cs->serverAddr) < 0)
             log_warning("arp: Failed to send ARP ping in retransmission.");
     }
     arp_wake_ts[AS_GW_CHECK] =
@@ -539,12 +539,12 @@ static void arp_gw_query_timeout(struct client_state_t *cs, long long nowts)
     }
     if (!cs->got_router_arp) {
         log_line("arp: Still looking for gateway hardware address...");
-        if (arp_ping(cs, cs->routerAddr) == -1)
+        if (arp_ping(cs, cs->routerAddr) < 0)
             log_warning("arp: Failed to send ARP ping in retransmission.");
     }
     if (!cs->got_server_arp) {
         log_line("arp: Still looking for DHCP server hardware address...");
-        if (arp_ping(cs, cs->serverAddr) == -1)
+        if (arp_ping(cs, cs->serverAddr) < 0)
             log_warning("arp: Failed to send ARP ping in retransmission.");
     }
     arp_wake_ts[AS_GW_QUERY] =
@@ -566,7 +566,7 @@ static void arp_collision_timeout(struct client_state_t *cs, long long nowts)
         arp_wake_ts[AS_COLLISION_CHECK] = rtts;
         return;
     }
-    if (arp_ip_anon_ping(cs, arp_dhcp_packet.yiaddr) == -1)
+    if (arp_ip_anon_ping(cs, arp_dhcp_packet.yiaddr) < 0)
         log_warning("arp: Failed to send ARP ping in retransmission.");
     probe_wait_time = arp_gen_probe_wait(cs);
     arp_wake_ts[AS_COLLISION_CHECK] =
@@ -758,9 +758,9 @@ long long arp_get_wake_ts(void)
 {
     long long mt = -1;
     for (int i = 0; i < AS_MAX; ++i) {
-        if (arp_wake_ts[i] == -1)
+        if (arp_wake_ts[i] < 0)
             continue;
-        if (mt == -1 || mt > arp_wake_ts[i])
+        if (mt < 0 || mt > arp_wake_ts[i])
             mt = arp_wake_ts[i];
     }
     return mt;
