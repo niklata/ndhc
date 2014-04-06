@@ -44,7 +44,6 @@
 #include <getopt.h>
 #include "nk/log.h"
 #include "nk/privilege.h"
-#include "nk/pidfile.h"
 #include "nk/signals.h"
 #include "nk/io.h"
 
@@ -67,7 +66,6 @@ static int resolv_conf_fd = -1;
 /* If true, allow HOSTNAME changes from dhcp server. */
 int allow_hostname = 0;
 
-char pidfile_ifch[PATH_MAX] = PID_FILE_IFCH_DEFAULT;
 uid_t ifch_uid = 0;
 gid_t ifch_gid = 0;
 
@@ -382,11 +380,6 @@ static void do_ifch_work(void)
 void ifch_main(void)
 {
     prctl(PR_SET_NAME, "ndhc: ifch");
-    if (file_exists(pidfile_ifch, "w") == -1)
-        suicide("FATAL - can't open ifch-pidfile '%s' for write!",
-                pidfile_ifch);
-    write_pid(pidfile_ifch);
-    memset(pidfile_ifch, '\0', sizeof pidfile_ifch);
 
     umask(077);
     setup_signals_ifch();

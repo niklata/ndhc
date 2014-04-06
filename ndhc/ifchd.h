@@ -33,7 +33,6 @@ struct ifchd_client {
 extern struct ifchd_client cl;
 
 extern int allow_hostname;
-extern char pidfile_ifch[PATH_MAX];
 extern uid_t ifch_uid;
 extern gid_t ifch_gid;
 

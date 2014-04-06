@@ -106,7 +106,6 @@ static void show_usage(void)
 "  -b, --background                Fork to background if lease cannot be\n"
 "                                  immediately negotiated.\n"
 "  -p, --pidfile=FILE              File where the ndhc pid will be written\n"
-"  -P, --ifch-pidfile=FILE         File where the ndhc-ifch pid will be written\n"
 "  -i, --interface=INTERFACE       Interface to use (default: eth0)\n"
 "  -n, --now                       Exit with failure if lease cannot be\n"
 "                                  immediately negotiated.\n"
@@ -458,7 +457,6 @@ static void parse_program_options(int argc, char *argv[])
         {"clientid",           required_argument,  0, 'c'},
         {"background",         no_argument,        0, 'b'},
         {"pidfile",            required_argument,  0, 'p'},
-        {"ifch-pidfile",       required_argument,  0, 'P'},
         {"hostname",           required_argument,  0, 'h'},
         {"interface",          required_argument,  0, 'i'},
         {"now",                no_argument,        0, 'n'},
@@ -500,10 +498,6 @@ static void parse_program_options(int argc, char *argv[])
                 break;
             case 'p':
                 copy_cmdarg(pidfile, optarg, sizeof pidfile, "pidfile");
-                break;
-            case 'P':
-                copy_cmdarg(pidfile_ifch, optarg, sizeof pidfile_ifch,
-                            "ifch-pidfile");
                 break;
             case 'h':
                 copy_cmdarg(client_config.hostname, optarg,
