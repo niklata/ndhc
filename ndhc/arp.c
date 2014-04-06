@@ -158,12 +158,18 @@ static int get_arp_defense_socket(struct client_state_t *cs)
     return fd;
 }
 
-static int arp_open_fd(struct client_state_t *cs)
+static int arp_open_fd(struct client_state_t *cs, arp_state_t state)
 {
-    if (cs->arpFd != -1)
+    if (cs->arpFd >= 0) {
+        log_warning("%s: (%s) called but fd already exists",
+                    client_config.interface, __func__);
         return 0;
-    switch (arpState) {
-    default: cs->arpFd = -1; arpState = AS_NONE; return -1;
+    }
+    switch (state) {
+    default:
+        log_warning("%s: (%s) called for 'default' state",
+                    client_config.interface, __func__);
+        return 0;
     case AS_COLLISION_CHECK:
     case AS_GW_QUERY:
     case AS_GW_CHECK: cs->arpFd = get_arp_basic_socket(); break;
@@ -190,22 +196,21 @@ static void arp_min_close_fd(struct client_state_t *cs)
 
 static void arp_switch_state(struct client_state_t *cs, arp_state_t state)
 {
-    arp_state_t prev_state = arpState;
     if (arpState == state || arpState >= AS_MAX)
         return;
-    arpState = state;
-    if (arpState == AS_NONE) {
+    if (state == AS_NONE) {
         arp_close_fd(cs);
         return;
     }
-    bool force_reopen = arpState == AS_DEFENSE || prev_state == AS_DEFENSE;
+    bool force_reopen = state == AS_DEFENSE || arpState == AS_DEFENSE;
     if (force_reopen)
         arp_min_close_fd(cs);
-    if (cs->arpFd == -1 || force_reopen) {
-        if (arp_open_fd(cs) == -1)
+    if (cs->arpFd < 0 || force_reopen) {
+        if (arp_open_fd(cs, state) < 0)
             suicide("arp: Failed to open arpFd when changing state %u -> %u",
-                    prev_state, arpState);
+                    arpState, state);
     }
+    arpState = state;
 }
 
 void arp_close_fd(struct client_state_t *cs)
