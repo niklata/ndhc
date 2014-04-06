@@ -178,15 +178,14 @@ static int arp_open_fd(struct client_state_t *cs)
     return 0;
 }
 
-static int arp_min_close_fd(struct client_state_t *cs)
+static void arp_min_close_fd(struct client_state_t *cs)
 {
     if (cs->arpFd == -1)
-        return 0;
+        return;
     epoll_del(cs->epollFd, cs->arpFd);
     close(cs->arpFd);
     cs->arpFd = -1;
     arpState = AS_NONE;
-    return 1;
 }
 
 static void arp_switch_state(struct client_state_t *cs, arp_state_t state)
@@ -209,12 +208,11 @@ static void arp_switch_state(struct client_state_t *cs, arp_state_t state)
     }
 }
 
-int arp_close_fd(struct client_state_t *cs)
+void arp_close_fd(struct client_state_t *cs)
 {
     arp_min_close_fd(cs);
     for (int i = 0; i < AS_MAX; ++i)
         arp_wake_ts[i] = -1;
-    return 1;
 }
 
 static void arp_reopen_fd(struct client_state_t *cs)
