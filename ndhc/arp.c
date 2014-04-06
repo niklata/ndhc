@@ -217,12 +217,11 @@ int arp_close_fd(struct client_state_t *cs)
     return 1;
 }
 
-static int arp_reopen_fd(struct client_state_t *cs)
+static void arp_reopen_fd(struct client_state_t *cs)
 {
     arp_state_t prev_state = arpState;
     arp_min_close_fd(cs);
     arp_switch_state(cs, prev_state);
-    return 0;
 }
 
 static int arp_send(struct client_state_t *cs, struct arpMsg *arp)
