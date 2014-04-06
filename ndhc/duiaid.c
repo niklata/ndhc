@@ -175,6 +175,9 @@ void get_clientid(struct client_state_t *cs, struct client_config_t *cc)
                     cc->interface, __func__);
     } else {
         iaid_len = safe_read(fd, iaid, sizeof iaid);
+        if (iaid_len < 0)
+            suicide("%s: (%s) failed to read IAID from file",
+                    cc->interface, __func__);
     }
     close(fd);
 
@@ -188,6 +191,9 @@ void get_clientid(struct client_state_t *cs, struct client_config_t *cc)
                     cc->interface, __func__);
     } else {
         duid_len = safe_read(fd, duid, sizeof duid);
+        if (duid_len < 0)
+            suicide("%s: (%s) failed to read DUID from file",
+                    cc->interface, __func__);
     }
     close(fd);
 
