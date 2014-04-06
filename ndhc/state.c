@@ -246,7 +246,7 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
             inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->clientAddr},
                       clibuf, sizeof clibuf);
             log_line("Accepted a firm offer for %s.  Validating...", clibuf);
-            if (arp_check(cs, packet) == -1) {
+            if (arp_check(cs, packet) < 0) {
                 log_warning("Failed to make arp socket.  Searching for new lease...");
                 reinit_selecting(cs, 3000);
             }

@@ -96,7 +96,7 @@ ssize_t nl_recv_buf(int fd, char *buf, size_t blen)
     ssize_t ret;
   retry:
     ret = recvmsg(fd, &msg, MSG_DONTWAIT);
-    if (ret == -1) {
+    if (ret < 0) {
         if (errno == EINTR)
             goto retry;
         if (errno != EAGAIN && errno != EWOULDBLOCK) {
@@ -264,11 +264,11 @@ int nl_open(int nltype, int nlgroup, int *nlportid)
 {
     int fd;
     fd = socket(AF_NETLINK, SOCK_RAW, nltype);
-    if (fd == -1) {
+    if (fd < 0) {
         log_error("%s: socket failed: %s", __func__, strerror(errno));
         return -1;
     }
-    if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
+    if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) < 0) {
         log_error("%s: Set non-blocking failed: %s",
                   __func__, strerror(errno));
         goto err_close;
@@ -283,13 +283,13 @@ int nl_open(int nltype, int nlgroup, int *nlportid)
         .nl_family = AF_NETLINK,
         .nl_groups = nlgroup,
     };
-    if (bind(fd, (struct sockaddr *)&nlsock, sizeof nlsock) == -1) {
+    if (bind(fd, (struct sockaddr *)&nlsock, sizeof nlsock) < 0) {
         log_error("%s: bind to group failed: %s",
                   __func__, strerror(errno));
         goto err_close;
     }
     al = sizeof nlsock;
-    if (getsockname(fd, (struct sockaddr *)&nlsock, &al) == -1) {
+    if (getsockname(fd, (struct sockaddr *)&nlsock, &al) < 0) {
         log_error("%s: getsockname failed: %s",
                   __func__, strerror(errno));
         goto err_close;

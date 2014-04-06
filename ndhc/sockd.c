@@ -120,19 +120,19 @@ int request_sockd_fd(char *buf, size_t buflen, char *response)
 static int create_arp_socket(void)
 {
     int fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ARP));
-    if (fd == -1) {
+    if (fd < 0) {
         log_error("%s: (%s) socket failed: %s", client_config.interface,
                   __func__, strerror(errno));
         goto out;
     }
 
     int opt = 1;
-    if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &opt, sizeof opt) == -1) {
+    if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &opt, sizeof opt) < 0) {
         log_error("%s: (%s) setsockopt failed: %s", client_config.interface,
                   __func__, strerror(errno));
         goto out_fd;
     }
-    if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
+    if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) < 0) {
         log_error("%s: (%s) fcntl failed: %s", client_config.interface,
                   __func__, strerror(errno));
         goto out_fd;
@@ -164,12 +164,12 @@ static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
         goto out;
     }
     int opt = 1;
-    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt) == -1) {
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt) < 0) {
         log_error("%s: (%s) Set reuse addr failed: %s",
                   client_config.interface, __func__, strerror(errno));
         goto out_fd;
     }
-    if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) == -1) {
+    if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) < 0) {
         log_error("%s: (%s) Set don't route failed: %s",
                   client_config.interface, __func__, strerror(errno));
         goto out_fd;
@@ -187,7 +187,7 @@ static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
                   client_config.interface, __func__, strerror(errno));
         goto out_fd;
     }
-    if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
+    if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) < 0) {
         log_error("%s: (%s) Set non-blocking failed: %s",
                   client_config.interface, __func__, strerror(errno));
         goto out_fd;
@@ -198,7 +198,7 @@ static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
         .sin_port = htons(port),
         .sin_addr.s_addr = ip,
     };
-    if (bind(fd, (struct sockaddr *)&sa, sizeof sa) == -1)
+    if (bind(fd, (struct sockaddr *)&sa, sizeof sa) < 0)
         goto out_fd;
 
     return fd;
@@ -225,12 +225,12 @@ static int create_raw_socket(struct sockaddr_ll *sa, bool *using_bpf,
     }
 
     int opt = 1;
-    if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) == -1) {
+    if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) < 0) {
         log_error("create_raw_socket: Failed to set don't route: %s",
                   strerror(errno));
         goto out_fd;
     }
-    if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1) {
+    if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) < 0) {
         log_error("create_raw_socket: Set non-blocking failed: %s",
                   strerror(errno));
         goto out_fd;
@@ -252,10 +252,10 @@ static int create_udp_listen_socket(void)
 {
     int fd = create_udp_socket(INADDR_ANY, DHCP_CLIENT_PORT,
                                client_config.interface);
-    if (fd == -1)
+    if (fd < 0)
         return -1;
     int opt = 1;
-    if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &opt, sizeof opt) == -1) {
+    if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &opt, sizeof opt) < 0) {
         log_error("%s: (%s) Set broadcast failed: %s",
                   client_config.interface, __func__, strerror(errno));
         close(fd);
@@ -590,7 +590,7 @@ static void process_client_pipe(void)
 static void do_sockd_work(void)
 {
     epollfd = epoll_create1(0);
-    if (epollfd == -1)
+    if (epollfd < 0)
         suicide("epoll_create1 failed");
 
     if (enforce_seccomp_sockd())
@@ -601,7 +601,7 @@ static void do_sockd_work(void)
 
     for (;;) {
         int r = epoll_wait(epollfd, events, 2, -1);
-        if (r == -1) {
+        if (r < 0) {
             if (errno == EINTR)
                 continue;
             else

@@ -91,7 +91,7 @@ static ssize_t send_dhcp_cooked(struct client_state_t *cs,
 {
     ssize_t ret = -1;
     int fd = get_udp_unicast_socket();
-    if (fd == -1)
+    if (fd < 0)
         goto out;
 
     struct sockaddr_in raddr = {
@@ -99,7 +99,7 @@ static ssize_t send_dhcp_cooked(struct client_state_t *cs,
         .sin_port = htons(DHCP_SERVER_PORT),
         .sin_addr.s_addr = cs->serverAddr,
     };
-    if (connect(fd, (struct sockaddr *)&raddr, sizeof(struct sockaddr)) == -1) {
+    if (connect(fd, (struct sockaddr *)&raddr, sizeof(struct sockaddr)) < 0) {
         log_error("%s: (%s) connect failed: %s", client_config.interface,
                   __func__, strerror(errno));
         goto out_fd;
@@ -283,7 +283,7 @@ static ssize_t send_dhcp_raw(struct dhcpmsg *payload)
 {
     ssize_t ret = -1;
     int fd = get_raw_broadcast_socket();
-    if (fd == -1)
+    if (fd < 0)
         return ret;
 
     // Send packets that are as short as possible.

@@ -264,7 +264,7 @@ static void do_ndhc_work(void)
     int timeout;
 
     cs.epollFd = epoll_create1(0);
-    if (cs.epollFd == -1)
+    if (cs.epollFd < 0)
         suicide("epoll_create1 failed");
 
     if (enforce_seccomp_ndhc())
@@ -280,7 +280,7 @@ static void do_ndhc_work(void)
 
     for (;;) {
         int r = epoll_wait(cs.epollFd, events, NDHC_NUM_EP_FDS, timeout);
-        if (r == -1) {
+        if (r < 0) {
             if (errno == EINTR)
                 continue;
             else
@@ -306,7 +306,7 @@ static void do_ndhc_work(void)
             nowts = curms();
             long long arp_wake_ts = arp_get_wake_ts();
             long long dhcp_wake_ts = dhcp_get_wake_ts();
-            if (arp_wake_ts == -1) {
+            if (arp_wake_ts < 0) {
                 if (dhcp_wake_ts != -1) {
                     timeout = dhcp_wake_ts - nowts;
                     if (timeout < 0)
@@ -417,7 +417,7 @@ static void ndhc_main(void) {
         suicide("%s: failed to open netlink socket", __func__);
 
     if (client_config.foreground && !client_config.background_if_no_lease) {
-        if (file_exists(pidfile, "w") == -1)
+        if (file_exists(pidfile, "w") < 0)
             suicide("%s: can't open pidfile '%s' for write!",
                     __func__, pidfile);
         write_pid(pidfile);
@@ -440,12 +440,12 @@ void background(void)
     static char called;
     if (!called) {
         called = 1;  // Do not fork again.
-        if (daemon(0, 0) == -1) {
+        if (daemon(0, 0) < 0) {
             perror("fork");
             exit(EXIT_SUCCESS);
         }
     }
-    if (file_exists(pidfile, "w") == -1) {
+    if (file_exists(pidfile, "w") < 0) {
         log_warning("Cannot open pidfile for write!");
     } else
         write_pid(pidfile);
@@ -486,7 +486,7 @@ static void parse_program_options(int argc, char *argv[])
         int c;
         c = getopt_long(argc, argv, "c:bp:P:h:i:nqr:V:u:U:D:C:s:Sdw:W:m:M:t:R:Hv?",
                         arg_options, NULL);
-        if (c == -1) break;
+        if (c < 0) break;
 
         switch (c) {
             case 'c':

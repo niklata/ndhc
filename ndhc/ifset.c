@@ -315,10 +315,10 @@ static int link_flags_get(int fd, uint32_t *flags)
 
     do {
         ret = nl_recv_buf(fd, nlbuf, sizeof nlbuf);
-        if (ret == -1)
+        if (ret < 0)
             return -2;
         if (nl_foreach_nlmsg(nlbuf, ret, seq, 0, link_flags_get_do,
-                             &ipx) == -1)
+                             &ipx) < 0)
             return -3;
     } while (ret > 0);
     if (ipx.got_flags) {
@@ -424,10 +424,10 @@ static int ipbcpfx_clear_others(int fd, uint32_t ipaddr, uint32_t bcast,
 
     do {
         ret = nl_recv_buf(fd, nlbuf, sizeof nlbuf);
-        if (ret == -1)
+        if (ret < 0)
             return -2;
         if (nl_foreach_nlmsg(nlbuf, ret, seq, 0,
-                             ipbcpfx_clear_others_do, &ipx) == -1)
+                             ipbcpfx_clear_others_do, &ipx) < 0)
             return -3;
     } while (ret > 0);
     return ipx.already_ok ? 1 : 0;

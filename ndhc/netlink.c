@@ -92,10 +92,10 @@ void handle_nl_message(struct client_state_t *cs)
     assert(cs->nlFd != -1);
     do {
         ret = nl_recv_buf(cs->nlFd, nlbuf, sizeof nlbuf);
-        if (ret == -1)
+        if (ret < 0)
             break;
         if (nl_foreach_nlmsg(nlbuf, ret, 0, cs->nlPortId, nl_process_msgs, cs)
-            == -1)
+            < 0)
             break;
     } while (ret > 0);
 }
@@ -147,10 +147,10 @@ static int handle_getifdata(int fd, uint32_t seq)
     int got_ifdata = 0;
     do {
         ret = nl_recv_buf(fd, nlbuf, sizeof nlbuf);
-        if (ret == -1)
+        if (ret < 0)
             return -1;
         if (nl_foreach_nlmsg(nlbuf, ret, seq, 0,
-                             do_handle_getifdata, &got_ifdata) == -1)
+                             do_handle_getifdata, &got_ifdata) < 0)
             return -1;
     } while (ret > 0);
     return got_ifdata ? 0 : -1;
@@ -183,7 +183,7 @@ int nl_getifdata(void)
         pr = poll(&((struct pollfd){.fd=fd,.events=POLLIN}), 1, -1);
         if (pr == 1)
             ret = handle_getifdata(fd, seq);
-        else if (pr == -1 && errno != EINTR)
+        else if (pr < 0 && errno != EINTR)
             goto fail_fd;
     }
   fail_fd:

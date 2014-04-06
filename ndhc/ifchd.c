@@ -92,7 +92,7 @@ static void write_resolve_conf(void)
     if (strlen(cl.namesvrs) == 0)
         return;
 
-    if (lseek(resolv_conf_fd, 0, SEEK_SET) == -1)
+    if (lseek(resolv_conf_fd, 0, SEEK_SET) < 0)
         return;
 
     char *p = cl.namesvrs;
@@ -151,14 +151,14 @@ static void write_resolve_conf(void)
     writeordie(resolv_conf_fd, "\n", 1);
 
     off = lseek(resolv_conf_fd, 0, SEEK_CUR);
-    if (off == -1) {
+    if (off < 0) {
         log_line("write_resolve_conf: lseek returned error: %s",
                 strerror(errno));
         return;
     }
   retry:
     r = ftruncate(resolv_conf_fd, off);
-    if (r == -1) {
+    if (r < 0) {
         if (errno == EINTR)
             goto retry;
         log_line("write_resolve_conf: ftruncate returned error: %s",
@@ -166,7 +166,7 @@ static void write_resolve_conf(void)
         return;
     }
     r = fsync(resolv_conf_fd);
-    if (r == -1) {
+    if (r < 0) {
         log_line("write_resolve_conf: fsync returned error: %s",
                  strerror(errno));
         return;
@@ -183,7 +183,7 @@ void perform_timezone(const char *str, size_t len)
 /* Add a dns server to the /etc/resolv.conf -- we already have a fd. */
 void perform_dns(const char *str, size_t len)
 {
-    if (!str || resolv_conf_fd == -1)
+    if (!str || resolv_conf_fd < 0)
         return;
     if (len > sizeof cl.namesvrs) {
         log_line("DNS server list is too long: %zu > %zu", len, cl.namesvrs);
@@ -210,7 +210,7 @@ void perform_hostname(const char *str, size_t len)
 {
     if (!allow_hostname || !str)
         return;
-    if (sethostname(str, len) == -1)
+    if (sethostname(str, len) < 0)
         log_line("sethostname returned %s", strerror(errno));
     else
         log_line("Set hostname: '%s'", str);
@@ -219,7 +219,7 @@ void perform_hostname(const char *str, size_t len)
 /* update "domain" and "search" in /etc/resolv.conf */
 void perform_domain(const char *str, size_t len)
 {
-    if (!str || resolv_conf_fd == -1)
+    if (!str || resolv_conf_fd < 0)
         return;
     if (len > sizeof cl.domains) {
         log_line("DNS domain list is too long: %zu > %zu", len, cl.namesvrs);
@@ -332,7 +332,7 @@ static void process_client_pipe(void)
                 client_config.interface, __func__, strerror(errno));
     }
 
-    if (execute_buffer(buf) == -1) {
+    if (execute_buffer(buf) < 0) {
         inform_execute('-');
         suicide("%s: (%s) received invalid commands: '%s'",
                 client_config.interface, __func__, buf);
@@ -343,7 +343,7 @@ static void process_client_pipe(void)
 static void do_ifch_work(void)
 {
     epollfd = epoll_create1(0);
-    if (epollfd == -1)
+    if (epollfd < 0)
         suicide("epoll_create1 failed");
 
     if (enforce_seccomp_ifch())
@@ -359,7 +359,7 @@ static void do_ifch_work(void)
 
     for (;;) {
         int r = epoll_wait(epollfd, events, 2, -1);
-        if (r == -1) {
+        if (r < 0) {
             if (errno == EINTR)
                 continue;
             else
@@ -391,7 +391,7 @@ void ifch_main(void)
         umask(022);
         resolv_conf_fd = open(resolv_conf_d, O_RDWR | O_CREAT, 644);
         umask(077);
-        if (resolv_conf_fd == -1) {
+        if (resolv_conf_fd < 0) {
             suicide("FATAL - unable to open resolv.conf");
         }
     }

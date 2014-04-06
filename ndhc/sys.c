@@ -41,7 +41,7 @@ void epoll_add(int epfd, int fd)
     ev.events = EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLHUP;
     ev.data.fd = fd;
     r = epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &ev);
-    if (r == -1)
+    if (r < 0)
         suicide("epoll_add failed %s", strerror(errno));
 }
 
@@ -52,6 +52,6 @@ void epoll_del(int epfd, int fd)
     ev.events = EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLHUP;
     ev.data.fd = fd;
     r = epoll_ctl(epfd, EPOLL_CTL_DEL, fd, &ev);
-    if (r == -1)
+    if (r < 0)
         suicide("epoll_del failed %s", strerror(errno));
 }
