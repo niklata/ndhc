@@ -34,6 +34,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <assert.h>
 #include <sys/socket.h>
 #include <sys/signalfd.h>
 #include <sys/epoll.h>
@@ -44,6 +45,7 @@
 #include <netinet/ip.h>
 #include <netpacket/packet.h>
 #include <net/ethernet.h>
+#include <netinet/if_ether.h>
 #include <linux/filter.h>
 #include <pwd.h>
 #include <grp.h>
@@ -333,6 +335,108 @@ static int create_raw_broadcast_socket(void)
     return create_raw_socket(&da, NULL, NULL);
 }
 
+static bool arp_set_bpf_basic(int fd)
+{
+    static struct sock_filter sf_arp[] = {
+        // Verify that the frame has ethernet protocol type of ARP
+        // and that the ARP hardware type field indicates Ethernet.
+        BPF_STMT(BPF_LD + BPF_W + BPF_ABS, 12),
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, (ETH_P_ARP << 16) | ARPHRD_ETHER,
+                 1, 0),
+        BPF_STMT(BPF_RET + BPF_K, 0),
+        // Verify that the ARP protocol type field indicates IP, the ARP
+        // hardware address length field is 6, and the ARP protocol address
+        // length field is 4.
+        BPF_STMT(BPF_LD + BPF_W + BPF_ABS, 16),
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, (ETH_P_IP << 16) | 0x0604, 1, 0),
+        BPF_STMT(BPF_RET + BPF_K, 0),
+        // Sanity tests passed, so send all possible data.
+        BPF_STMT(BPF_RET + BPF_K, 0x7fffffff),
+    };
+    static const struct sock_fprog sfp_arp = {
+        .len = sizeof sf_arp / sizeof sf_arp[0],
+        .filter = sf_arp,
+    };
+    int ret = setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &sfp_arp,
+                         sizeof sfp_arp) != -1;
+    if (ret < 0)
+        log_warning("%s: Failed to set BPF for basic ARP socket: %s",
+                    client_config.interface, strerror(errno));
+    return ret == 0;
+}
+
+static bool arp_set_bpf_defense(int fd, uint32_t client_addr,
+                                uint8_t client_mac[6])
+{
+    uint32_t mac4b;
+    uint16_t mac2b;
+    memcpy(&mac4b, client_mac, 4);
+    memcpy(&mac2b, client_mac + 4, 2);
+
+    struct sock_filter sf_arp[] = {
+        // Verify that the frame has ethernet protocol type of ARP
+        // and that the ARP hardware type field indicates Ethernet.
+        BPF_STMT(BPF_LD + BPF_W + BPF_ABS, 12),
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, (ETH_P_ARP << 16) | ARPHRD_ETHER,
+                 1, 0),
+        BPF_STMT(BPF_RET + BPF_K, 0),
+        // Verify that the ARP protocol type field indicates IP, the ARP
+        // hardware address length field is 6, and the ARP protocol address
+        // length field is 4.
+        BPF_STMT(BPF_LD + BPF_W + BPF_ABS, 16),
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, (ETH_P_IP << 16) | 0x0604, 1, 0),
+        BPF_STMT(BPF_RET + BPF_K, 0),
+
+        // If the ARP packet source IP does not match our IP address, then
+        // it can be ignored.
+        BPF_STMT(BPF_LD + BPF_W + BPF_ABS, 28),
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, client_addr, 1, 0),
+        BPF_STMT(BPF_RET + BPF_K, 0),
+        // If the first four bytes of the ARP packet source hardware address
+        // does not equal our hardware address, then it's a conflict and should
+        // be passed along.
+        BPF_STMT(BPF_LD + BPF_W + BPF_ABS, 22),
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, mac4b, 1, 0),
+        BPF_STMT(BPF_RET + BPF_K, 0x7fffffff),
+        // If the last two bytes of the ARP packet source hardware address
+        // do not equal our hardware address, then it's a conflict and should
+        // be passed along.
+        BPF_STMT(BPF_LD + BPF_H + BPF_ABS, 26),
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, mac2b, 1, 0),
+        BPF_STMT(BPF_RET + BPF_K, 0x7fffffff),
+        // Packet announces our IP address and hardware address, so it requires
+        // no action.
+        BPF_STMT(BPF_RET + BPF_K, 0),
+    };
+    struct sock_fprog sfp_arp = {
+        .len = sizeof sf_arp / sizeof sf_arp[0],
+        .filter = (struct sock_filter *)sf_arp,
+    };
+    int ret = setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &sfp_arp,
+                          sizeof sfp_arp) != -1;
+    if (ret < 0)
+        log_warning("%s: Failed to set BPF for defense ARP socket: %s",
+                    client_config.interface, strerror(errno));
+    return ret == 0;
+}
+
+static int create_arp_defense_socket(uint32_t client_addr,
+                                     uint8_t client_mac[6], bool *using_bpf)
+{
+    assert(using_bpf);
+    int fd = create_arp_socket();
+    *using_bpf = arp_set_bpf_defense(fd, client_addr, client_mac);
+    return fd;
+}
+
+static int create_arp_basic_socket(bool *using_bpf)
+{
+    assert(using_bpf);
+    int fd = create_arp_socket();
+    *using_bpf = arp_set_bpf_basic(fd);
+    return fd;
+}
+
 // XXX: Can share with ifch
 static void setup_signals_sockd(void)
 {
@@ -427,7 +531,24 @@ static size_t execute_sockd(char *buf, size_t buflen)
         return 1;
     }
     case 'U': xfer_fd(create_udp_listen_socket(), 'U'); return 1;
-    case 'a': xfer_fd(create_arp_socket(), 'a'); return 1;
+    case 'a': {
+        bool using_bpf;
+        int fd = create_arp_basic_socket(&using_bpf);
+        xfer_fd(fd, using_bpf ? 'A' : 'a'); return 1;
+    }
+    case 'd': {
+        uint32_t client_addr;
+        uint8_t client_mac[6];
+        bool using_bpf;
+        if (buflen < 1 + sizeof client_addr + 6)
+            return 0;
+        memcpy(&client_addr, buf + 1, sizeof client_addr);
+        memcpy(client_mac, buf + 1 + sizeof client_addr, 6);
+        int fd = create_arp_defense_socket(client_addr, client_mac,
+                                           &using_bpf);
+        xfer_fd(fd, using_bpf ? 'D' : 'd');
+        return 11;
+    }
     case 's': xfer_fd(create_raw_broadcast_socket(), 's'); return 1;
     case 'u': {
         uint32_t client_addr;
