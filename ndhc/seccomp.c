@@ -49,20 +49,14 @@ int enforce_seccomp_ndhc(void)
 #if defined(__x86_64__) || (defined(__arm__) && defined(__ARM_EABI__))
         ALLOW_SYSCALL(sendto), // used for glibc syslog routines
         ALLOW_SYSCALL(recvmsg),
-        ALLOW_SYSCALL(socket),
-        ALLOW_SYSCALL(setsockopt),
-        ALLOW_SYSCALL(getsockname),
         ALLOW_SYSCALL(connect),
-        ALLOW_SYSCALL(bind),
         ALLOW_SYSCALL(socketpair),
 #elif defined(__i386__)
         ALLOW_SYSCALL(socketcall),
-        ALLOW_SYSCALL(fcntl64),
 #else
 #error Target platform does not support seccomp-filter.
 #endif
 
-        ALLOW_SYSCALL(fcntl),
         ALLOW_SYSCALL(open),
 
         // Allowed by vDSO
@@ -127,14 +121,9 @@ int enforce_seccomp_ifch(void)
         ALLOW_SYSCALL(sendto), // used for glibc syslog routines
         ALLOW_SYSCALL(recvmsg),
         ALLOW_SYSCALL(socket),
-        ALLOW_SYSCALL(setsockopt),
-        ALLOW_SYSCALL(getsockname),
-        ALLOW_SYSCALL(connect),
-        ALLOW_SYSCALL(bind),
         ALLOW_SYSCALL(socketpair),
 #elif defined(__i386__)
         ALLOW_SYSCALL(socketcall),
-        ALLOW_SYSCALL(fcntl64),
 #else
 #error Target platform does not support seccomp-filter.
 #endif
@@ -144,7 +133,6 @@ int enforce_seccomp_ifch(void)
         ALLOW_SYSCALL(fsync),
         ALLOW_SYSCALL(lseek),
         ALLOW_SYSCALL(truncate),
-        ALLOW_SYSCALL(fcntl),
 
         ALLOW_SYSCALL(rt_sigreturn),
 #ifdef __NR_sigreturn
@@ -192,8 +180,6 @@ int enforce_seccomp_sockd(void)
         ALLOW_SYSCALL(recvmsg),
         ALLOW_SYSCALL(socket),
         ALLOW_SYSCALL(setsockopt),
-        ALLOW_SYSCALL(getsockname),
-        ALLOW_SYSCALL(connect),
         ALLOW_SYSCALL(bind),
         ALLOW_SYSCALL(socketpair),
 #elif defined(__i386__)
