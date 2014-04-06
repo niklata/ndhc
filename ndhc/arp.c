@@ -712,15 +712,13 @@ void handle_arp_response(struct client_state_t *cs)
     int r = 0;
     if (arpreply_offset < sizeof arpreply) {
         r = safe_read(cs->arpFd, (char *)&arpreply + arpreply_offset,
-                          sizeof arpreply - arpreply_offset);
-        if (r < 0 && errno != EWOULDBLOCK && errno != EAGAIN) {
+                      sizeof arpreply - arpreply_offset);
+        if (r < 0) {
             log_error("arp: ARP response read failed: %s", strerror(errno));
             switch (arpState) {
-                case AS_COLLISION_CHECK: arp_failed(cs); break;
-                case AS_GW_CHECK: arp_gw_failed(cs); break;
-                default:
-                    arp_reopen_fd(cs);
-                    break;
+            case AS_COLLISION_CHECK: arp_failed(cs); break;
+            case AS_GW_CHECK: arp_gw_failed(cs); break;
+            default: arp_reopen_fd(cs); break;
             }
         } else
             arpreply_offset += r;
