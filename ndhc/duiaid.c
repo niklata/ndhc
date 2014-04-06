@@ -169,15 +169,16 @@ void get_clientid(struct client_state_t *cs, struct client_config_t *cc)
     if (fd < 0) {
         iaid_len = generate_iaid(&cs->rnd32_state, iaid, sizeof iaid);
         fd = open_iaidfile_write(cc->arp, sizeof cc->arp);
-        int r = safe_write(fd, iaid, iaid_len);
+        ssize_t r = safe_write(fd, iaid, iaid_len);
         if (r < 0 || (size_t)r != iaid_len)
             suicide("%s: (%s) failed to write generated IAID.",
                     cc->interface, __func__);
     } else {
-        iaid_len = safe_read(fd, iaid, sizeof iaid);
-        if (iaid_len < 0)
+        ssize_t r = safe_read(fd, iaid, sizeof iaid);
+        if (r < 0)
             suicide("%s: (%s) failed to read IAID from file",
                     cc->interface, __func__);
+        iaid_len = (size_t)r;
     }
     close(fd);
 
@@ -185,15 +186,16 @@ void get_clientid(struct client_state_t *cs, struct client_config_t *cc)
     if (fd < 0) {
         duid_len = generate_duid(&cs->rnd32_state, duid, sizeof duid);
         fd = open_duidfile_write();
-        int r = safe_write(fd, duid, duid_len);
+        ssize_t r = safe_write(fd, duid, duid_len);
         if (r < 0 || (size_t)r != duid_len)
             suicide("%s: (%s) failed to write generated DUID.",
                     cc->interface, __func__);
     } else {
-        duid_len = safe_read(fd, duid, sizeof duid);
-        if (duid_len < 0)
+        ssize_t r = safe_read(fd, duid, sizeof duid);
+        if (r < 0)
             suicide("%s: (%s) failed to read DUID from file",
                     cc->interface, __func__);
+        duid_len = (size_t)r;
     }
     close(fd);
 

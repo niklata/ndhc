@@ -70,7 +70,7 @@ void write_leasefile(struct in_addr ipnum)
 {
     char ip[INET_ADDRSTRLEN];
     char out[INET_ADDRSTRLEN*2];
-    int ret;
+    ssize_t ret;
     if (leasefilefd < 0) {
         log_error("%s: (%s) leasefile fd < 0; no leasefile will be written",
                   client_config.interface, __func__);

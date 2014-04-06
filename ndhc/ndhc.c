@@ -241,7 +241,7 @@ static void fail_if_state_dir_dne(void)
 static void handle_ifch_message(void)
 {
     char c;
-    int r = safe_read(pToNdhcR, &c, sizeof c);
+    ssize_t r = safe_read(pToNdhcR, &c, sizeof c);
     if (r == 0) {
         // Remote end hung up.
         exit(EXIT_SUCCESS);

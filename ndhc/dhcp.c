@@ -86,9 +86,10 @@ static int get_raw_listen_socket(struct client_state_t *cs)
 }
 
 // Broadcast a DHCP message using a UDP socket.
-static int send_dhcp_cooked(struct client_state_t *cs, struct dhcpmsg *payload)
+static ssize_t send_dhcp_cooked(struct client_state_t *cs,
+                                struct dhcpmsg *payload)
 {
-    int ret = -1;
+    ssize_t ret = -1;
     int fd = get_udp_unicast_socket();
     if (fd == -1)
         goto out;
@@ -125,11 +126,11 @@ static int send_dhcp_cooked(struct client_state_t *cs, struct dhcpmsg *payload)
 
 // Read a packet from a cooked socket.  Returns -1 on fatal error, -2 on
 // transient error.
-static int get_cooked_packet(struct dhcpmsg *packet, int fd)
+static ssize_t get_cooked_packet(struct dhcpmsg *packet, int fd)
 {
     memset(packet, 0, sizeof *packet);
-    int bytes = safe_read(fd, (char *)packet, sizeof *packet);
-    if (bytes == -1) {
+    ssize_t bytes = safe_read(fd, (char *)packet, sizeof *packet);
+    if (bytes < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return -2;
         log_line("%s: Read on listen socket failed: %s",
@@ -237,13 +238,14 @@ static int get_raw_packet_validate_bpf(struct ip_udp_dhcp_packet *packet)
 
 // Read a packet from a raw socket.  Returns -1 on fatal error, -2 on
 // transient error.
-static int get_raw_packet(struct client_state_t *cs, struct dhcpmsg *payload)
+static ssize_t get_raw_packet(struct client_state_t *cs,
+                              struct dhcpmsg *payload)
 {
     struct ip_udp_dhcp_packet packet;
     memset(&packet, 0, sizeof packet);
 
     ssize_t inc = safe_read(cs->listenFd, (char *)&packet, sizeof packet);
-    if (inc == -1) {
+    if (inc < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return -2;
         log_warning("%s: (%s) read error %s", client_config.interface,
@@ -277,9 +279,9 @@ static int get_raw_packet(struct client_state_t *cs, struct dhcpmsg *payload)
 }
 
 // Broadcast a DHCP message using a raw socket.
-static int send_dhcp_raw(struct dhcpmsg *payload)
+static ssize_t send_dhcp_raw(struct dhcpmsg *payload)
 {
-    int ret = -1;
+    ssize_t ret = -1;
     int fd = get_raw_broadcast_socket();
     if (fd == -1)
         return ret;
@@ -333,7 +335,7 @@ static int send_dhcp_raw(struct dhcpmsg *payload)
     memcpy(da.sll_addr, "\xff\xff\xff\xff\xff\xff", 6);
     ret = safe_sendto(fd, (const char *)&iudmsg, iud_len, 0,
                       (struct sockaddr *)&da, sizeof da);
-    if (ret == -1)
+    if (ret < 0)
         log_error("%s: (%s) sendto failed: %s", client_config.interface,
                   __func__, strerror(errno));
     close(fd);
@@ -429,7 +431,7 @@ void handle_packet(struct client_state_t *cs)
 
     if (cs->listenMode == LM_NONE)
         return;
-    int r = cs->listenMode == LM_RAW ?
+    ssize_t r = cs->listenMode == LM_RAW ?
         get_raw_packet(cs, &packet) : get_cooked_packet(&packet, cs->listenFd);
     if (r < 0) {
         // Transient issue handled by packet collection functions.
@@ -465,7 +467,7 @@ static struct dhcpmsg init_packet(char type, uint32_t xid)
     return packet;
 }
 
-int send_discover(struct client_state_t *cs)
+ssize_t send_discover(struct client_state_t *cs)
 {
     struct dhcpmsg packet = init_packet(DHCPDISCOVER, cs->xid);
     if (cs->clientAddr)
@@ -478,7 +480,7 @@ int send_discover(struct client_state_t *cs)
     return send_dhcp_raw(&packet);
 }
 
-int send_selecting(struct client_state_t *cs)
+ssize_t send_selecting(struct client_state_t *cs)
 {
     char clibuf[INET_ADDRSTRLEN];
     struct dhcpmsg packet = init_packet(DHCPREQUEST, cs->xid);
@@ -495,7 +497,7 @@ int send_selecting(struct client_state_t *cs)
     return send_dhcp_raw(&packet);
 }
 
-int send_renew(struct client_state_t *cs)
+ssize_t send_renew(struct client_state_t *cs)
 {
     struct dhcpmsg packet = init_packet(DHCPREQUEST, cs->xid);
     packet.ciaddr = cs->clientAddr;
@@ -507,7 +509,7 @@ int send_renew(struct client_state_t *cs)
     return send_dhcp_cooked(cs, &packet);
 }
 
-int send_rebind(struct client_state_t *cs)
+ssize_t send_rebind(struct client_state_t *cs)
 {
     struct dhcpmsg packet = init_packet(DHCPREQUEST, cs->xid);
     packet.ciaddr = cs->clientAddr;
@@ -520,7 +522,7 @@ int send_rebind(struct client_state_t *cs)
     return send_dhcp_raw(&packet);
 }
 
-int send_decline(struct client_state_t *cs, uint32_t server)
+ssize_t send_decline(struct client_state_t *cs, uint32_t server)
 {
     struct dhcpmsg packet = init_packet(DHCPDECLINE, cs->xid);
     add_option_reqip(&packet, cs->clientAddr);
@@ -529,7 +531,7 @@ int send_decline(struct client_state_t *cs, uint32_t server)
     return send_dhcp_raw(&packet);
 }
 
-int send_release(struct client_state_t *cs)
+ssize_t send_release(struct client_state_t *cs)
 {
     struct dhcpmsg packet = init_packet(DHCPRELEASE,
                                         nk_random_u32(&cs->rnd32_state));

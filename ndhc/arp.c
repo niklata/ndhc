@@ -709,7 +709,7 @@ static const arp_state_fn_t arp_states[] = {
 
 void handle_arp_response(struct client_state_t *cs)
 {
-    int r = 0;
+    ssize_t r = 0;
     if (arpreply_offset < sizeof arpreply) {
         r = safe_read(cs->arpFd, (char *)&arpreply + arpreply_offset,
                       sizeof arpreply - arpreply_offset);
@@ -721,7 +721,7 @@ void handle_arp_response(struct client_state_t *cs)
             default: arp_reopen_fd(cs); break;
             }
         } else
-            arpreply_offset += r;
+            arpreply_offset += (size_t)r;
     }
 
     if (r <= 0) {
