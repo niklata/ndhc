@@ -1,4 +1,4 @@
-project (ndhcp)
+project (ndhc)
 
 cmake_minimum_required (VERSION 2.6)
 
@@ -44,4 +44,4 @@ endif()
 include_directories("${PROJECT_SOURCE_DIR}/ncmlib")
 add_subdirectory(ncmlib)
 
-add_subdirectory(ndhc)
+add_subdirectory(src)
