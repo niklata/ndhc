@@ -15,6 +15,9 @@ CC = gcc
 AR = ar
 RANLIB = ranlib
 CFLAGS = -O2 -s -std=gnu99 -pedantic -Wall -D_GNU_SOURCE
+# Not required for glibc >= 2.17, but older glibcs are still common.
+# The CMake build script will perform detection, but this Makefile is simple.
+LINK_LIBS = -lrt
 
 all: makedir ifchd-parse.o ncmlib.a ndhc
 
@@ -36,7 +39,7 @@ ncmlib.a: $(NCM_OBJS)
 	$(RANLIB) $(BUILD_DIR)/$@
 
 ndhc: $(NDHC_OBJS) ifchd-parse.o
-	$(CC) $(CFLAGS) $(NCM_INC) -o $(BUILD_DIR)/$@ $(subst src/,$(OBJ_DIR)/src/,$(NDHC_OBJS)) $(BUILD_DIR)/ncmlib.a $(BUILD_DIR)/objs/src/ifchd-parse.o
+	$(CC) $(CFLAGS) $(NCM_INC) -o $(BUILD_DIR)/$@ $(subst src/,$(OBJ_DIR)/src/,$(NDHC_OBJS)) $(BUILD_DIR)/ncmlib.a $(BUILD_DIR)/objs/src/ifchd-parse.o $(LINK_LIBS)
 
 .PHONY: all clean
 
