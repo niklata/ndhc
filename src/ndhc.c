@@ -641,6 +641,9 @@ int main(int argc, char *argv[])
     default: suicide("failed to set the interface to up state");
     }
 
+    if (setpgid(0, 0) < 0)
+        suicide("setpgid failed: %s", strerror(errno));
+
     spawn_ifch();
     spawn_sockd();
     ndhc_main();
