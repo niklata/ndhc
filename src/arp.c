@@ -255,9 +255,13 @@ static int arp_send(struct client_state_t *cs, struct arpMsg *arp)
         return -1;
     }
 
-    if (safe_sendto(cs->arpFd, (const char *)arp, sizeof *arp,
-                    0, (struct sockaddr *)&addr, sizeof addr) < 0) {
-        log_error("arp: sendto failed: %s", strerror(errno));
+    ssize_t r = safe_sendto(cs->arpFd, (const char *)arp, sizeof *arp,
+                            0, (struct sockaddr *)&addr, sizeof addr);
+    if (r < 0 || (size_t)r != sizeof *arp) {
+        if (r < 0)
+            log_error("arp: sendto failed: %s", strerror(errno));
+        else
+            log_error("arp: sendto short write: %z < %zu", r, sizeof *arp);
         arp_reopen_fd(cs);
         return -1;
     }

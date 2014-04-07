@@ -335,9 +335,14 @@ static ssize_t send_dhcp_raw(struct dhcpmsg *payload)
     memcpy(da.sll_addr, "\xff\xff\xff\xff\xff\xff", 6);
     ret = safe_sendto(fd, (const char *)&iudmsg, iud_len, 0,
                       (struct sockaddr *)&da, sizeof da);
-    if (ret < 0)
-        log_error("%s: (%s) sendto failed: %s", client_config.interface,
-                  __func__, strerror(errno));
+    if (ret < 0 || (size_t)ret != iud_len) {
+        if (ret < 0)
+            log_error("%s: (%s) sendto failed: %s", client_config.interface,
+                      __func__, strerror(errno));
+        else
+            log_error("%s: (%s) sendto short write: %z < %zu",
+                      client_config.interface, __func__, ret, iud_len);
+    }
     close(fd);
     return ret;
 }

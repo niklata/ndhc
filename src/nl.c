@@ -36,6 +36,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include "nk/log.h"
+#include "nk/io.h"
 #include "nl.h"
 
 int rtattr_assign(struct rtattr *attr, int type, void *data)
@@ -156,7 +157,6 @@ static int nl_sendgetlink_do(int fd, int seq, int ifindex, int by_ifindex)
     char nlbuf[512];
     struct nlmsghdr *nlh = (struct nlmsghdr *)nlbuf;
     struct ifinfomsg *ifinfomsg;
-    ssize_t r;
 
     memset(nlbuf, 0, sizeof nlbuf);
     nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
@@ -172,17 +172,16 @@ static int nl_sendgetlink_do(int fd, int seq, int ifindex, int by_ifindex)
     struct sockaddr_nl addr = {
         .nl_family = AF_NETLINK,
     };
-retry_sendto:
-    r = sendto(fd, nlbuf, nlh->nlmsg_len, 0,
-               (struct sockaddr *)&addr, sizeof addr);
-    if (r < 0) {
-        if (errno == EINTR)
-            goto retry_sendto;
-        else {
-            log_warning("%s: netlink sendto socket failed: %s",
-                        __func__, strerror(errno));
-            return -1;
-        }
+    ssize_t r = safe_sendto(fd, nlbuf, nlh->nlmsg_len, 0,
+                            (struct sockaddr *)&addr, sizeof addr);
+    if (r < 0 || (size_t)r != nlh->nlmsg_len) {
+        if (r < 0)
+            log_error("%s: sendto socket failed: %s", __func__,
+                      strerror(errno));
+        else
+            log_error("%s: sendto short write: %z < %zu", __func__, r,
+                      nlh->nlmsg_len);
+        return -1;
     }
     return 0;
 }
@@ -203,7 +202,6 @@ static int nl_sendgetaddr_do(int fd, int seq, int ifindex, int by_ifindex,
     char nlbuf[512];
     struct nlmsghdr *nlh = (struct nlmsghdr *)nlbuf;
     struct ifaddrmsg *ifaddrmsg;
-    ssize_t r;
 
     memset(nlbuf, 0, sizeof nlbuf);
     nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
@@ -220,17 +218,16 @@ static int nl_sendgetaddr_do(int fd, int seq, int ifindex, int by_ifindex,
     struct sockaddr_nl addr = {
         .nl_family = AF_NETLINK,
     };
-retry_sendto:
-    r = sendto(fd, nlbuf, nlh->nlmsg_len, 0,
-               (struct sockaddr *)&addr, sizeof addr);
-    if (r < 0) {
-        if (errno == EINTR)
-            goto retry_sendto;
-        else {
-            log_warning("%s: netlink sendto socket failed: %s",
-                        __func__, strerror(errno));
-            return -1;
-        }
+    ssize_t r = safe_sendto(fd, nlbuf, nlh->nlmsg_len, 0,
+                            (struct sockaddr *)&addr, sizeof addr);
+    if (r < 0 || (size_t)r != nlh->nlmsg_len) {
+        if (r < 0)
+            log_error("%s: sendto socket failed: %s", __func__,
+                      strerror(errno));
+        else
+            log_error("%s: sendto short write: %z < %zu", __func__, r,
+                      nlh->nlmsg_len);
+        return -1;
     }
     return 0;
 }
