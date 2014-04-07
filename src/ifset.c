@@ -110,16 +110,11 @@ static ssize_t rtnl_do_send(int fd, const uint8_t *sbuf, size_t slen,
         .msg_iov = &iov,
         .msg_iovlen = 1,
     };
-  retry_recv:
-    r = recvmsg(fd, &msg, 0);
+    r = safe_recvmsg(fd, &msg, 0);
     if (r < 0) {
-        if (errno == EINTR)
-            goto retry_recv;
-        else {
-            log_error("%s: (%s) netlink recvmsg failed: %s",
-                      client_config.interface, fnname, strerror(errno));
-            return -1;
-        }
+        log_error("%s: (%s) netlink recvmsg failed: %s",
+                  client_config.interface, fnname, strerror(errno));
+        return -1;
     }
     if (msg.msg_flags & MSG_TRUNC) {
         log_error("%s: (%s) Buffer not long enough for message.",

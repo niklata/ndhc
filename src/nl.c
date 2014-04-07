@@ -95,16 +95,12 @@ ssize_t nl_recv_buf(int fd, char *buf, size_t blen)
         .msg_iovlen = 1,
     };
     ssize_t ret;
-  retry:
-    ret = recvmsg(fd, &msg, MSG_DONTWAIT);
+    ret = safe_recvmsg(fd, &msg, MSG_DONTWAIT);
     if (ret < 0) {
-        if (errno == EINTR)
-            goto retry;
-        if (errno != EAGAIN && errno != EWOULDBLOCK) {
-            log_error("%s: recvmsg failed: %s", __func__, strerror(errno));
-            return -1;
-        }
-        return 0;
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return 0;
+        log_error("%s: recvmsg failed: %s", __func__, strerror(errno));
+        return -1;
     }
     if (msg.msg_flags & MSG_TRUNC) {
         log_error("%s: Buffer not long enough for message.", __func__);

@@ -88,14 +88,11 @@ int request_sockd_fd(char *buf, size_t buflen, char *response)
         .msg_control = control,
         .msg_controllen = sizeof control
     };
-  retry:
-    r = recvmsg(sockdSock[0], &msg, 0);
+    r = safe_recvmsg(sockdSock[0], &msg, 0);
     if (r == 0) {
         suicide("%s: (%s) recvmsg received EOF", client_config.interface,
                 __func__);
     } else if (r < 0) {
-        if (errno == EINTR)
-            goto retry;
         suicide("%s: (%s) recvmsg failed: %s", client_config.interface,
                 __func__, strerror(errno));
     }
