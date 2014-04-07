@@ -50,7 +50,6 @@ int enforce_seccomp_ndhc(void)
         ALLOW_SYSCALL(sendto), // used for glibc syslog routines
         ALLOW_SYSCALL(recvmsg),
         ALLOW_SYSCALL(connect),
-        ALLOW_SYSCALL(socketpair),
 #elif defined(__i386__)
         ALLOW_SYSCALL(socketcall),
 #else
@@ -121,7 +120,6 @@ int enforce_seccomp_ifch(void)
         ALLOW_SYSCALL(sendto), // used for glibc syslog routines
         ALLOW_SYSCALL(recvmsg),
         ALLOW_SYSCALL(socket),
-        ALLOW_SYSCALL(socketpair),
 #elif defined(__i386__)
         ALLOW_SYSCALL(socketcall),
 #else
@@ -181,7 +179,6 @@ int enforce_seccomp_sockd(void)
         ALLOW_SYSCALL(socket),
         ALLOW_SYSCALL(setsockopt),
         ALLOW_SYSCALL(bind),
-        ALLOW_SYSCALL(socketpair),
 #elif defined(__i386__)
         ALLOW_SYSCALL(socketcall),
         ALLOW_SYSCALL(fcntl64),
