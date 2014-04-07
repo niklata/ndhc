@@ -190,7 +190,8 @@ static int arp_open_fd(struct client_state_t *cs, arp_state_t state)
     case AS_DEFENSE: cs->arpFd = get_arp_defense_socket(cs); break;
     }
     if (cs->arpFd < 0) {
-        log_error("arp: Failed to create socket: %s", strerror(errno));
+        log_error("%s: (%s) Failed to create socket: %s",
+                  client_config.interface, __func__, strerror(errno));
         return -1;
     }
     epoll_add(cs->epollFd, cs->arpFd);
@@ -221,8 +222,8 @@ static void arp_switch_state(struct client_state_t *cs, arp_state_t state)
         arp_min_close_fd(cs);
     if (cs->arpFd < 0 || force_reopen) {
         if (arp_open_fd(cs, state) < 0)
-            suicide("arp: Failed to open arpFd when changing state %u -> %u",
-                    garp.state, state);
+            suicide("%s: (%s) Failed to open arpFd when changing state %u -> %u",
+                    client_config.interface, __func__, garp.state, state);
     }
     garp.state = state;
 }
@@ -251,7 +252,8 @@ static int arp_send(struct client_state_t *cs, struct arpMsg *arp)
     memcpy(addr.sll_addr, client_config.arp, 6);
 
     if (cs->arpFd < 0) {
-        log_warning("arp: Send attempted when no ARP fd is open.");
+        log_warning("%s: arp: Send attempted when no ARP fd is open.",
+                    client_config.interface);
         return -1;
     }
 
@@ -259,9 +261,11 @@ static int arp_send(struct client_state_t *cs, struct arpMsg *arp)
                             0, (struct sockaddr *)&addr, sizeof addr);
     if (r < 0 || (size_t)r != sizeof *arp) {
         if (r < 0)
-            log_error("arp: sendto failed: %s", strerror(errno));
+            log_error("%s: (%s) sendto failed: %s",
+                      client_config.interface, __func__, strerror(errno));
         else
-            log_error("arp: sendto short write: %z < %zu", r, sizeof *arp);
+            log_error("%s: (%s) sendto short write: %z < %zu",
+                      client_config.interface, __func__, r, sizeof *arp);
         arp_reopen_fd(cs);
         return -1;
     }
@@ -298,7 +302,8 @@ static int arp_ip_anon_ping(struct client_state_t *cs, uint32_t test_ip)
 {
     BASE_ARPMSG();
     memcpy(arp.dip4, &test_ip, sizeof test_ip);
-    log_line("arp: Probing for hosts that may conflict with our lease...");
+    log_line("%s: arp: Probing for hosts that may conflict with our lease...",
+             client_config.interface);
     if (arp_send(cs, &arp) < 0)
         return -1;
     garp.send_stats[ASEND_COLLISION_CHECK].count++;
@@ -365,9 +370,11 @@ static int arp_get_gw_hwaddr(struct client_state_t *cs)
         log_error("arp_get_gw_hwaddr: called when state != DS_BOUND");
     arp_switch_state(cs, AS_GW_QUERY);
     if (cs->routerAddr)
-        log_line("arp: Searching for dhcp server and gw addresses...");
+        log_line("%s: arp: Searching for dhcp server and gw addresses...",
+                 client_config.interface);
     else
-        log_line("arp: Searching for dhcp server address...");
+        log_line("%s: arp: Searching for dhcp server address...",
+                 client_config.interface);
     cs->got_server_arp = 0;
     if (arp_ping(cs, cs->serverAddr) < 0)
         return -1;
@@ -384,7 +391,8 @@ static int arp_get_gw_hwaddr(struct client_state_t *cs)
 
 static void arp_failed(struct client_state_t *cs)
 {
-    log_line("arp: Offered address is in use.  Declining.");
+    log_line("%s: arp: Offered address is in use.  Declining.",
+             client_config.interface);
     send_decline(cs, garp.dhcp_packet.yiaddr);
     garp.wake_ts[AS_COLLISION_CHECK] = -1;
     reinit_selecting(cs, garp.total_conflicts < MAX_CONFLICTS ?
@@ -401,11 +409,14 @@ static int act_if_arp_gw_failed(struct client_state_t *cs)
 {
     if (garp.send_stats[ASEND_GW_PING].count >= garp.gw_check_initpings + 6) {
         if (garp.router_replied && !garp.server_replied)
-            log_line("arp: DHCP server didn't reply.  Getting new lease.");
+            log_line("%s: arp: DHCP server didn't reply.  Getting new lease.",
+                     client_config.interface);
         else if (!garp.router_replied && garp.server_replied)
-            log_line("arp: Gateway didn't reply.  Getting new lease.");
+            log_line("%s: arp: Gateway didn't reply.  Getting new lease.",
+                     client_config.interface);
         else
-            log_line("arp: DHCP server and gateway didn't reply.  Getting new lease.");
+            log_line("%s: arp: DHCP server and gateway didn't reply.  Getting new lease.",
+                     client_config.interface);
         arp_gw_failed(cs);
         return 1;
     }
@@ -447,7 +458,8 @@ void arp_success(struct client_state_t *cs)
 
 static void arp_gw_success(struct client_state_t *cs)
 {
-    log_line("arp: Network seems unchanged.  Resuming normal operation.");
+    log_line("%s: arp: Network seems unchanged.  Resuming normal operation.",
+             client_config.interface);
     arp_switch_state(cs, AS_DEFENSE);
     arp_announcement(cs);
 
@@ -460,23 +472,28 @@ static void arp_gw_success(struct client_state_t *cs)
 static int arp_validate_bpf(struct arpMsg *am)
 {
     if (am->h_proto != htons(ETH_P_ARP)) {
-        log_warning("arp: IP header does not indicate ARP protocol");
+        log_warning("%s: arp: IP header does not indicate ARP protocol",
+                    client_config.interface);
         return 0;
     }
     if (am->htype != htons(ARPHRD_ETHER)) {
-        log_warning("arp: ARP hardware type field invalid");
+        log_warning("%s: arp: ARP hardware type field invalid",
+                    client_config.interface);
         return 0;
     }
     if (am->ptype != htons(ETH_P_IP)) {
-        log_warning("arp: ARP protocol type field invalid");
+        log_warning("%s: arp: ARP protocol type field invalid",
+                    client_config.interface);
         return 0;
     }
     if (am->hlen != 6) {
-        log_warning("arp: ARP hardware address length invalid");
+        log_warning("%s: arp: ARP hardware address length invalid",
+                    client_config.interface);
         return 0;
     }
     if (am->plen != 4) {
-        log_warning("arp: ARP protocol address length invalid");
+        log_warning("%s: arp: ARP protocol address length invalid",
+                    client_config.interface);
         return 0;
     }
     return 1;
@@ -516,7 +533,7 @@ static void arp_defense_timeout(struct client_state_t *cs, long long nowts)
 {
     (void)nowts; // Suppress warning; parameter necessary but unused.
     if (garp.wake_ts[AS_DEFENSE] != -1) {
-        log_line("arp: Defending our lease IP.");
+        log_line("%s: arp: Defending our lease IP.", client_config.interface);
         arp_announcement(cs);
         garp.wake_ts[AS_DEFENSE] = -1;
     }
@@ -534,14 +551,18 @@ static void arp_gw_check_timeout(struct client_state_t *cs, long long nowts)
         return;
     }
     if (!garp.router_replied) {
-        log_line("arp: Still waiting for gateway to reply to arp ping...");
+        log_line("%s: arp: Still waiting for gateway to reply to arp ping...",
+                 client_config.interface);
         if (arp_ping(cs, cs->routerAddr) < 0)
-            log_warning("arp: Failed to send ARP ping in retransmission.");
+            log_warning("%s: arp: Failed to send ARP ping in retransmission.",
+                        client_config.interface);
     }
     if (!garp.server_replied) {
-        log_line("arp: Still waiting for DHCP server to reply to arp ping...");
+        log_line("%s: arp: Still waiting for DHCP server to reply to arp ping...",
+                 client_config.interface);
         if (arp_ping(cs, cs->serverAddr) < 0)
-            log_warning("arp: Failed to send ARP ping in retransmission.");
+            log_warning("%s: arp: Failed to send ARP ping in retransmission.",
+                        client_config.interface);
     }
     garp.wake_ts[AS_GW_CHECK] =
         garp.send_stats[ASEND_GW_PING].ts + ARP_RETRANS_DELAY;
@@ -557,14 +578,18 @@ static void arp_gw_query_timeout(struct client_state_t *cs, long long nowts)
         return;
     }
     if (!cs->got_router_arp) {
-        log_line("arp: Still looking for gateway hardware address...");
+        log_line("%s: arp: Still looking for gateway hardware address...",
+                 client_config.interface);
         if (arp_ping(cs, cs->routerAddr) < 0)
-            log_warning("arp: Failed to send ARP ping in retransmission.");
+            log_warning("%s: arp: Failed to send ARP ping in retransmission.",
+                        client_config.interface);
     }
     if (!cs->got_server_arp) {
-        log_line("arp: Still looking for DHCP server hardware address...");
+        log_line("%s: arp: Still looking for DHCP server hardware address...",
+                 client_config.interface);
         if (arp_ping(cs, cs->serverAddr) < 0)
-            log_warning("arp: Failed to send ARP ping in retransmission.");
+            log_warning("%s: arp: Failed to send ARP ping in retransmission.",
+                        client_config.interface);
     }
     garp.wake_ts[AS_GW_QUERY] =
         garp.send_stats[ASEND_GW_PING].ts + ARP_RETRANS_DELAY;
@@ -586,7 +611,8 @@ static void arp_collision_timeout(struct client_state_t *cs, long long nowts)
         return;
     }
     if (arp_ip_anon_ping(cs, garp.dhcp_packet.yiaddr) < 0)
-        log_warning("arp: Failed to send ARP ping in retransmission.");
+        log_warning("%s: arp: Failed to send ARP ping in retransmission.",
+                    client_config.interface);
     garp.probe_wait_time = arp_gen_probe_wait(cs);
     garp.wake_ts[AS_COLLISION_CHECK] =
         garp.send_stats[ASEND_COLLISION_CHECK].ts + garp.probe_wait_time;
@@ -600,15 +626,16 @@ static void arp_do_defense(struct client_state_t *cs)
     if (!arp_validate_bpf_defense(cs, &garp.reply))
         return;
 
-    log_line("arp: Detected a peer attempting to use our IP!");
+    log_warning("%s: arp: Detected a peer attempting to use our IP!", client_config.interface);
     long long nowts = curms();
     garp.wake_ts[AS_DEFENSE] = -1;
     if (!garp.last_conflict_ts ||
         nowts - garp.last_conflict_ts < DEFEND_INTERVAL) {
-        log_line("arp: Defending our lease IP.");
+        log_warning("%s: arp: Defending our lease IP.", client_config.interface);
         arp_announcement(cs);
     } else if (!garp.relentless_def) {
-        log_line("arp: Conflicting peer is persistent.  Requesting new lease.");
+        log_warning("%s: arp: Conflicting peer is persistent.  Requesting new lease.",
+                    client_config.interface);
         send_release(cs);
         reinit_selecting(cs, 0);
     } else {
@@ -634,8 +661,8 @@ static void arp_do_gw_query(struct client_state_t *cs)
     }
     if (!memcmp(garp.reply.sip4, &cs->routerAddr, 4)) {
         memcpy(cs->routerArp, garp.reply.smac, 6);
-        log_line("arp: Gateway hardware address %02x:%02x:%02x:%02x:%02x:%02x",
-                 cs->routerArp[0], cs->routerArp[1],
+        log_line("%s: arp: Gateway hardware address %02x:%02x:%02x:%02x:%02x:%02x",
+                 client_config.interface, cs->routerArp[0], cs->routerArp[1],
                  cs->routerArp[2], cs->routerArp[3],
                  cs->routerArp[4], cs->routerArp[5]);
         cs->got_router_arp = 1;
@@ -648,8 +675,8 @@ static void arp_do_gw_query(struct client_state_t *cs)
     if (!memcmp(garp.reply.sip4, &cs->serverAddr, 4)) {
 server_is_router:
         memcpy(cs->serverArp, garp.reply.smac, 6);
-        log_line("arp: DHCP Server hardware address %02x:%02x:%02x:%02x:%02x:%02x",
-                 cs->serverArp[0], cs->serverArp[1],
+        log_line("%s: arp: DHCP Server hardware address %02x:%02x:%02x:%02x:%02x:%02x",
+                 client_config.interface, cs->serverArp[0], cs->serverArp[1],
                  cs->serverArp[2], cs->serverArp[3],
                  cs->serverArp[4], cs->serverArp[5]);
         cs->got_server_arp = 1;
@@ -687,7 +714,8 @@ static void arp_do_gw_check(struct client_state_t *cs)
             if (garp.server_replied)
                 arp_gw_success(cs);
         } else {
-            log_line("arp: Gateway is different.  Getting a new lease.");
+            log_line("%s: arp: Gateway is different.  Getting a new lease.",
+                     client_config.interface);
             arp_gw_failed(cs);
         }
         return;
@@ -700,7 +728,8 @@ server_is_router:
             if (garp.router_replied)
                 arp_gw_success(cs);
         } else {
-            log_line("arp: DHCP server is different.  Getting a new lease.");
+            log_line("%s: arp: DHCP server is different.  Getting a new lease.",
+                     client_config.interface);
             arp_gw_failed(cs);
         }
     }
@@ -708,7 +737,8 @@ server_is_router:
 
 static void arp_do_invalid(struct client_state_t *cs)
 {
-    log_error("handle_arp_response: called in invalid state %u", garp.state);
+    log_error("%s: (%s) called in invalid state %u", client_config.interface,
+              __func__, garp.state);
     arp_close_fd(cs);
 }
 
@@ -733,7 +763,8 @@ void handle_arp_response(struct client_state_t *cs)
         r = safe_read(cs->arpFd, (char *)&garp.reply + garp.reply_offset,
                       sizeof garp.reply - garp.reply_offset);
         if (r < 0) {
-            log_error("arp: ARP response read failed: %s", strerror(errno));
+            log_error("%s: (%s) ARP response read failed: %s",
+                      client_config.interface, __func__, strerror(errno));
             switch (garp.state) {
             case AS_COLLISION_CHECK: arp_failed(cs); break;
             case AS_GW_CHECK: arp_gw_failed(cs); break;
