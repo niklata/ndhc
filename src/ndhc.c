@@ -408,7 +408,7 @@ static void ndhc_main(void) {
 
     nk_set_chroot(chroot_dir);
     memset(chroot_dir, '\0', sizeof chroot_dir);
-    nk_set_uidgid(ndhc_uid, ndhc_gid, NULL);
+    nk_set_uidgid(ndhc_uid, ndhc_gid, NULL, 0);
 
     if (cs.ifsPrevState != IFS_UP)
         ifchange_deconfig(&cs);

@@ -36,7 +36,7 @@ ncmlib.a: $(NCM_OBJS)
 	$(RANLIB) $(BUILD_DIR)/$@
 
 ndhc: $(NDHC_OBJS) ifchd-parse.o
-	$(CC) $(CFLAGS) $(NCM_INC) -o $(BUILD_DIR)/$@ $(subst src/,$(OBJ_DIR)/src/,$(NDHC_OBJS)) $(BUILD_DIR)/ncmlib.a $(BUILD_DIR)/objs/src/ifchd-parse.o -lcap -lrt
+	$(CC) $(CFLAGS) $(NCM_INC) -o $(BUILD_DIR)/$@ $(subst src/,$(OBJ_DIR)/src/,$(NDHC_OBJS)) $(BUILD_DIR)/ncmlib.a $(BUILD_DIR)/objs/src/ifchd-parse.o
 
 .PHONY: all clean
 

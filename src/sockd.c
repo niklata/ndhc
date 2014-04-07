@@ -623,8 +623,9 @@ void sockd_main(void)
     setup_signals_sockd();
     nk_set_chroot(chroot_dir);
     memset(chroot_dir, 0, sizeof chroot_dir);
-    nk_set_uidgid(sockd_uid, sockd_gid,
-                  "cap_net_bind_service,cap_net_broadcast,cap_net_raw=ep");
+    unsigned char keepcaps[] = { CAP_NET_BIND_SERVICE, CAP_NET_BROADCAST,
+                                 CAP_NET_RAW };
+    nk_set_uidgid(sockd_uid, sockd_gid, keepcaps, sizeof keepcaps);
     do_sockd_work();
 }
 

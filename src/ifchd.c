@@ -399,7 +399,8 @@ void ifch_main(void)
 
     nk_set_chroot(chroot_dir);
     memset(chroot_dir, '\0', sizeof chroot_dir);
-    nk_set_uidgid(ifch_uid, ifch_gid, "cap_net_admin=ep");
+    unsigned char keepcaps[] = { CAP_NET_ADMIN };
+    nk_set_uidgid(ifch_uid, ifch_gid, keepcaps, sizeof keepcaps);
 
     do_ifch_work();
 }
