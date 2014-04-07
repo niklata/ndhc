@@ -538,7 +538,7 @@ static void parse_program_options(int argc, char *argv[])
                 seccomp_enforce = true;
                 break;
             case 'd':
-                arp_relentless_def = 1;
+                set_arp_relentless_def();
                 break;
             case 'w':
             case 'W': {
