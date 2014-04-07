@@ -241,7 +241,7 @@ static void fail_if_state_dir_dne(void)
 static void handle_ifch_message(void)
 {
     char c;
-    ssize_t r = safe_read(pToNdhcR, &c, sizeof c);
+    ssize_t r = safe_recv(ifchSock[0], &c, sizeof c, MSG_DONTWAIT);
     if (r == 0) {
         // Remote end hung up.
         exit(EXIT_SUCCESS);
@@ -273,7 +273,7 @@ static void do_ndhc_work(void)
     setup_signals_ndhc();
 
     epoll_add(cs.epollFd, cs.nlFd);
-    epoll_add(cs.epollFd, pToNdhcR);
+    epoll_add(cs.epollFd, ifchSock[0]);
     set_listen_raw(&cs);
     nowts = curms();
     goto jumpstart;
@@ -296,7 +296,7 @@ static void do_ndhc_work(void)
                 handle_arp_response(&cs);
             else if (fd == cs.nlFd)
                 handle_nl_message(&cs);
-            else if (fd == pToNdhcR)
+            else if (fd == ifchSock[0])
                 handle_ifch_message();
             else
                 suicide("epoll_wait: unknown fd");
@@ -336,39 +336,20 @@ char resolv_conf_d[PATH_MAX] = "";
 static char pidfile[PATH_MAX] = PID_FILE_DEFAULT;
 static uid_t ndhc_uid = 0;
 static gid_t ndhc_gid = 0;
-
-int pToNdhcR;
-int pToNdhcW;
-int pToIfchR;
-int pToIfchW;
-
+int ifchSock[2];
+int ifchPipe[2];
 int sockdSock[2];
 int sockdPipe[2];
 
 static void create_ifch_ipc_pipes(void) {
-    int niPipe[2];
-    int inPipe[2];
-
-    if (pipe2(niPipe, 0))
-        suicide("FATAL - can't create ndhc -> ndhc-ifch pipe: %s",
-                strerror(errno));
-    if (fcntl(niPipe[0], F_SETFL, fcntl(niPipe[0], F_GETFL) | O_NONBLOCK) < 0)
-        suicide("FATAL - failed to set ndhc -> ndhc-ifch read-side nonblocking: %s",
-                strerror(errno));
-    pToNdhcR = niPipe[0];
-    pToNdhcW = niPipe[1];
-    if (pipe2(inPipe, 0))
-        suicide("FATAL - can't create ndhc-ifch -> ndhc pipe: %s",
-                strerror(errno));
-    if (fcntl(inPipe[0], F_SETFL, fcntl(inPipe[0], F_GETFL) | O_NONBLOCK) < 0)
-        suicide("FATAL - failed to set ndhc-ifch -> ndhc read-side nonblocking: %s",
-                strerror(errno));
-    pToIfchR = inPipe[0];
-    pToIfchW = inPipe[1];
+    if (pipe(ifchPipe))
+        suicide("FATAL - can't create ndhc/ifch pipe: %s", strerror(errno));
+    if (socketpair(AF_UNIX, SOCK_DGRAM, 0, ifchSock) < 0)
+        suicide("FATAL - can't create ndhc/ifch socket: %s", strerror(errno));
 }
 
 static void create_sockd_ipc_pipes(void) {
-    if (pipe2(sockdPipe, 0))
+    if (pipe(sockdPipe))
         suicide("FATAL - can't create ndhc/sockd pipe: %s", strerror(errno));
     if (socketpair(AF_UNIX, SOCK_DGRAM, 0, sockdSock) < 0)
         suicide("FATAL - can't create ndhc/sockd socket: %s", strerror(errno));
@@ -379,14 +360,14 @@ static void spawn_ifch(void)
     create_ifch_ipc_pipes();
     pid_t ifch_pid = fork();
     if (ifch_pid == 0) {
-        close(pToNdhcR);
-        close(pToIfchW);
+        close(ifchSock[0]);
+        close(ifchPipe[0]);
         // Don't share the RNG state with the master process.
         nk_random_u32_init(&cs.rnd32_state);
         ifch_main();
     } else if (ifch_pid > 0) {
-        close(pToIfchR);
-        close(pToNdhcW);
+        close(ifchSock[1]);
+        close(ifchPipe[1]);
     } else
         suicide("failed to fork ndhc-ifch: %s", strerror(errno));
 }
@@ -396,8 +377,8 @@ static void spawn_sockd(void)
     create_sockd_ipc_pipes();
     pid_t sockd_pid = fork();
     if (sockd_pid == 0) {
-        close(sockdPipe[0]);
         close(sockdSock[0]);
+        close(sockdPipe[0]);
         // Don't share the RNG state with the master process.
         nk_random_u32_init(&cs.rnd32_state);
         sockd_main();

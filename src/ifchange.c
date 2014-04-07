@@ -187,7 +187,7 @@ static int ifchd_cmd(char *b, size_t bl, uint8_t *od, ssize_t ol, uint8_t code)
 static void pipewrite(struct client_state_t *cs, const char *buf, size_t count)
 {
     cs->ifchWorking = 1;
-    ssize_t r = safe_write(pToIfchW, buf, count);
+    ssize_t r = safe_write(ifchSock[0], buf, count);
     if (r < 0 || (size_t)r != count) {
         log_error("%s: (%s) write failed: %d", client_config.interface);
         return;

@@ -307,7 +307,7 @@ static void signal_dispatch(void)
 
 static void inform_execute(char c)
 {
-    ssize_t r = safe_write(pToNdhcW, &c, sizeof c);
+    ssize_t r = safe_write(ifchSock[1], &c, sizeof c);
     if (r == 0) {
         // Remote end hung up.
         exit(EXIT_SUCCESS);
@@ -321,7 +321,7 @@ static void process_client_pipe(void)
     char buf[MAX_BUF];
 
     memset(buf, '\0', sizeof buf);
-    ssize_t r = safe_read(pToIfchR, buf, sizeof buf - 1);
+    ssize_t r = safe_recv(ifchSock[1], buf, sizeof buf - 1, MSG_DONTWAIT);
     if (r == 0) {
         // Remote end hung up.
         exit(EXIT_SUCCESS);
@@ -354,7 +354,7 @@ static void do_ifch_work(void)
     memset(cl.namesvrs, 0, sizeof cl.namesvrs);
     memset(cl.domains, 0, sizeof cl.domains);
 
-    epoll_add(epollfd, pToIfchR);
+    epoll_add(epollfd, ifchSock[1]);
     epoll_add(epollfd, signalFd);
 
     for (;;) {
@@ -367,7 +367,7 @@ static void do_ifch_work(void)
         }
         for (int i = 0; i < r; ++i) {
             int fd = events[i].data.fd;
-            if (fd == pToIfchR)
+            if (fd == ifchSock[1])
                 process_client_pipe();
             else if (fd == signalFd)
                 signal_dispatch();

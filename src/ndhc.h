@@ -67,10 +67,8 @@ struct client_config_t {
 
 extern struct client_config_t client_config;
 
-extern int pToIfchR;
-extern int pToIfchW;
-extern int pToNdhcR;
-extern int pToNdhcW;
+extern int ifchSock[2];
+extern int ifchPipe[2];
 extern int sockdSock[2];
 extern int sockdPipe[2];
 extern char state_dir[PATH_MAX];
