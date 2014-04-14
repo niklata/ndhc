@@ -32,7 +32,6 @@
 #include <sys/types.h>
 #include <sys/file.h>
 #include <unistd.h>
-#include <getopt.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <time.h>
@@ -57,6 +56,7 @@
 
 #include "ndhc.h"
 #include "ndhc-defines.h"
+#include "cfg.h"
 #include "seccomp.h"
 #include "state.h"
 #include "options.h"
@@ -94,13 +94,42 @@ struct client_config_t client_config = {
     .foreground = 1,
 };
 
-static void show_usage(void)
+void set_client_addr(const char *v) { cs.clientAddr = inet_addr(v); }
+
+void print_version(void)
+{
+    printf("ndhc %s, dhcp client.\n", NDHC_VERSION);
+    printf("Copyright (c) 2004-2014 Nicholas J. Kain\n"
+           "All rights reserved.\n\n"
+           "Redistribution and use in source and binary forms, with or without\n"
+           "modification, are permitted provided that the following conditions are met:\n\n"
+           "- Redistributions of source code must retain the above copyright notice,\n"
+           "  this list of conditions and the following disclaimer.\n"
+           "- Redistributions in binary form must reproduce the above copyright notice,\n"
+           "  this list of conditions and the following disclaimer in the documentation\n"
+           "  and/or other materials provided with the distribution.\n\n"
+           "THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\"\n"
+           "AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE\n"
+           "IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE\n"
+           "ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE\n"
+           "LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR\n"
+           "CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF\n"
+           "SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS\n"
+           "INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN\n"
+           "CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)\n"
+           "ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE\n"
+           "POSSIBILITY OF SUCH DAMAGE.\n");
+    exit(EXIT_SUCCESS);
+}
+
+void show_usage(void)
 {
     printf(
 "ndhc " NDHC_VERSION ", dhcp client.  Licensed under 2-clause BSD.\n"
 "Copyright (C) 2004-2014 Nicholas J. Kain\n"
 "Usage: ndhc [OPTIONS]\n\n"
-"  -c, --clientid=CLIENTID         Client identifier\n"
+"  -c, --config=FILE               Path to ndhc configuration file\n"
+"  -I, --clientid=CLIENTID         Client identifier\n"
 "  -h, --hostname=HOSTNAME         Client hostname\n"
 "  -V, --vendorid=VENDORID         Client vendor identification string\n"
 "  -b, --background                Fork to background if lease cannot be\n"
@@ -127,7 +156,7 @@ static void show_usage(void)
 "  -M, --arp-probe-max             Max ms to wait for ARP response\n"
 "  -t, --gw-metric                 Route metric for default gw (default: 0)\n"
 "  -R, --resolve-conf=FILE         Path to resolv.conf or equivalent\n"
-"  -H, --dhcp-hostname             Allow DHCP to set machine hostname\n"
+"  -H, --dhcp-set-hostname         Allow DHCP to set machine hostname\n"
 "  -v, --version                   Display version\n"
            );
     exit(EXIT_SUCCESS);
@@ -205,7 +234,7 @@ static int is_string_hwaddr(char *str, size_t slen)
     return 0;
 }
 
-static int get_clientid_string(char *str, size_t slen)
+int get_clientid_string(char *str, size_t slen)
 {
     if (!slen)
         return -1;
@@ -333,9 +362,9 @@ jumpstart:
 char state_dir[PATH_MAX] = "/etc/ndhc";
 char chroot_dir[PATH_MAX] = "";
 char resolv_conf_d[PATH_MAX] = "";
-static char pidfile[PATH_MAX] = PID_FILE_DEFAULT;
-static uid_t ndhc_uid = 0;
-static gid_t ndhc_gid = 0;
+char pidfile[PATH_MAX] = PID_FILE_DEFAULT;
+uid_t ndhc_uid = 0;
+gid_t ndhc_gid = 0;
 int ifchSock[2];
 int ifchPipe[2];
 int sockdSock[2];
@@ -432,176 +461,9 @@ void background(void)
         write_pid(pidfile);
 }
 
-static void parse_program_options(int argc, char *argv[])
-{
-    static const struct option arg_options[] = {
-        {"clientid",           required_argument,  0, 'c'},
-        {"background",         no_argument,        0, 'b'},
-        {"pidfile",            required_argument,  0, 'p'},
-        {"hostname",           required_argument,  0, 'h'},
-        {"interface",          required_argument,  0, 'i'},
-        {"now",                no_argument,        0, 'n'},
-        {"quit",               no_argument,        0, 'q'},
-        {"request",            required_argument,  0, 'r'},
-        {"vendorid",           required_argument,  0, 'V'},
-        {"user",               required_argument,  0, 'u'},
-        {"ifch-user",          required_argument,  0, 'U'},
-        {"sockd-user",         required_argument,  0, 'D'},
-        {"chroot",             required_argument,  0, 'C'},
-        {"state-dir",          required_argument,  0, 's'},
-        {"seccomp-enforce",    no_argument,        0, 'S'},
-        {"relentless-defense", no_argument,        0, 'd'},
-        {"arp-probe-wait",     required_argument,  0, 'w'},
-        {"arp-probe-num",      required_argument,  0, 'W'},
-        {"arp-probe-min",      required_argument,  0, 'm'},
-        {"arp-probe-max",      required_argument,  0, 'M'},
-        {"gw-metric",          required_argument,  0, 't'},
-        {"resolv-conf",        required_argument,  0, 'R'},
-        {"dhcp-set-hostname",  no_argument,        0, 'H'},
-        {"version",            no_argument,        0, 'v'},
-        {"help",               no_argument,        0, '?'},
-        {0, 0, 0, 0}
-    };
-
-    while (1) {
-        int c;
-        c = getopt_long(argc, argv, "c:bp:P:h:i:nqr:V:u:U:D:C:s:Sdw:W:m:M:t:R:Hv?",
-                        arg_options, NULL);
-        if (c < 0) break;
-
-        switch (c) {
-            case 'c':
-                get_clientid_string(optarg, strlen(optarg));
-                break;
-            case 'b':
-                client_config.background_if_no_lease = 1;
-                gflags_detach = 1;
-                break;
-            case 'p':
-                copy_cmdarg(pidfile, optarg, sizeof pidfile, "pidfile");
-                break;
-            case 'h':
-                copy_cmdarg(client_config.hostname, optarg,
-                            sizeof client_config.hostname, "hostname");
-                break;
-            case 'i':
-                copy_cmdarg(client_config.interface, optarg,
-                            sizeof client_config.interface, "interface");
-                break;
-            case 'n':
-                client_config.abort_if_no_lease = 1;
-                break;
-            case 'q':
-                client_config.quit_after_lease = 1;
-                break;
-            case 'r':
-                cs.clientAddr = inet_addr(optarg);
-                break;
-            case 'u':
-                if (nk_uidgidbyname(optarg, &ndhc_uid, &ndhc_gid))
-                    suicide("invalid ndhc user '%s' specified", optarg);
-                break;
-            case 'U':
-                if (nk_uidgidbyname(optarg, &ifch_uid, &ifch_gid))
-                    suicide("invalid ifch user '%s' specified", optarg);
-                break;
-            case 'D':
-                if (nk_uidgidbyname(optarg, &sockd_uid, &sockd_gid))
-                    suicide("invalid sockd user '%s' specified", optarg);
-                break;
-            case 'C':
-                copy_cmdarg(chroot_dir, optarg, sizeof chroot_dir, "chroot");
-                break;
-            case 's':
-                copy_cmdarg(state_dir, optarg, sizeof state_dir, "state-dir");
-                break;
-            case 'S':
-                seccomp_enforce = true;
-                break;
-            case 'd':
-                set_arp_relentless_def();
-                break;
-            case 'w':
-            case 'W': {
-                int t = atoi(optarg);
-                if (t < 0)
-                    break;
-                if (c == 'w')
-                    arp_probe_wait = t;
-                else
-                    arp_probe_num = t;
-                break;
-            }
-            case 'm':
-            case 'M': {
-                int t = atoi(optarg);
-                if (c == 'm')
-                    arp_probe_min = t;
-                else
-                    arp_probe_max = t;
-                if (arp_probe_min > arp_probe_max) {
-                    t = arp_probe_max;
-                    arp_probe_max = arp_probe_min;
-                    arp_probe_min = t;
-                }
-                break;
-            }
-            case 'v':
-                printf("ndhc %s, dhcp client.\n", NDHC_VERSION);
-                printf("Copyright (c) 2004-2014 Nicholas J. Kain\n"
-                       "All rights reserved.\n\n"
-                       "Redistribution and use in source and binary forms, with or without\n"
-                       "modification, are permitted provided that the following conditions are met:\n\n"
-                       "- Redistributions of source code must retain the above copyright notice,\n"
-                       "  this list of conditions and the following disclaimer.\n"
-                       "- Redistributions in binary form must reproduce the above copyright notice,\n"
-                       "  this list of conditions and the following disclaimer in the documentation\n"
-                       "  and/or other materials provided with the distribution.\n\n"
-                       "THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\"\n"
-                       "AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE\n"
-                       "IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE\n"
-                       "ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE\n"
-                       "LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR\n"
-                       "CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF\n"
-                       "SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS\n"
-                       "INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN\n"
-                       "CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)\n"
-                       "ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE\n"
-                       "POSSIBILITY OF SUCH DAMAGE.\n");
-                exit(EXIT_SUCCESS);
-                break;
-            case 'V':
-                copy_cmdarg(client_config.vendor, optarg,
-                            sizeof client_config.vendor, "vendorid");
-                break;
-            case 't': {
-                char *p;
-                long mt = strtol(optarg, &p, 10);
-                if (p == optarg)
-                    suicide("gw-metric arg '%s' isn't a valid number", optarg);
-                if (mt > INT_MAX)
-                    suicide("gw-metric arg '%s' is too large", optarg);
-                if (mt < 0)
-                    mt = 0;
-                client_config.metric = (int)mt;
-                break;
-            }
-            case 'R':
-                copy_cmdarg(resolv_conf_d, optarg, sizeof resolv_conf_d,
-                            "resolv-conf");
-                break;
-            case 'H':
-                allow_hostname = 1;
-                break;
-            default:
-                show_usage();
-        }
-    }
-}
-
 int main(int argc, char *argv[])
 {
-    parse_program_options(argc, argv);
+    parse_cmdline(argc, argv);
 
     nk_random_u32_init(&cs.rnd32_state);
 

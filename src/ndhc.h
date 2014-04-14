@@ -74,7 +74,14 @@ extern int sockdPipe[2];
 extern char state_dir[PATH_MAX];
 extern char chroot_dir[PATH_MAX];
 extern char resolv_conf_d[PATH_MAX];
+extern char pidfile[PATH_MAX];
+extern uid_t ndhc_uid;
+extern gid_t ndhc_gid;
 
+void set_client_addr(const char *v);
+void show_usage(void);
+int get_clientid_string(char *str, size_t slen);
 void background(void);
+void print_version(void);
 
 #endif /* NJK_NDHC_NDHC_H_ */

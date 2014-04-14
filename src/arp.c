@@ -122,7 +122,7 @@ static struct arp_data garp = {
     .server_replied = false,
 };
 
-void set_arp_relentless_def(void) { garp.relentless_def = true; }
+void set_arp_relentless_def(bool v) { garp.relentless_def = v; }
 
 static void arp_reply_clear(void)
 {
