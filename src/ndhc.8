@@ -12,7 +12,12 @@ the interface has been connected to a new network.  It requires a cooperating
 ifchd server to properly perform its duties.
 .SH OPTIONS
 .TP
-.BI \-c\  CLIENTID ,\ \-\-clientid= CLIENTID
+.BI \-c\  CONFIGFILE ,\ \-\-config= CONFIGFILE
+Read configuration information from the specified file.  The format of
+configuration options is a simple 'option = value' for each line.  The
+names of the options are exactly the same as for command line options.
+.TP
+.BI \-I\  CLIENTID ,\ \-\-clientid= CLIENTID
 Specifies the client identifier that will be sent to the remote server.  This
 can be any (reasonably sized, <64byte or so) text string, or an ethernet
 MAC address in a form similar to 'aa:bb:cc:dd:ee:ff'.  ndhc is smart enough
