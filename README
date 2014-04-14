@@ -5,7 +5,6 @@ Requirements:
 
 Linux kernel
 GNU Make (tested: 3.82) or CMake (tested: 2.8)
-libcap (available via ftp.kernel.org)
 Ragel (tested: 6.7)
 
 INTRODUCTION
@@ -13,21 +12,25 @@ INTRODUCTION
 
 ndhc is a multi-process, privilege-separated dhcp client.  Each subprocess runs
 with the minimal necessary privileges in order to perform its task.  Currently,
-ndhc consists of two subprocesses: the ndhc-master and ndhc-ifch.
+ndhc consists of three subprocesses: the ndhc-master, ndhc-ifch, and
+ndhc-sockd.
 
 ndhc-master communicates with dhcp servers and handles the vagaries of the dhcp
-client protocol.  It runs as a non-root user inside a chroot.  ndhc retains
-only the minimum necessary set of privileges required to perform its duties.
-These powers include the ability to bind to a low port, the ability to open a
-raw socket, and the ability to communicate on broadcast channels.  ndhc holds
-no other powers and is restricted to a chroot that contains nothing more than a
-domain socket filesystem object (if using syslog), a urandom device node, and a
-null device node.
+client protocol.  It runs as a non-root user inside a chroot.  ndhc runs as a
+normal user with no special privileges and is restricted to a chroot that
+contains nothing more than a domain socket filesystem object (if using syslog),
+a urandom device node, and a null device node.
 
-ndhc-ifch handles interface change requests.  It listens on a shared pipe for
+ndhc-ifch handles interface change requests.  It listens on a unix socket for
 such requests.  ndhc-ifch runs as a non-root user inside a chroot, and retains
 only the power to configure network interfaces.  ndhc-ifch automatically forks
 from ndhc-master to perform its job.
+
+ndhc-sockd plays a similar role to ndhc-ifch, but it instead has the ability to
+bind to a low port, the ability to open a raw socket, and the ability to
+communicate on broadcast channels.  ndhc communicates with ndhc-sockd
+over a unix socket, and the file descriptors that ndhc-sockd creates are
+passed back to ndhc over the unix socket.
 
 ndhc fully implements RFC5227's address conflict detection and defense.  Great
 care is taken to ensure that address conflicts will be detected, and ndhc also
@@ -47,12 +50,14 @@ FEATURES
 --------
 
 Privilege-separated.  ndhc does not run as root after initial startup, and
-capabilities are divided between the subprocesses.  Both programs run in a
+capabilities are divided between the subprocesses.  All processes run in a
 chroot.
 
-Robust.  ndhc performs no runtime heap allocations -- malloc() is never called
-(and neither is brk(), mmap(), etc), and ndhc never performs recursive calls
-and only stack-allocates fixed-length types, so stack depth is bounded, too.
+Robust.  ndhc performs no runtime heap allocations -- malloc() (more
+specifically, brk(), mmap(), etc) is never called after initialization (libc
+behavior during initialization time will vary) , and ndhc never performs
+recursive calls and only stack-allocates fixed-length types, so stack depth is
+bounded, too.
 
 Active defense of IP address and IP collision avoidance.  ndhc fully implements
 RFC5227.  It is capable of both a normal level of tenacity in defense, where
@@ -62,8 +67,7 @@ either mode, it rate-limits defense messages, so it can't be tricked into
 flooding by a hostile peer or DHCP server, either.
 
 Small.  Both ndhc avoids unnecessary outside dependencies and is written in
-plain C.  The only library used is libcap, as the raw raw kernel API for
-capabilities is not guaranteed to stay stable.
+plain C.
 
 Fast.  ndhc filters input using the BPF/LPF mechanism so that uninteresting
 packets are dropped by the operating system before ndhc even sees the data.
@@ -108,6 +112,7 @@ USAGE
     b) Create new users "dhcpifch" and "dhcp".  The primary group of these
        users should be "ndhc".
 
+        # useradd -d /var/lib/ndhc -s /sbin/nologin -g ndhc dhcpsockd
         # useradd -d /var/lib/ndhc -s /sbin/nologin -g ndhc dhcpifch
         # useradd -d /var/lib/ndhc -s /sbin/nologin -g ndhc dhcp
 
@@ -149,7 +154,7 @@ USAGE
 3) At this point the jail is usable; ndhc is ready to be used.  An example
    of invoking ndhc:
 
-    # ndhc -b -i wan0 -u dhcp -U dhcpifch -C /var/lib/ndhc -l /var/state/wan0.lease
+    # ndhc -i wan0 -u dhcp -U dhcpifch -D dhcpsockd -C /var/lib/ndhc -l /var/state/wan0.lease
 
 4o) If you encounter problems, I suggest running ndhc in the foreground and
     examining the printed output.
@@ -176,7 +181,7 @@ fail at start time before it performs any network activity or forks any
 subprocesses.
 
 If the host system lacks volatile storage, then a clientid should manually
-be specified using the -c or --clientid command arguments.
+be specified using the -I or --clientid command arguments.
 
 RANDOMNESS NOTES
 ----------------
@@ -281,6 +286,10 @@ parser to make it easier to verify correct behavior for all possible inputs.
 Quite a while later, I eventually merged ifchd into the same binary as
 ndhc and instead rely on forking subprocesses and using pipes for IPC.  This
 brought a lot of simplifications, particularly for user configuration.
+
+Afterwards, privilege seperation was applied to the remaining capabilities,
+creating the ndhc-sockd subprocess.  After this change, the main ndhc
+process runs completely unprivileged.
 
 The end result is a modern DHCP client is largely RFC-compliant, except where
 the RFCs dictate behavior that would be problematic, overly complex, useless,
