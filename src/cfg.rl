@@ -24,7 +24,11 @@ struct cfgparse {
     machine cfg_actions;
     access ccfg.;
 
-    action clear { memset(&ccfg, 0, sizeof ccfg); }
+    action clear {
+        memset(&ccfg.buf, 0, sizeof ccfg.buf);
+        ccfg.buflen = 0;
+        ccfg.ternary = 0;
+    }
     action append {
         if (ccfg.buflen < sizeof ccfg.buf - 1)
             ccfg.buf[ccfg.buflen++] = *p;
