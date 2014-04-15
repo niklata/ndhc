@@ -252,13 +252,12 @@ static ssize_t get_raw_packet(struct client_state_t *cs,
                     __func__, strerror(errno));
         return -1;
     }
-
-    if (inc != ntohs(packet.ip.tot_len)) {
-        log_warning("%s: UDP length does not match header length fields.",
-                    client_config.interface);
+    size_t iphdrlen = ntohs(packet.ip.tot_len);
+    if ((size_t)inc != iphdrlen) {
+        log_warning("%s: UDP length [%zd] does not match header length field [%zu].",
+                    client_config.interface, inc, iphdrlen);
         return -2;
     }
-
     if (!cs->using_dhcp_bpf && !get_raw_packet_validate_bpf(&packet))
         return -2;
 
@@ -272,8 +271,7 @@ static ssize_t get_raw_packet(struct client_state_t *cs,
                   client_config.interface);
         return -2;
     }
-
-    size_t l = ntohs(packet.ip.tot_len) - sizeof packet.ip - sizeof packet.udp; 
+    size_t l = iphdrlen - sizeof packet.ip - sizeof packet.udp;
     memcpy(payload, &packet.data, l);
     return l;
 }
