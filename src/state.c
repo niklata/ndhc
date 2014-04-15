@@ -124,7 +124,9 @@ static void set_released(struct client_state_t *cs)
 static void requesting_timeout(struct client_state_t *cs, long long nowts)
 {
     if (num_dhcp_requests < 5) {
-        send_selecting(cs);
+        if (send_selecting(cs) < 0)
+            log_warning("%s: Failed to send a selecting request packet.",
+                        client_config.interface);
         dhcp_wake_ts = nowts + delay_timeout(cs, num_dhcp_requests);
         num_dhcp_requests++;
     } else
@@ -159,7 +161,9 @@ static void renewing_timeout(struct client_state_t *cs, long long nowts)
             dhcp_wake_ts = rbt;
             return;
         }
-        send_renew(cs);
+        if (send_renew(cs) < 0)
+            log_warning("%s: Failed to send a renew request packet.",
+                        client_config.interface);
         dhcp_wake_ts = nowts + ((rbt - nowts) / 2);
     } else {
         cs->dhcpState = DS_REBINDING;
@@ -179,7 +183,9 @@ static void rebinding_timeout(struct client_state_t *cs, long long nowts)
             dhcp_wake_ts = elt;
             return;
         }
-        send_rebind(cs);
+        if (send_rebind(cs) < 0)
+            log_warning("%s: Failed to send a rebind request packet.",
+                        client_config.interface);
         dhcp_wake_ts = nowts + ((elt - nowts) / 2);
     } else {
         log_line("%s: Lease expired.  Searching for a new lease...",
@@ -318,7 +324,9 @@ static void selecting_timeout(struct client_state_t *cs, long long nowts)
     }
     if (num_dhcp_requests == 0)
         cs->xid = nk_random_u32(&cs->rnd32_state);
-    send_discover(cs);
+    if (send_discover(cs) < 0)
+        log_warning("%s: Failed to send a discover request packet.",
+                    client_config.interface);
     dhcp_wake_ts = nowts + delay_timeout(cs, num_dhcp_requests);
     num_dhcp_requests++;
 }
@@ -333,7 +341,9 @@ static void xmit_release(struct client_state_t *cs)
               svrbuf, sizeof svrbuf);
     log_line("%s: Unicasting a release of %s to %s.", client_config.interface,
              clibuf, svrbuf);
-    send_release(cs);
+    if (send_release(cs) < 0)
+        log_warning("%s: Failed to send a release request packet.",
+                    client_config.interface);
     print_release(cs);
 }
 
@@ -349,7 +359,9 @@ static void frenew(struct client_state_t *cs)
         log_line("%s: Forcing a DHCP renew...", client_config.interface);
         cs->dhcpState = DS_RENEWING;
         set_listen_cooked(cs);
-        send_renew(cs);
+        if (send_renew(cs) < 0)
+            log_warning("%s: Failed to send a renew request packet.",
+                        client_config.interface);
     } else if (cs->dhcpState == DS_RELEASED)
         reinit_selecting(cs, 0);
 }
