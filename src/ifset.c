@@ -553,12 +553,16 @@ void perform_ip_subnet_bcast(const char *str_ipaddr,
             return;
         }
 
-        log_line("Interface IP set to: '%s'", str_ipaddr);
-        log_line("Interface subnet set to: '%s'", str_subnet);
+        log_line("%s: Interface IP set to: '%s'", client_config.interface,
+                 str_ipaddr);
+        log_line("%s: Interface subnet set to: '%s'", client_config.interface,
+                 str_subnet);
         if (str_bcast)
-            log_line("Broadcast address set to: '%s'", str_bcast);
+            log_line("%s: Broadcast address set to: '%s'",
+                     client_config.interface, str_bcast);
     } else
-        log_line("Interface IP, subnet, and broadcast were already OK.");
+        log_line("%s: Interface IP, subnet, and broadcast were already OK.",
+                 client_config.interface);
 
     if (link_set_flags(fd, IFF_UP | IFF_RUNNING) < 0)
         log_error("%s: (%s) Failed to set link to be up and running.",
@@ -592,7 +596,8 @@ void perform_router(const char *str_router, size_t len)
         log_error("%s: (%s) failed to set route: %s",
                   client_config.interface, __func__, strerror(errno));
     else
-        log_line("Gateway router set to: '%s'", str_router);
+        log_line("%s: Gateway router set to: '%s'", client_config.interface,
+                 str_router);
     close(fd);
 }
 
@@ -639,7 +644,7 @@ void perform_mtu(const char *str, size_t len)
         log_error("%s: (%s) failed to set MTU [%d]",
                   client_config.interface, __func__, mtu);
     else
-        log_line("MTU set to: '%s'", str);
+        log_line("%s: MTU set to: '%s'", client_config.interface, str);
     close(fd);
 }
 
