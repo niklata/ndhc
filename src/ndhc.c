@@ -485,8 +485,11 @@ int main(int argc, char *argv[])
     default: suicide("failed to set the interface to up state");
     }
 
-    if (setpgid(0, 0) < 0)
-        suicide("setpgid failed: %s", strerror(errno));
+    if (setpgid(0, 0) < 0) {
+        // EPERM is returned if we are already a process group leader.
+        if (errno != EPERM)
+            suicide("setpgid failed: %s", strerror(errno));
+    }
 
     spawn_ifch();
     spawn_sockd();
