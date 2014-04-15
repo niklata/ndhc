@@ -61,7 +61,7 @@
 #include "seccomp.h"
 
 static int epollfd, signalFd;
-/* Slots are for signalFd and the ndhc -> ifchd pipe. */
+/* Slots are for signalFd and the ndhc -> ifchd socket. */
 static struct epoll_event events[2];
 
 uid_t sockd_uid = 0;
@@ -439,7 +439,6 @@ static void setup_signals_sockd(void)
 {
     sigset_t mask;
     sigemptyset(&mask);
-    sigaddset(&mask, SIGPIPE);
     sigaddset(&mask, SIGUSR1);
     sigaddset(&mask, SIGUSR2);
     sigaddset(&mask, SIGTSTP);
@@ -474,10 +473,7 @@ static void signal_dispatch(void)
     switch (si.ssi_signo) {
         case SIGINT:
         case SIGTERM:
-            exit(EXIT_SUCCESS);
-            break;
-        case SIGPIPE:
-            log_line("ndhc-sockd: IPC pipe closed.  Exiting.");
+        case SIGHUP:
             exit(EXIT_SUCCESS);
             break;
         default:
@@ -538,7 +534,8 @@ static size_t execute_sockd(char *buf, size_t buflen)
         uint8_t client_mac[6];
         bool using_bpf;
         if (buflen < 1 + sizeof client_addr + 6)
-            return 0;
+            suicide("%s: (%s) 'd' does not have necessary arguments: %zu",
+                      client_config.interface, __func__, buflen);
         memcpy(&client_addr, buf + 1, sizeof client_addr);
         memcpy(client_mac, buf + 1 + sizeof client_addr, 6);
         int fd = create_arp_defense_socket(client_addr, client_mac,
@@ -550,7 +547,8 @@ static size_t execute_sockd(char *buf, size_t buflen)
     case 'u': {
         uint32_t client_addr;
         if (buflen < 1 + sizeof client_addr)
-            return 0;
+            suicide("%s: (%s) 'u' does not have necessary arguments: %zu",
+                      client_config.interface, __func__, buflen);
         memcpy(&client_addr, buf + 1, sizeof client_addr);
         xfer_fd(create_udp_send_socket(client_addr), 'u');
         return 5;
@@ -560,7 +558,7 @@ static size_t execute_sockd(char *buf, size_t buflen)
     }
 }
 
-static void process_client_pipe(void)
+static void process_client_socket(void)
 {
     static char buf[MAX_BUF];
     static size_t buflen;
@@ -577,7 +575,7 @@ static void process_client_pipe(void)
     } else if (r < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return;
-        suicide("%s: (%s) error reading from ndhc -> sockd pipe: %s",
+        suicide("%s: (%s) error reading from ndhc -> sockd socket: %s",
                 client_config.interface, __func__, strerror(errno));
     }
     buflen += (size_t)r;
@@ -607,7 +605,7 @@ static void do_sockd_work(void)
         for (int i = 0; i < r; ++i) {
             int fd = events[i].data.fd;
             if (fd == sockdSock[1])
-                process_client_pipe();
+                process_client_socket();
             else if (fd == signalFd)
                 signal_dispatch();
             else
@@ -619,6 +617,7 @@ static void do_sockd_work(void)
 void sockd_main(void)
 {
     prctl(PR_SET_NAME, "ndhc: sockd");
+    prctl(PR_SET_PDEATHSIG, SIGHUP);
     umask(077);
     setup_signals_sockd();
     nk_set_chroot(chroot_dir);

@@ -184,7 +184,7 @@ static int ifchd_cmd(char *b, size_t bl, uint8_t *od, ssize_t ol, uint8_t code)
     return -1;
 }
 
-static void pipewrite(struct client_state_t *cs, const char *buf, size_t count)
+static void ifchwrite(struct client_state_t *cs, const char *buf, size_t count)
 {
     cs->ifchWorking = 1;
     ssize_t r = safe_write(ifchSock[0], buf, count);
@@ -205,7 +205,7 @@ void ifchange_deconfig(struct client_state_t *cs)
 
     snprintf(buf, sizeof buf, "ip4:0.0.0.0,255.255.255.255;");
     log_line("%s: Resetting IP configuration.", client_config.interface);
-    pipewrite(cs, buf, strlen(buf));
+    ifchwrite(cs, buf, strlen(buf));
 
     memset(&cfg_packet, 0, sizeof cfg_packet);
 }
@@ -307,7 +307,7 @@ void ifchange_bind(struct client_state_t *cs, struct dhcpmsg *packet)
     bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_MTU);
     bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_WINS);
     if (bo)
-        pipewrite(cs, buf, bo);
+        ifchwrite(cs, buf, bo);
 
     cs->ifDeconfig = 0;
     memcpy(&cfg_packet, packet, sizeof cfg_packet);

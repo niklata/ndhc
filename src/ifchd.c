@@ -57,7 +57,7 @@
 struct ifchd_client cl;
 
 static int epollfd, signalFd;
-/* Slots are for signalFd and the ndhc -> ifchd pipe. */
+/* Slots are for signalFd and the ndhc -> ifchd socket. */
 static struct epoll_event events[2];
 
 static int resolv_conf_fd = -1;
@@ -260,7 +260,6 @@ static void setup_signals_ifch(void)
 {
     sigset_t mask;
     sigemptyset(&mask);
-    sigaddset(&mask, SIGPIPE);
     sigaddset(&mask, SIGUSR1);
     sigaddset(&mask, SIGUSR2);
     sigaddset(&mask, SIGTSTP);
@@ -294,10 +293,7 @@ static void signal_dispatch(void)
     switch (si.ssi_signo) {
         case SIGINT:
         case SIGTERM:
-            exit(EXIT_SUCCESS);
-            break;
-        case SIGPIPE:
-            log_line("ndhc-ifch: IPC pipe closed.  Exiting.");
+        case SIGHUP:
             exit(EXIT_SUCCESS);
             break;
         default:
@@ -312,11 +308,11 @@ static void inform_execute(char c)
         // Remote end hung up.
         exit(EXIT_SUCCESS);
     } else if (r < 0)
-        suicide("%s: (%s) error writing to ifch -> ndhc pipe: %s",
+        suicide("%s: (%s) error writing to ifch -> ndhc socket: %s",
                 client_config.interface, __func__, strerror(errno));
 }
 
-static void process_client_pipe(void)
+static void process_client_socket(void)
 {
     char buf[MAX_BUF];
 
@@ -328,7 +324,7 @@ static void process_client_pipe(void)
     } else if (r < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return;
-        suicide("%s: (%s) error reading from ndhc -> ifch pipe: %s",
+        suicide("%s: (%s) error reading from ndhc -> ifch socket: %s",
                 client_config.interface, __func__, strerror(errno));
     }
 
@@ -368,7 +364,7 @@ static void do_ifch_work(void)
         for (int i = 0; i < r; ++i) {
             int fd = events[i].data.fd;
             if (fd == ifchSock[1])
-                process_client_pipe();
+                process_client_socket();
             else if (fd == signalFd)
                 signal_dispatch();
             else
@@ -380,7 +376,7 @@ static void do_ifch_work(void)
 void ifch_main(void)
 {
     prctl(PR_SET_NAME, "ndhc: ifch");
-
+    prctl(PR_SET_PDEATHSIG, SIGHUP);
     umask(077);
     setup_signals_ifch();
 
@@ -401,7 +397,6 @@ void ifch_main(void)
     memset(chroot_dir, '\0', sizeof chroot_dir);
     unsigned char keepcaps[] = { CAP_NET_ADMIN };
     nk_set_uidgid(ifch_uid, ifch_gid, keepcaps, sizeof keepcaps);
-
     do_ifch_work();
 }
 
