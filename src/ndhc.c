@@ -240,7 +240,7 @@ int get_clientid_string(char *str, size_t slen)
         return -1;
     if (!is_string_hwaddr(str, slen)) {
         client_config.clientid[0] = 0;
-        memcpy(&client_config.clientid + 1, str,
+        memcpy(client_config.clientid + 1, str,
                min_size_t(slen, sizeof client_config.clientid - 1));
         client_config.clientid_len = slen + 1;
         return 0;
@@ -250,7 +250,8 @@ int get_clientid_string(char *str, size_t slen)
     for (size_t i = 0; i < sizeof mac; ++i)
         mac[i] = strtol(str+i*3, NULL, 16);
     client_config.clientid[0] = 1; // Ethernet MAC type
-    memcpy(&client_config.clientid + 1, mac, sizeof mac);
+    memcpy(client_config.clientid + 1, mac,
+           min_size_t(sizeof mac, sizeof client_config.clientid - 1));
     client_config.clientid_len = 7;
     return 1;
 }
