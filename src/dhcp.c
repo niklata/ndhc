@@ -54,9 +54,15 @@ typedef enum {
     LM_RAW
 } listen_mode_t;
 
-static int get_udp_unicast_socket(void)
+static int get_udp_unicast_socket(struct client_state_t *cs)
 {
-    return request_sockd_fd("u", 1, NULL);
+    char buf[32];
+    size_t buflen = 0;
+    buf[0] = 'u';
+    buflen += 1;
+    memcpy(buf + buflen, &cs->clientAddr, sizeof cs->clientAddr);
+    buflen += sizeof cs->clientAddr;
+    return request_sockd_fd(buf, buflen, NULL);
 }
 
 static int get_raw_broadcast_socket(void)
@@ -90,9 +96,12 @@ static ssize_t send_dhcp_cooked(struct client_state_t *cs,
                                 struct dhcpmsg *payload)
 {
     ssize_t ret = -1;
-    int fd = get_udp_unicast_socket();
-    if (fd < 0)
+    int fd = get_udp_unicast_socket(cs);
+    if (fd < 0) {
+        log_error("%s: (%s) get_udp_unicast_socket failed",
+                  client_config.interface, __func__);
         goto out;
+    }
 
     struct sockaddr_in raddr = {
         .sin_family = AF_INET,
@@ -281,8 +290,11 @@ static ssize_t send_dhcp_raw(struct dhcpmsg *payload)
 {
     ssize_t ret = -1;
     int fd = get_raw_broadcast_socket();
-    if (fd < 0)
+    if (fd < 0) {
+        log_error("%s: (%s) get_raw_broadcast_socket failed",
+                  client_config.interface, __func__);
         return ret;
+    }
 
     // Send packets that are as short as possible.
     ssize_t endloc = get_end_option_idx(payload);
