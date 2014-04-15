@@ -49,6 +49,7 @@ int enforce_seccomp_ndhc(void)
 #if defined(__x86_64__) || (defined(__arm__) && defined(__ARM_EABI__))
         ALLOW_SYSCALL(sendto), // used for glibc syslog routines
         ALLOW_SYSCALL(recvmsg),
+        ALLOW_SYSCALL(sendmsg),
         ALLOW_SYSCALL(recvfrom),
         ALLOW_SYSCALL(connect),
 #elif defined(__i386__)
@@ -120,6 +121,7 @@ int enforce_seccomp_ifch(void)
 #if defined(__x86_64__) || (defined(__arm__) && defined(__ARM_EABI__))
         ALLOW_SYSCALL(sendto), // used for glibc syslog routines
         ALLOW_SYSCALL(recvmsg),
+        ALLOW_SYSCALL(sendmsg),
         ALLOW_SYSCALL(recvfrom),
         ALLOW_SYSCALL(socket),
 #elif defined(__i386__)
@@ -178,6 +180,7 @@ int enforce_seccomp_sockd(void)
 #if defined(__x86_64__) || (defined(__arm__) && defined(__ARM_EABI__))
         ALLOW_SYSCALL(sendto), // used for glibc syslog routines
         ALLOW_SYSCALL(recvmsg),
+        ALLOW_SYSCALL(sendmsg),
         ALLOW_SYSCALL(recvfrom),
         ALLOW_SYSCALL(socket),
         ALLOW_SYSCALL(setsockopt),
