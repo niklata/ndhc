@@ -194,8 +194,11 @@ static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
         .sin_port = htons(port),
         .sin_addr.s_addr = ip,
     };
-    if (bind(fd, (struct sockaddr *)&sa, sizeof sa) < 0)
+    if (bind(fd, (struct sockaddr *)&sa, sizeof sa) < 0) {
+        log_error("%s: (%s) bind failed: %s",
+                  client_config.interface, __func__, strerror(errno));
         goto out_fd;
+    }
 
     return fd;
   out_fd:
