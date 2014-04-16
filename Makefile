@@ -19,7 +19,7 @@ CFLAGS = -O2 -s -std=gnu99 -pedantic -Wall -D_GNU_SOURCE
 # The CMake build script will perform detection, but this Makefile is simple.
 LINK_LIBS = -lrt
 
-all: makedir ifchd-parse.o ncmlib.a ndhc
+all: makedir ifchd-parse.o cfg.o ncmlib.a ndhc
 
 clean:
 	rm -Rf $(BUILD_DIR)
@@ -31,6 +31,10 @@ ifchd-parse.o:
 	ragel -G2 -o $(BUILD_DIR)/ifchd-parse.c src/ifchd-parse.rl
 	$(CC) $(CFLAGS) $(NCM_INC) $(NDHC_INC) -c -o $(OBJ_DIR)/src/$@ $(BUILD_DIR)/ifchd-parse.c
 
+cfg.o:
+	ragel -G2 -o $(BUILD_DIR)/cfg.c src/cfg.rl
+	$(CC) $(CFLAGS) $(NCM_INC) $(NDHC_INC) -c -o $(OBJ_DIR)/src/$@ $(BUILD_DIR)/cfg.c
+
 %.o: %.c
 	$(CC) $(CFLAGS) $(NCM_INC) -c -o $(OBJ_DIR)/$@ $<
 
@@ -38,8 +42,8 @@ ncmlib.a: $(NCM_OBJS)
 	$(AR) rc $(BUILD_DIR)/$@ $(subst ncmlib/,$(OBJ_DIR)/ncmlib/,$(NCM_OBJS))
 	$(RANLIB) $(BUILD_DIR)/$@
 
-ndhc: $(NDHC_OBJS) ifchd-parse.o
-	$(CC) $(CFLAGS) $(NCM_INC) -o $(BUILD_DIR)/$@ $(subst src/,$(OBJ_DIR)/src/,$(NDHC_OBJS)) $(BUILD_DIR)/ncmlib.a $(BUILD_DIR)/objs/src/ifchd-parse.o $(LINK_LIBS)
+ndhc: $(NDHC_OBJS) ifchd-parse.o cfg.o
+	$(CC) $(CFLAGS) $(NCM_INC) -o $(BUILD_DIR)/$@ $(subst src/,$(OBJ_DIR)/src/,$(NDHC_OBJS)) $(BUILD_DIR)/ncmlib.a $(BUILD_DIR)/objs/src/ifchd-parse.o $(BUILD_DIR)/objs/src/cfg.o $(LINK_LIBS)
 
 .PHONY: all clean
 
