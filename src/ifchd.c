@@ -304,10 +304,11 @@ static void do_ifch_work(void)
     memset(cl.domains, 0, sizeof cl.domains);
 
     epoll_add(epollfd, ifchSock[1]);
+    epoll_add(epollfd, ifchStream[1]);
     epoll_add(epollfd, signalFd);
 
     for (;;) {
-        int r = epoll_wait(epollfd, events, 2, -1);
+        int r = epoll_wait(epollfd, events, 3, -1);
         if (r < 0) {
             if (errno == EINTR)
                 continue;
@@ -316,11 +317,16 @@ static void do_ifch_work(void)
         }
         for (int i = 0; i < r; ++i) {
             int fd = events[i].data.fd;
-            if (fd == ifchSock[1])
-                process_client_socket();
-            else if (fd == signalFd)
-                signal_dispatch_subprocess(signalFd, "ifch");
-            else
+            if (fd == ifchSock[1]) {
+                if (events[i].events & EPOLLIN)
+                    process_client_socket();
+            } else if (fd == ifchStream[1]) {
+                if (events[i].events & (EPOLLHUP|EPOLLERR|EPOLLRDHUP))
+                    exit(EXIT_SUCCESS);
+            } else if (fd == signalFd) {
+                if (events[i].events & EPOLLIN)
+                    signal_dispatch_subprocess(signalFd, "ifch");
+            } else
                 suicide("ifch: unexpected fd while performing epoll");
         }
     }
@@ -329,9 +335,6 @@ static void do_ifch_work(void)
 void ifch_main(void)
 {
     prctl(PR_SET_NAME, "ndhc: ifch");
-    if (prctl(PR_SET_PDEATHSIG, SIGHUP) < 0)
-        suicide("%s: (%s) prctl(PR_SET_PDEATHSIG) failed: %s",
-                client_config.interface, __func__, strerror(errno));
     umask(077);
     signalFd = setup_signals_subprocess();
 

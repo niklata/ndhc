@@ -544,10 +544,11 @@ static void do_sockd_work(void)
         log_line("sockd seccomp filter cannot be installed");
 
     epoll_add(epollfd, sockdSock[1]);
+    epoll_add(epollfd, sockdStream[1]);
     epoll_add(epollfd, signalFd);
 
     for (;;) {
-        int r = epoll_wait(epollfd, events, 2, -1);
+        int r = epoll_wait(epollfd, events, 3, -1);
         if (r < 0) {
             if (errno == EINTR)
                 continue;
@@ -556,11 +557,16 @@ static void do_sockd_work(void)
         }
         for (int i = 0; i < r; ++i) {
             int fd = events[i].data.fd;
-            if (fd == sockdSock[1])
-                process_client_socket();
-            else if (fd == signalFd)
-                signal_dispatch_subprocess(signalFd, "sockd");
-            else
+            if (fd == sockdSock[1]) {
+                if (events[i].events & EPOLLIN)
+                    process_client_socket();
+            } else if (fd == sockdStream[1]) {
+                if (events[i].events & (EPOLLHUP|EPOLLERR|EPOLLRDHUP))
+                    exit(EXIT_SUCCESS);
+            } else if (fd == signalFd) {
+                if (events[i].events & EPOLLIN)
+                    signal_dispatch_subprocess(signalFd, "sockd");
+            } else
                 suicide("sockd: unexpected fd while performing epoll");
         }
     }
@@ -569,9 +575,6 @@ static void do_sockd_work(void)
 void sockd_main(void)
 {
     prctl(PR_SET_NAME, "ndhc: sockd");
-    if (prctl(PR_SET_PDEATHSIG, SIGHUP) < 0)
-        suicide("%s: (%s) prctl(PR_SET_PDEATHSIG) failed: %s",
-                client_config.interface, __func__, strerror(errno));
     umask(077);
     signalFd = setup_signals_subprocess();
     nk_set_chroot(chroot_dir);

@@ -68,9 +68,9 @@ struct client_config_t {
 extern struct client_config_t client_config;
 
 extern int ifchSock[2];
-extern int ifchPipe[2];
+extern int ifchStream[2];
 extern int sockdSock[2];
-extern int sockdPipe[2];
+extern int sockdStream[2];
 extern char state_dir[PATH_MAX];
 extern char chroot_dir[PATH_MAX];
 extern char resolv_conf_d[PATH_MAX];

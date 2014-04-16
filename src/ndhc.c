@@ -275,7 +275,7 @@ static void handle_ifch_message(void)
         cs.ifchWorking = 0;
 }
 
-#define NDHC_NUM_EP_FDS 4
+#define NDHC_NUM_EP_FDS 7
 static void do_ndhc_work(void)
 {
     struct epoll_event events[NDHC_NUM_EP_FDS];
@@ -293,6 +293,8 @@ static void do_ndhc_work(void)
 
     epoll_add(cs.epollFd, cs.nlFd);
     epoll_add(cs.epollFd, ifchSock[0]);
+    epoll_add(cs.epollFd, ifchStream[0]);
+    epoll_add(cs.epollFd, sockdStream[0]);
     set_listen_raw(&cs);
     nowts = curms();
     goto jumpstart;
@@ -307,17 +309,28 @@ static void do_ndhc_work(void)
         }
         for (int i = 0; i < r; ++i) {
             int fd = events[i].data.fd;
-            if (fd == cs.signalFd)
-                signal_dispatch();
-            else if (fd == cs.listenFd)
-                handle_packet(&cs);
-            else if (fd == cs.arpFd)
-                handle_arp_response(&cs);
-            else if (fd == cs.nlFd)
-                handle_nl_message(&cs);
-            else if (fd == ifchSock[0])
-                handle_ifch_message();
-            else
+            if (fd == cs.signalFd) {
+                if (events[i].events & EPOLLIN)
+                    signal_dispatch();
+            } else if (fd == cs.listenFd) {
+                if (events[i].events & EPOLLIN)
+                    handle_packet(&cs);
+            } else if (fd == cs.arpFd) {
+                if (events[i].events & EPOLLIN)
+                    handle_arp_response(&cs);
+            } else if (fd == cs.nlFd) {
+                if (events[i].events & EPOLLIN)
+                    handle_nl_message(&cs);
+            } else if (fd == ifchSock[0]) {
+                if (events[i].events & EPOLLIN)
+                    handle_ifch_message();
+            } else if (fd == ifchStream[0]) {
+                if (events[i].events & (EPOLLHUP|EPOLLERR|EPOLLRDHUP))
+                    exit(EXIT_FAILURE);
+            } else if (fd == sockdStream[0]) {
+                if (events[i].events & (EPOLLHUP|EPOLLERR|EPOLLRDHUP))
+                    exit(EXIT_FAILURE);
+            } else
                 suicide("epoll_wait: unknown fd");
         }
 
@@ -357,15 +370,21 @@ uid_t ndhc_uid = 0;
 gid_t ndhc_gid = 0;
 int ifchSock[2];
 int sockdSock[2];
+int ifchStream[2];
+int sockdStream[2];
 
 static void create_ifch_ipc_sockets(void) {
     if (socketpair(AF_UNIX, SOCK_DGRAM, 0, ifchSock) < 0)
+        suicide("FATAL - can't create ndhc/ifch socket: %s", strerror(errno));
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, ifchStream) < 0)
         suicide("FATAL - can't create ndhc/ifch socket: %s", strerror(errno));
 }
 
 static void create_sockd_ipc_sockets(void) {
     if (socketpair(AF_UNIX, SOCK_DGRAM, 0, sockdSock) < 0)
         suicide("FATAL - can't create ndhc/sockd socket: %s", strerror(errno));
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, sockdStream) < 0)
+        suicide("FATAL - can't create ndhc/ifch socket: %s", strerror(errno));
 }
 
 static void spawn_ifch(void)
@@ -374,11 +393,13 @@ static void spawn_ifch(void)
     pid_t ifch_pid = fork();
     if (ifch_pid == 0) {
         close(ifchSock[0]);
+        close(ifchStream[0]);
         // Don't share the RNG state with the master process.
         nk_random_u32_init(&cs.rnd32_state);
         ifch_main();
     } else if (ifch_pid > 0) {
         close(ifchSock[1]);
+        close(ifchStream[1]);
     } else
         suicide("failed to fork ndhc-ifch: %s", strerror(errno));
 }
@@ -389,11 +410,13 @@ static void spawn_sockd(void)
     pid_t sockd_pid = fork();
     if (sockd_pid == 0) {
         close(sockdSock[0]);
+        close(sockdStream[0]);
         // Don't share the RNG state with the master process.
         nk_random_u32_init(&cs.rnd32_state);
         sockd_main();
     } else if (sockd_pid > 0) {
         close(sockdSock[1]);
+        close(sockdStream[1]);
     } else
         suicide("failed to fork ndhc-sockd: %s", strerror(errno));
 }
