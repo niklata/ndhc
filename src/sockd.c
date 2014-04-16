@@ -245,30 +245,6 @@ out:
     return -1;
 }
 
-// Returns fd of new listen socket bound to 0.0.0.0:@68 on interface @inf
-// on success, or -1 on failure.
-static int create_udp_listen_socket(void)
-{
-    int fd = create_udp_socket(INADDR_ANY, DHCP_CLIENT_PORT,
-                               client_config.interface);
-    if (fd < 0)
-        return -1;
-    int opt = 1;
-    if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &opt, sizeof opt) < 0) {
-        log_error("%s: (%s) Set broadcast failed: %s",
-                  client_config.interface, __func__, strerror(errno));
-        close(fd);
-        return -1;
-    }
-    return fd;
-}
-
-static int create_udp_send_socket(uint32_t client_addr)
-{
-    return create_udp_socket(client_addr, DHCP_CLIENT_PORT,
-                             client_config.interface);
-}
-
 static int create_raw_listen_socket(bool *using_bpf)
 {
     static const struct sock_filter sf_dhcp[] = {
@@ -478,7 +454,6 @@ static size_t execute_sockd(char *buf, size_t buflen)
         xfer_fd(fd, using_bpf ? 'L' : 'l');
         return 1;
     }
-    case 'U': xfer_fd(create_udp_listen_socket(), 'U'); return 1;
     case 'a': {
         bool using_bpf;
         int fd = create_arp_basic_socket(&using_bpf);
@@ -505,7 +480,8 @@ static size_t execute_sockd(char *buf, size_t buflen)
             suicide("%s: (%s) 'u' does not have necessary arguments: %zu",
                       client_config.interface, __func__, buflen);
         memcpy(&client_addr, buf + 1, sizeof client_addr);
-        xfer_fd(create_udp_send_socket(client_addr), 'u');
+        xfer_fd(create_udp_socket(client_addr, DHCP_CLIENT_PORT,
+                                  client_config.interface), 'u');
         return 5;
     }
     default: suicide("%s: (%s) received invalid commands: '%c'",

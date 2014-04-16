@@ -48,12 +48,6 @@
 #include "options.h"
 #include "sockd.h"
 
-typedef enum {
-    LM_NONE = 0,
-    LM_COOKED,
-    LM_RAW
-} listen_mode_t;
-
 static int get_udp_unicast_socket(struct client_state_t *cs)
 {
     char buf[32];
@@ -65,11 +59,6 @@ static int get_udp_unicast_socket(struct client_state_t *cs)
 static int get_raw_broadcast_socket(void)
 {
     return request_sockd_fd("s", 1, NULL);
-}
-
-static int get_udp_listen_socket(void)
-{
-    return request_sockd_fd("U", 1, NULL);
 }
 
 static int get_raw_listen_socket(struct client_state_t *cs)
@@ -85,9 +74,9 @@ static int get_raw_listen_socket(struct client_state_t *cs)
     return fd;
 }
 
-// Broadcast a DHCP message using a UDP socket.
-static ssize_t send_dhcp_cooked(struct client_state_t *cs,
-                                struct dhcpmsg *payload)
+// Unicast a DHCP message using a UDP socket.
+static ssize_t send_dhcp_unicast(struct client_state_t *cs,
+                                 struct dhcpmsg *payload)
 {
     ssize_t ret = -1;
     int fd = get_udp_unicast_socket(cs);
@@ -125,23 +114,6 @@ static ssize_t send_dhcp_cooked(struct client_state_t *cs,
     close(fd);
   out:
     return ret;
-}
-
-// Read a packet from a cooked socket.  Returns -1 on fatal error, -2 on
-// transient error.
-static ssize_t get_cooked_packet(struct client_state_t *cs,
-                                 struct dhcpmsg *packet)
-{
-    memset(packet, 0, sizeof *packet);
-    ssize_t bytes = safe_read(cs->listenFd, (char *)packet, sizeof *packet);
-    if (bytes < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-            return -2;
-        log_warning("%s: (%s) read error %s", client_config.interface,
-                    __func__, strerror(errno));
-        return -1;
-    }
-    return bytes;
 }
 
 // When summing ones-complement 16-bit values using a 32-bit unsigned
@@ -352,39 +324,24 @@ static ssize_t send_dhcp_raw(struct dhcpmsg *payload)
     return ret;
 }
 
-// Switch listen socket between raw (if-bound), kernel (ip-bound), and none
-static void change_listen_mode(struct client_state_t *cs, int new_mode)
+void start_dhcp_listen(struct client_state_t *cs)
 {
-    cs->listenMode = new_mode;
-    if (cs->listenFd >= 0) {
-        epoll_del(cs->epollFd, cs->listenFd);
-        close(cs->listenFd);
-        cs->listenFd = -1;
-    }
-    switch (cs->listenMode) {
-    default: return;
-    case LM_RAW: cs->listenFd = get_raw_listen_socket(cs); break;
-    case LM_COOKED: cs->listenFd = get_udp_listen_socket(); break;
-    }
+    if (cs->listenFd >= 0)
+        return;
+    cs->listenFd = get_raw_listen_socket(cs);
     if (cs->listenFd < 0)
         suicide("%s: FATAL: Couldn't listen on socket: %s",
                 client_config.interface, strerror(errno));
     epoll_add(cs->epollFd, cs->listenFd);
 }
 
-void set_listen_raw(struct client_state_t *cs)
+void stop_dhcp_listen(struct client_state_t *cs)
 {
-    change_listen_mode(cs, LM_RAW);
-}
-
-void set_listen_cooked(struct client_state_t *cs)
-{
-    change_listen_mode(cs, LM_COOKED);
-}
-
-void set_listen_none(struct client_state_t *cs)
-{
-    change_listen_mode(cs, LM_NONE);
+    if (cs->listenFd < 0)
+        return;
+    epoll_del(cs->epollFd, cs->listenFd);
+    close(cs->listenFd);
+    cs->listenFd = -1;
 }
 
 static int validate_dhcp_packet(struct client_state_t *cs, size_t len,
@@ -436,19 +393,17 @@ static int validate_dhcp_packet(struct client_state_t *cs, size_t len,
 
 void handle_packet(struct client_state_t *cs)
 {
+    if (cs->listenFd < 0)
+        return;
     struct dhcpmsg packet;
-    ssize_t r;
-    switch (cs->listenMode) {
-    case LM_RAW: r = get_raw_packet(cs, &packet); break;
-    case LM_COOKED: r = get_cooked_packet(cs, &packet); break;
-    default: return;
-    }
+    ssize_t r = get_raw_packet(cs, &packet);
     if (r < 0) {
         // Not a transient issue handled by packet collection functions.
         if (r != -2) {
             log_error("%s: Error reading from listening socket: %s.  Reopening.",
                       client_config.interface, strerror(errno));
-            change_listen_mode(cs, cs->listenMode);
+            stop_dhcp_listen(cs);
+            start_dhcp_listen(cs);
         }
         return;
     }
@@ -515,7 +470,7 @@ ssize_t send_renew(struct client_state_t *cs)
     add_option_vendor(&packet);
     add_option_hostname(&packet);
     log_line("%s: Sending a renew request...", client_config.interface);
-    return send_dhcp_cooked(cs, &packet);
+    return send_dhcp_unicast(cs, &packet);
 }
 
 ssize_t send_rebind(struct client_state_t *cs)
@@ -548,6 +503,6 @@ ssize_t send_release(struct client_state_t *cs)
     add_option_reqip(&packet, cs->clientAddr);
     add_option_serverid(&packet, cs->serverAddr);
     log_line("%s: Sending a release message...", client_config.interface);
-    return send_dhcp_cooked(cs, &packet);
+    return send_dhcp_unicast(cs, &packet);
 }
 

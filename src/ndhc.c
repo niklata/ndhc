@@ -295,7 +295,7 @@ static void do_ndhc_work(void)
     epoll_add(cs.epollFd, ifchSock[0]);
     epoll_add(cs.epollFd, ifchStream[0]);
     epoll_add(cs.epollFd, sockdStream[0]);
-    set_listen_raw(&cs);
+    start_dhcp_listen(&cs);
     nowts = curms();
     goto jumpstart;
 

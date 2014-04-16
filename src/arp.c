@@ -447,7 +447,7 @@ void arp_success(struct client_state_t *cs)
         cs->routerAddr = get_option_router(&garp.dhcp_packet);
         arp_get_gw_hwaddr(cs);
     }
-    set_listen_none(cs);
+    stop_dhcp_listen(cs);
     write_leasefile(temp_addr);
     arp_announcement(cs);
     if (client_config.quit_after_lease)

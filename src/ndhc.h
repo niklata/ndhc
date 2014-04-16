@@ -40,7 +40,6 @@ struct client_state_t {
     int ifsPrevState;
     int ifchWorking; // ifch is performing interface changes.
     int ifDeconfig; // Set if the interface has already been deconfigured.
-    int listenMode;
     int epollFd, signalFd, listenFd, arpFd, nlFd;
     int nlPortId;
     uint32_t clientAddr, serverAddr, routerAddr;

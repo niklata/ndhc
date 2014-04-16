@@ -106,7 +106,7 @@ void reinit_selecting(struct client_state_t *cs, int timeout)
     reinit_shared_deconfig(cs);
     cs->dhcpState = DS_SELECTING;
     dhcp_wake_ts = curms() + timeout;
-    set_listen_raw(cs);
+    start_dhcp_listen(cs);
 }
 
 static void set_released(struct client_state_t *cs)
@@ -114,7 +114,7 @@ static void set_released(struct client_state_t *cs)
     reinit_shared_deconfig(cs);
     cs->dhcpState = DS_RELEASED;
     dhcp_wake_ts = -1;
-    set_listen_none(cs);
+    stop_dhcp_listen(cs);
 }
 
 // Triggered after a DHCP lease request packet has been sent and no reply has
@@ -143,7 +143,7 @@ static void bound_timeout(struct client_state_t *cs, long long nowts)
         return;
     }
     cs->dhcpState = DS_RENEWING;
-    set_listen_cooked(cs);
+    start_dhcp_listen(cs);
     renewing_timeout(cs, nowts);
 }
 
@@ -267,7 +267,7 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
                      client_config.interface, cs->lease);
             cs->dhcpState = DS_BOUND;
             arp_set_defense_mode(cs);
-            set_listen_none(cs);
+            stop_dhcp_listen(cs);
         }
 
     } else if (msgtype == DHCPNAK) {
@@ -358,7 +358,7 @@ static void frenew(struct client_state_t *cs)
     if (cs->dhcpState == DS_BOUND) {
         log_line("%s: Forcing a DHCP renew...", client_config.interface);
         cs->dhcpState = DS_RENEWING;
-        set_listen_cooked(cs);
+        start_dhcp_listen(cs);
         if (send_renew(cs) < 0)
             log_warning("%s: Failed to send a renew request packet.",
                         client_config.interface);
