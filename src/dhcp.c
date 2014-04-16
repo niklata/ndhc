@@ -129,15 +129,16 @@ static ssize_t send_dhcp_cooked(struct client_state_t *cs,
 
 // Read a packet from a cooked socket.  Returns -1 on fatal error, -2 on
 // transient error.
-static ssize_t get_cooked_packet(struct dhcpmsg *packet, int fd)
+static ssize_t get_cooked_packet(struct client_state_t *cs,
+                                 struct dhcpmsg *packet)
 {
     memset(packet, 0, sizeof *packet);
-    ssize_t bytes = safe_read(fd, (char *)packet, sizeof *packet);
+    ssize_t bytes = safe_read(cs->listenFd, (char *)packet, sizeof *packet);
     if (bytes < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return -2;
-        log_line("%s: Read on listen socket failed: %s",
-                 client_config.interface, strerror(errno));
+        log_warning("%s: (%s) read error %s", client_config.interface,
+                    __func__, strerror(errno));
         return -1;
     }
     return bytes;
@@ -435,25 +436,24 @@ static int validate_dhcp_packet(struct client_state_t *cs, size_t len,
 
 void handle_packet(struct client_state_t *cs)
 {
-    uint8_t msgtype;
     struct dhcpmsg packet;
-
-    if (cs->listenMode == LM_NONE)
-        return;
-    ssize_t r = cs->listenMode == LM_RAW ?
-        get_raw_packet(cs, &packet) : get_cooked_packet(&packet, cs->listenFd);
+    ssize_t r;
+    switch (cs->listenMode) {
+    case LM_RAW: r = get_raw_packet(cs, &packet); break;
+    case LM_COOKED: r = get_cooked_packet(cs, &packet); break;
+    default: return;
+    }
     if (r < 0) {
-        // Transient issue handled by packet collection functions.
-        if (r == -2 || (r == -1 && errno == EINTR))
-            return;
-        log_error("%s: Error reading from listening socket: %s.  Reopening.",
-                  client_config.interface, strerror(errno));
-        change_listen_mode(cs, cs->listenMode);
+        // Not a transient issue handled by packet collection functions.
+        if (r != -2) {
+            log_error("%s: Error reading from listening socket: %s.  Reopening.",
+                      client_config.interface, strerror(errno));
+            change_listen_mode(cs, cs->listenMode);
+        }
         return;
     }
-    size_t len = (size_t)r;
-
-    if (!validate_dhcp_packet(cs, len, &packet, &msgtype))
+    uint8_t msgtype;
+    if (!validate_dhcp_packet(cs, (size_t)r, &packet, &msgtype))
         return;
     packet_action(cs, &packet, msgtype);
 }
