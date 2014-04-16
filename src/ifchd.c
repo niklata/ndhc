@@ -35,13 +35,11 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/epoll.h>
-#include <sys/signalfd.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <errno.h>
-#include <getopt.h>
 #include "nk/log.h"
 #include "nk/privilege.h"
 #include "nk/signals.h"
@@ -256,51 +254,6 @@ void perform_wins(const char *str, size_t len)
     (void)len;
 }
 
-static void setup_signals_ifch(void)
-{
-    sigset_t mask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGUSR1);
-    sigaddset(&mask, SIGUSR2);
-    sigaddset(&mask, SIGTSTP);
-    sigaddset(&mask, SIGTTIN);
-    sigaddset(&mask, SIGCHLD);
-    sigaddset(&mask, SIGHUP);
-    sigaddset(&mask, SIGINT);
-    sigaddset(&mask, SIGTERM);
-    if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0)
-        suicide("sigprocmask failed");
-    signalFd = signalfd(-1, &mask, SFD_NONBLOCK);
-    if (signalFd < 0)
-        suicide("signalfd failed");
-}
-
-static void signal_dispatch(void)
-{
-    int t;
-    size_t off = 0;
-    struct signalfd_siginfo si = {0};
-  again:
-    t = read(signalFd, (char *)&si + off, sizeof si - off);
-    if (t < 0) {
-        if (t == EAGAIN || t == EWOULDBLOCK || t == EINTR)
-            goto again;
-        else
-            suicide("signalfd read error");
-    }
-    if (off + (unsigned)t < sizeof si)
-        off += t;
-    switch (si.ssi_signo) {
-        case SIGINT:
-        case SIGTERM:
-        case SIGHUP:
-            exit(EXIT_SUCCESS);
-            break;
-        default:
-            break;
-    }
-}
-
 static void inform_execute(char c)
 {
     ssize_t r = safe_write(ifchSock[1], &c, sizeof c);
@@ -366,7 +319,7 @@ static void do_ifch_work(void)
             if (fd == ifchSock[1])
                 process_client_socket();
             else if (fd == signalFd)
-                signal_dispatch();
+                signal_dispatch_subprocess(signalFd, "ifch");
             else
                 suicide("ifch: unexpected fd while performing epoll");
         }
@@ -376,9 +329,11 @@ static void do_ifch_work(void)
 void ifch_main(void)
 {
     prctl(PR_SET_NAME, "ndhc: ifch");
-    prctl(PR_SET_PDEATHSIG, SIGHUP);
+    if (prctl(PR_SET_PDEATHSIG, SIGHUP) < 0)
+        suicide("%s: (%s) prctl(PR_SET_PDEATHSIG) failed: %s",
+                client_config.interface, __func__, strerror(errno));
     umask(077);
-    setup_signals_ifch();
+    signalFd = setup_signals_subprocess();
 
     // If we are requested to update resolv.conf, preopen the fd before
     // we drop root privileges, making sure that if we create

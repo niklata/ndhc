@@ -46,4 +46,8 @@ static inline size_t min_size_t(size_t a, size_t b)
 void epoll_add(int epfd, int fd);
 void epoll_del(int epfd, int fd);
 
+int setup_signals_subprocess(void);
+void signal_dispatch_subprocess(int sfd, const char *pname);
+
 #endif /* SYS_H_ */
+

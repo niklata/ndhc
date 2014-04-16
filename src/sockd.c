@@ -36,7 +36,6 @@
 #include <fcntl.h>
 #include <assert.h>
 #include <sys/socket.h>
-#include <sys/signalfd.h>
 #include <sys/epoll.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -434,53 +433,6 @@ static int create_arp_basic_socket(bool *using_bpf)
     return fd;
 }
 
-// XXX: Can share with ifch
-static void setup_signals_sockd(void)
-{
-    sigset_t mask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGUSR1);
-    sigaddset(&mask, SIGUSR2);
-    sigaddset(&mask, SIGTSTP);
-    sigaddset(&mask, SIGTTIN);
-    sigaddset(&mask, SIGCHLD);
-    sigaddset(&mask, SIGHUP);
-    sigaddset(&mask, SIGINT);
-    sigaddset(&mask, SIGTERM);
-    if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0)
-        suicide("sigprocmask failed");
-    signalFd = signalfd(-1, &mask, SFD_NONBLOCK);
-    if (signalFd < 0)
-        suicide("signalfd failed");
-}
-
-// XXX: Can share with ifch
-static void signal_dispatch(void)
-{
-    int t;
-    size_t off = 0;
-    struct signalfd_siginfo si = {0};
-  again:
-    t = read(signalFd, (char *)&si + off, sizeof si - off);
-    if (t < 0) {
-        if (t == EAGAIN || t == EWOULDBLOCK || t == EINTR)
-            goto again;
-        else
-            suicide("signalfd read error");
-    }
-    if (off + (unsigned)t < sizeof si)
-        off += t;
-    switch (si.ssi_signo) {
-        case SIGINT:
-        case SIGTERM:
-        case SIGHUP:
-            exit(EXIT_SUCCESS);
-            break;
-        default:
-            break;
-    }
-}
-
 static void xfer_fd(int fd, char cmd)
 {
     char control[sizeof(struct cmsghdr) + 10];
@@ -607,7 +559,7 @@ static void do_sockd_work(void)
             if (fd == sockdSock[1])
                 process_client_socket();
             else if (fd == signalFd)
-                signal_dispatch();
+                signal_dispatch_subprocess(signalFd, "sockd");
             else
                 suicide("sockd: unexpected fd while performing epoll");
         }
@@ -617,9 +569,11 @@ static void do_sockd_work(void)
 void sockd_main(void)
 {
     prctl(PR_SET_NAME, "ndhc: sockd");
-    prctl(PR_SET_PDEATHSIG, SIGHUP);
+    if (prctl(PR_SET_PDEATHSIG, SIGHUP) < 0)
+        suicide("%s: (%s) prctl(PR_SET_PDEATHSIG) failed: %s",
+                client_config.interface, __func__, strerror(errno));
     umask(077);
-    setup_signals_sockd();
+    signalFd = setup_signals_subprocess();
     nk_set_chroot(chroot_dir);
     memset(chroot_dir, 0, sizeof chroot_dir);
     unsigned char keepcaps[] = { CAP_NET_BIND_SERVICE, CAP_NET_BROADCAST,

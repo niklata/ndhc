@@ -26,12 +26,16 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <unistd.h>
+#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <signal.h>
 #include <sys/epoll.h>
 #include <sys/signalfd.h>
 #include "nk/log.h"
-
+#include "nk/io.h"
+#include "ndhc.h"
 #include "sys.h"
 
 void epoll_add(int epfd, int fd)
@@ -55,3 +59,41 @@ void epoll_del(int epfd, int fd)
     if (r < 0)
         suicide("epoll_del failed %s", strerror(errno));
 }
+
+int setup_signals_subprocess(void)
+{
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGHUP);
+    sigaddset(&mask, SIGINT);
+    sigaddset(&mask, SIGTERM);
+    if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0)
+        suicide("sigprocmask failed");
+    int sfd = signalfd(-1, &mask, SFD_NONBLOCK);
+    if (sfd < 0)
+        suicide("signalfd failed");
+    return sfd;
+}
+
+void signal_dispatch_subprocess(int sfd, const char *pname)
+{
+    struct signalfd_siginfo si = {0};
+    ssize_t r = safe_read(sfd, (char *)&si, sizeof si);
+    if (r < 0) {
+        log_error("%s: %s: error reading from signalfd: %s",
+                  client_config.interface, pname, strerror(errno));
+        return;
+    }
+    if ((size_t)r < sizeof si) {
+        log_error("%s: %s: short read from signalfd: %zd < %zu",
+                  client_config.interface, pname, r, sizeof si);
+        return;
+    }
+    switch (si.ssi_signo) {
+        case SIGINT:
+        case SIGTERM:
+        case SIGHUP: exit(EXIT_SUCCESS); break;
+        default: break;
+    }
+}
+

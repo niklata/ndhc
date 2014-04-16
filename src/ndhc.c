@@ -184,26 +184,21 @@ static void setup_signals_ndhc(void)
 
 static void signal_dispatch(void)
 {
-    int t;
-    size_t off = 0;
     struct signalfd_siginfo si = {0};
-  again:
-    t = read(cs.signalFd, (char *)&si + off, sizeof si - off);
-    if (t < 0) {
-        if (t == EAGAIN || t == EWOULDBLOCK || t == EINTR)
-            goto again;
-        else
-            suicide("signalfd read error");
+    ssize_t r = safe_read(cs.signalFd, (char *)&si, sizeof si);
+    if (r < 0) {
+        log_error("%s: ndhc: error reading from signalfd: %s",
+                  client_config.interface, strerror(errno));
+        return;
     }
-    if (off + (unsigned)t < sizeof si)
-        off += t;
+    if ((size_t)r < sizeof si) {
+        log_error("%s: ndhc: short read from signalfd: %zd < %zu",
+                  client_config.interface, r, sizeof si);
+        return;
+    }
     switch (si.ssi_signo) {
-        case SIGUSR1:
-            force_renew_action(&cs);
-            break;
-        case SIGUSR2:
-            force_release_action(&cs);
-            break;
+        case SIGUSR1: force_renew_action(&cs); break;
+        case SIGUSR2: force_release_action(&cs); break;
         case SIGCHLD:
             suicide("ndhc-master: Subprocess terminated unexpectedly.  Exiting.");
             break;
@@ -211,8 +206,7 @@ static void signal_dispatch(void)
             log_line("Received SIGTERM.  Exiting gracefully.");
             exit(EXIT_SUCCESS);
             break;
-        default:
-            break;
+        default: break;
     }
 }
 
