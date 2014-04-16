@@ -57,12 +57,9 @@ typedef enum {
 static int get_udp_unicast_socket(struct client_state_t *cs)
 {
     char buf[32];
-    size_t buflen = 0;
     buf[0] = 'u';
-    buflen += 1;
-    memcpy(buf + buflen, &cs->clientAddr, sizeof cs->clientAddr);
-    buflen += sizeof cs->clientAddr;
-    return request_sockd_fd(buf, buflen, NULL);
+    memcpy(buf + 1, &cs->clientAddr, sizeof cs->clientAddr);
+    return request_sockd_fd(buf, 1 + sizeof cs->clientAddr, NULL);
 }
 
 static int get_raw_broadcast_socket(void)
@@ -70,12 +67,9 @@ static int get_raw_broadcast_socket(void)
     return request_sockd_fd("s", 1, NULL);
 }
 
-static int get_udp_listen_socket(struct client_state_t *cs)
+static int get_udp_listen_socket(void)
 {
-    char buf[32];
-    buf[0] = 'u';
-    memcpy(buf + 1, &cs->clientAddr, sizeof cs->clientAddr);
-    return request_sockd_fd(buf, 1 + sizeof cs->clientAddr, NULL);
+    return request_sockd_fd("U", 1, NULL);
 }
 
 static int get_raw_listen_socket(struct client_state_t *cs)
@@ -369,7 +363,7 @@ static void change_listen_mode(struct client_state_t *cs, int new_mode)
     switch (cs->listenMode) {
     default: return;
     case LM_RAW: cs->listenFd = get_raw_listen_socket(cs); break;
-    case LM_COOKED: cs->listenFd = get_udp_listen_socket(cs); break;
+    case LM_COOKED: cs->listenFd = get_udp_listen_socket(); break;
     }
     if (cs->listenFd < 0)
         suicide("%s: FATAL: Couldn't listen on socket: %s",
