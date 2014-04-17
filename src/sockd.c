@@ -439,6 +439,7 @@ static void xfer_fd(int fd, char cmd)
         suicide("%s: (%s) sendmsg failed: %s", client_config.interface,
                 __func__, strerror(errno));
     }
+    close(fd);
 }
 
 static size_t execute_sockd(char *buf, size_t buflen)
