@@ -184,7 +184,7 @@ struct cfgparse {
     blankline = term;
 
     clientid = 'clientid' value @clientid;
-    background = 'background' value @background;
+    background = 'background' boolval @background;
     pidfile = 'pidfile' value @pidfile;
     hostname = 'hostname' value @hostname;
     interface = 'interface' value @interface;
