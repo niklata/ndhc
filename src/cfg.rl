@@ -307,6 +307,8 @@ void parse_cmdline(int argc, char *argv[])
             suicide("error parsing command line option: option too long");
         argbl += snl;
     }
+    if (argbl == 0)
+        return;
     struct cfgparse ccfg;
     memset(&ccfg, 0, sizeof ccfg);
     const char *p = argb;
