@@ -55,7 +55,7 @@ chroot.
 
 Robust.  ndhc performs no runtime heap allocations -- malloc() (more
 specifically, brk(), mmap(), etc) is never called after initialization (libc
-behavior during initialization time will vary) , and ndhc never performs
+behavior during initialization time will vary), and ndhc never performs
 recursive calls and only stack-allocates fixed-length types, so stack depth is
 bounded, too.
 
@@ -154,7 +154,7 @@ USAGE
 3) At this point the jail is usable; ndhc is ready to be used.  An example
    of invoking ndhc:
 
-    # ndhc -i wan0 -u dhcp -U dhcpifch -D dhcpsockd -C /var/lib/ndhc -l /var/state/wan0.lease
+    # ndhc -i wan0 -u dhcp -U dhcpifch -D dhcpsockd -C /var/lib/ndhc
 
 4o) If you encounter problems, I suggest running ndhc in the foreground and
     examining the printed output.
@@ -283,8 +283,8 @@ I had already rewritten before, and some of those were rewritten, too.
 Eventually ifchd was rewritten to extensively use a Ragel-generated DFA-based
 parser to make it easier to verify correct behavior for all possible inputs.
 
-Quite a while later, I eventually merged ifchd into the same binary as
-ndhc and instead rely on forking subprocesses and using pipes for IPC.  This
+Quite a while later, I eventually merged ifchd into the same binary as ndhc
+and instead rely on forking subprocesses and using socketpairs for IPC.  This
 brought a lot of simplifications, particularly for user configuration.
 
 Afterwards, privilege seperation was applied to the remaining capabilities,
