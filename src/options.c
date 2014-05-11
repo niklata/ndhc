@@ -74,8 +74,8 @@ static int overload_value(const struct dhcpmsg *packet)
     return ol; // ol == 0
 }
 
-static ssize_t do_get_dhcp_opt(const uint8_t *sbuf, ssize_t slen, uint8_t code,
-                               uint8_t *dbuf, ssize_t dlen, ssize_t didx)
+static void do_get_dhcp_opt(const uint8_t *sbuf, ssize_t slen, uint8_t code,
+                            uint8_t *dbuf, ssize_t dlen, ssize_t *didx)
 {
     ssize_t i = 0;
     while (i < slen) {
@@ -89,30 +89,30 @@ static ssize_t do_get_dhcp_opt(const uint8_t *sbuf, ssize_t slen, uint8_t code,
             break;
         ssize_t soptsiz = sbuf[i+1];
         if (sbuf[i] == code) {
-            if (dlen - didx < soptsiz)
-                return didx;
+            if (dlen - *didx < soptsiz)
+                return;
             if (slen - i - 2 < soptsiz)
-                return didx;
-            memcpy(dbuf+didx, sbuf+i+2, soptsiz);
-            didx += soptsiz;
+                return;
+            memcpy(dbuf + *didx, sbuf+i+2, soptsiz);
+            *didx += soptsiz;
         }
         i += soptsiz + 2;
     }
-    return didx;
 }
 
 ssize_t get_dhcp_opt(const struct dhcpmsg *packet, uint8_t code, uint8_t *dbuf,
                      ssize_t dlen)
 {
     int ol = overload_value(packet);
-    ssize_t didx = do_get_dhcp_opt(packet->options, sizeof packet->options,
-                                   code, dbuf, dlen, 0);
+    ssize_t didx = 0;
+    do_get_dhcp_opt(packet->options, sizeof packet->options, code,
+                    dbuf, dlen, &didx);
     if (ol & 1)
-        didx += do_get_dhcp_opt(packet->file, sizeof packet->file, code,
-                                dbuf, dlen, didx);
+        do_get_dhcp_opt(packet->file, sizeof packet->file, code,
+                        dbuf, dlen, &didx);
     if (ol & 2)
-        didx += do_get_dhcp_opt(packet->sname, sizeof packet->sname, code,
-                                dbuf, dlen, didx);
+        do_get_dhcp_opt(packet->sname, sizeof packet->sname, code,
+                        dbuf, dlen, &didx);
     return didx;
 }
 
