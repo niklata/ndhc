@@ -220,7 +220,7 @@ static void arp_switch_state(struct client_state_t *cs, arp_state_t state)
     bool force_reopen = state == AS_DEFENSE || garp.state == AS_DEFENSE;
     if (force_reopen)
         arp_min_close_fd(cs);
-    if (cs->arpFd < 0 || force_reopen) {
+    if (cs->arpFd < 0) {
         if (arp_open_fd(cs, state) < 0)
             suicide("%s: (%s) Failed to open arpFd when changing state %u -> %u",
                     client_config.interface, __func__, garp.state, state);
