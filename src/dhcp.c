@@ -39,6 +39,7 @@
 #include "nk/log.h"
 #include "nk/io.h"
 #include "nk/random.h"
+#include "nk/net_checksum.h"
 
 #include "dhcp.h"
 #include "state.h"
@@ -116,55 +117,10 @@ static ssize_t send_dhcp_unicast(struct client_state_t *cs,
     return ret;
 }
 
-// When summing ones-complement 16-bit values using a 32-bit unsigned
-// representation, fold the carry bits that have spilled into the upper
-// 16-bits of the 32-bit unsigned value back into the 16-bit ones-complement
-// binary value.
-static inline uint16_t foldcarry(uint32_t v)
-{
-    v = (v >> 16) + (v & 0xffff);
-    v += v >> 16;
-    return v;
-}
-
-// This function is not suitable for summing buffers that are greater than
-// 128k bytes in length: failure case will be incorrect checksums via
-// unsigned overflow, which is a defined operation and is safe.  This limit
-// should not be an issue for IPv4 or IPv6 packet, which are limited to
-// at most 64k bytes.
-static uint16_t net_checksum(void *buf, size_t size)
-{
-    uint32_t sum = 0;
-    int odd = size & 0x01;
-    size_t i;
-    size &= ~((size_t)0x01);
-    size >>= 1;
-    uint8_t *b = buf;
-    for (i = 0; i < size; ++i) {
-        uint16_t hi = b[i*2];
-        uint16_t lo = b[i*2+1];
-        sum += ntohs((lo + (hi << 8)));
-    }
-    if (odd) {
-        uint16_t hi = b[i*2];
-        uint16_t lo = 0;
-        sum += ntohs((lo + (hi << 8)));
-    }
-    return ~foldcarry(sum);
-}
-
-// For two sequences of bytes A and B that return checksums CS(A) and CS(B),
-// this function will calculate the checksum CS(AB) of the concatenated value
-// AB given the checksums of the individual parts CS(A) and CS(B).
-static inline uint16_t net_checksum_add(uint16_t a, uint16_t b)
-{
-    return ~foldcarry((~a & 0xffff) + (~b & 0xffff));
-}
-
 // Returns 1 if IP checksum is correct, otherwise 0.
 static int ip_checksum(struct ip_udp_dhcp_packet *packet)
 {
-    return net_checksum(&packet->ip, sizeof packet->ip) == 0;
+    return net_checksum161c(&packet->ip, sizeof packet->ip) == 0;
 }
 
 // Returns 1 if UDP checksum is correct, otherwise 0.
@@ -176,9 +132,9 @@ static int udp_checksum(struct ip_udp_dhcp_packet *packet)
         .protocol = packet->ip.protocol,
         .tot_len = packet->udp.len,
     };
-    uint16_t udpcs = net_checksum(&packet->udp, ntohs(packet->udp.len));
-    uint16_t hdrcs = net_checksum(&ph, sizeof ph);
-    uint16_t cs = net_checksum_add(udpcs, hdrcs);
+    uint16_t udpcs = net_checksum161c(&packet->udp, ntohs(packet->udp.len));
+    uint16_t hdrcs = net_checksum161c(&ph, sizeof ph);
+    uint16_t cs = net_checksum161c_add(udpcs, hdrcs);
     return cs == 0;
 }
 
@@ -297,10 +253,10 @@ static ssize_t send_dhcp_raw(struct dhcpmsg *payload)
     iudmsg.udp.dest = htons(DHCP_SERVER_PORT);
     iudmsg.udp.len = htons(ud_len);
     iudmsg.udp.check = 0;
-    uint16_t udpcs = net_checksum(&iudmsg.udp, ud_len);
-    uint16_t phcs = net_checksum(&ph, sizeof ph);
-    iudmsg.udp.check = net_checksum_add(udpcs, phcs);
-    iudmsg.ip.check = net_checksum(&iudmsg.ip, sizeof iudmsg.ip);
+    uint16_t udpcs = net_checksum161c(&iudmsg.udp, ud_len);
+    uint16_t phcs = net_checksum161c(&ph, sizeof ph);
+    iudmsg.udp.check = net_checksum161c_add(udpcs, phcs);
+    iudmsg.ip.check = net_checksum161c(&iudmsg.ip, sizeof iudmsg.ip);
 
     struct sockaddr_ll da = {
         .sll_family = AF_PACKET,
