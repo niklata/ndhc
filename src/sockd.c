@@ -216,11 +216,23 @@ static int create_raw_socket(struct sockaddr_ll *sa, bool *using_bpf,
         goto out;
     }
 
+    if (using_bpf)
+        *using_bpf = false;
     if (filter_prog) {
         int r = setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, filter_prog,
                            sizeof *filter_prog);
-        if (using_bpf)
-            *using_bpf = !r;
+        if (r >= 0) {
+            int tv = 1;
+            r = setsockopt(fd, SOL_SOCKET, SO_LOCK_FILTER, &tv, sizeof tv);
+            if (r >= 0) {
+                if (using_bpf)
+                    *using_bpf = true;
+            } else
+                log_warning("%s: Failed to lock BPF for raw socket: %s",
+                            client_config.interface, strerror(errno));
+        } else
+            log_warning("%s: Failed to set BPF for raw socket: %s",
+                        client_config.interface, strerror(errno));
     }
 
     int opt = 1;
@@ -312,7 +324,7 @@ static int create_raw_broadcast_socket(void)
 
 static bool arp_set_bpf_basic(int fd)
 {
-    static struct sock_filter sf_arp[] = {
+    static const struct sock_filter sf_arp[] = {
         // Verify that the frame has ethernet protocol type of ARP
         // and that the ARP hardware type field indicates Ethernet.
         BPF_STMT(BPF_LD + BPF_W + BPF_ABS, 12),
@@ -330,14 +342,25 @@ static bool arp_set_bpf_basic(int fd)
     };
     static const struct sock_fprog sfp_arp = {
         .len = sizeof sf_arp / sizeof sf_arp[0],
-        .filter = sf_arp,
+        .filter = (struct sock_filter *)sf_arp,
     };
     int ret = setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &sfp_arp,
                          sizeof sfp_arp) != -1;
-    if (ret < 0)
+    if (ret >= 0) {
+        int tv = 1;
+        ret = setsockopt(fd, SOL_SOCKET, SO_LOCK_FILTER, &tv, sizeof tv);
+        // Return true IIF we ATTACHed and LOCKed the filter.  If
+        // we attached but failed to lock, then we still want the manual
+        // checks to run just in case an attacker tries to DETACH the
+        // filter.
+        if (ret < 0)
+            log_warning("%s: Failed to lock BPF for basic ARP socket: %s",
+                        client_config.interface, strerror(errno));
+        return ret >= 0;
+    } else
         log_warning("%s: Failed to set BPF for basic ARP socket: %s",
                     client_config.interface, strerror(errno));
-    return ret == 0;
+    return false;
 }
 
 static bool arp_set_bpf_defense(int fd, uint32_t client_addr,
@@ -388,11 +411,22 @@ static bool arp_set_bpf_defense(int fd, uint32_t client_addr,
         .filter = (struct sock_filter *)sf_arp,
     };
     int ret = setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &sfp_arp,
-                          sizeof sfp_arp) != -1;
-    if (ret < 0)
+                         sizeof sfp_arp) != -1;
+    if (ret >= 0) {
+        int tv = 1;
+        ret = setsockopt(fd, SOL_SOCKET, SO_LOCK_FILTER, &tv, sizeof tv);
+        // Return true IIF we ATTACHed and LOCKed the filter.  If
+        // we attached but failed to lock, then we still want the manual
+        // checks to run just in case an attacker tries to DETACH the
+        // filter.
+        if (ret < 0)
+            log_warning("%s: Failed to lock BPF for defense ARP socket: %s",
+                        client_config.interface, strerror(errno));
+        return ret >= 0;
+    } else
         log_warning("%s: Failed to set BPF for defense ARP socket: %s",
                     client_config.interface, strerror(errno));
-    return ret == 0;
+    return false;
 }
 
 static int create_arp_defense_socket(uint32_t client_addr,
