@@ -186,16 +186,16 @@ static ssize_t get_raw_packet(struct client_state_t *cs,
     }
     size_t iphdrlen = ntohs(packet.ip.tot_len);
     if ((size_t)inc != iphdrlen) {
-        log_warning("%s: UDP length [%zd] does not match header length field [%zu].",
-                    client_config.interface, inc, iphdrlen);
+        log_error("%s: UDP length [%zd] does not match header length field [%zu].",
+                  client_config.interface, inc, iphdrlen);
         return -2;
     }
     if (!cs->using_dhcp_bpf && !get_raw_packet_validate_bpf(&packet))
         return -2;
 
     if (!ip_checksum(&packet)) {
-        log_warning("%s: IP header checksum incorrect.",
-                    client_config.interface);
+        log_error("%s: IP header checksum incorrect.",
+                  client_config.interface);
         return -2;
     }
     if (packet.udp.check && !udp_checksum(&packet)) {
@@ -203,7 +203,17 @@ static ssize_t get_raw_packet(struct client_state_t *cs,
                   client_config.interface);
         return -2;
     }
+    if (iphdrlen <= sizeof packet.ip + sizeof packet.udp) {
+        log_error("%s: Packet received that is too small (%zu bytes).",
+                  iphdrlen);
+        return -2;
+    }
     size_t l = iphdrlen - sizeof packet.ip - sizeof packet.udp;
+    if (l > sizeof *payload) {
+        log_error("%s: Packet received that is too long (%zu bytes).",
+                  l);
+        return -2;
+    }
     memcpy(payload, &packet.data, l);
     return l;
 }
