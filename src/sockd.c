@@ -115,7 +115,7 @@ int request_sockd_fd(char *buf, size_t buflen, char *response)
 
 static int create_arp_socket(void)
 {
-    int fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ARP));
+    int fd = socket(AF_PACKET, SOCK_RAW | SOCK_NONBLOCK, htons(ETH_P_ARP));
     if (fd < 0) {
         log_error("%s: (%s) socket failed: %s", client_config.interface,
                   __func__, strerror(errno));
@@ -154,7 +154,7 @@ static int create_arp_socket(void)
 static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
 {
     int fd;
-    if ((fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
+    if ((fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, IPPROTO_UDP)) < 0) {
         log_error("%s: (%s) socket failed: %s",
                   client_config.interface, __func__, strerror(errno));
         goto out;
@@ -211,7 +211,8 @@ static int create_raw_socket(struct sockaddr_ll *sa, bool *using_bpf,
                              const struct sock_fprog *filter_prog)
 {
     int fd;
-    if ((fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IP))) < 0) {
+    if ((fd = socket(AF_PACKET, SOCK_DGRAM | SOCK_NONBLOCK,
+                     htons(ETH_P_IP))) < 0) {
         log_error("create_raw_socket: socket failed: %s", strerror(errno));
         goto out;
     }

@@ -467,7 +467,7 @@ static ssize_t rtnl_if_mtu_set(int fd, unsigned int mtu)
 
 int perform_ifup(void)
 {
-    int fd = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+    int fd = socket(AF_NETLINK, SOCK_DGRAM | SOCK_NONBLOCK, NETLINK_ROUTE);
     if (fd < 0) {
         log_line("%s: (%s) netlink socket open failed: %s",
                  client_config.interface, __func__, strerror(errno));
@@ -525,7 +525,7 @@ void perform_ip_subnet_bcast(const char *str_ipaddr,
         bcast.s_addr = ipaddr.s_addr | htonl(0xfffffffflu >> prefixlen);
     }
 
-    fd = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+    fd = socket(AF_NETLINK, SOCK_DGRAM | SOCK_NONBLOCK, NETLINK_ROUTE);
     if (fd < 0) {
         log_error("%s: (%s) netlink socket open failed: %s",
                   client_config.interface, __func__, strerror(errno));
@@ -584,7 +584,7 @@ void perform_router(const char *str_router, size_t len)
         return;
     }
 
-    int fd = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+    int fd = socket(AF_NETLINK, SOCK_DGRAM | SOCK_NONBLOCK, NETLINK_ROUTE);
     if (fd < 0) {
         log_error("%s: (%s) netlink socket open failed: %s",
                   client_config.interface, __func__, strerror(errno));
@@ -633,7 +633,7 @@ void perform_mtu(const char *str, size_t len)
     }
     unsigned int mtu = (unsigned int)tmtu;
 
-    int fd = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+    int fd = socket(AF_NETLINK, SOCK_DGRAM | SOCK_NONBLOCK, NETLINK_ROUTE);
     if (fd < 0) {
         log_error("%s: (%s) netlink socket open failed: %s",
                   client_config.interface, __func__, strerror(errno));

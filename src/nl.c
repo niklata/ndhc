@@ -256,20 +256,10 @@ int nl_sendgetaddr6(int fd, int seq, int ifindex)
 int nl_open(int nltype, int nlgroup, int *nlportid)
 {
     int fd;
-    fd = socket(AF_NETLINK, SOCK_RAW, nltype);
+    fd = socket(AF_NETLINK, SOCK_RAW | SOCK_NONBLOCK | SOCK_CLOEXEC, nltype);
     if (fd < 0) {
         log_error("%s: socket failed: %s", __func__, strerror(errno));
         return -1;
-    }
-    if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) < 0) {
-        log_error("%s: Set non-blocking failed: %s",
-                  __func__, strerror(errno));
-        goto err_close;
-    }
-    if (fcntl(fd, F_SETFD, FD_CLOEXEC)) {
-        log_error("%s: Set close-on-exec failed: %s",
-                  __func__, strerror(errno));
-        goto err_close;
     }
     socklen_t al;
     struct sockaddr_nl nlsock = {
