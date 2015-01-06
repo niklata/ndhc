@@ -132,7 +132,10 @@ static int udp_checksum(struct ip_udp_dhcp_packet *packet)
         .protocol = packet->ip.protocol,
         .tot_len = packet->udp.len,
     };
-    uint16_t udpcs = net_checksum161c(&packet->udp, ntohs(packet->udp.len));
+    uint16_t udpcs =
+        net_checksum161c(&packet->udp,
+                         min_size_t(ntohs(packet->udp.len),
+                                    sizeof *packet - sizeof(struct iphdr)));
     uint16_t hdrcs = net_checksum161c(&ph, sizeof ph);
     uint16_t cs = net_checksum161c_add(udpcs, hdrcs);
     return cs == 0;
