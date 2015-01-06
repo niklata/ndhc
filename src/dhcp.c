@@ -338,6 +338,11 @@ static int validate_dhcp_packet(struct client_state_t *cs, size_t len,
                     client_config.arp[4], client_config.arp[5]);
         return 0;
     }
+    ssize_t endloc = get_end_option_idx(packet);
+    if (endloc < 0) {
+        log_warning("%s: Packet does not have an end option.  Ignoring.");
+        return 0;
+    }
     *msgtype = get_option_msgtype(packet);
     if (!*msgtype) {
         log_warning("%s: Packet does not specify a DHCP message type.  Ignoring.",
