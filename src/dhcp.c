@@ -198,11 +198,6 @@ static ssize_t get_raw_packet(struct client_state_t *cs,
                   client_config.interface);
         return -2;
     }
-    if (packet.udp.check && !udp_checksum(&packet)) {
-        log_error("%s: Packet with bad UDP checksum received.  Ignoring.",
-                  client_config.interface);
-        return -2;
-    }
     if (iphdrlen <= sizeof packet.ip + sizeof packet.udp) {
         log_error("%s: Packet received that is too small (%zu bytes).",
                   iphdrlen);
@@ -212,6 +207,11 @@ static ssize_t get_raw_packet(struct client_state_t *cs,
     if (l > sizeof *payload) {
         log_error("%s: Packet received that is too long (%zu bytes).",
                   l);
+        return -2;
+    }
+    if (packet.udp.check && !udp_checksum(&packet)) {
+        log_error("%s: Packet with bad UDP checksum received.  Ignoring.",
+                  client_config.interface);
         return -2;
     }
     memcpy(payload, &packet.data, l);
