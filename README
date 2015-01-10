@@ -1,4 +1,4 @@
-ndhc, Copyright (C) 2004-2014 Nicholas J. Kain.
+ndhc, Copyright (C) 2004-2015 Nicholas J. Kain.
 See LICENSE for licensing information.  In short: Two-clause / New BSD.
 
 Requirements:
@@ -77,6 +77,7 @@ Flexible.  ndhc can request particular IPs, send user-specified client IDs,
 write a file that contains the current lease IP, write PID files, etc.
 
 Self-contained.  ndhc does not exec other processes, or rely on the shell.
+Further, ndhc relies on no external libraries aside from the system libc.
 
 Aware of the hardware link status.  If you disconnect an interface on which
 ndhc is providing dhcp service, it will be aware.  When the link status
@@ -186,9 +187,9 @@ be specified using the -I or --clientid command arguments.
 RANDOMNESS NOTES
 ----------------
 
-Each ndhc subprocess maintains a combined Tausworthe PRNG that is uniquely
-seeded from the kernel random device at startup.  Each PRNG consumes 128 bits
-of entropy for its initial state.
+Each ndhc subprocess maintains a PCG PRNG that is uniquely seeded from the
+kernel random device at startup.  Each PRNG consumes 128 bits of entropy for
+its initial state.
 
 DHCP does not require cryptographic randomness, so this arrangement should
 be more than sufficient to ensure proper UUIDs, assuming only that the
