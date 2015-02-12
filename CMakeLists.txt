@@ -110,15 +110,14 @@ try_run(GLIBC_DETECTION GLIBC_COMPILE
   RUN_OUTPUT_VARIABLE GLIBC_VERSION)
 if (GLIBC_VERSION AND GLIBC_COMPILE)
   message("glibc version detected as ${GLIBC_VERSION}")
+  COMPARE_VERSION_STRINGS(${GLIBC_VERSION} "2.17" GLIBC_MUST_LINK_RT)
+  if (${GLIBC_MUST_LINK_RT} LESS 0)
+    message("glibc <2.17 detected; linking against librt.")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -lrt")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lrt")
+  endif()
 else()
   message("Could not detect glibc version.")
-endif()
-
-COMPARE_VERSION_STRINGS(${GLIBC_VERSION} "2.17" GLIBC_MUST_LINK_RT)
-if (${GLIBC_MUST_LINK_RT} LESS 0)
-  message("glibc <2.17 detected; linking against librt.")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -lrt")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lrt")
 endif()
 
 execute_process(
