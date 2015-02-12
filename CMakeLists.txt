@@ -96,28 +96,30 @@ if (NOT (${OSNAME} STREQUAL "Linux"))
   return()
 endif()
 
-set(GLIBC_DETECT_TEST_C
-  "
-  #include <stdio.h>
-  int main(int argc, char *argv[]) {
-  printf(\"%d.%d\", __GLIBC__, __GLIBC_MINOR__);
-  return 0;
-  }
-  ")
-file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/detect/glibc.c "${GLIBC_DETECT_TEST_C}\n")
-try_run(GLIBC_DETECTION GLIBC_COMPILE
-  ${CMAKE_CURRENT_BINARY_DIR}/detect ${CMAKE_CURRENT_BINARY_DIR}/detect/glibc.c
-  RUN_OUTPUT_VARIABLE GLIBC_VERSION)
-if (GLIBC_VERSION AND GLIBC_COMPILE)
-  message("glibc version detected as ${GLIBC_VERSION}")
-  COMPARE_VERSION_STRINGS(${GLIBC_VERSION} "2.17" GLIBC_MUST_LINK_RT)
-  if (${GLIBC_MUST_LINK_RT} LESS 0)
-    message("glibc <2.17 detected; linking against librt.")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -lrt")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lrt")
+if (NOT CMAKE_CROSSCOMPILE)
+  set(GLIBC_DETECT_TEST_C
+    "
+    #include <stdio.h>
+    int main(int argc, char *argv[]) {
+    printf(\"%d.%d\", __GLIBC__, __GLIBC_MINOR__);
+    return 0;
+    }
+    ")
+  file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/detect/glibc.c "${GLIBC_DETECT_TEST_C}\n")
+  try_run(GLIBC_DETECTION GLIBC_COMPILE
+    ${CMAKE_CURRENT_BINARY_DIR}/detect ${CMAKE_CURRENT_BINARY_DIR}/detect/glibc.c
+    RUN_OUTPUT_VARIABLE GLIBC_VERSION)
+  if (GLIBC_VERSION AND GLIBC_COMPILE)
+    message("glibc version detected as ${GLIBC_VERSION}")
+    COMPARE_VERSION_STRINGS(${GLIBC_VERSION} "2.17" GLIBC_MUST_LINK_RT)
+    if (${GLIBC_MUST_LINK_RT} LESS 0)
+      message("glibc <2.17 detected; linking against librt.")
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -lrt")
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lrt")
+    endif()
+  else()
+    message("Could not detect glibc version.")
   endif()
-else()
-  message("Could not detect glibc version.")
 endif()
 
 if ("$ENV{CROSSCOMPILE_MACHINENAME}" STREQUAL "")
