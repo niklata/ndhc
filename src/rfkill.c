@@ -70,6 +70,7 @@ void handle_rfkill_notice(struct client_state_t cs[static 1], uint32_t rfkidx)
     if (event.op != RFKILL_OP_CHANGE && event.op != RFKILL_OP_CHANGE_ALL)
         return;
     if (event.soft || event.hard) {
+        cs->rfkill_set = 1;
         if (cs->ifsPrevState == IFS_UP) {
             log_line("rfkill: radio now blocked; bringing interface down");
             cs->ifsPrevState = IFS_DOWN;
@@ -77,6 +78,7 @@ void handle_rfkill_notice(struct client_state_t cs[static 1], uint32_t rfkidx)
         } else
             log_line("rfkill: radio now blocked, but interface isn't up");
     } else {
+        cs->rfkill_set = 0;
         if (cs->ifsPrevState == IFS_DOWN) {
             log_line("rfkill: radio now unblocked; bringing interface up");
             cs->ifsPrevState = IFS_UP;

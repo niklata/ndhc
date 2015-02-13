@@ -48,6 +48,12 @@ static void nl_process_msgs(const struct nlmsghdr *nlh, void *data)
     struct ifinfomsg *ifm = NLMSG_DATA(nlh);
     struct client_state_t *cs = data;
 
+    // If the rfkill switch is set, a lot of netlink state change
+    // commands will fail outright, so just ignore events until
+    // it is gone.
+    if (cs->rfkill_set)
+        return;
+
     switch(nlh->nlmsg_type) {
         case RTM_NEWLINK:
             if (ifm->ifi_index != client_config.ifindex)
