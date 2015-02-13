@@ -37,28 +37,29 @@ This option should not be necessary in most instances, but may perhaps be
 useful for odd DHCP servers that perform some kind of authentication against
 the vendor id option field.  The default is to send the string 'ndhc'.
 .TP
-.BR \-b ,\  \-\-background
+.BI \-b ,\  \-\-background
 Immediately fork into the background, even before obtaining a lease.
 .TP
 .BI \-p\  PIDFILE ,\ \-\-pidfile= PIDFILE
 Write the process id number of the ndhc process into the specified file name.
 The default is to not write the process id number into any file at all.
 .TP
-.BI \-l\  LEASEFILE ,\ \-\-leasefile= LEASEFILE
-Write the IP address of the currently held DHCP lease into the specified file
-name.  The default is to not write the lease IP address into any file at all.
-This file can be quite useful for reacting to changes in IP address -- one
-can listen for changes to it using fanotify() or inotify() on Linux.
+.BI \-s\  STATEDIR ,\ \-\-state\-dir= STATEDIR
+Specifies the directory where the DHCP state associated with the given
+interface will be stored.  Such state will include the leased IP, the
+IAID, and the DUID.  The file representing the leased IP can be quite
+useful for reacting to changes in IP address -- one can listen for changes
+to it using fanotify() or inotify() on Linux.
 .TP
 .BI \-i\  INTERFACE ,\ \-\-interface= INTERFACE
 Act as a DHCP client for the specified interface.  A single ndhc daemon can
 only act as a DHCP client for a single interface.  Specify the interface it
 should use by name.  The default is to listen on 'eth0'.
 .TP
-.BR \-n ,\  \-\-now
+.BI \-n ,\  \-\-now
 Exit with failure if a lease cannot be obtained.  Useful for some init scripts.
 .TP
-.BR \-q ,\  \-\-quit
+.BI \-q ,\  \-\-quit
 Exit after obtaining a lease.  Useful for some init scripts.
 .TP
 .BI \-r\  IP ,\ \-\-request= IP
@@ -81,12 +82,11 @@ This option specifies the directory to which ndhc should confine itself via
 chroot() after startup.  This directory should have access to dev/urandom and
 dev/null.  For logging to work, a dev/log socket or device should also exist.
 .TP
-.BR \-d ,\  \-\-relentless\-defense
+.BI \-d ,\  \-\-relentless\-defense
 If specified, ndhc will never back down in defending the IP address that it
 has been assigned by the remote DHCP server.  This behavior should not be
 specified for average machines, but is useful for servers or routers where
 the IP address of the machine must remain fixed for proper operation.
-.TP
 .TP
 .BI \-R\  RESOLVCONF ,\ \-\-resolv\-conf= RESOLVCONF
 Specifies the path to the system resolv.conf.  This file will typically be in
@@ -100,7 +100,8 @@ If specified, ndhc will update the system host name in response to any
 hostname option field provided by a remote DHCP server on the request of
 a ndhc client.  If this option is not specified, ndhc will never change
 the system hostname.
-.BR \-S ,\  \-\-seccomp\-enforce
+.TP
+.BI \-S ,\  \-\-seccomp\-enforce
 Enforces seccomp-based syscall whitelisting.  System calls that ndhc and
 ndhc-ifch are not expected to need are prohibited from being called if this
 flag is set.  The lists of allowed syscalls are hardcoded, and attempts
@@ -109,26 +110,30 @@ terminated.  As systems vary, it cannot be guaranteed that these system
 call lists are accurate for your system, and thus seccomp filtering will
 not be used unless this flag is set.
 .TP
-.BR \-w\  TIMEMS ,\  \-\-arp\-probe\-wait= TIMEMS
+.BI \-w\  TIMEMS ,\  \-\-arp\-probe\-wait= TIMEMS
 Adjusts the time that we wait for an ARP response when checking to see if
 our lease assignment is already taken by an existing host.  Default is
 1000ms.
 .TP
-.BR \-W\  NUMPROBES ,\  \-\-arp\-probe\-num= NUMPROBES
+.BI \-W\  NUMPROBES ,\  \-\-arp\-probe\-num= NUMPROBES
 Adjusts the number of ARP packets that we send when probing for collisions
 with an existing host that is using our assigned IP.  Once we have sent
 the specified number of probe packets with no response, ndhc is willing
 to believe that there is no colliding host.  Default number is 3 probes.
 .TP
-.BR \-m\  TIMEMS ,\  \-\-arp\-probe\-min= TIMEMS
+.BI \-m\  TIMEMS ,\  \-\-arp\-probe\-min= TIMEMS
 Adjusts the minimum time that we wait between sending probe packets.  The
 default is 1000ms.  The precise inter-probe wait time is randomized.
 .TP
-.BR \-M\  TIMEMS ,\  \-\-arp\-probe\-max= TIMEMS
+.BI \-M\  TIMEMS ,\  \-\-arp\-probe\-max= TIMEMS
 Adjusts the maximum time that we wait between sending probe packets.  The
 default is 2000ms.  The precise inter-probe wait time is randomized.
 .TP
-.BR \-v ,\  \-\-version
+.BI \-t\  GWMETRIC ,\  \-\-gw\-metric= GWMETRIC
+Specifies the routing metric for the default gateway entry.  Defaults to
+0 if not specified.  Higher values will de-prioritize the route entry.
+.TP
+.BI \-v ,\  \-\-version
 Display the ndhc version number.
 .SH SIGNALS
 It is not necessary to sleep between sending signals, as signals received are
