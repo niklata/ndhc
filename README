@@ -288,7 +288,7 @@ Quite a while later, I eventually merged ifchd into the same binary as ndhc
 and instead rely on forking subprocesses and using socketpairs for IPC.  This
 brought a lot of simplifications, particularly for user configuration.
 
-Afterwards, privilege seperation was applied to the remaining capabilities,
+Afterwards, privilege separation was applied to the remaining capabilities,
 creating the ndhc-sockd subprocess.  After this change, the main ndhc
 process runs completely unprivileged.
 
