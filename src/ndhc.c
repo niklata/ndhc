@@ -282,7 +282,7 @@ static void do_ndhc_work(void)
 {
     struct epoll_event events[NDHC_NUM_EP_FDS];
     long long nowts;
-    int timeout;
+    int timeout = -1;
 
     cs.epollFd = epoll_create1(0);
     if (cs.epollFd < 0)
@@ -299,9 +299,11 @@ static void do_ndhc_work(void)
     epoll_add(cs.epollFd, sockdStream[0]);
     if (client_config.enable_rfkill && cs.rfkillFd != -1)
         epoll_add(cs.epollFd, cs.rfkillFd);
-    start_dhcp_listen(&cs);
-    nowts = curms();
-    goto jumpstart;
+    if (!cs.rfkill_set) {
+        start_dhcp_listen(&cs);
+        nowts = curms();
+        goto jumpstart;
+    }
 
     for (;;) {
         int r = epoll_wait(cs.epollFd, events, NDHC_NUM_EP_FDS, timeout);
@@ -358,6 +360,13 @@ static void do_ndhc_work(void)
                            arp_wake_ts : dhcp_wake_ts) - nowts;
                 if (timeout < 0)
                     timeout = 0;
+            }
+
+            if (cs.rfkill_set) {
+                // We can't do anything until the rfkill is gone.
+                if (timeout <= 0)
+                    timeout = -1;
+                break;
             }
 
             if (!timeout) {
