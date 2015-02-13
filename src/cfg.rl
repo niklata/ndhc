@@ -163,6 +163,11 @@ struct cfgparse {
         case -1: allow_hostname = 0; default: break;
         }
     }
+    action rfkill_idx {
+        uint32_t t = atoi(ccfg.buf);
+        client_config.rfkillIdx = t;
+        client_config.enable_rfkill = 1;
+    }
     action version { print_version(); exit(EXIT_SUCCESS); }
     action help { show_usage(); exit(EXIT_SUCCESS); }
 }%%
@@ -206,13 +211,14 @@ struct cfgparse {
     gw_metric = 'gw-metric' value @gw_metric;
     resolv_conf = 'resolv-conf' value @resolv_conf;
     dhcp_set_hostname = 'dhcp-set-hostname' boolval @dhcp_set_hostname;
+    rfkill_idx = 'rfkill-idx' value @rfkill_idx;
 
     main := blankline |
         clientid | background | pidfile | hostname | interface | now | quit |
         request | vendorid | user | ifch_user | sockd_user | chroot |
         state_dir | seccomp_enforce | relentless_defense | arp_probe_wait |
         arp_probe_num | arp_probe_min | arp_probe_max | gw_metric |
-        resolv_conf | dhcp_set_hostname
+        resolv_conf | dhcp_set_hostname | rfkill_idx
     ;
 }%%
 
@@ -278,6 +284,7 @@ static void parse_cfgfile(const char *fname)
     gw_metric = ('-t'|'--gw-metric') argval @gw_metric;
     resolv_conf = ('-R'|'--resolv-conf') argval @resolv_conf;
     dhcp_set_hostname = ('-H'|'--dhcp-set-hostname') tbv @dhcp_set_hostname;
+    rfkill_idx = ('-K'|'--rfkill-idx') argval @rfkill_idx;
     version = ('-v'|'--version') 0 @version;
     help = ('-?'|'--help') 0 @help;
 
@@ -286,7 +293,8 @@ static void parse_cfgfile(const char *fname)
         now | quit | request | vendorid | user | ifch_user | sockd_user |
         chroot | state_dir | seccomp_enforce | relentless_defense |
         arp_probe_wait | arp_probe_num | arp_probe_min | arp_probe_max |
-        gw_metric | resolv_conf | dhcp_set_hostname | version | help
+        gw_metric | resolv_conf | dhcp_set_hostname | rfkill_idx |
+        version | help
     )*;
 }%%
 

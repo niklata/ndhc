@@ -71,6 +71,7 @@
 #include "ifchd.h"
 #include "duiaid.h"
 #include "sockd.h"
+#include "rfkill.h"
 
 struct client_state_t cs = {
     .ifchWorking = 0,
@@ -82,6 +83,7 @@ struct client_state_t cs = {
     .arpFd = -1,
     .nlFd = -1,
     .nlPortId = -1,
+    .rfkillFd = -1,
     .routerArp = "\0\0\0\0\0\0",
     .serverArp = "\0\0\0\0\0\0",
 };
@@ -275,7 +277,7 @@ static void handle_ifch_message(void)
         cs.ifchWorking = 0;
 }
 
-#define NDHC_NUM_EP_FDS 7
+#define NDHC_NUM_EP_FDS 8
 static void do_ndhc_work(void)
 {
     struct epoll_event events[NDHC_NUM_EP_FDS];
@@ -295,6 +297,8 @@ static void do_ndhc_work(void)
     epoll_add(cs.epollFd, ifchSock[0]);
     epoll_add(cs.epollFd, ifchStream[0]);
     epoll_add(cs.epollFd, sockdStream[0]);
+    if (client_config.enable_rfkill && cs.rfkillFd != -1)
+        epoll_add(cs.epollFd, cs.nlFd);
     start_dhcp_listen(&cs);
     nowts = curms();
     goto jumpstart;
@@ -330,6 +334,9 @@ static void do_ndhc_work(void)
             } else if (fd == sockdStream[0]) {
                 if (events[i].events & (EPOLLHUP|EPOLLERR|EPOLLRDHUP))
                     exit(EXIT_FAILURE);
+            } else if (fd == cs.rfkillFd && client_config.enable_rfkill) {
+                if (events[i].events & EPOLLIN)
+                    handle_rfkill_notice(&cs, client_config.rfkillIdx);
             } else
                 suicide("epoll_wait: unknown fd");
         }
@@ -428,6 +435,8 @@ static void ndhc_main(void) {
 
     if ((cs.nlFd = nl_open(NETLINK_ROUTE, RTMGRP_LINK, &cs.nlPortId)) < 0)
         suicide("%s: failed to open netlink socket", __func__);
+
+    cs.rfkillFd = rfkill_open(&client_config.enable_rfkill);
 
     if (client_config.foreground && !client_config.background_if_no_lease) {
         if (file_exists(pidfile, "w") < 0)

@@ -133,6 +133,17 @@ default is 2000ms.  The precise inter-probe wait time is randomized.
 Specifies the routing metric for the default gateway entry.  Defaults to
 0 if not specified.  Higher values will de-prioritize the route entry.
 .TP
+.BI \-K\  RFKILLIDX ,\  \-\-rfkill\-idx= RFKILLIDX
+If set, specifies the rfkill device index that corresponds to this interface.
+ndhc will then listen for matching radio frequency kill switch events
+and will bring the interface up and down in reaction to the events.
+The rfkill devices can be found in /sys/class/rfkill/rfkill<RFKILLIDX>.
+It may be useful to check the contents of the 'name' file within this
+directory to determine the correct device index.  In any event, if
+an rfkill-idx parameter is specified, ndhc will print messages for any
+rfkill events that it sees, so it should not be too difficult to locate
+the proper rfkill device by checking the logs after hitting the switch.
+.TP
 .BI \-v ,\  \-\-version
 Display the ndhc version number.
 .SH SIGNALS
