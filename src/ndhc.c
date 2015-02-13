@@ -298,7 +298,7 @@ static void do_ndhc_work(void)
     epoll_add(cs.epollFd, ifchStream[0]);
     epoll_add(cs.epollFd, sockdStream[0]);
     if (client_config.enable_rfkill && cs.rfkillFd != -1)
-        epoll_add(cs.epollFd, cs.nlFd);
+        epoll_add(cs.epollFd, cs.rfkillFd);
     start_dhcp_listen(&cs);
     nowts = curms();
     goto jumpstart;
