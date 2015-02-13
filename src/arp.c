@@ -49,6 +49,10 @@
 #define ARP_MSG_SIZE 0x2a
 #define ARP_RETRANS_DELAY 5000 // ms
 
+// Maximum number of retries when finding the DHCP server ethernet address
+// via ARP queries before assuming it is on a different segment.
+#define MAX_DHCP_SERVER_HWADDR_QUERIES 1
+
 // From RFC5227
 int arp_probe_wait = 1000;         // initial random delay (ms)
 int arp_probe_num = 3;             // number of probe packets
@@ -568,6 +572,13 @@ static void arp_gw_check_timeout(struct client_state_t *cs, long long nowts)
         garp.send_stats[ASEND_GW_PING].ts + ARP_RETRANS_DELAY;
 }
 
+static void arp_do_gw_query_done(struct client_state_t *cs)
+{
+    garp.wake_ts[AS_GW_QUERY] = -1;
+    arp_switch_state(cs, AS_DEFENSE);
+    arp_announcement(cs);  // Do a second announcement.
+}
+
 static void arp_gw_query_timeout(struct client_state_t *cs, long long nowts)
 {
     arp_defense_timeout(cs, nowts);
@@ -584,7 +595,17 @@ static void arp_gw_query_timeout(struct client_state_t *cs, long long nowts)
             log_warning("%s: arp: Failed to send ARP ping in retransmission.",
                         client_config.interface);
     }
+    // Here it can be a bit tricky, since DHCP proxies do exist and can
+    // mean that the DHCP server will not be on the local segment and thus
+    // will not respond to ARP.  Therefore, the serverAddr can only be
+    // treated as extra information that may or may not exist.
     if (!cs->got_server_arp) {
+        if (++cs->server_arp_tries > MAX_DHCP_SERVER_HWADDR_QUERIES) {
+            log_line("%s: arp: No ARP response from DHCP server after %d tries.  Proceeding.",
+                     client_config.interface, cs->server_arp_tries);
+            arp_do_gw_query_done(cs);
+            return;
+        }
         log_line("%s: arp: Still looking for DHCP server hardware address...",
                  client_config.interface);
         if (arp_ping(cs, cs->serverAddr) < 0)
@@ -646,13 +667,6 @@ static void arp_do_defense(struct client_state_t *cs)
     garp.last_conflict_ts = nowts;
 }
 
-static void arp_do_gw_query_done(struct client_state_t *cs)
-{
-    garp.wake_ts[AS_GW_QUERY] = -1;
-    arp_switch_state(cs, AS_DEFENSE);
-    arp_announcement(cs);  // Do a second announcement.
-}
-
 static void arp_do_gw_query(struct client_state_t *cs)
 {
     if (!arp_is_query_reply(&garp.reply)) {
@@ -709,6 +723,13 @@ static void arp_do_gw_check(struct client_state_t *cs)
         // Success only if the router/gw MAC matches stored value
         if (!memcmp(cs->routerArp, garp.reply.smac, 6)) {
             garp.router_replied = true;
+            // Handle the case where the DHCP server is proxed from
+            // a different segment and will never reply.
+            if (!cs->got_server_arp &&
+                cs->server_arp_tries > MAX_DHCP_SERVER_HWADDR_QUERIES) {
+                arp_gw_success(cs);
+                return;
+            }
             if (cs->routerAddr == cs->serverAddr)
                 goto server_is_router;
             if (garp.server_replied)

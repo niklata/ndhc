@@ -96,6 +96,7 @@ static void reinit_shared_deconfig(struct client_state_t *cs)
     num_dhcp_requests = 0;
     cs->got_router_arp = 0;
     cs->got_server_arp = 0;
+    cs->server_arp_tries = 0;
     memset(&cs->routerArp, 0, sizeof cs->routerArp);
     memset(&cs->serverArp, 0, sizeof cs->serverArp);
     arp_reset_send_stats();

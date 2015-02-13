@@ -42,6 +42,7 @@ struct client_state_t {
     int ifDeconfig; // Set if the interface has already been deconfigured.
     int epollFd, signalFd, listenFd, arpFd, nlFd;
     int nlPortId;
+    int server_arp_tries;
     uint32_t clientAddr, serverAddr, routerAddr;
     uint32_t lease, renewTime, rebindTime, xid;
     struct nk_random_state_u32 rnd32_state;
