@@ -1,6 +1,6 @@
 /* options.h - DHCP options handling
  *
- * Copyright (c) 2004-2014 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright (c) 2004-2015 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
