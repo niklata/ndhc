@@ -42,9 +42,9 @@
 #include "sys.h"
 
 static void selecting_packet(struct client_state_t *cs, struct dhcpmsg *packet,
-                             uint8_t msgtype);
+                             uint8_t msgtype, uint32_t srcaddr);
 static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
-                      uint8_t msgtype);
+                      uint8_t msgtype, uint32_t srcaddr);
 static void selecting_timeout(struct client_state_t *cs, long long nowts);
 static void requesting_timeout(struct client_state_t *cs, long long nowts);
 static void bound_timeout(struct client_state_t *cs, long long nowts);
@@ -57,7 +57,7 @@ static void frenew(struct client_state_t *cs);
 
 typedef struct {
     void (*packet_fn)(struct client_state_t *cs, struct dhcpmsg *packet,
-                      uint8_t msgtype);
+                      uint8_t msgtype, uint32_t srcaddr);
     void (*timeout_fn)(struct client_state_t *cs, long long nowts);
     void (*force_renew_fn)(struct client_state_t *cs);
     void (*force_release_fn)(struct client_state_t *cs);
@@ -96,7 +96,6 @@ static void reinit_shared_deconfig(struct client_state_t *cs)
     num_dhcp_requests = 0;
     cs->got_router_arp = 0;
     cs->got_server_arp = 0;
-    cs->server_arp_tries = 0;
     memset(&cs->routerArp, 0, sizeof cs->routerArp);
     memset(&cs->serverArp, 0, sizeof cs->serverArp);
     arp_reset_send_stats();
@@ -225,8 +224,9 @@ static int validate_serverid(struct client_state_t *cs, struct dhcpmsg *packet,
 
 // Can transition to DS_BOUND or DS_SELECTING.
 static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
-                      uint8_t msgtype)
+                      uint8_t msgtype, uint32_t srcaddr)
 {
+    (void)srcaddr;
     if (msgtype == DHCPACK) {
         if (!validate_serverid(cs, packet, "a DHCP ACK"))
             return;
@@ -281,7 +281,7 @@ static void an_packet(struct client_state_t *cs, struct dhcpmsg *packet,
 }
 
 static void selecting_packet(struct client_state_t *cs, struct dhcpmsg *packet,
-                             uint8_t msgtype)
+                             uint8_t msgtype, uint32_t srcaddr)
 {
     if (msgtype == DHCPOFFER) {
         int found;
@@ -289,9 +289,11 @@ static void selecting_packet(struct client_state_t *cs, struct dhcpmsg *packet,
         if (found) {
             char clibuf[INET_ADDRSTRLEN];
             char svrbuf[INET_ADDRSTRLEN];
+            char srcbuf[INET_ADDRSTRLEN];
             cs->serverAddr = sid;
             cs->xid = packet->xid;
             cs->clientAddr = packet->yiaddr;
+            cs->srcAddr = srcaddr;
             cs->dhcpState = DS_REQUESTING;
             dhcp_wake_ts = curms();
             num_dhcp_requests = 0;
@@ -299,8 +301,10 @@ static void selecting_packet(struct client_state_t *cs, struct dhcpmsg *packet,
                       clibuf, sizeof clibuf);
             inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->serverAddr},
                       svrbuf, sizeof svrbuf);
-            log_line("%s: Received an offer of %s from server %s.",
-                     client_config.interface, clibuf, svrbuf);
+            inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->srcAddr},
+                      srcbuf, sizeof srcbuf);
+            log_line("%s: Received IP offer: %s from server %s via %s.",
+                     client_config.interface, clibuf, svrbuf, srcbuf);
         } else {
             log_line("%s: Invalid offer received: it didn't have a server id.",
                      client_config.interface);
@@ -402,10 +406,10 @@ void ifnocarrier_action(struct client_state_t *cs)
 }
 
 void packet_action(struct client_state_t *cs, struct dhcpmsg *packet,
-                   uint8_t msgtype)
+                   uint8_t msgtype, uint32_t srcaddr)
 {
     if (dhcp_states[cs->dhcpState].packet_fn)
-        dhcp_states[cs->dhcpState].packet_fn(cs, packet, msgtype);
+        dhcp_states[cs->dhcpState].packet_fn(cs, packet, msgtype, srcaddr);
 }
 
 void timeout_action(struct client_state_t *cs, long long nowts)

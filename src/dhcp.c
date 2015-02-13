@@ -174,7 +174,8 @@ static int get_raw_packet_validate_bpf(struct ip_udp_dhcp_packet *packet)
 // Read a packet from a raw socket.  Returns -1 on fatal error, -2 on
 // transient error.
 static ssize_t get_raw_packet(struct client_state_t *cs,
-                              struct dhcpmsg *payload)
+                              struct dhcpmsg *payload,
+                              uint32_t *srcaddr)
 {
     struct ip_udp_dhcp_packet packet;
     memset(&packet, 0, sizeof packet);
@@ -217,6 +218,8 @@ static ssize_t get_raw_packet(struct client_state_t *cs,
                   client_config.interface);
         return -2;
     }
+    if (srcaddr)
+        *srcaddr = packet.ip.saddr;
     memcpy(payload, &packet.data, l);
     return l;
 }
@@ -370,7 +373,8 @@ void handle_packet(struct client_state_t *cs)
     if (cs->listenFd < 0)
         return;
     struct dhcpmsg packet;
-    ssize_t r = get_raw_packet(cs, &packet);
+    uint32_t srcaddr;
+    ssize_t r = get_raw_packet(cs, &packet, &srcaddr);
     if (r < 0) {
         // Not a transient issue handled by packet collection functions.
         if (r != -2) {
@@ -384,7 +388,7 @@ void handle_packet(struct client_state_t *cs)
     uint8_t msgtype;
     if (!validate_dhcp_packet(cs, (size_t)r, &packet, &msgtype))
         return;
-    packet_action(cs, &packet, msgtype);
+    packet_action(cs, &packet, msgtype, srcaddr);
 }
 
 // Initialize a DHCP client packet that will be sent to a server

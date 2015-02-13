@@ -49,10 +49,6 @@
 #define ARP_MSG_SIZE 0x2a
 #define ARP_RETRANS_DELAY 5000 // ms
 
-// Maximum number of retries when finding the DHCP server ethernet address
-// via ARP queries before assuming it is on a different segment.
-#define MAX_DHCP_SERVER_HWADDR_QUERIES 1
-
 // From RFC5227
 int arp_probe_wait = 1000;         // initial random delay (ms)
 int arp_probe_num = 3;             // number of probe packets
@@ -351,7 +347,7 @@ int arp_gw_check(struct client_state_t *cs)
         return 0;
     garp.gw_check_initpings = garp.send_stats[ASEND_GW_PING].count;
     garp.server_replied = false;
-    if (arp_ping(cs, cs->serverAddr) < 0)
+    if (arp_ping(cs, cs->srcAddr) < 0)
         return -1;
     if (cs->routerAddr) {
         garp.router_replied = false;
@@ -380,7 +376,7 @@ static int arp_get_gw_hwaddr(struct client_state_t *cs)
         log_line("%s: arp: Searching for dhcp server address...",
                  client_config.interface);
     cs->got_server_arp = 0;
-    if (arp_ping(cs, cs->serverAddr) < 0)
+    if (arp_ping(cs, cs->srcAddr) < 0)
         return -1;
     if (cs->routerAddr) {
         cs->got_router_arp = 0;
@@ -413,13 +409,13 @@ static int act_if_arp_gw_failed(struct client_state_t *cs)
 {
     if (garp.send_stats[ASEND_GW_PING].count >= garp.gw_check_initpings + 6) {
         if (garp.router_replied && !garp.server_replied)
-            log_line("%s: arp: DHCP server didn't reply.  Getting new lease.",
+            log_line("%s: arp: DHCP agent didn't reply.  Getting new lease.",
                      client_config.interface);
         else if (!garp.router_replied && garp.server_replied)
             log_line("%s: arp: Gateway didn't reply.  Getting new lease.",
                      client_config.interface);
         else
-            log_line("%s: arp: DHCP server and gateway didn't reply.  Getting new lease.",
+            log_line("%s: arp: DHCP agent and gateway didn't reply.  Getting new lease.",
                      client_config.interface);
         arp_gw_failed(cs);
         return 1;
@@ -562,9 +558,9 @@ static void arp_gw_check_timeout(struct client_state_t *cs, long long nowts)
                         client_config.interface);
     }
     if (!garp.server_replied) {
-        log_line("%s: arp: Still waiting for DHCP server to reply to arp ping...",
+        log_line("%s: arp: Still waiting for DHCP agent to reply to arp ping...",
                  client_config.interface);
-        if (arp_ping(cs, cs->serverAddr) < 0)
+        if (arp_ping(cs, cs->srcAddr) < 0)
             log_warning("%s: arp: Failed to send ARP ping in retransmission.",
                         client_config.interface);
     }
@@ -595,20 +591,10 @@ static void arp_gw_query_timeout(struct client_state_t *cs, long long nowts)
             log_warning("%s: arp: Failed to send ARP ping in retransmission.",
                         client_config.interface);
     }
-    // Here it can be a bit tricky, since DHCP proxies do exist and can
-    // mean that the DHCP server will not be on the local segment and thus
-    // will not respond to ARP.  Therefore, the serverAddr can only be
-    // treated as extra information that may or may not exist.
     if (!cs->got_server_arp) {
-        if (++cs->server_arp_tries > MAX_DHCP_SERVER_HWADDR_QUERIES) {
-            log_line("%s: arp: No ARP response from DHCP server after %d tries.  Proceeding.",
-                     client_config.interface, cs->server_arp_tries);
-            arp_do_gw_query_done(cs);
-            return;
-        }
-        log_line("%s: arp: Still looking for DHCP server hardware address...",
+        log_line("%s: arp: Still looking for DHCP agent hardware address...",
                  client_config.interface);
-        if (arp_ping(cs, cs->serverAddr) < 0)
+        if (arp_ping(cs, cs->srcAddr) < 0)
             log_warning("%s: arp: Failed to send ARP ping in retransmission.",
                         client_config.interface);
     }
@@ -680,16 +666,16 @@ static void arp_do_gw_query(struct client_state_t *cs)
                  cs->routerArp[2], cs->routerArp[3],
                  cs->routerArp[4], cs->routerArp[5]);
         cs->got_router_arp = 1;
-        if (cs->routerAddr == cs->serverAddr)
+        if (cs->routerAddr == cs->srcAddr)
             goto server_is_router;
         if (cs->got_server_arp)
             arp_do_gw_query_done(cs);
         return;
     }
-    if (!memcmp(garp.reply.sip4, &cs->serverAddr, 4)) {
+    if (!memcmp(garp.reply.sip4, &cs->srcAddr, 4)) {
 server_is_router:
         memcpy(cs->serverArp, garp.reply.smac, 6);
-        log_line("%s: arp: DHCP Server hardware address %02x:%02x:%02x:%02x:%02x:%02x",
+        log_line("%s: arp: DHCP agent hardware address %02x:%02x:%02x:%02x:%02x:%02x",
                  client_config.interface, cs->serverArp[0], cs->serverArp[1],
                  cs->serverArp[2], cs->serverArp[3],
                  cs->serverArp[4], cs->serverArp[5]);
@@ -723,14 +709,7 @@ static void arp_do_gw_check(struct client_state_t *cs)
         // Success only if the router/gw MAC matches stored value
         if (!memcmp(cs->routerArp, garp.reply.smac, 6)) {
             garp.router_replied = true;
-            // Handle the case where the DHCP server is proxed from
-            // a different segment and will never reply.
-            if (!cs->got_server_arp &&
-                cs->server_arp_tries > MAX_DHCP_SERVER_HWADDR_QUERIES) {
-                arp_gw_success(cs);
-                return;
-            }
-            if (cs->routerAddr == cs->serverAddr)
+            if (cs->routerAddr == cs->srcAddr)
                 goto server_is_router;
             if (garp.server_replied)
                 arp_gw_success(cs);
@@ -741,7 +720,7 @@ static void arp_do_gw_check(struct client_state_t *cs)
         }
         return;
     }
-    if (!memcmp(garp.reply.sip4, &cs->serverAddr, 4)) {
+    if (!memcmp(garp.reply.sip4, &cs->srcAddr, 4)) {
 server_is_router:
         // Success only if the server MAC matches stored value
         if (!memcmp(cs->serverArp, garp.reply.smac, 6)) {
@@ -749,7 +728,7 @@ server_is_router:
             if (garp.router_replied)
                 arp_gw_success(cs);
         } else {
-            log_line("%s: arp: DHCP server is different.  Getting a new lease.",
+            log_line("%s: arp: DHCP agent is different.  Getting a new lease.",
                      client_config.interface);
             arp_gw_failed(cs);
         }
