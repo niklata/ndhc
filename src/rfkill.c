@@ -36,6 +36,7 @@
 #include "nk/io.h"
 #include "ndhc.h"
 #include "netlink.h"
+#include "ifset.h"
 #include "rfkill.h"
 
 int rfkill_open(char enable_rfkill[static 1])
@@ -81,6 +82,18 @@ void handle_rfkill_notice(struct client_state_t cs[static 1], uint32_t rfkidx)
         cs->rfkill_set = 0;
         if (cs->ifsPrevState == IFS_DOWN) {
             log_line("rfkill: radio now unblocked; bringing interface up");
+            if (cs->rfkill_at_init) {
+                cs->rfkill_at_init = 0;
+                switch (perform_ifup()) {
+                    case 1: case 0: break;
+                    case -3:
+                        cs->rfkill_set = 1;
+                        cs->rfkill_at_init = 1;
+                        log_line("rfkill: radio immediately blocked again; spurious?");
+                        return;
+                    default: suicide("failed to set the interface to up state");
+                }
+            }
             cs->ifsPrevState = IFS_UP;
             ifup_action(cs);
         } else {
