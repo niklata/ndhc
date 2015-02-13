@@ -96,7 +96,7 @@ if (NOT (${OSNAME} STREQUAL "Linux"))
   return()
 endif()
 
-if (NOT CMAKE_CROSSCOMPILE)
+if (NOT CMAKE_CROSSCOMPILING)
   set(GLIBC_DETECT_TEST_C
     "
     #include <stdio.h>
