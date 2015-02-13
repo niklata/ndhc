@@ -493,6 +493,7 @@ int main(int argc, char *argv[])
     switch (perform_ifup()) {
     case 1: cs.ifsPrevState = IFS_UP;
     case 0: break;
+    case -3: cs.rfkill_set = 1; cs.ifsPrevState = IFS_DOWN; break;
     default: suicide("failed to set the interface to up state");
     }
 

@@ -128,12 +128,17 @@ static ssize_t rtnl_do_send(int fd, const uint8_t *sbuf, size_t slen,
     }
     const struct nlmsghdr *nlh = (const struct nlmsghdr *)response;
     if (nlh->nlmsg_type == NLMSG_ERROR) {
-        if (nlmsg_get_error(nlh) == 0)
+        int nlerr = nlmsg_get_error(nlh);
+        if (nlerr == 0)
             return 0;
         else {
+            if (nlerr == 132) {
+                log_line("%s: (%s) RF-kill is set (%d).  Cannot change interface.",
+                         client_config.interface, fnname, nlerr);
+                return -3;
+            }
             log_error("%s: (%s) netlink sendto returned NLMSG_ERROR: %s",
-                      client_config.interface, fnname,
-                      strerror(nlmsg_get_error(nlh)));
+                      client_config.interface, fnname, strerror(nlerr));
             return -1;
         }
     }
@@ -475,9 +480,14 @@ int perform_ifup(void)
     }
 
     int r = link_set_flags(fd, IFF_UP);
-    if (r < 0)
-        log_error("%s: (%s) Failed to set link to be up.",
-                  client_config.interface, __func__);
+    if (r < 0) {
+        if (r != -3)
+            log_error("%s: (%s) Failed to set link to be up.",
+                      client_config.interface, __func__);
+        else
+            log_line("%s: (%s) rfkill is set; waiting until it is unset",
+                     client_config.interface, __func__);
+    }
     close(fd);
     return r;
 }
