@@ -343,7 +343,7 @@ void stop_dhcp_listen(struct client_state_t cs[static 1])
 
 static int validate_dhcp_packet(struct client_state_t cs[static 1],
                                 size_t len, struct dhcpmsg packet[static 1],
-                                uint8_t *msgtype)
+                                uint8_t msgtype[static 1])
 {
     if (len < offsetof(struct dhcpmsg, options)) {
         log_warning("%s: Packet is too short to contain magic cookie.  Ignoring.",

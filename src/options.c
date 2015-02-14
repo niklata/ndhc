@@ -75,8 +75,9 @@ static int overload_value(const struct dhcpmsg packet[static 1])
     return ol; // ol == 0
 }
 
-static void do_get_dhcp_opt(const uint8_t *sbuf, ssize_t slen, uint8_t code,
-                            uint8_t *dbuf, ssize_t dlen, ssize_t *didx)
+static void do_get_dhcp_opt(const uint8_t sbuf[static 1], ssize_t slen,
+                            uint8_t code, uint8_t dbuf[static 1],
+                            ssize_t dlen, ssize_t didx[static 1])
 {
     ssize_t i = 0;
     while (i < slen) {
@@ -102,7 +103,7 @@ static void do_get_dhcp_opt(const uint8_t *sbuf, ssize_t slen, uint8_t code,
 }
 
 ssize_t get_dhcp_opt(const struct dhcpmsg packet[static 1], uint8_t code,
-                     uint8_t *dbuf, ssize_t dlen)
+                     uint8_t dbuf[static 1], ssize_t dlen)
 {
     int ol = overload_value(packet);
     ssize_t didx = 0;
