@@ -78,7 +78,7 @@ static int get_raw_listen_socket(struct client_state_t cs[static 1])
 
 // Unicast a DHCP message using a UDP socket.
 static ssize_t send_dhcp_unicast(struct client_state_t cs[static 1],
-                                 struct dhcpmsg *payload)
+                                 struct dhcpmsg payload[static 1])
 {
     ssize_t ret = -1;
     int fd = get_udp_unicast_socket(cs);
@@ -124,13 +124,13 @@ static ssize_t send_dhcp_unicast(struct client_state_t cs[static 1],
 }
 
 // Returns 1 if IP checksum is correct, otherwise 0.
-static int ip_checksum(struct ip_udp_dhcp_packet *packet)
+static int ip_checksum(struct ip_udp_dhcp_packet packet[static 1])
 {
     return net_checksum161c(&packet->ip, sizeof packet->ip) == 0;
 }
 
 // Returns 1 if UDP checksum is correct, otherwise 0.
-static int udp_checksum(struct ip_udp_dhcp_packet *packet)
+static int udp_checksum(struct ip_udp_dhcp_packet packet[static 1])
 {
     struct iphdr ph = {
         .saddr = packet->ip.saddr,
@@ -147,7 +147,7 @@ static int udp_checksum(struct ip_udp_dhcp_packet *packet)
     return cs == 0;
 }
 
-static int get_raw_packet_validate_bpf(struct ip_udp_dhcp_packet *packet)
+static int get_raw_packet_validate_bpf(struct ip_udp_dhcp_packet packet[static 1])
 {
     if (packet->ip.version != IPVERSION) {
         log_warning("%s: IP version is not IPv4.", client_config.interface);
@@ -180,7 +180,7 @@ static int get_raw_packet_validate_bpf(struct ip_udp_dhcp_packet *packet)
 // Read a packet from a raw socket.  Returns -1 on fatal error, -2 on
 // transient error.
 static ssize_t get_raw_packet(struct client_state_t cs[static 1],
-                              struct dhcpmsg *payload,
+                              struct dhcpmsg payload[static 1],
                               uint32_t *srcaddr)
 {
     struct ip_udp_dhcp_packet packet;
@@ -244,7 +244,7 @@ int check_carrier(int fd)
 }
 
 // Broadcast a DHCP message using a raw socket.
-static ssize_t send_dhcp_raw(struct dhcpmsg *payload)
+static ssize_t send_dhcp_raw(struct dhcpmsg payload[static 1])
 {
     ssize_t ret = -1;
     int fd = get_raw_broadcast_socket();
@@ -341,8 +341,9 @@ void stop_dhcp_listen(struct client_state_t cs[static 1])
     cs->listenFd = -1;
 }
 
-static int validate_dhcp_packet(struct client_state_t cs[static 1], size_t len,
-                                struct dhcpmsg *packet, uint8_t *msgtype)
+static int validate_dhcp_packet(struct client_state_t cs[static 1],
+                                size_t len, struct dhcpmsg packet[static 1],
+                                uint8_t *msgtype)
 {
     if (len < offsetof(struct dhcpmsg, options)) {
         log_warning("%s: Packet is too short to contain magic cookie.  Ignoring.",

@@ -47,7 +47,7 @@ void epoll_add(int epfd, int fd);
 void epoll_del(int epfd, int fd);
 
 int setup_signals_subprocess(void);
-void signal_dispatch_subprocess(int sfd, const char *pname);
+void signal_dispatch_subprocess(int sfd, const char pname[static 1]);
 
 #endif /* SYS_H_ */
 

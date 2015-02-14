@@ -75,7 +75,7 @@ int setup_signals_subprocess(void)
     return sfd;
 }
 
-void signal_dispatch_subprocess(int sfd, const char *pname)
+void signal_dispatch_subprocess(int sfd, const char pname[static 1])
 {
     struct signalfd_siginfo si = {0};
     ssize_t r = safe_read(sfd, (char *)&si, sizeof si);

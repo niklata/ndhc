@@ -172,16 +172,16 @@ static void write_resolve_conf(void)
 }
 
 /* XXX: addme */
-void perform_timezone(const char *str, size_t len)
+void perform_timezone(const char str[static 1], size_t len)
 {
     (void)len;
     log_line("Timezone setting NYI: '%s'", str);
 }
 
 /* Add a dns server to the /etc/resolv.conf -- we already have a fd. */
-void perform_dns(const char *str, size_t len)
+void perform_dns(const char str[static 1], size_t len)
 {
-    if (!str || resolv_conf_fd < 0)
+    if (resolv_conf_fd < 0)
         return;
     if (len > sizeof cl.namesvrs) {
         log_line("DNS server list is too long: %zu > %zu", len, cl.namesvrs);
@@ -197,16 +197,16 @@ void perform_dns(const char *str, size_t len)
 }
 
 /* Updates for print daemons are too non-standard to be useful. */
-void perform_lprsvr(const char *str, size_t len)
+void perform_lprsvr(const char str[static 1], size_t len)
 {
     (void)len;
     log_line("Line printer server setting NYI: '%s'", str);
 }
 
 /* Sets machine hostname. */
-void perform_hostname(const char *str, size_t len)
+void perform_hostname(const char str[static 1], size_t len)
 {
-    if (!allow_hostname || !str)
+    if (!allow_hostname)
         return;
     if (sethostname(str, len) < 0)
         log_line("sethostname returned %s", strerror(errno));
@@ -215,9 +215,9 @@ void perform_hostname(const char *str, size_t len)
 }
 
 /* update "domain" and "search" in /etc/resolv.conf */
-void perform_domain(const char *str, size_t len)
+void perform_domain(const char str[static 1], size_t len)
 {
-    if (!str || resolv_conf_fd < 0)
+    if (resolv_conf_fd < 0)
         return;
     if (len > sizeof cl.domains) {
         log_line("DNS domain list is too long: %zu > %zu", len, cl.namesvrs);
@@ -234,21 +234,21 @@ void perform_domain(const char *str, size_t len)
 
 /* I don't think this can be done without a netfilter extension
  * that isn't in the mainline kernels. */
-void perform_ipttl(const char *str, size_t len)
+void perform_ipttl(const char str[static 1], size_t len)
 {
     (void)len;
     log_line("TTL setting NYI: '%s'", str);
 }
 
 /* XXX: addme */
-void perform_ntpsrv(const char *str, size_t len)
+void perform_ntpsrv(const char str[static 1], size_t len)
 {
     (void)len;
     log_line("NTP server setting NYI: '%s'", str);
 }
 
 /* Maybe Samba cares about this feature?  I don't know. */
-void perform_wins(const char *str, size_t len)
+void perform_wins(const char str[static 1], size_t len)
 {
     (void)str;
     (void)len;

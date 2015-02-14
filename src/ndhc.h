@@ -80,9 +80,9 @@ extern char pidfile[PATH_MAX];
 extern uid_t ndhc_uid;
 extern gid_t ndhc_gid;
 
-void set_client_addr(const char *v);
+void set_client_addr(const char v[static 1]);
 void show_usage(void);
-int get_clientid_string(char *str, size_t slen);
+int get_clientid_string(const char str[static 1], size_t slen);
 void background(void);
 void print_version(void);
 

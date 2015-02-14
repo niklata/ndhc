@@ -41,9 +41,9 @@
 #include "ndhc.h"
 #include "sys.h"
 
-static void selecting_packet(struct client_state_t cs[static 1], struct dhcpmsg *packet,
+static void selecting_packet(struct client_state_t cs[static 1], struct dhcpmsg packet[static 1],
                              uint8_t msgtype, uint32_t srcaddr);
-static void an_packet(struct client_state_t cs[static 1], struct dhcpmsg *packet,
+static void an_packet(struct client_state_t cs[static 1], struct dhcpmsg packet[static 1],
                       uint8_t msgtype, uint32_t srcaddr);
 static void selecting_timeout(struct client_state_t cs[static 1], long long nowts);
 static void requesting_timeout(struct client_state_t cs[static 1], long long nowts);
@@ -56,7 +56,7 @@ static void print_release(struct client_state_t cs[static 1]);
 static void frenew(struct client_state_t cs[static 1]);
 
 typedef struct {
-    void (*packet_fn)(struct client_state_t cs[static 1], struct dhcpmsg *packet,
+    void (*packet_fn)(struct client_state_t cs[static 1], struct dhcpmsg packet[static 1],
                       uint8_t msgtype, uint32_t srcaddr);
     void (*timeout_fn)(struct client_state_t cs[static 1], long long nowts);
     void (*force_renew_fn)(struct client_state_t cs[static 1]);
@@ -201,7 +201,7 @@ static void released_timeout(struct client_state_t cs[static 1], long long nowts
     dhcp_wake_ts = -1;
 }
 
-static int validate_serverid(struct client_state_t cs[static 1], struct dhcpmsg *packet,
+static int validate_serverid(struct client_state_t cs[static 1], struct dhcpmsg packet[static 1],
                              char *typemsg)
 {
     int found;
@@ -223,7 +223,7 @@ static int validate_serverid(struct client_state_t cs[static 1], struct dhcpmsg 
 }
 
 // Can transition to DS_BOUND or DS_SELECTING.
-static void an_packet(struct client_state_t cs[static 1], struct dhcpmsg *packet,
+static void an_packet(struct client_state_t cs[static 1], struct dhcpmsg packet[static 1],
                       uint8_t msgtype, uint32_t srcaddr)
 {
     (void)srcaddr;
@@ -280,7 +280,7 @@ static void an_packet(struct client_state_t cs[static 1], struct dhcpmsg *packet
     }
 }
 
-static void selecting_packet(struct client_state_t cs[static 1], struct dhcpmsg *packet,
+static void selecting_packet(struct client_state_t cs[static 1], struct dhcpmsg packet[static 1],
                              uint8_t msgtype, uint32_t srcaddr)
 {
     if (msgtype == DHCPOFFER) {
@@ -405,8 +405,9 @@ void ifnocarrier_action(struct client_state_t cs[static 1])
     log_line("%s: Carrier down.", client_config.interface);
 }
 
-void packet_action(struct client_state_t cs[static 1], struct dhcpmsg *packet,
-                   uint8_t msgtype, uint32_t srcaddr)
+void packet_action(struct client_state_t cs[static 1],
+                   struct dhcpmsg packet[static 1], uint8_t msgtype,
+                   uint32_t srcaddr)
 {
     if (dhcp_states[cs->dhcpState].packet_fn)
         dhcp_states[cs->dhcpState].packet_fn(cs, packet, msgtype, srcaddr);

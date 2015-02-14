@@ -45,8 +45,9 @@ typedef enum {
 
 void reinit_selecting(struct client_state_t cs[static 1], int timeout);
 
-void packet_action(struct client_state_t cs[static 1], struct dhcpmsg *packet,
-                   uint8_t msgtype, uint32_t srcaddr);
+void packet_action(struct client_state_t cs[static 1],
+                   struct dhcpmsg packet[static 1], uint8_t msgtype,
+                   uint32_t srcaddr);
 void timeout_action(struct client_state_t cs[static 1], long long nowts);
 void force_renew_action(struct client_state_t cs[static 1]);
 void force_release_action(struct client_state_t cs[static 1]);

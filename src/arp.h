@@ -61,7 +61,8 @@ extern int arp_probe_max;
 void set_arp_relentless_def(bool v);
 void arp_reset_send_stats(void);
 void arp_close_fd(struct client_state_t cs[static 1]);
-int arp_check(struct client_state_t cs[static 1], struct dhcpmsg *packet);
+int arp_check(struct client_state_t cs[static 1],
+              struct dhcpmsg packet[static 1]);
 int arp_gw_check(struct client_state_t cs[static 1]);
 void arp_set_defense_mode(struct client_state_t cs[static 1]);
 void arp_success(struct client_state_t cs[static 1]);

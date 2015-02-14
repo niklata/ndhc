@@ -224,7 +224,7 @@ struct cfgparse {
 
 %% write data;
 
-static void parse_cfgfile(const char *fname)
+static void parse_cfgfile(const char fname[static 1])
 {
     struct cfgparse ccfg;
     memset(&ccfg, 0, sizeof ccfg);

@@ -180,7 +180,7 @@ static void perform_ip4set(const char buf[static 1], size_t len)
 /*
  * Returns -1 on fatal error; that leads to peer connection being closed.
  */
-int execute_buffer(char *newbuf)
+int execute_buffer(const char newbuf[static 1])
 {
     char buf[MAX_BUF * 2];
     char tb[MAX_BUF];

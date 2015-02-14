@@ -41,7 +41,7 @@
 #include "duiaid.h"
 #include "ndhc.h"
 
-static void get_duid_path(char *duidfile, size_t dlen)
+static void get_duid_path(char duidfile[static 1], size_t dlen)
 {
     int splen = snprintf(duidfile, dlen, "%s/DUID", state_dir);
     if (splen < 0)
@@ -51,8 +51,8 @@ static void get_duid_path(char *duidfile, size_t dlen)
                 __func__, splen, sizeof dlen);
 }
 
-static void get_iaid_path(char *iaidfile, size_t ilen, uint8_t *hwaddr,
-                          size_t hwaddrlen)
+static void get_iaid_path(char iaidfile[static 1], size_t ilen,
+                          const uint8_t hwaddr[static 6], size_t hwaddrlen)
 {
     if (hwaddrlen != 6)
         suicide("%s: Hardware address length=%u != 6 bytes",
@@ -92,7 +92,7 @@ static int open_duidfile_write(void)
     return fd;
 }
 
-static int open_iaidfile_read(uint8_t *hwaddr, size_t hwaddrlen)
+static int open_iaidfile_read(const uint8_t hwaddr[static 6], size_t hwaddrlen)
 {
     char iaidfile[PATH_MAX];
     get_iaid_path(iaidfile, sizeof iaidfile, hwaddr, hwaddrlen);
@@ -104,7 +104,8 @@ static int open_iaidfile_read(uint8_t *hwaddr, size_t hwaddrlen)
     return fd;
 }
 
-static int open_iaidfile_write(uint8_t *hwaddr, size_t hwaddrlen)
+static int open_iaidfile_write(const uint8_t hwaddr[static 6],
+                               size_t hwaddrlen)
 {
     char iaidfile[PATH_MAX];
     get_iaid_path(iaidfile, sizeof iaidfile, hwaddr, hwaddrlen);
@@ -120,8 +121,8 @@ static int open_iaidfile_write(uint8_t *hwaddr, size_t hwaddrlen)
 // RFC6355 specifies a RFC4122 UUID, but I simply use a 128-byte random
 // value, as the complexity of RFC4122 UUID generation is completely
 // unwarranted for DHCPv4.
-static size_t generate_duid(struct nk_random_state_u32 *s, char *dest,
-                            size_t dlen)
+static size_t generate_duid(struct nk_random_state_u32 s[static 1],
+                            char dest[static 1], size_t dlen)
 {
     const size_t tlen = sizeof(uint16_t) + 4 * sizeof(uint32_t);
     if (dlen < tlen)
@@ -142,8 +143,8 @@ static size_t generate_duid(struct nk_random_state_u32 *s, char *dest,
 
 // RFC6355 specifies the IAID as a 32-bit value that uniquely identifies
 // a hardware link for a given host.
-static size_t generate_iaid(struct nk_random_state_u32 *s, char *dest,
-                            size_t dlen)
+static size_t generate_iaid(struct nk_random_state_u32 s[static 1],
+                            char dest[static 1], size_t dlen)
 {
     if (dlen < sizeof(uint32_t))
         suicide("%s: dlen < %u", __func__, sizeof(uint32_t));
@@ -156,7 +157,8 @@ static size_t generate_iaid(struct nk_random_state_u32 *s, char *dest,
 }
 
 // Failures are all fatal.
-void get_clientid(struct client_state_t cs[static 1], struct client_config_t cc[static 1])
+void get_clientid(struct client_state_t cs[static 1],
+                  struct client_config_t cc[static 1])
 {
     if (cc->clientid_len > 0)
         return;

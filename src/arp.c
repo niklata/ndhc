@@ -209,7 +209,8 @@ static void arp_min_close_fd(struct client_state_t cs[static 1])
     garp.state = AS_NONE;
 }
 
-static void arp_switch_state(struct client_state_t cs[static 1], arp_state_t state)
+static void arp_switch_state(struct client_state_t cs[static 1],
+                             arp_state_t state)
 {
     if (garp.state == state || garp.state >= AS_MAX)
         return;
@@ -242,7 +243,8 @@ static void arp_reopen_fd(struct client_state_t cs[static 1])
     arp_switch_state(cs, prev_state);
 }
 
-static int arp_send(struct client_state_t cs[static 1], struct arpMsg *arp)
+static int arp_send(struct client_state_t cs[static 1],
+                    struct arpMsg arp[static 1])
 {
     struct sockaddr_ll addr = {
         .sll_family = AF_PACKET,
@@ -305,7 +307,8 @@ static int arp_ping(struct client_state_t cs[static 1], uint32_t test_ip)
 }
 
 // Returns 0 on success, -1 on failure.
-static int arp_ip_anon_ping(struct client_state_t cs[static 1], uint32_t test_ip)
+static int arp_ip_anon_ping(struct client_state_t cs[static 1],
+                            uint32_t test_ip)
 {
     BASE_ARPMSG();
     memcpy(arp.dip4, &test_ip, sizeof test_ip);
@@ -332,7 +335,8 @@ static int arp_announcement(struct client_state_t cs[static 1])
 #undef BASE_ARPMSG
 
 // Callable from DS_REQUESTING, DS_RENEWING, or DS_REBINDING via an_packet()
-int arp_check(struct client_state_t cs[static 1], struct dhcpmsg *packet)
+int arp_check(struct client_state_t cs[static 1],
+              struct dhcpmsg packet[static 1])
 {
     memcpy(&garp.dhcp_packet, packet, sizeof (struct dhcpmsg));
     arp_switch_state(cs, AS_COLLISION_CHECK);
@@ -509,7 +513,7 @@ static int arp_validate_bpf(struct arpMsg *am)
 // ARP validation functions that will be performed by the BPF if it is
 // installed.
 static int arp_validate_bpf_defense(struct client_state_t cs[static 1],
-                                    struct arpMsg *am)
+                                    struct arpMsg am[static 1])
 {
     if (memcmp(am->sip4, &cs->clientAddr, 4))
         return 0;
@@ -518,7 +522,7 @@ static int arp_validate_bpf_defense(struct client_state_t cs[static 1],
     return 1;
 }
 
-static int arp_is_query_reply(struct arpMsg *am)
+static int arp_is_query_reply(struct arpMsg am[static 1])
 {
     if (am->operation != htons(ARPOP_REPLY))
         return 0;
@@ -536,7 +540,8 @@ static int arp_gen_probe_wait(struct client_state_t cs[static 1])
         % (arp_probe_max - arp_probe_min);
 }
 
-static void arp_defense_timeout(struct client_state_t cs[static 1], long long nowts)
+static void arp_defense_timeout(struct client_state_t cs[static 1],
+                                long long nowts)
 {
     (void)nowts; // Suppress warning; parameter necessary but unused.
     if (garp.wake_ts[AS_DEFENSE] != -1) {
@@ -546,7 +551,8 @@ static void arp_defense_timeout(struct client_state_t cs[static 1], long long no
     }
 }
 
-static void arp_gw_check_timeout(struct client_state_t cs[static 1], long long nowts)
+static void arp_gw_check_timeout(struct client_state_t cs[static 1],
+                                 long long nowts)
 {
     arp_defense_timeout(cs, nowts);
 
@@ -582,7 +588,8 @@ static void arp_do_gw_query_done(struct client_state_t cs[static 1])
     arp_announcement(cs);  // Do a second announcement.
 }
 
-static void arp_gw_query_timeout(struct client_state_t cs[static 1], long long nowts)
+static void arp_gw_query_timeout(struct client_state_t cs[static 1],
+                                 long long nowts)
 {
     arp_defense_timeout(cs, nowts);
 
@@ -609,7 +616,8 @@ static void arp_gw_query_timeout(struct client_state_t cs[static 1], long long n
         garp.send_stats[ASEND_GW_PING].ts + ARP_RETRANS_DELAY;
 }
 
-static void arp_collision_timeout(struct client_state_t cs[static 1], long long nowts)
+static void arp_collision_timeout(struct client_state_t cs[static 1],
+                                  long long nowts)
 {
     arp_defense_timeout(cs, nowts);
 
