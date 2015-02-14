@@ -34,8 +34,7 @@
 
 #include "options.h"
 
-static int do_overload_value(const uint8_t buf[static 1], ssize_t blen,
-                             int overload)
+static int do_overload_value(const uint8_t *buf, ssize_t blen, int overload)
 {
     ssize_t i = 0;
     while (i < blen) {
@@ -59,7 +58,7 @@ static int do_overload_value(const uint8_t buf[static 1], ssize_t blen,
     return overload;
 }
 
-static int overload_value(const struct dhcpmsg packet[static 1])
+static int overload_value(const struct dhcpmsg * const packet)
 {
     int ol = do_overload_value(packet->options, sizeof packet->options, 0);
     if (ol & 1 && ol & 2)
@@ -75,9 +74,8 @@ static int overload_value(const struct dhcpmsg packet[static 1])
     return ol; // ol == 0
 }
 
-static void do_get_dhcp_opt(const uint8_t sbuf[static 1], ssize_t slen,
-                            uint8_t code, uint8_t dbuf[static 1],
-                            ssize_t dlen, ssize_t didx[static 1])
+static void do_get_dhcp_opt(const uint8_t *sbuf, ssize_t slen, uint8_t code,
+                            uint8_t *dbuf, ssize_t dlen, ssize_t *didx)
 {
     ssize_t i = 0;
     while (i < slen) {
@@ -102,8 +100,8 @@ static void do_get_dhcp_opt(const uint8_t sbuf[static 1], ssize_t slen,
     }
 }
 
-ssize_t get_dhcp_opt(const struct dhcpmsg packet[static 1], uint8_t code,
-                     uint8_t dbuf[static 1], ssize_t dlen)
+ssize_t get_dhcp_opt(const struct dhcpmsg * const packet, uint8_t code,
+                     uint8_t *dbuf, ssize_t dlen)
 {
     int ol = overload_value(packet);
     ssize_t didx = 0;
@@ -119,7 +117,7 @@ ssize_t get_dhcp_opt(const struct dhcpmsg packet[static 1], uint8_t code,
 }
 
 // return the position of the 'end' option
-ssize_t get_end_option_idx(const struct dhcpmsg packet[static 1])
+ssize_t get_end_option_idx(const struct dhcpmsg * const packet)
 {
     for (size_t i = 0; i < sizeof packet->options; ++i) {
         if (packet->options[i] == DCODE_END)
@@ -144,8 +142,8 @@ static inline size_t sizeof_option_str(uint8_t code, size_t datalen)
 // Add a raw data string to the options.  It will take a binary string suitable
 // for use with eg memcpy() and will append it to the options[] field of
 // a dhcp packet with the requested option code and proper length specifier.
-size_t add_option_string(struct dhcpmsg packet[static 1], uint8_t code,
-                         const char str[static 1], size_t slen)
+size_t add_option_string(struct dhcpmsg *packet, uint8_t code,
+                         const char * const str, size_t slen)
 {
     size_t len = sizeof_option_str(code, slen);
     if (slen > 255 || len != slen + 2) {
@@ -169,7 +167,7 @@ size_t add_option_string(struct dhcpmsg packet[static 1], uint8_t code,
     return len;
 }
 
-static ssize_t add_option_check(struct dhcpmsg packet[static 1], uint8_t code,
+static ssize_t add_option_check(struct dhcpmsg *packet, uint8_t code,
                                 uint8_t rlen)
 {
     ssize_t end = get_end_option_idx(packet);
@@ -185,8 +183,7 @@ static ssize_t add_option_check(struct dhcpmsg packet[static 1], uint8_t code,
     return end;
 }
 
-static size_t add_u8_option(struct dhcpmsg packet[static 1], uint8_t code,
-                            uint8_t data)
+static size_t add_u8_option(struct dhcpmsg *packet, uint8_t code, uint8_t data)
 {
     ssize_t end = add_option_check(packet, code, 1);
     if (end < 0)
@@ -200,7 +197,7 @@ static size_t add_u8_option(struct dhcpmsg packet[static 1], uint8_t code,
 
 #ifndef NDHS_BUILD
 // Data should be in network byte order.
-static size_t add_u16_option(struct dhcpmsg packet[static 1], uint8_t code,
+static size_t add_u16_option(struct dhcpmsg *packet, uint8_t code,
                              uint16_t data)
 {
     ssize_t end = add_option_check(packet, code, 2);
@@ -217,8 +214,7 @@ static size_t add_u16_option(struct dhcpmsg packet[static 1], uint8_t code,
 #endif
 
 // Data should be in network byte order.
-size_t add_u32_option(struct dhcpmsg packet[static 1], uint8_t code,
-                      uint32_t data)
+size_t add_u32_option(struct dhcpmsg *packet, uint8_t code, uint32_t data)
 {
     ssize_t end = add_option_check(packet, code, 4);
     if (end < 0)
@@ -235,7 +231,7 @@ size_t add_u32_option(struct dhcpmsg packet[static 1], uint8_t code,
 }
 
 // Add a parameter request list for stubborn DHCP servers
-size_t add_option_request_list(struct dhcpmsg packet[static 1])
+size_t add_option_request_list(struct dhcpmsg *packet)
 {
     static const uint8_t reqdata[] = {
         DCODE_SUBNET, DCODE_ROUTER, DCODE_DNS, DCODE_HOSTNAME, DCODE_DOMAIN,
@@ -246,53 +242,52 @@ size_t add_option_request_list(struct dhcpmsg packet[static 1])
 }
 
 #ifdef NDHS_BUILD
-size_t add_option_domain_name(struct dhcpmsg packet[static 1],
-                              const char dom[static 1], size_t domlen)
+size_t add_option_domain_name(struct dhcpmsg *packet, const char * const dom,
+                              size_t domlen)
 {
     return add_option_string(packet, DCODE_DOMAIN, dom, domlen);
 }
 
-void add_option_subnet_mask(struct dhcpmsg packet[static 1], uint32_t subnet)
+void add_option_subnet_mask(struct dhcpmsg *packet, uint32_t subnet)
 {
     add_u32_option(packet, DCODE_SUBNET, subnet);
 }
 
-void add_option_broadcast(struct dhcpmsg packet[static 1], uint32_t bc)
+void add_option_broadcast(struct dhcpmsg *packet, uint32_t bc)
 {
     add_u32_option(packet, DCODE_BROADCAST, bc);
 }
 #endif
 
-void add_option_msgtype(struct dhcpmsg packet[static 1], uint8_t type)
+void add_option_msgtype(struct dhcpmsg *packet, uint8_t type)
 {
     add_u8_option(packet, DCODE_MSGTYPE, type);
 }
 
-void add_option_reqip(struct dhcpmsg packet[static 1], uint32_t ip)
+void add_option_reqip(struct dhcpmsg *packet, uint32_t ip)
 {
     add_u32_option(packet, DCODE_REQIP, ip);
 }
 
-void add_option_serverid(struct dhcpmsg packet[static 1], uint32_t sid)
+void add_option_serverid(struct dhcpmsg *packet, uint32_t sid)
 {
     add_u32_option(packet, DCODE_SERVER_ID, sid);
 }
 
-void add_option_clientid(struct dhcpmsg packet[static 1],
-                         const char clientid[static 1],
+void add_option_clientid(struct dhcpmsg *packet, const char * const clientid,
                          size_t clen)
 {
     add_option_string(packet, DCODE_CLIENT_ID, clientid, clen);
 }
 
 #ifndef NDHS_BUILD
-void add_option_maxsize(struct dhcpmsg packet[static 1])
+void add_option_maxsize(struct dhcpmsg *packet)
 {
     add_u16_option(packet, DCODE_MAX_SIZE,
                    htons(sizeof(struct ip_udp_dhcp_packet)));
 }
 
-void add_option_vendor(struct dhcpmsg packet[static 1])
+void add_option_vendor(struct dhcpmsg *packet)
 {
     size_t len = strlen(client_config.vendor);
     if (len)
@@ -301,7 +296,7 @@ void add_option_vendor(struct dhcpmsg packet[static 1])
         add_option_string(packet, DCODE_VENDOR, "ndhc", sizeof "ndhc" - 1);
 }
 
-void add_option_hostname(struct dhcpmsg packet[static 1])
+void add_option_hostname(struct dhcpmsg *packet)
 {
     size_t len = strlen(client_config.hostname);
     if (len)
@@ -309,7 +304,7 @@ void add_option_hostname(struct dhcpmsg packet[static 1])
 }
 #endif
 
-uint32_t get_option_router(const struct dhcpmsg packet[static 1])
+uint32_t get_option_router(const struct dhcpmsg * const packet)
 {
     ssize_t ol;
     uint32_t ret = 0;
@@ -320,7 +315,7 @@ uint32_t get_option_router(const struct dhcpmsg packet[static 1])
     return ret;
 }
 
-uint8_t get_option_msgtype(const struct dhcpmsg packet[static 1])
+uint8_t get_option_msgtype(const struct dhcpmsg * const packet)
 {
     ssize_t ol;
     uint8_t ret = 0;
@@ -331,7 +326,7 @@ uint8_t get_option_msgtype(const struct dhcpmsg packet[static 1])
     return ret;
 }
 
-uint32_t get_option_serverid(const struct dhcpmsg packet[static 1], int *found)
+uint32_t get_option_serverid(const struct dhcpmsg *const packet, int *found)
 {
     ssize_t ol;
     uint32_t ret = 0;
@@ -345,7 +340,7 @@ uint32_t get_option_serverid(const struct dhcpmsg packet[static 1], int *found)
     return ret;
 }
 
-uint32_t get_option_leasetime(const struct dhcpmsg packet[static 1])
+uint32_t get_option_leasetime(const struct dhcpmsg * const packet)
 {
     ssize_t ol;
     uint32_t ret = 0;
@@ -359,8 +354,8 @@ uint32_t get_option_leasetime(const struct dhcpmsg packet[static 1])
 }
 
 // Returned buffer is not nul-terminated.
-size_t get_option_clientid(const struct dhcpmsg packet[static 1],
-                           char cbuf[static 1], size_t clen)
+size_t get_option_clientid(const struct dhcpmsg * const packet, char *cbuf,
+                           size_t clen)
 {
     if (clen < 1)
         return 0;
@@ -368,3 +363,4 @@ size_t get_option_clientid(const struct dhcpmsg packet[static 1],
                               (uint8_t *)cbuf, clen);
     return ol > 0 ? ol : 0;
 }
+

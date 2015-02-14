@@ -56,37 +56,37 @@
 
 #define MAX_DOPT_SIZE 500
 
-ssize_t get_dhcp_opt(const struct dhcpmsg packet[static 1], uint8_t code,
+ssize_t get_dhcp_opt(const struct dhcpmsg * const packet, uint8_t code,
                      uint8_t *dbuf, ssize_t dlen);
-ssize_t get_end_option_idx(const struct dhcpmsg packet[static 1]);
+ssize_t get_end_option_idx(const struct dhcpmsg * const packet);
 
-size_t add_option_string(struct dhcpmsg packet[static 1], uint8_t code,
-                         const char str[static 1], size_t slen);
-size_t add_u32_option(struct dhcpmsg packet[static 1], uint8_t code,
-                      uint32_t data);
+size_t add_option_string(struct dhcpmsg *packet, uint8_t code,
+                         const char *str, size_t slen);
+size_t add_u32_option(struct dhcpmsg *packet, uint8_t code, uint32_t data);
 
-size_t add_option_request_list(struct dhcpmsg packet[static 1]);
+size_t add_option_request_list(struct dhcpmsg *packet);
 #ifdef NDHS_BUILD
-size_t add_option_domain_name(struct dhcpmsg packet[static 1],
-                              const char dom[static 1], size_t domlen);
-void add_option_subnet_mask(struct dhcpmsg packet[static 1], uint32_t subnet);
-void add_option_broadcast(struct dhcpmsg packet[static 1], uint32_t bc);
+size_t add_option_domain_name(struct dhcpmsg *packet,
+                              const char * const dom, size_t domlen);
+void add_option_subnet_mask(struct dhcpmsg *packet, uint32_t subnet);
+void add_option_broadcast(struct dhcpmsg *packet, uint32_t bc);
 #endif
-void add_option_msgtype(struct dhcpmsg packet[static 1], uint8_t type);
-void add_option_reqip(struct dhcpmsg packet[static 1], uint32_t ip);
-void add_option_serverid(struct dhcpmsg packet[static 1], uint32_t sid);
-void add_option_clientid(struct dhcpmsg packet[static 1],
-                         const char clientid[static 1], size_t clen);
+void add_option_msgtype(struct dhcpmsg *packet, uint8_t type);
+void add_option_reqip(struct dhcpmsg *packet, uint32_t ip);
+void add_option_serverid(struct dhcpmsg *packet, uint32_t sid);
+void add_option_clientid(struct dhcpmsg *packet,
+                         const char * const clientid, size_t clen);
 #ifndef NDHS_BUILD
-void add_option_maxsize(struct dhcpmsg packet[static 1]);
-void add_option_vendor(struct dhcpmsg packet[static 1]);
-void add_option_hostname(struct dhcpmsg packet[static 1]);
+void add_option_maxsize(struct dhcpmsg *packet);
+void add_option_vendor(struct dhcpmsg *packet);
+void add_option_hostname(struct dhcpmsg *packet);
 #endif
-uint32_t get_option_router(const struct dhcpmsg packet[static 1]);
-uint8_t get_option_msgtype(const struct dhcpmsg packet[static 1]);
-uint32_t get_option_serverid(const struct dhcpmsg packet[static 1], int *found);
-uint32_t get_option_leasetime(const struct dhcpmsg packet[static 1]);
-size_t get_option_clientid(const struct dhcpmsg packet[static 1],
-                           char cbuf[static 1], size_t clen);
+uint32_t get_option_router(const struct dhcpmsg * const packet);
+uint8_t get_option_msgtype(const struct dhcpmsg * const packet);
+uint32_t get_option_serverid(const struct dhcpmsg * const packet, int *found);
+uint32_t get_option_leasetime(const struct dhcpmsg *const packet);
+size_t get_option_clientid(const struct dhcpmsg * const packet,
+                           char *cbuf, size_t clen);
 
 #endif
+
