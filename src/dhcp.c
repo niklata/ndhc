@@ -111,6 +111,7 @@ static ssize_t send_dhcp_unicast(struct client_state_t cs[static 1],
     if (!check_carrier(fd)) {
         log_error("%s: (%s) carrier down; write would fail",
                   client_config.interface, __func__);
+        ret = -99;
         goto out_fd;
     }
     ret = safe_write(fd, (const char *)payload, payload_len);
@@ -304,6 +305,7 @@ static ssize_t send_dhcp_raw(struct dhcpmsg payload[static 1])
     if (!check_carrier(fd)) {
         log_error("%s: (%s) carrier down; sendto would fail",
                   client_config.interface, __func__);
+        ret = -99;
         goto carrier_down;
     }
     ret = safe_sendto(fd, (const char *)&iudmsg, iud_len, 0,

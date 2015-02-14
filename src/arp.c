@@ -45,6 +45,7 @@
 #include "options.h"
 #include "leasefile.h"
 #include "sockd.h"
+#include "netlink.h"
 
 #define ARP_MSG_SIZE 0x2a
 #define ARP_RETRANS_DELAY 5000 // ms
@@ -246,6 +247,7 @@ static void arp_reopen_fd(struct client_state_t cs[static 1])
 static int arp_send(struct client_state_t cs[static 1],
                     struct arpMsg arp[static 1])
 {
+    int ret = -1;
     struct sockaddr_ll addr = {
         .sll_family = AF_PACKET,
         .sll_ifindex = client_config.ifindex,
@@ -256,27 +258,27 @@ static int arp_send(struct client_state_t cs[static 1],
     if (cs->arpFd < 0) {
         log_warning("%s: arp: Send attempted when no ARP fd is open.",
                     client_config.interface);
-        return -1;
+        return ret;
     }
 
-    ssize_t r;
     if (!check_carrier(cs->arpFd)) {
         log_error("%s: (%s) carrier down; sendto would fail",
                   client_config.interface, __func__);
+        ret = -99;
         goto carrier_down;
     }
-    r = safe_sendto(cs->arpFd, (const char *)arp, sizeof *arp, 0,
+    ret = safe_sendto(cs->arpFd, (const char *)arp, sizeof *arp, 0,
                     (struct sockaddr *)&addr, sizeof addr);
-    if (r < 0 || (size_t)r != sizeof *arp) {
-        if (r < 0)
+    if (ret < 0 || (size_t)ret != sizeof *arp) {
+        if (ret < 0)
             log_error("%s: (%s) sendto failed: %s",
                       client_config.interface, __func__, strerror(errno));
         else
-            log_error("%s: (%s) sendto short write: %z < %zu",
-                      client_config.interface, __func__, r, sizeof *arp);
+            log_error("%s: (%s) sendto short write: %d < %zu",
+                      client_config.interface, __func__, ret, sizeof *arp);
 carrier_down:
         arp_reopen_fd(cs);
-        return -1;
+        return ret;
     }
     return 0;
 }
@@ -299,8 +301,9 @@ static int arp_ping(struct client_state_t cs[static 1], uint32_t test_ip)
     BASE_ARPMSG();
     memcpy(arp.sip4, &cs->clientAddr, sizeof cs->clientAddr);
     memcpy(arp.dip4, &test_ip, sizeof test_ip);
-    if (arp_send(cs, &arp) < 0)
-        return -1;
+    int r = arp_send(cs, &arp);
+    if (r < 0)
+        return r;
     garp.send_stats[ASEND_GW_PING].count++;
     garp.send_stats[ASEND_GW_PING].ts = curms();
     return 0;
@@ -314,8 +317,9 @@ static int arp_ip_anon_ping(struct client_state_t cs[static 1],
     memcpy(arp.dip4, &test_ip, sizeof test_ip);
     log_line("%s: arp: Probing for hosts that may conflict with our lease...",
              client_config.interface);
-    if (arp_send(cs, &arp) < 0)
-        return -1;
+    int r = arp_send(cs, &arp);
+    if (r < 0)
+        return r;
     garp.send_stats[ASEND_COLLISION_CHECK].count++;
     garp.send_stats[ASEND_COLLISION_CHECK].ts = curms();
     return 0;
@@ -326,8 +330,9 @@ static int arp_announcement(struct client_state_t cs[static 1])
     BASE_ARPMSG();
     memcpy(arp.sip4, &cs->clientAddr, 4);
     memcpy(arp.dip4, &cs->clientAddr, 4);
-    if (arp_send(cs, &arp) < 0)
-        return -1;
+    int r = arp_send(cs, &arp);
+    if (r < 0)
+        return r;
     garp.send_stats[ASEND_ANNOUNCE].count++;
     garp.send_stats[ASEND_ANNOUNCE].ts = curms();
     return 0;
@@ -404,7 +409,18 @@ static void arp_failed(struct client_state_t cs[static 1])
 {
     log_line("%s: arp: Offered address is in use.  Declining.",
              client_config.interface);
-    send_decline(cs, garp.dhcp_packet.yiaddr);
+    int r = send_decline(cs, garp.dhcp_packet.yiaddr);
+    if (r < 0) {
+        log_warning("%s: Failed to send a decline notice packet.",
+                    client_config.interface);
+        if (r == -99) {
+            // Carrier went down while suspended.
+            cs->ifsPrevState = IFS_DOWN;
+            ifnocarrier_action(cs);
+            garp.wake_ts[AS_COLLISION_CHECK] = -1;
+            return;
+        }
+    }
     garp.wake_ts[AS_COLLISION_CHECK] = -1;
     reinit_selecting(cs, garp.total_conflicts < MAX_CONFLICTS ?
                      0 : RATE_LIMIT_INTERVAL);

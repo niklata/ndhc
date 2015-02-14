@@ -40,6 +40,16 @@
 #include "options.h"
 #include "ndhc.h"
 #include "sys.h"
+#include "netlink.h"
+
+// Simulates netlink carrier down event if carrier went down while suspended.
+#define SUSPEND_IF_NOCARRIER() \
+    if (r == -99) { \
+        cs->ifsPrevState = IFS_DOWN; \
+        ifnocarrier_action(cs); \
+        dhcp_wake_ts = -1; \
+        return; \
+    }
 
 static void selecting_packet(struct client_state_t cs[static 1],
                              struct dhcpmsg packet[static 1],
@@ -133,14 +143,18 @@ static void set_released(struct client_state_t cs[static 1])
 static void requesting_timeout(struct client_state_t cs[static 1],
                                long long nowts)
 {
-    if (num_dhcp_requests < 5) {
-        if (send_selecting(cs) < 0)
-            log_warning("%s: Failed to send a selecting request packet.",
-                        client_config.interface);
-        dhcp_wake_ts = nowts + delay_timeout(cs, num_dhcp_requests);
-        num_dhcp_requests++;
-    } else
+    if (num_dhcp_requests >= 5) {
         reinit_selecting(cs, 0);
+        return;
+    }
+    int r = send_selecting(cs);
+    if (r < 0) {
+        log_warning("%s: Failed to send a selecting request packet.",
+                    client_config.interface);
+        SUSPEND_IF_NOCARRIER();
+    }
+    dhcp_wake_ts = nowts + delay_timeout(cs, num_dhcp_requests);
+    num_dhcp_requests++;
 }
 
 // Triggered when the lease has been held for a significant fraction of its
@@ -167,19 +181,22 @@ static void renewing_timeout(struct client_state_t cs[static 1],
                              long long nowts)
 {
     long long rbt = cs->leaseStartTime + cs->rebindTime * 1000;
-    if (nowts < rbt) {
-        if (rbt - nowts < 30000) {
-            dhcp_wake_ts = rbt;
-            return;
-        }
-        if (send_renew(cs) < 0)
-            log_warning("%s: Failed to send a renew request packet.",
-                        client_config.interface);
-        dhcp_wake_ts = nowts + ((rbt - nowts) / 2);
-    } else {
+    if (nowts >= rbt) {
         cs->dhcpState = DS_REBINDING;
         rebinding_timeout(cs, nowts);
+        return;
     }
+    if (rbt - nowts < 30000) {
+        dhcp_wake_ts = rbt;
+        return;
+    }
+    int r = send_renew(cs);
+    if (r < 0) {
+        log_warning("%s: Failed to send a renew request packet.",
+                    client_config.interface);
+        SUSPEND_IF_NOCARRIER();
+    }
+    dhcp_wake_ts = nowts + ((rbt - nowts) / 2);
 }
 
 // Triggered when a DHCP rebind request has been sent and no reply has been
@@ -190,20 +207,23 @@ static void rebinding_timeout(struct client_state_t cs[static 1],
                               long long nowts)
 {
     long long elt = cs->leaseStartTime + cs->lease * 1000;
-    if (nowts < elt) {
-        if (elt - nowts < 30000) {
-            dhcp_wake_ts = elt;
-            return;
-        }
-        if (send_rebind(cs) < 0)
-            log_warning("%s: Failed to send a rebind request packet.",
-                        client_config.interface);
-        dhcp_wake_ts = nowts + ((elt - nowts) / 2);
-    } else {
+    if (nowts >= elt) {
         log_line("%s: Lease expired.  Searching for a new lease...",
                  client_config.interface);
         reinit_selecting(cs, 0);
+        return;
     }
+    if (elt - nowts < 30000) {
+        dhcp_wake_ts = elt;
+        return;
+    }
+    int r = send_rebind(cs);
+    if (r < 0) {
+        log_warning("%s: Failed to send a rebind request packet.",
+                    client_config.interface);
+        SUSPEND_IF_NOCARRIER();
+    }
+    dhcp_wake_ts = nowts + ((elt - nowts) / 2);
 }
 
 static void released_timeout(struct client_state_t cs[static 1],
@@ -346,9 +366,12 @@ static void selecting_timeout(struct client_state_t cs[static 1],
     }
     if (num_dhcp_requests == 0)
         cs->xid = nk_random_u32(&cs->rnd32_state);
-    if (send_discover(cs) < 0)
+    int r = send_discover(cs);
+    if (r < 0) {
         log_warning("%s: Failed to send a discover request packet.",
                     client_config.interface);
+        SUSPEND_IF_NOCARRIER();
+    }
     dhcp_wake_ts = nowts + delay_timeout(cs, num_dhcp_requests);
     num_dhcp_requests++;
 }
@@ -363,9 +386,12 @@ static void xmit_release(struct client_state_t cs[static 1])
               svrbuf, sizeof svrbuf);
     log_line("%s: Unicasting a release of %s to %s.", client_config.interface,
              clibuf, svrbuf);
-    if (send_release(cs) < 0)
+    int r = send_release(cs);
+    if (r < 0) {
         log_warning("%s: Failed to send a release request packet.",
                     client_config.interface);
+        SUSPEND_IF_NOCARRIER();
+    }
     print_release(cs);
 }
 
@@ -382,9 +408,12 @@ static void frenew(struct client_state_t cs[static 1])
         log_line("%s: Forcing a DHCP renew...", client_config.interface);
         cs->dhcpState = DS_RENEWING;
         start_dhcp_listen(cs);
-        if (send_renew(cs) < 0)
+        int r = send_renew(cs);
+        if (r < 0) {
             log_warning("%s: Failed to send a renew request packet.",
                         client_config.interface);
+            SUSPEND_IF_NOCARRIER();
+        }
     } else if (cs->dhcpState == DS_RELEASED)
         reinit_selecting(cs, 0);
 }
