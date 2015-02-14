@@ -418,26 +418,23 @@ void handle_packet(struct client_state_t cs[static 1])
 }
 
 // Initialize a DHCP client packet that will be sent to a server
-static struct dhcpmsg init_packet(char type, uint32_t xid)
+static void init_packet(struct dhcpmsg packet[static 1], char type)
 {
-    struct dhcpmsg packet = {
-        .op = 1, // BOOTREQUEST (client)
-        .htype = 1, // ETH_10MB
-        .hlen = 6, // ETH_10MB_LEN
-        .cookie = htonl(DHCP_MAGIC),
-        .options[0] = DCODE_END,
-        .xid = xid,
-    };
-    add_option_msgtype(&packet, type);
-    memcpy(packet.chaddr, client_config.arp, 6);
-    add_option_clientid(&packet, client_config.clientid,
+    packet->op = 1; // BOOTREQUEST (client)
+    packet->htype = 1; // ETH_10MB
+    packet->hlen = 6; // ETH_10MB_LEN
+    packet->cookie = htonl(DHCP_MAGIC);
+    packet->options[0] = DCODE_END;
+    add_option_msgtype(packet, type);
+    memcpy(packet->chaddr, client_config.arp, 6);
+    add_option_clientid(packet, client_config.clientid,
                         client_config.clientid_len);
-    return packet;
 }
 
 ssize_t send_discover(struct client_state_t cs[static 1])
 {
-    struct dhcpmsg packet = init_packet(DHCPDISCOVER, cs->xid);
+    struct dhcpmsg packet = {.xid = cs->xid};
+    init_packet(&packet, DHCPDISCOVER);
     if (cs->clientAddr)
         add_option_reqip(&packet, cs->clientAddr);
     add_option_maxsize(&packet);
@@ -451,7 +448,8 @@ ssize_t send_discover(struct client_state_t cs[static 1])
 ssize_t send_selecting(struct client_state_t cs[static 1])
 {
     char clibuf[INET_ADDRSTRLEN];
-    struct dhcpmsg packet = init_packet(DHCPREQUEST, cs->xid);
+    struct dhcpmsg packet = {.xid = cs->xid};
+    init_packet(&packet, DHCPREQUEST);
     add_option_reqip(&packet, cs->clientAddr);
     add_option_serverid(&packet, cs->serverAddr);
     add_option_maxsize(&packet);
@@ -467,7 +465,8 @@ ssize_t send_selecting(struct client_state_t cs[static 1])
 
 ssize_t send_renew(struct client_state_t cs[static 1])
 {
-    struct dhcpmsg packet = init_packet(DHCPREQUEST, cs->xid);
+    struct dhcpmsg packet = {.xid = cs->xid};
+    init_packet(&packet, DHCPREQUEST);
     packet.ciaddr = cs->clientAddr;
     add_option_maxsize(&packet);
     add_option_request_list(&packet);
@@ -479,7 +478,8 @@ ssize_t send_renew(struct client_state_t cs[static 1])
 
 ssize_t send_rebind(struct client_state_t cs[static 1])
 {
-    struct dhcpmsg packet = init_packet(DHCPREQUEST, cs->xid);
+    struct dhcpmsg packet = {.xid = cs->xid};
+    init_packet(&packet, DHCPREQUEST);
     packet.ciaddr = cs->clientAddr;
     add_option_reqip(&packet, cs->clientAddr);
     add_option_maxsize(&packet);
@@ -492,7 +492,8 @@ ssize_t send_rebind(struct client_state_t cs[static 1])
 
 ssize_t send_decline(struct client_state_t cs[static 1], uint32_t server)
 {
-    struct dhcpmsg packet = init_packet(DHCPDECLINE, cs->xid);
+    struct dhcpmsg packet = {.xid = cs->xid};
+    init_packet(&packet, DHCPDECLINE);
     add_option_reqip(&packet, cs->clientAddr);
     add_option_serverid(&packet, server);
     log_line("%s: Sending a decline message...", client_config.interface);
@@ -501,8 +502,8 @@ ssize_t send_decline(struct client_state_t cs[static 1], uint32_t server)
 
 ssize_t send_release(struct client_state_t cs[static 1])
 {
-    struct dhcpmsg packet = init_packet(DHCPRELEASE,
-                                        nk_random_u32(&cs->rnd32_state));
+    struct dhcpmsg packet = {.xid = nk_random_u32(&cs->rnd32_state)};
+    init_packet(&packet, DHCPRELEASE);
     packet.ciaddr = cs->clientAddr;
     add_option_reqip(&packet, cs->clientAddr);
     add_option_serverid(&packet, cs->serverAddr);
