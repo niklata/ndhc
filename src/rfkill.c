@@ -26,6 +26,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <stdbool.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -52,9 +53,10 @@ int rfkill_open(char enable_rfkill[static 1])
     return r;
 }
 
-static int rfkill_check(struct client_state_t cs[static 1], uint32_t rfkidx,
-                         int (*rfenable)(struct client_state_t[static 1]),
-                         int (*rfdisable)(struct client_state_t[static 1]))
+static int rfkill_check(struct client_state_t cs[static 1],
+                        int (*rfenable)(struct client_state_t[static 1]),
+                        int (*rfdisable)(struct client_state_t[static 1]),
+                        bool check_idx, uint32_t rfkidx)
 {
     struct rfkill_event event;
     ssize_t len = safe_read(cs->rfkillFd, (char *)&event, sizeof event);
@@ -68,7 +70,7 @@ static int rfkill_check(struct client_state_t cs[static 1], uint32_t rfkidx,
     }
     log_line("rfkill: idx[%u] type[%u] op[%u] soft[%u] hard[%u]",
              event.idx, event.type, event.op, event.soft, event.hard);
-    if (event.idx != rfkidx)
+    if (check_idx && event.idx != rfkidx)
         return 0;
     if (event.op != RFKILL_OP_CHANGE && event.op != RFKILL_OP_CHANGE_ALL)
         return 0;
@@ -128,13 +130,13 @@ static int rfkill_wait_for_end_disable(struct client_state_t cs[static 1])
 
 int handle_rfkill_notice(struct client_state_t cs[static 1], uint32_t rfkidx)
 {
-    return rfkill_check(cs, rfkidx, handle_rfkill_notice_enable,
-                        handle_rfkill_notice_disable);
+    return rfkill_check(cs, handle_rfkill_notice_enable,
+                        handle_rfkill_notice_disable, true, rfkidx);
 }
 
-int rfkill_wait_for_end(struct client_state_t cs[static 1], uint32_t rfkidx)
+int rfkill_wait_for_end(struct client_state_t cs[static 1])
 {
-    return rfkill_check(cs, rfkidx, rfkill_wait_for_end_enable,
-                        rfkill_wait_for_end_disable);
+    return rfkill_check(cs, rfkill_wait_for_end_enable,
+                        rfkill_wait_for_end_disable, false, 0);
 }
 

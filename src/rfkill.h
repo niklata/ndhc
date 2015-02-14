@@ -30,7 +30,7 @@
 
 int rfkill_open(char enable_rfkill[static 1]);
 int handle_rfkill_notice(struct client_state_t cs[static 1], uint32_t rfkidx);
-int rfkill_wait_for_end(struct client_state_t cs[static 1], uint32_t rfkidx);
+int rfkill_wait_for_end(struct client_state_t cs[static 1]);
 
 #endif
 

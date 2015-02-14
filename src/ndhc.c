@@ -485,13 +485,13 @@ static void wait_for_rfkill()
 {
     cs.rfkill_set = 1;
     struct epoll_event events[2];
-    int rfkfd = rfkill_open(&client_config.enable_rfkill);
-    if (rfkfd < 0)
+    cs.rfkillFd = rfkill_open(&client_config.enable_rfkill);
+    if (cs.rfkillFd < 0)
         suicide("can't wait for rfkill to end if /dev/rfkill can't be opened");
     int epfd = epoll_create1(0);
     if (epfd < 0)
         suicide("epoll_create1 failed");
-    epoll_add(epfd, rfkfd);
+    epoll_add(epfd, cs.rfkillFd);
     for (;;) {
         int r = epoll_wait(epfd, events, 2, -1);
         if (r < 0) {
@@ -502,9 +502,9 @@ static void wait_for_rfkill()
         }
         for (int i = 0; i < r; ++i) {
             int fd = events[i].data.fd;
-            if (fd == rfkfd) {
+            if (fd == cs.rfkillFd) {
                 if (events[i].events & EPOLLIN) {
-                    if (!rfkill_wait_for_end(&cs, rfkfd))
+                    if (!rfkill_wait_for_end(&cs))
                         goto rfkill_gone;
                 }
             } else
@@ -513,7 +513,10 @@ static void wait_for_rfkill()
     }
 rfkill_gone:
     close(epfd);
-    close(rfkfd);
+    // We always close because ifchd and sockd shouldn't keep
+    // an rfkill fd open.
+    close(cs.rfkillFd);
+    cs.rfkillFd = -1;
 }
 
 int main(int argc, char *argv[])
