@@ -363,12 +363,13 @@ int arp_gw_check(struct client_state_t cs[static 1])
         return 0;
     garp.gw_check_initpings = garp.send_stats[ASEND_GW_PING].count;
     garp.server_replied = false;
-    if (arp_ping(cs, cs->srcAddr) < 0)
-        return -1;
+    int r;
+    if ((r = arp_ping(cs, cs->srcAddr)) < 0)
+        return r;
     if (cs->routerAddr) {
         garp.router_replied = false;
-        if (arp_ping(cs, cs->routerAddr) < 0)
-            return -1;
+        if ((r = arp_ping(cs, cs->routerAddr)) < 0)
+            return r;
     } else
         garp.router_replied = true;
     arp_switch_state(cs, AS_GW_CHECK);

@@ -425,13 +425,16 @@ void ifup_action(struct client_state_t cs[static 1])
     if (cs->routerAddr && (cs->dhcpState == DS_BOUND ||
                            cs->dhcpState == DS_RENEWING ||
                            cs->dhcpState == DS_REBINDING)) {
-        if (arp_gw_check(cs) != -1) {
+        int r = arp_gw_check(cs);
+        if (r >= 0) {
             log_line("%s: Interface is back.  Revalidating lease...",
                      client_config.interface);
             return;
-        } else
+        } else {
+            SUSPEND_IF_NOCARRIER();
             log_warning("%s: arp_gw_check could not make arp socket.",
                         client_config.interface);
+        }
     }
     if (cs->dhcpState == DS_SELECTING)
         return;
