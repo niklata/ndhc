@@ -52,56 +52,89 @@ int rfkill_open(char enable_rfkill[static 1])
     return r;
 }
 
-void handle_rfkill_notice(struct client_state_t cs[static 1], uint32_t rfkidx)
+static int rfkill_check(struct client_state_t cs[static 1], uint32_t rfkidx,
+                         int (*rfenable)(struct client_state_t[static 1]),
+                         int (*rfdisable)(struct client_state_t[static 1]))
 {
     struct rfkill_event event;
     ssize_t len = safe_read(cs->rfkillFd, (char *)&event, sizeof event);
     if (len < 0) {
         log_error("rfkill: safe_read failed: %s", strerror(errno));
-        return;
+        return -1;
     }
     if (len != RFKILL_EVENT_SIZE_V1) {
         log_error("rfkill: event has unexpected size: %d", len);
-        return;
+        return -1;
     }
     log_line("rfkill: idx[%u] type[%u] op[%u] soft[%u] hard[%u]",
              event.idx, event.type, event.op, event.soft, event.hard);
     if (event.idx != rfkidx)
-        return;
+        return 0;
     if (event.op != RFKILL_OP_CHANGE && event.op != RFKILL_OP_CHANGE_ALL)
-        return;
+        return 0;
     if (event.soft || event.hard) {
-        cs->rfkill_set = 1;
-        if (cs->ifsPrevState == IFS_UP) {
-            log_line("rfkill: radio now blocked; bringing interface down");
-            cs->ifsPrevState = IFS_DOWN;
-            ifnocarrier_action(cs);
-        } else
-            log_line("rfkill: radio now blocked, but interface isn't up");
+        return rfenable(cs);
     } else {
-        cs->rfkill_set = 0;
-        if (cs->ifsPrevState == IFS_DOWN) {
-            log_line("rfkill: radio now unblocked; bringing interface up");
-            if (cs->rfkill_at_init) {
-                cs->rfkill_at_init = 0;
-                switch (perform_ifup()) {
-                    case 1: case 0: break;
-                    case -3:
-                        cs->rfkill_set = 1;
-                        cs->rfkill_at_init = 1;
-                        log_line("rfkill: radio immediately blocked again; spurious?");
-                        return;
-                    default: suicide("failed to set the interface to up state");
-                }
-            }
-            cs->ifsPrevState = IFS_UP;
-            ifup_action(cs);
-        } else {
-            if (cs->ifsPrevState == IFS_SHUT)
-                log_line("rfkill: radio now unblocked, but interface was shut down by user");
-            else
-                log_line("rfkill: radio now unblocked, but interface is removed");
-        }
+        return rfdisable(cs);
     }
+}
+
+static int handle_rfkill_notice_enable(struct client_state_t cs[static 1])
+{
+    cs->rfkill_set = 1;
+    if (cs->ifsPrevState == IFS_UP) {
+        log_line("rfkill: radio now blocked; bringing interface down");
+        cs->ifsPrevState = IFS_DOWN;
+        ifnocarrier_action(cs);
+    } else
+        log_line("rfkill: radio now blocked, but interface isn't up");
+    return 0;
+}
+
+static int handle_rfkill_notice_disable(struct client_state_t cs[static 1])
+{
+    cs->rfkill_set = 0;
+    if (cs->ifsPrevState == IFS_DOWN) {
+        log_line("rfkill: radio now unblocked; bringing interface up");
+        cs->ifsPrevState = IFS_UP;
+        ifup_action(cs);
+    } else {
+        if (cs->ifsPrevState == IFS_SHUT)
+            log_line("rfkill: radio now unblocked, but interface was shut down by user");
+        else
+            log_line("rfkill: radio now unblocked, but interface is removed");
+    }
+    return 0;
+}
+
+static int rfkill_wait_for_end_enable(struct client_state_t cs[static 1])
+{
+    (void)cs;
+    return -1;
+}
+
+static int rfkill_wait_for_end_disable(struct client_state_t cs[static 1])
+{
+    switch (perform_ifup()) {
+    case 1: case 0:
+        cs->rfkill_set = 0;
+        return 0;
+    case -3:
+        log_line("rfkill: radio immediately blocked again; spurious?");
+        return -1;
+    default: suicide("failed to set the interface to up state");
+    }
+}
+
+int handle_rfkill_notice(struct client_state_t cs[static 1], uint32_t rfkidx)
+{
+    return rfkill_check(cs, rfkidx, handle_rfkill_notice_enable,
+                        handle_rfkill_notice_disable);
+}
+
+int rfkill_wait_for_end(struct client_state_t cs[static 1], uint32_t rfkidx)
+{
+    return rfkill_check(cs, rfkidx, rfkill_wait_for_end_enable,
+                        rfkill_wait_for_end_disable);
 }
 

@@ -282,7 +282,7 @@ static void do_ndhc_work(void)
 {
     struct epoll_event events[NDHC_NUM_EP_FDS];
     long long nowts;
-    int timeout = -1;
+    int timeout;
 
     cs.epollFd = epoll_create1(0);
     if (cs.epollFd < 0)
@@ -299,11 +299,9 @@ static void do_ndhc_work(void)
     epoll_add(cs.epollFd, sockdStream[0]);
     if (client_config.enable_rfkill && cs.rfkillFd != -1)
         epoll_add(cs.epollFd, cs.rfkillFd);
-    if (!cs.rfkill_set) {
-        start_dhcp_listen(&cs);
-        nowts = curms();
-        goto jumpstart;
-    }
+    start_dhcp_listen(&cs);
+    nowts = curms();
+    goto jumpstart;
 
     for (;;) {
         int r = epoll_wait(cs.epollFd, events, NDHC_NUM_EP_FDS, timeout);
@@ -482,6 +480,41 @@ void background(void)
         write_pid(pidfile);
 }
 
+static void wait_for_rfkill()
+{
+    cs.rfkill_set = 1;
+    struct epoll_event events[2];
+    int rfkfd = rfkill_open(&client_config.enable_rfkill);
+    if (rfkfd < 0)
+        suicide("can't wait for rfkill to end if /dev/rfkill can't be opened");
+    int epfd = epoll_create1(0);
+    if (epfd < 0)
+        suicide("epoll_create1 failed");
+    epoll_add(epfd, rfkfd);
+    for (;;) {
+        int r = epoll_wait(epfd, events, 2, -1);
+        if (r < 0) {
+            if (errno == EINTR)
+                continue;
+            else
+                suicide("epoll_wait failed");
+        }
+        for (int i = 0; i < r; ++i) {
+            int fd = events[i].data.fd;
+            if (fd == rfkfd) {
+                if (events[i].events & EPOLLIN) {
+                    if (!rfkill_wait_for_end(&cs, rfkfd))
+                        goto rfkill_gone;
+                }
+            } else
+                suicide("epoll_wait: unknown fd");
+        }
+    }
+rfkill_gone:
+    close(epfd);
+    close(rfkfd);
+}
+
 int main(int argc, char *argv[])
 {
     parse_cmdline(argc, argv);
@@ -502,11 +535,7 @@ int main(int argc, char *argv[])
     switch (perform_ifup()) {
     case 1: cs.ifsPrevState = IFS_UP;
     case 0: break;
-    case -3:
-        cs.rfkill_set = 1;
-        cs.rfkill_at_init = 1;
-        cs.ifsPrevState = IFS_DOWN;
-        break;
+    case -3: wait_for_rfkill(); break;
     default: suicide("failed to set the interface to up state");
     }
 

@@ -47,7 +47,7 @@ struct client_state_t {
     struct nk_random_state_u32 rnd32_state;
     uint8_t routerArp[6], serverArp[6];
     uint8_t using_dhcp_bpf, init, got_router_arp, got_server_arp;
-    uint8_t rfkill_set, rfkill_at_init;
+    uint8_t rfkill_set;
 };
 
 struct client_config_t {
