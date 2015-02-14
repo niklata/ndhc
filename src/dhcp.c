@@ -195,7 +195,7 @@ static ssize_t get_raw_packet(struct client_state_t cs[static 1],
         return -1;
     }
     size_t iphdrlen = ntohs(packet.ip.tot_len);
-    if ((size_t)inc != iphdrlen)
+    if ((size_t)inc < iphdrlen)
         return -2;
     if (!cs->using_dhcp_bpf && !get_raw_packet_validate_bpf(&packet))
         return -2;
