@@ -192,16 +192,37 @@ static int ifchd_cmd(char b[static 1], size_t bl, uint8_t *od,
     return -1;
 }
 
-static void ifchwrite(struct client_state_t cs[static 1],
-                      const char buf[static 1], size_t count)
+static int ifchwrite(const char buf[static 1], size_t count)
 {
-    cs->ifchWorking = 1;
     ssize_t r = safe_write(ifchSock[0], buf, count);
     if (r < 0 || (size_t)r != count) {
         log_error("%s: (%s) write failed: %d", client_config.interface);
-        return;
+        return -1;
     }
     log_line("%s: Sent to ifchd: '%s'", client_config.interface, buf);
+    char data[256], control[256];
+    struct iovec iov = {
+        .iov_base = data,
+        .iov_len = sizeof data - 1,
+    };
+    struct msghdr msg = {
+        .msg_iov = &iov,
+        .msg_iovlen = 1,
+        .msg_control = control,
+        .msg_controllen = sizeof control
+    };
+    r = safe_recvmsg(ifchSock[0], &msg, 0);
+    if (r == 0) {
+        // Remote end hung up.
+        exit(EXIT_SUCCESS);
+    } else if (r < 0) {
+        suicide("%s: (%s) recvmsg failed: %s", client_config.interface,
+                __func__, strerror(errno));
+    }
+    data[iov.iov_len] = '\0';
+    if (r == 1 && data[0] == '+')
+        return 0;
+    return -1;
 }
 
 void ifchange_deconfig(struct client_state_t cs[static 1])
@@ -214,7 +235,7 @@ void ifchange_deconfig(struct client_state_t cs[static 1])
 
     snprintf(buf, sizeof buf, "ip4:0.0.0.0,255.255.255.255;");
     log_line("%s: Resetting IP configuration.", client_config.interface);
-    ifchwrite(cs, buf, strlen(buf));
+    ifchwrite(buf, strlen(buf));
 
     memset(&cfg_packet, 0, sizeof cfg_packet);
 }
@@ -318,7 +339,7 @@ void ifchange_bind(struct client_state_t cs[static 1],
     bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_MTU);
     bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_WINS);
     if (bo)
-        ifchwrite(cs, buf, bo);
+        ifchwrite(buf, bo);
 
     cs->ifDeconfig = 0;
     memcpy(&cfg_packet, packet, sizeof cfg_packet);

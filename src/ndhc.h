@@ -38,7 +38,6 @@ struct client_state_t {
     int dhcpState;
     int arpPrevState;
     int ifsPrevState;
-    int ifchWorking; // ifch is performing interface changes.
     int ifDeconfig; // Set if the interface has already been deconfigured.
     int epollFd, signalFd, listenFd, arpFd, nlFd, rfkillFd;
     int nlPortId;

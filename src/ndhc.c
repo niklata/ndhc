@@ -74,7 +74,6 @@
 #include "rfkill.h"
 
 struct client_state_t cs = {
-    .ifchWorking = 0,
     .ifDeconfig = 0,
     .init = 1,
     .epollFd = -1,
@@ -260,25 +259,7 @@ static void fail_if_state_dir_dne(void)
         suicide("state_dir path '%s' does not specify a directory", state_dir);
 }
 
-static void handle_ifch_message(void)
-{
-    char c;
-    ssize_t r = safe_recv(ifchSock[0], &c, sizeof c, MSG_DONTWAIT);
-    if (r == 0) {
-        // Remote end hung up.
-        exit(EXIT_SUCCESS);
-    } else if (r < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-            return;
-        suicide("%s: (%s) error reading from ifch -> ndhc socket: %s",
-                client_config.interface, __func__, strerror(errno));
-    }
-
-    if (c == '+')
-        cs.ifchWorking = 0;
-}
-
-#define NDHC_NUM_EP_FDS 8
+#define NDHC_NUM_EP_FDS 7
 static void do_ndhc_work(void)
 {
     struct epoll_event events[NDHC_NUM_EP_FDS];
@@ -295,7 +276,6 @@ static void do_ndhc_work(void)
     setup_signals_ndhc();
 
     epoll_add(cs.epollFd, cs.nlFd);
-    epoll_add(cs.epollFd, ifchSock[0]);
     epoll_add(cs.epollFd, ifchStream[0]);
     epoll_add(cs.epollFd, sockdStream[0]);
     if (client_config.enable_rfkill && cs.rfkillFd != -1)
@@ -326,9 +306,6 @@ static void do_ndhc_work(void)
             } else if (fd == cs.nlFd) {
                 if (events[i].events & EPOLLIN)
                     handle_nl_message(&cs);
-            } else if (fd == ifchSock[0]) {
-                if (events[i].events & EPOLLIN)
-                    handle_ifch_message();
             } else if (fd == ifchStream[0]) {
                 if (events[i].events & (EPOLLHUP|EPOLLERR|EPOLLRDHUP))
                     exit(EXIT_FAILURE);
