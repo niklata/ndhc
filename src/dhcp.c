@@ -195,11 +195,8 @@ static ssize_t get_raw_packet(struct client_state_t *cs,
         return -1;
     }
     size_t iphdrlen = ntohs(packet.ip.tot_len);
-    if ((size_t)inc != iphdrlen) {
-        log_error("%s: UDP length [%zd] does not match header length field [%zu].",
-                  client_config.interface, inc, iphdrlen);
+    if ((size_t)inc != iphdrlen)
         return -2;
-    }
     if (!cs->using_dhcp_bpf && !get_raw_packet_validate_bpf(&packet))
         return -2;
 
