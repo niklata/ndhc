@@ -91,7 +91,7 @@ static void nl_process_msgs(const struct nlmsghdr *nlh, void *data)
     }
 }
 
-void handle_nl_message(struct client_state_t *cs)
+void handle_nl_message(struct client_state_t cs[static 1])
 {
     char nlbuf[8192];
     ssize_t ret;

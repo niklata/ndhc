@@ -34,7 +34,7 @@
 
 #include "options.h"
 
-static int do_overload_value(const uint8_t *buf, ssize_t blen, int overload)
+static int do_overload_value(const uint8_t buf[static 1], ssize_t blen, int overload)
 {
     ssize_t i = 0;
     while (i < blen) {

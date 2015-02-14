@@ -81,7 +81,7 @@ void nl_rtattr_parse(const struct nlmsghdr *nlh, size_t offset,
     }
 }
 
-ssize_t nl_recv_buf(int fd, char *buf, size_t blen)
+ssize_t nl_recv_buf(int fd, char buf[static 1], size_t blen)
 {
     struct sockaddr_nl addr;
     struct iovec iov = {
@@ -114,7 +114,7 @@ ssize_t nl_recv_buf(int fd, char *buf, size_t blen)
     return ret;
 }
 
-int nl_foreach_nlmsg(char *buf, size_t blen, uint32_t seq, uint32_t portid,
+int nl_foreach_nlmsg(char buf[static 1], size_t blen, uint32_t seq, uint32_t portid,
                      nlmsg_foreach_fn pfn, void *fnarg)
 {
     const struct nlmsghdr *nlh = (const struct nlmsghdr *)buf;

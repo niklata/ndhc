@@ -67,7 +67,7 @@ int allow_hostname = 0;
 uid_t ifch_uid = 0;
 gid_t ifch_gid = 0;
 
-static void writeordie(int fd, const char *buf, size_t len)
+static void writeordie(int fd, const char buf[static 1], size_t len)
 {
     ssize_t r = safe_write(fd, buf, len);
     if (r < 0 || (size_t)r != len)

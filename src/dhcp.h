@@ -81,15 +81,15 @@ struct udp_dhcp_packet {
     struct dhcpmsg data;
 };
 
-void start_dhcp_listen(struct client_state_t *cs);
-void stop_dhcp_listen(struct client_state_t *cs);
-void handle_packet(struct client_state_t *cs);
-ssize_t send_discover(struct client_state_t *cs);
-ssize_t send_selecting(struct client_state_t *cs);
-ssize_t send_renew(struct client_state_t *cs);
-ssize_t send_rebind(struct client_state_t *cs);
-ssize_t send_decline(struct client_state_t *cs, uint32_t server);
-ssize_t send_release(struct client_state_t *cs);
+void start_dhcp_listen(struct client_state_t cs[static 1]);
+void stop_dhcp_listen(struct client_state_t cs[static 1]);
+void handle_packet(struct client_state_t cs[static 1]);
+ssize_t send_discover(struct client_state_t cs[static 1]);
+ssize_t send_selecting(struct client_state_t cs[static 1]);
+ssize_t send_renew(struct client_state_t cs[static 1]);
+ssize_t send_rebind(struct client_state_t cs[static 1]);
+ssize_t send_decline(struct client_state_t cs[static 1], uint32_t server);
+ssize_t send_release(struct client_state_t cs[static 1]);
 
 int check_carrier(int fd);
 

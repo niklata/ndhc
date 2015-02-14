@@ -67,7 +67,7 @@ uid_t sockd_uid = 0;
 gid_t sockd_gid = 0;
 
 // Interface to make requests of sockd.  Called from ndhc process.
-int request_sockd_fd(char *buf, size_t buflen, char *response)
+int request_sockd_fd(char buf[static 1], size_t buflen, char *response)
 {
     if (!buflen)
         return -1;
@@ -477,7 +477,7 @@ static void xfer_fd(int fd, char cmd)
     close(fd);
 }
 
-static size_t execute_sockd(char *buf, size_t buflen)
+static size_t execute_sockd(char buf[static 1], size_t buflen)
 {
     if (!buflen)
         return 0;

@@ -156,7 +156,7 @@ static size_t generate_iaid(struct nk_random_state_u32 *s, char *dest,
 }
 
 // Failures are all fatal.
-void get_clientid(struct client_state_t *cs, struct client_config_t *cc)
+void get_clientid(struct client_state_t cs[static 1], struct client_config_t cc[static 1])
 {
     if (cc->clientid_len > 0)
         return;

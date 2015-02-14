@@ -76,7 +76,7 @@
 
 %% write data;
 
-static void perform_ip4set(const char *buf, size_t len)
+static void perform_ip4set(const char buf[static 1], size_t len)
 {
     char ip4_addr[INET_ADDRSTRLEN];
     char ip4_subnet[INET_ADDRSTRLEN];
