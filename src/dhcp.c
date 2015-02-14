@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <netpacket/packet.h>
@@ -107,6 +108,11 @@ static ssize_t send_dhcp_unicast(struct client_state_t *cs,
     }
     size_t payload_len =
         sizeof *payload - (sizeof payload->options - 1 - endloc);
+    if (!check_carrier(fd)) {
+        log_error("%s: (%s) carrier down; write would fail",
+                  client_config.interface, __func__);
+        goto out_fd;
+    }
     ret = safe_write(fd, (const char *)payload, payload_len);
     if (ret < 0 || (size_t)ret != payload_len)
         log_error("%s: (%s) write failed: %d", client_config.interface,
@@ -224,6 +230,22 @@ static ssize_t get_raw_packet(struct client_state_t *cs,
     return l;
 }
 
+int check_carrier(int fd)
+{
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof ifr);
+    memcpy(ifr.ifr_name, client_config.interface,
+           sizeof client_config.interface);
+    if (ioctl(fd, SIOCGIFFLAGS, &ifr) == -1) {
+        log_error("%s: (%s) ioctl failed: %s", client_config.interface,
+                  __func__, strerror(errno));
+        return 0;
+    }
+    if ((ifr.ifr_flags & IFF_RUNNING) && (ifr.ifr_flags & IFF_UP))
+        return 1;
+    return 0;
+}
+
 // Broadcast a DHCP message using a raw socket.
 static ssize_t send_dhcp_raw(struct dhcpmsg *payload)
 {
@@ -282,6 +304,11 @@ static ssize_t send_dhcp_raw(struct dhcpmsg *payload)
         .sll_halen = 6,
     };
     memcpy(da.sll_addr, "\xff\xff\xff\xff\xff\xff", 6);
+    if (!check_carrier(fd)) {
+        log_error("%s: (%s) carrier down; sendto would fail",
+                  client_config.interface, __func__);
+        goto carrier_down;
+    }
     ret = safe_sendto(fd, (const char *)&iudmsg, iud_len, 0,
                       (struct sockaddr *)&da, sizeof da);
     if (ret < 0 || (size_t)ret != iud_len) {
@@ -292,6 +319,7 @@ static ssize_t send_dhcp_raw(struct dhcpmsg *payload)
             log_error("%s: (%s) sendto short write: %z < %zu",
                       client_config.interface, __func__, ret, iud_len);
     }
+carrier_down:
     close(fd);
     return ret;
 }

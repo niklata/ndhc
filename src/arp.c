@@ -257,8 +257,14 @@ static int arp_send(struct client_state_t *cs, struct arpMsg *arp)
         return -1;
     }
 
-    ssize_t r = safe_sendto(cs->arpFd, (const char *)arp, sizeof *arp,
-                            0, (struct sockaddr *)&addr, sizeof addr);
+    ssize_t r;
+    if (!check_carrier(cs->arpFd)) {
+        log_error("%s: (%s) carrier down; sendto would fail",
+                  client_config.interface, __func__);
+        goto carrier_down;
+    }
+    r = safe_sendto(cs->arpFd, (const char *)arp, sizeof *arp, 0,
+                    (struct sockaddr *)&addr, sizeof addr);
     if (r < 0 || (size_t)r != sizeof *arp) {
         if (r < 0)
             log_error("%s: (%s) sendto failed: %s",
@@ -266,6 +272,7 @@ static int arp_send(struct client_state_t *cs, struct arpMsg *arp)
         else
             log_error("%s: (%s) sendto short write: %z < %zu",
                       client_config.interface, __func__, r, sizeof *arp);
+carrier_down:
         arp_reopen_fd(cs);
         return -1;
     }
