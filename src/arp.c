@@ -109,7 +109,7 @@ struct arp_data {
 static struct arp_data garp = {
     .state = AS_NONE,
     .wake_ts = { -1, -1, -1, -1, -1 },
-    .send_stats = {{0},{0},{0}},
+    .send_stats = {{0,0},{0,0},{0,0}},
     .last_conflict_ts = 0,
     .gw_check_initpings = 0,
     .arp_check_start_ts = 0,

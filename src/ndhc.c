@@ -186,7 +186,8 @@ static void setup_signals_ndhc(void)
 
 static void signal_dispatch(void)
 {
-    struct signalfd_siginfo si = {0};
+    struct signalfd_siginfo si;
+    memset(&si, 0, sizeof si);
     ssize_t r = safe_read(cs.signalFd, (char *)&si, sizeof si);
     if (r < 0) {
         log_error("%s: ndhc: error reading from signalfd: %s",

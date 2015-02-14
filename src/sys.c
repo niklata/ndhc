@@ -77,7 +77,8 @@ int setup_signals_subprocess(void)
 
 void signal_dispatch_subprocess(int sfd, const char pname[static 1])
 {
-    struct signalfd_siginfo si = {0};
+    struct signalfd_siginfo si;
+    memset(&si, 0, sizeof si);
     ssize_t r = safe_read(sfd, (char *)&si, sizeof si);
     if (r < 0) {
         log_error("%s: %s: error reading from signalfd: %s",
