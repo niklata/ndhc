@@ -225,19 +225,23 @@ static int ifchwrite(const char buf[static 1], size_t count)
     return -1;
 }
 
-void ifchange_deconfig(struct client_state_t cs[static 1])
+int ifchange_deconfig(struct client_state_t cs[static 1])
 {
     char buf[256];
+    int ret = -1;
 
     if (cs->ifDeconfig)
-        return;
-    cs->ifDeconfig = 1;
+        return 0;
 
     snprintf(buf, sizeof buf, "ip4:0.0.0.0,255.255.255.255;");
     log_line("%s: Resetting IP configuration.", client_config.interface);
-    ifchwrite(buf, strlen(buf));
+    ret = ifchwrite(buf, strlen(buf));
 
-    memset(&cfg_packet, 0, sizeof cfg_packet);
+    if (ret >= 0) {
+        cs->ifDeconfig = 1;
+        memset(&cfg_packet, 0, sizeof cfg_packet);
+    }
+    return ret;
 }
 
 static size_t send_client_ip(char out[static 1], size_t olen,
@@ -308,9 +312,6 @@ static size_t send_cmd(char out[static 1], size_t olen,
     uint8_t optdata[MAX_DOPT_SIZE], olddata[MAX_DOPT_SIZE];
     ssize_t optlen, oldlen;
 
-    if (!packet)
-        return 0;
-
     optlen = get_dhcp_opt(packet, code, optdata, sizeof optdata);
     if (!optlen)
         return 0;
@@ -321,14 +322,12 @@ static size_t send_cmd(char out[static 1], size_t olen,
     return r > 0 ? r : 0;
 }
 
-void ifchange_bind(struct client_state_t cs[static 1],
+int ifchange_bind(struct client_state_t cs[static 1],
                    struct dhcpmsg packet[static 1])
 {
     char buf[2048];
     size_t bo;
-
-    if (!packet)
-        return;
+    int ret = -1;
 
     memset(buf, 0, sizeof buf);
     bo = send_client_ip(buf, sizeof buf, packet);
@@ -339,8 +338,12 @@ void ifchange_bind(struct client_state_t cs[static 1],
     bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_MTU);
     bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_WINS);
     if (bo)
-        ifchwrite(buf, bo);
+        ret = ifchwrite(buf, bo);
 
-    cs->ifDeconfig = 0;
-    memcpy(&cfg_packet, packet, sizeof cfg_packet);
+    if (ret >= 0) {
+        cs->ifDeconfig = 0;
+        memcpy(&cfg_packet, packet, sizeof cfg_packet);
+    }
+    return ret;
 }
+

@@ -74,7 +74,6 @@
 #include "rfkill.h"
 
 struct client_state_t cs = {
-    .ifDeconfig = 0,
     .init = 1,
     .epollFd = -1,
     .signalFd = -1,
