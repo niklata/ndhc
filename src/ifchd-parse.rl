@@ -233,8 +233,6 @@ int execute_buffer(const char newbuf[static 1])
                   client_config.interface);
         return -99;
     }
-    log_line("%s: Commands received and successfully executed.",
-             client_config.interface);
     return !cmdf ? 0 : -1;
 }
 

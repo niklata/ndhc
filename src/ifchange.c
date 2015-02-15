@@ -199,7 +199,6 @@ static int ifchwrite(const char buf[static 1], size_t count)
         log_error("%s: (%s) write failed: %d", client_config.interface);
         return -1;
     }
-    log_line("%s: Sent to ifchd: '%s'", client_config.interface, buf);
     char data[256], control[256];
     struct iovec iov = {
         .iov_base = data,
@@ -345,8 +344,10 @@ int ifchange_bind(struct client_state_t cs[static 1],
     bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_DOMAIN);
     bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_MTU);
     bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_WINS);
-    if (bo)
+    if (bo) {
+        log_line("%s: bind command: '%s'", client_config.interface, buf);
         ret = ifchwrite(buf, bo);
+    }
 
     if (ret >= 0) {
         cs->ifDeconfig = 0;
