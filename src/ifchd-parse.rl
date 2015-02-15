@@ -76,7 +76,7 @@
 
 %% write data;
 
-static void perform_ip4set(const char buf[static 1], size_t len)
+static int perform_ip4set(const char buf[static 1], size_t len)
 {
     char ip4_addr[INET_ADDRSTRLEN];
     char ip4_subnet[INET_ADDRSTRLEN];
@@ -96,21 +96,21 @@ static void perform_ip4set(const char buf[static 1], size_t len)
 
     if (cs < ipv4set_parser_first_final) {
         log_line("%s: received invalid arguments", __func__);
-        return;
+        return -1;
     }
 
     // These should never trigger because of the above check, but be safe...
     if (!have_ip) {
         log_line("%s: No IPv4 address specified.", __func__);
-        return;
+        return -1;
     }
     if (!have_subnet) {
         log_line("%s: No IPv4 subnet specified.", __func__);
-        return;
+        return -1;
     }
 
-    perform_ip_subnet_bcast(ip4_addr, ip4_subnet,
-                            have_bcast ? ip4_bcast : NULL);
+    return perform_ip_subnet_bcast(ip4_addr, ip4_subnet,
+                                   have_bcast ? ip4_bcast : NULL);
 }
 
 %%{
@@ -122,7 +122,7 @@ static void perform_ip4set(const char buf[static 1], size_t len)
         arg_len = p - arg_start;
         if (arg_len > sizeof tb - 1) {
             log_line("command argument would overflow");
-            return -1;
+            return -99;
         }
         memcpy(tb, arg_start, arg_len);
         tb[arg_len] = 0;
@@ -130,20 +130,20 @@ static void perform_ip4set(const char buf[static 1], size_t len)
 
     action Dispatch {
         switch (cl.state) {
-        case STATE_IP4SET: perform_ip4set(tb, arg_len); break;
-        case STATE_TIMEZONE: perform_timezone( tb, arg_len); break;
-        case STATE_ROUTER: perform_router(tb, arg_len); break;
-        case STATE_DNS: perform_dns(tb, arg_len); break;
-        case STATE_LPRSVR: perform_lprsvr(tb, arg_len); break;
-        case STATE_HOSTNAME: perform_hostname(tb, arg_len); break;
-        case STATE_DOMAIN: perform_domain(tb, arg_len); break;
-        case STATE_IPTTL: perform_ipttl(tb, arg_len); break;
-        case STATE_MTU: perform_mtu(tb, arg_len); break;
-        case STATE_NTPSVR: perform_ntpsrv(tb, arg_len); break;
-        case STATE_WINS: perform_wins(tb, arg_len); break;
+        case STATE_IP4SET: cmdf |= perform_ip4set(tb, arg_len); break;
+        case STATE_TIMEZONE: cmdf |= perform_timezone( tb, arg_len); break;
+        case STATE_ROUTER: cmdf |= perform_router(tb, arg_len); break;
+        case STATE_DNS: cmdf |= perform_dns(tb, arg_len); break;
+        case STATE_LPRSVR: cmdf |= perform_lprsvr(tb, arg_len); break;
+        case STATE_HOSTNAME: cmdf |= perform_hostname(tb, arg_len); break;
+        case STATE_DOMAIN: cmdf |= perform_domain(tb, arg_len); break;
+        case STATE_IPTTL: cmdf |= perform_ipttl(tb, arg_len); break;
+        case STATE_MTU: cmdf |= perform_mtu(tb, arg_len); break;
+        case STATE_NTPSVR: cmdf |= perform_ntpsrv(tb, arg_len); break;
+        case STATE_WINS: cmdf |= perform_wins(tb, arg_len); break;
         default:
             log_line("error: invalid state in dispatch_work");
-            return -1;
+            return -99;
         }
     }
 
@@ -178,23 +178,26 @@ static void perform_ip4set(const char buf[static 1], size_t len)
 %% write data;
 
 /*
- * Returns -1 on fatal error; that leads to peer connection being closed.
+ * Returns -99 on fatal error; that leads to peer connection being closed.
+ * Returns -1 if one of the commands failed.
+ * Returns 0 on success.
  */
 int execute_buffer(const char newbuf[static 1])
 {
     char buf[MAX_BUF * 2];
     char tb[MAX_BUF];
+    int cmdf = 0;
 
     ssize_t buflen = snprintf(buf, sizeof buf, "%s%s", cl.ibuf, newbuf);
     if (buflen < 0) {
         log_error("%s: (%s) snprintf1 failed; your system is broken?",
                   client_config.interface, __func__);
-        return -1;
+        return -99;
     }
     if ((size_t)buflen >= sizeof buf) {
         log_error("%s: (%s) input is too long for buffer",
                   client_config.interface, __func__);
-        return -1;
+        return -99;
     }
 
     size_t init_siz = strlen(buf);
@@ -214,22 +217,22 @@ int execute_buffer(const char newbuf[static 1])
         if (ilen < 0) {
             log_error("%s: (%s) snprintf2 failed; your system is broken?",
                       client_config.interface, __func__);
-            return -1;
+            return -99;
         }
         if ((size_t)ilen >= sizeof buf) {
             log_error("%s: (%s) unconsumed input too long for buffer",
                       client_config.interface, __func__);
-            return -1;
+            return -99;
         }
     }
 
     if (cs < ifchd_parser_first_final) {
         log_error("%s: ifch received invalid commands",
                   client_config.interface);
-        return -1;
+        return -99;
     }
     log_line("%s: Commands received and successfully executed.",
              client_config.interface);
-    return 0;
+    return !cmdf ? 0 : -1;
 }
 

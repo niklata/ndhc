@@ -76,22 +76,21 @@ static void writeordie(int fd, const char buf[static 1], size_t len)
 }
 
 /* Writes a new resolv.conf based on the information we have received. */
-static void write_resolve_conf(void)
+static int write_resolve_conf(void)
 {
     static const char ns_str[] = "nameserver ";
     static const char dom_str[] = "domain ";
     static const char srch_str[] = "search ";
-    int r;
     off_t off;
     char buf[MAX_BUF];
 
     if (resolv_conf_fd < 0)
-        return;
+        return 0;
     if (strlen(cl.namesvrs) == 0)
-        return;
+        return -1;
 
     if (lseek(resolv_conf_fd, 0, SEEK_SET) < 0)
-        return;
+        return -1;
 
     char *p = cl.namesvrs;
     while (p && (*p != '\0')) {
@@ -152,106 +151,118 @@ static void write_resolve_conf(void)
     if (off < 0) {
         log_line("write_resolve_conf: lseek returned error: %s",
                 strerror(errno));
-        return;
+        return -1;
     }
   retry:
-    r = ftruncate(resolv_conf_fd, off);
-    if (r < 0) {
+    if (ftruncate(resolv_conf_fd, off) < 0) {
         if (errno == EINTR)
             goto retry;
         log_line("write_resolve_conf: ftruncate returned error: %s",
                  strerror(errno));
-        return;
+        return -1;
     }
-    r = fsync(resolv_conf_fd);
-    if (r < 0) {
+    if (fsync(resolv_conf_fd) < 0) {
         log_line("write_resolve_conf: fsync returned error: %s",
                  strerror(errno));
-        return;
+        return -1;
     }
+    return 0;
 }
 
 /* XXX: addme */
-void perform_timezone(const char str[static 1], size_t len)
+int perform_timezone(const char str[static 1], size_t len)
 {
     (void)len;
     log_line("Timezone setting NYI: '%s'", str);
+    return 0;
 }
 
 /* Add a dns server to the /etc/resolv.conf -- we already have a fd. */
-void perform_dns(const char str[static 1], size_t len)
+int perform_dns(const char str[static 1], size_t len)
 {
     if (resolv_conf_fd < 0)
-        return;
+        return 0;
+    int ret = -1;
     if (len > sizeof cl.namesvrs) {
         log_line("DNS server list is too long: %zu > %zu", len, cl.namesvrs);
-        return;
+        return ret;
     }
     ssize_t sl = snprintf(cl.namesvrs, sizeof cl.namesvrs, "%s", str);
     if (sl < 0 || (size_t)sl >= sizeof cl.namesvrs) {
         log_warning("%s: (%s) snprintf failed",
                     client_config.interface, __func__);
     }
-    write_resolve_conf();
-    log_line("Added DNS server: '%s'", str);
+    ret = write_resolve_conf();
+    if (ret >= 0)
+        log_line("Added DNS server: '%s'", str);
+    return ret;
 }
 
 /* Updates for print daemons are too non-standard to be useful. */
-void perform_lprsvr(const char str[static 1], size_t len)
+int perform_lprsvr(const char str[static 1], size_t len)
 {
     (void)len;
     log_line("Line printer server setting NYI: '%s'", str);
+    return 0;
 }
 
 /* Sets machine hostname. */
-void perform_hostname(const char str[static 1], size_t len)
+int perform_hostname(const char str[static 1], size_t len)
 {
     if (!allow_hostname)
-        return;
-    if (sethostname(str, len) < 0)
+        return 0;
+    if (sethostname(str, len) < 0) {
         log_line("sethostname returned %s", strerror(errno));
-    else
-        log_line("Set hostname: '%s'", str);
+        return -1;
+    }
+    log_line("Set hostname: '%s'", str);
+    return 0;
 }
 
 /* update "domain" and "search" in /etc/resolv.conf */
-void perform_domain(const char str[static 1], size_t len)
+int perform_domain(const char str[static 1], size_t len)
 {
     if (resolv_conf_fd < 0)
-        return;
+        return 0;
+    int ret = -1;
     if (len > sizeof cl.domains) {
         log_line("DNS domain list is too long: %zu > %zu", len, cl.namesvrs);
-        return;
+        return ret;
     }
     ssize_t sl = snprintf(cl.domains, sizeof cl.domains, "%s", str);
     if (sl < 0 || (size_t)sl >= sizeof cl.domains) {
         log_warning("%s: (%s) snprintf failed",
                     client_config.interface, __func__);
     }
-    write_resolve_conf();
-    log_line("Added DNS domain: '%s'", str);
+    ret = write_resolve_conf();
+    if (ret <= 0)
+        log_line("Added DNS domain: '%s'", str);
+    return ret;
 }
 
 /* I don't think this can be done without a netfilter extension
  * that isn't in the mainline kernels. */
-void perform_ipttl(const char str[static 1], size_t len)
+int perform_ipttl(const char str[static 1], size_t len)
 {
     (void)len;
     log_line("TTL setting NYI: '%s'", str);
+    return 0;
 }
 
 /* XXX: addme */
-void perform_ntpsrv(const char str[static 1], size_t len)
+int perform_ntpsrv(const char str[static 1], size_t len)
 {
     (void)len;
     log_line("NTP server setting NYI: '%s'", str);
+    return 0;
 }
 
 /* Maybe Samba cares about this feature?  I don't know. */
-void perform_wins(const char str[static 1], size_t len)
+int perform_wins(const char str[static 1], size_t len)
 {
     (void)str;
     (void)len;
+    return 0;
 }
 
 static void inform_execute(char c)
