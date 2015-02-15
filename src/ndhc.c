@@ -296,46 +296,32 @@ static void do_ndhc_work(void)
             else
                 suicide("epoll_wait failed");
         }
+        int sev_dhcp = -1;
+        uint32_t dhcp_srcaddr;
+        uint8_t dhcp_msgtype;
+        int sev_arp = ARPR_NONE;
+        int sev_nl = IFS_NONE;
+        int sev_rfk = RFK_NONE;
+        int sev_signal = SIGNAL_NONE;
         for (int i = 0; i < maxi; ++i) {
             int fd = events[i].data.fd;
             if (fd == cs.signalFd) {
                 if (!(events[i].events & EPOLLIN))
                     return;
-                int sigv = signal_dispatch();
-                if (sigv == SIGNAL_RENEW)
-                    force_renew_action(&cs);
-                else if (sigv == SIGNAL_RELEASE)
-                    force_release_action(&cs);
+                sev_signal = signal_dispatch();
             } else if (fd == cs.listenFd) {
                 if (!(events[i].events & EPOLLIN))
                     return;
-                uint32_t srcaddr;
-                uint8_t msgtype;
-                int r = dhcp_packet_get(&cs, &dhcp_packet, &msgtype, &srcaddr);
-                if (!r)
-                    packet_action(&cs, &dhcp_packet, msgtype, srcaddr);
+                sev_dhcp = dhcp_packet_get(&cs, &dhcp_packet, &dhcp_msgtype,
+                                           &dhcp_srcaddr);
             } else if (fd == cs.arpFd) {
                 if (!(events[i].events & EPOLLIN))
                     return;
-                int r = arp_packet_get(&cs);
-                if (r == ARPR_PENDING) {
-                    arp_packet_action(&cs);
-                } else if (r == ARPR_ERROR) {
-                    if (garp.state == AS_COLLISION_CHECK)
-                        arp_failed(&cs);
-                    else if (garp.state == AS_GW_CHECK)
-                        arp_gw_failed(&cs);
-                    else
-                        arp_reopen_fd(&cs);
-                    handle_arp_timeout(&cs, curms());
-                } else if (r == ARPR_CLOSED)
-                    handle_arp_timeout(&cs, curms());
+                sev_arp = arp_packet_get(&cs);
             } else if (fd == cs.nlFd) {
                 if (!(events[i].events & EPOLLIN))
                     return;
-                int nl_event = nl_event_get(&cs);
-                if (nl_event != IFS_NONE)
-                    nl_event_react(&cs, nl_event);
+                sev_nl = nl_event_get(&cs);
             } else if (fd == ifchStream[0]) {
                 if (events[i].events & (EPOLLHUP|EPOLLERR|EPOLLRDHUP))
                     exit(EXIT_FAILURE);
@@ -345,30 +331,51 @@ static void do_ndhc_work(void)
             } else if (fd == cs.rfkillFd && client_config.enable_rfkill) {
                 if (!(events[i].events & EPOLLIN))
                     return;
-                int rfk = rfkill_get(&cs, 1, client_config.rfkillIdx);
-                if (rfk == RFK_ENABLED) {
-                    cs.rfkill_set = 1;
-                    if (cs.ifsPrevState == IFS_UP) {
-                        log_line("rfkill: radio now blocked; bringing interface down");
-                        cs.ifsPrevState = IFS_DOWN;
-                        ifnocarrier_action(&cs);
-                    } else
-                        log_line("rfkill: radio now blocked, but interface isn't up");
-                } else if (rfk == RFK_DISABLED) {
-                    cs.rfkill_set = 0;
-                    if (cs.ifsPrevState == IFS_DOWN) {
-                        log_line("rfkill: radio now unblocked; bringing interface up");
-                        cs.ifsPrevState = IFS_UP;
-                        ifup_action(&cs);
-                    } else {
-                        if (cs.ifsPrevState == IFS_SHUT)
-                            log_line("rfkill: radio now unblocked, but interface was shut down by user");
-                        else
-                            log_line("rfkill: radio now unblocked, but interface is removed");
-                    }
-                }
+                sev_rfk = rfkill_get(&cs, 1, client_config.rfkillIdx);
             } else
                 suicide("epoll_wait: unknown fd");
+        }
+
+        if (sev_signal == SIGNAL_RENEW)
+            force_renew_action(&cs);
+        else if (sev_signal == SIGNAL_RELEASE)
+            force_release_action(&cs);
+        if (!sev_dhcp)
+            packet_action(&cs, &dhcp_packet, dhcp_msgtype, dhcp_srcaddr);
+        if (sev_arp == ARPR_PENDING) {
+            arp_packet_action(&cs);
+        } else if (sev_arp == ARPR_ERROR) {
+            if (garp.state == AS_COLLISION_CHECK)
+                arp_failed(&cs);
+            else if (garp.state == AS_GW_CHECK)
+                arp_gw_failed(&cs);
+            else
+                arp_reopen_fd(&cs);
+            handle_arp_timeout(&cs, curms());
+        } else if (sev_arp == ARPR_CLOSED)
+            handle_arp_timeout(&cs, curms());
+        if (sev_nl != IFS_NONE)
+            nl_event_react(&cs, sev_nl);
+        if (sev_rfk == RFK_ENABLED) {
+            cs.rfkill_set = 1;
+            if (cs.ifsPrevState == IFS_UP) {
+                log_line("rfkill: radio now blocked; bringing interface down");
+                cs.ifsPrevState = IFS_DOWN;
+                ifnocarrier_action(&cs);
+            } else
+                log_line("rfkill: radio now blocked, but interface isn't up");
+        } else if (sev_rfk == RFK_DISABLED) {
+            cs.rfkill_set = 0;
+            if (cs.ifsPrevState == IFS_DOWN) {
+                log_line("rfkill: radio now unblocked; bringing interface up");
+                cs.ifsPrevState = IFS_UP;
+                ifup_action(&cs);
+            } else {
+                if (cs.ifsPrevState == IFS_SHUT)
+                    log_line("rfkill: radio now unblocked, but interface was shut down by user");
+                else
+                    log_line("rfkill: radio now unblocked, but interface is removed");
+            }
         }
 
         for (;;) {
