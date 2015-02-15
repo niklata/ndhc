@@ -29,6 +29,7 @@
 #ifndef IFCHANGE_H_
 #define IFCHANGE_H_
 
+int check_carrier(void);
 int ifchange_bind(struct client_state_t cs[static 1],
                   struct dhcpmsg packet[static 1]);
 int ifchange_deconfig(struct client_state_t cs[static 1]);

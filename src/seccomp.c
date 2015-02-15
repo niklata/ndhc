@@ -83,11 +83,6 @@ int enforce_seccomp_ndhc(void)
         ALLOW_SYSCALL(mmap),
         ALLOW_SYSCALL(munmap),
 
-        // For checking to see if the interface carrier is up.  Should be
-        // removed in favor of synchronous requests to ifchd, but it will
-        // work for now.
-        ALLOW_SYSCALL(ioctl),
-
         ALLOW_SYSCALL(rt_sigreturn),
 #ifdef __NR_sigreturn
         ALLOW_SYSCALL(sigreturn),

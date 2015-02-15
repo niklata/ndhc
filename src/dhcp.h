@@ -91,6 +91,4 @@ ssize_t send_rebind(struct client_state_t cs[static 1]);
 ssize_t send_decline(struct client_state_t cs[static 1], uint32_t server);
 ssize_t send_release(struct client_state_t cs[static 1]);
 
-int check_carrier(int fd);
-
 #endif

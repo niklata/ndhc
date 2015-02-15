@@ -108,7 +108,7 @@ static ssize_t send_dhcp_unicast(struct client_state_t cs[static 1],
     }
     size_t payload_len =
         sizeof *payload - (sizeof payload->options - 1 - endloc);
-    if (!check_carrier(fd)) {
+    if (check_carrier()) {
         log_error("%s: (%s) carrier down; write would fail",
                   client_config.interface, __func__);
         ret = -99;
@@ -228,22 +228,6 @@ static ssize_t get_raw_packet(struct client_state_t cs[static 1],
     return l;
 }
 
-int check_carrier(int fd)
-{
-    struct ifreq ifr;
-    memset(&ifr, 0, sizeof ifr);
-    memcpy(ifr.ifr_name, client_config.interface,
-           sizeof client_config.interface);
-    if (ioctl(fd, SIOCGIFFLAGS, &ifr) == -1) {
-        log_error("%s: (%s) ioctl failed: %s", client_config.interface,
-                  __func__, strerror(errno));
-        return 0;
-    }
-    if ((ifr.ifr_flags & IFF_RUNNING) && (ifr.ifr_flags & IFF_UP))
-        return 1;
-    return 0;
-}
-
 // Broadcast a DHCP message using a raw socket.
 static ssize_t send_dhcp_raw(struct dhcpmsg payload[static 1])
 {
@@ -302,7 +286,7 @@ static ssize_t send_dhcp_raw(struct dhcpmsg payload[static 1])
         .sll_halen = 6,
     };
     memcpy(da.sll_addr, "\xff\xff\xff\xff\xff\xff", 6);
-    if (!check_carrier(fd)) {
+    if (check_carrier()) {
         log_error("%s: (%s) carrier down; sendto would fail",
                   client_config.interface, __func__);
         ret = -99;

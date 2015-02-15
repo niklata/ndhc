@@ -141,6 +141,7 @@ static int perform_ip4set(const char buf[static 1], size_t len)
         case STATE_MTU: cmdf |= perform_mtu(tb, arg_len); break;
         case STATE_NTPSVR: cmdf |= perform_ntpsrv(tb, arg_len); break;
         case STATE_WINS: cmdf |= perform_wins(tb, arg_len); break;
+        case STATE_CARRIER: cmdf |= perform_carrier(); break;
         default:
             log_line("error: invalid state in dispatch_work");
             return -99;
@@ -170,8 +171,9 @@ static int perform_ip4set(const char buf[static 1], size_t len)
     cmd_s32 = ('tzone:' % { cl.state = STATE_TIMEZONE; }) s32_arg;
     cmd_u16 = ('mtu:' % { cl.state = STATE_MTU; }) u16_arg;
     cmd_u8  = ('ipttl:' % { cl.state = STATE_IPTTL; }) u8_arg;
+    cmd_none = ('carrier:' % { cl.state = STATE_CARRIER; }) terminator;
 
-    command = (cmd_ip|cmd_ip4set|cmd_iplist|cmd_str|cmd_s32|cmd_u16|cmd_u8);
+    command = (cmd_ip|cmd_ip4set|cmd_iplist|cmd_str|cmd_s32|cmd_u16|cmd_u8|cmd_none);
     main := (command > Reset)+;
 }%%
 

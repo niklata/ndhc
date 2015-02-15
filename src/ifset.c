@@ -327,6 +327,27 @@ static int link_flags_get(int fd, uint32_t flags[static 1])
     return -4;
 }
 
+int perform_carrier(void)
+{
+    int ret = -1;
+    uint32_t flags;
+    int fd = socket(AF_NETLINK, SOCK_DGRAM | SOCK_NONBLOCK, NETLINK_ROUTE);
+    if (fd < 0) {
+        log_error("%s: (%s) netlink socket open failed: %s",
+                  client_config.interface, __func__, strerror(errno));
+        goto fail;
+    }
+
+    if (link_flags_get(fd, &flags) < 0)
+        goto fail_fd;;
+    if ((flags & IFF_RUNNING) && (flags & IFF_UP))
+        ret = 0;
+fail_fd:
+    close(fd);
+fail:
+    return ret;
+}
+
 static int link_set_flags(int fd, uint32_t flags)
 {
     uint32_t oldflags;

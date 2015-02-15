@@ -28,6 +28,7 @@
 
 #ifndef NJK_IFSET_H_
 #define NJK_IFSET_H_
+int perform_carrier(void);
 int perform_ifup(void);
 int perform_ip_subnet_bcast(const char str_ipaddr[static 1],
                             const char str_subnet[static 1],

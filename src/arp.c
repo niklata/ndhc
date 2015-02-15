@@ -261,7 +261,7 @@ static int arp_send(struct client_state_t cs[static 1],
         return ret;
     }
 
-    if (!check_carrier(cs->arpFd)) {
+    if (check_carrier()) {
         log_error("%s: (%s) carrier down; sendto would fail",
                   client_config.interface, __func__);
         ret = -99;

@@ -225,6 +225,14 @@ static int ifchwrite(const char buf[static 1], size_t count)
     return -1;
 }
 
+// Returns 0 if there is a carrier, -1 if not.
+int check_carrier(void)
+{
+    char buf[256];
+    snprintf(buf, sizeof buf, "carrier:;");
+    return ifchwrite(buf, strlen(buf));
+}
+
 int ifchange_deconfig(struct client_state_t cs[static 1])
 {
     char buf[256];

@@ -16,7 +16,8 @@ enum ifchd_states {
     STATE_IPTTL,
     STATE_MTU,
     STATE_NTPSVR,
-    STATE_WINS
+    STATE_WINS,
+    STATE_CARRIER,
 };
 
 #include <net/if.h>
