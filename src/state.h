@@ -43,7 +43,7 @@ typedef enum {
     DS_NUM_STATES,
 } dhcp_states_t;
 
-void reinit_selecting(struct client_state_t cs[static 1], int timeout);
+int reinit_selecting(struct client_state_t cs[static 1], int timeout);
 
 void packet_action(struct client_state_t cs[static 1],
                    struct dhcpmsg packet[static 1], uint8_t msgtype,

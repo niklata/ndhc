@@ -107,9 +107,10 @@ static int delay_timeout(struct client_state_t cs[static 1], size_t numpackets)
     return to * 1000 + (nk_random_u32(&cs->rnd32_state) & 0x7fffffffu) % 1000;
 }
 
-static void reinit_shared_deconfig(struct client_state_t cs[static 1])
+static int reinit_shared_deconfig(struct client_state_t cs[static 1])
 {
-    ifchange_deconfig(cs);
+    if (ifchange_deconfig(cs) < 0)
+        return -1;
     arp_close_fd(cs);
     cs->clientAddr = 0;
     num_dhcp_requests = 0;
@@ -118,22 +119,33 @@ static void reinit_shared_deconfig(struct client_state_t cs[static 1])
     memset(&cs->routerArp, 0, sizeof cs->routerArp);
     memset(&cs->serverArp, 0, sizeof cs->serverArp);
     arp_reset_send_stats();
+    return 0;
 }
 
-void reinit_selecting(struct client_state_t cs[static 1], int timeout)
+int reinit_selecting(struct client_state_t cs[static 1], int timeout)
 {
-    reinit_shared_deconfig(cs);
+    if (reinit_shared_deconfig(cs) < 0) {
+        // XXX: This should retry until it succeeds.
+        suicide("%s: (%s) deconfiguring interface failed",
+                client_config.interface, __func__);
+    }
     cs->dhcpState = DS_SELECTING;
     dhcp_wake_ts = curms() + timeout;
     start_dhcp_listen(cs);
+    return 0;
 }
 
-static void set_released(struct client_state_t cs[static 1])
+static int set_released(struct client_state_t cs[static 1])
 {
-    reinit_shared_deconfig(cs);
+    if (reinit_shared_deconfig(cs) < 0) {
+        // XXX: This should retry until it succeeds.
+        suicide("%s: (%s) deconfiguring interface failed",
+                client_config.interface, __func__);
+    }
     cs->dhcpState = DS_RELEASED;
     dhcp_wake_ts = -1;
     stop_dhcp_listen(cs);
+    return 0;
 }
 
 // Triggered after a DHCP lease request packet has been sent and no reply has

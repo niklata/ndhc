@@ -435,8 +435,10 @@ static void ndhc_main(void) {
     memset(chroot_dir, '\0', sizeof chroot_dir);
     nk_set_uidgid(ndhc_uid, ndhc_gid, NULL, 0);
 
-    if (cs.ifsPrevState != IFS_UP)
-        ifchange_deconfig(&cs);
+    if (cs.ifsPrevState != IFS_UP) {
+        if (ifchange_deconfig(&cs) < 0)
+            suicide("%s: can't deconfigure interface settings", __func__);
+    }
 
     do_ndhc_work();
 }

@@ -468,7 +468,13 @@ void arp_success(struct client_state_t cs[static 1])
     cs->init = 0;
     garp.last_conflict_ts = 0;
     garp.wake_ts[AS_COLLISION_CHECK] = -1;
-    ifchange_bind(cs, &garp.dhcp_packet);
+    if (ifchange_bind(cs, &garp.dhcp_packet) < 0) {
+        // XXX: Not ideal, but assuming that the DHCP process is supervised,
+        // it will recover.  The correct thing to do would be to keep
+        // trying to set the configuration state.
+        suicide("%s: Failed to set the interface IP address and properties!",
+                client_config.interface);
+    }
     if (cs->arpPrevState == DS_RENEWING || cs->arpPrevState == DS_REBINDING) {
         arp_switch_state(cs, AS_DEFENSE);
     } else {
