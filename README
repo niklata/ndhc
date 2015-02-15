@@ -160,6 +160,10 @@ USAGE
 4o) If you encounter problems, I suggest running ndhc in the foreground and
     examining the printed output.
 
+5) I suggest running ndhc under some sort of process supervision.  This will
+   allow for reliable functioning in the case of unforseen or
+   unrecoverable errors.
+
 
 BEHAVIOR NOTES
 --------------
