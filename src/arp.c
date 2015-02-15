@@ -62,52 +62,7 @@ int arp_probe_max = 2000;          // maximum delay until repeated probe (ms)
 #define RATE_LIMIT_INTERVAL 60000  // delay between successive attempts
 #define DEFEND_INTERVAL 10000      // minimum interval between defensive ARPs
 
-typedef enum {
-    AS_NONE = 0,        // Nothing to react to wrt ARP
-    AS_COLLISION_CHECK, // Checking to see if another host has our IP before
-                        // accepting a new lease.
-    AS_GW_CHECK,        // Seeing if the default GW still exists on the local
-                        // segment after the hardware link was lost.
-    AS_GW_QUERY,        // Finding the default GW MAC address.
-    AS_DEFENSE,         // Defending our IP address (RFC5227)
-    AS_MAX,
-} arp_state_t;
-
-typedef enum {
-    ASEND_COLLISION_CHECK,
-    ASEND_GW_PING,
-    ASEND_ANNOUNCE,
-    ASEND_MAX,
-} arp_send_t;
-
-struct arp_stats {
-    long long ts;
-    int count;
-};
-
-struct arp_data {
-    struct dhcpmsg dhcp_packet;   // Used only for AS_COLLISION_CHECK
-    struct arpMsg reply;
-    struct arp_stats send_stats[ASEND_MAX];
-    long long wake_ts[AS_MAX];
-    long long last_conflict_ts;   // TS of the last conflicting ARP seen.
-    long long arp_check_start_ts; // TS of when we started the
-                                  // AS_COLLISION_CHECK state.
-    size_t reply_offset;
-    arp_state_t state;
-    unsigned int total_conflicts; // Total number of address conflicts on
-                                  // the interface.  Never decreases.
-    int gw_check_initpings;       // Initial count of ASEND_GW_PING when
-                                  // AS_GW_CHECK was entered.
-    uint16_t probe_wait_time;     // Time to wait for a COLLISION_CHECK reply
-                                  // (in ms?).
-    bool using_bpf:1;             // Is a BPF installed on the ARP socket?
-    bool relentless_def:1;        // Don't give up defense no matter what.
-    bool router_replied:1;
-    bool server_replied:1;
-};
-
-static struct arp_data garp = {
+struct arp_data garp = {
     .state = AS_NONE,
     .wake_ts = { -1, -1, -1, -1, -1 },
     .send_stats = {{0,0},{0,0},{0,0}},
@@ -237,7 +192,7 @@ void arp_close_fd(struct client_state_t cs[static 1])
         garp.wake_ts[i] = -1;
 }
 
-static void arp_reopen_fd(struct client_state_t cs[static 1])
+void arp_reopen_fd(struct client_state_t cs[static 1])
 {
     arp_state_t prev_state = garp.state;
     arp_min_close_fd(cs);
@@ -406,7 +361,7 @@ static int arp_get_gw_hwaddr(struct client_state_t cs[static 1])
     return 0;
 }
 
-static void arp_failed(struct client_state_t cs[static 1])
+void arp_failed(struct client_state_t cs[static 1])
 {
     log_line("%s: arp: Offered address is in use.  Declining.",
              client_config.interface);
@@ -427,7 +382,7 @@ static void arp_failed(struct client_state_t cs[static 1])
                      0 : RATE_LIMIT_INTERVAL);
 }
 
-static void arp_gw_failed(struct client_state_t cs[static 1])
+void arp_gw_failed(struct client_state_t cs[static 1])
 {
     garp.wake_ts[AS_GW_CHECK] = -1;
     reinit_selecting(cs, 0);
@@ -794,31 +749,31 @@ static const arp_state_fn_t arp_states[] = {
     { arp_do_invalid, 0 }, // AS_MAX
 };
 
-void handle_arp_response(struct client_state_t cs[static 1])
+void arp_packet_action(struct client_state_t cs[static 1])
+{
+    if (arp_states[garp.state].packet_fn)
+        arp_states[garp.state].packet_fn(cs);
+    arp_reply_clear();
+}
+
+int arp_packet_get(struct client_state_t cs[static 1])
 {
     ssize_t r = 0;
     if (garp.reply_offset < sizeof garp.reply) {
         r = safe_read(cs->arpFd, (char *)&garp.reply + garp.reply_offset,
                       sizeof garp.reply - garp.reply_offset);
+        if (r == 0)
+            return ARPR_CLOSED;
         if (r < 0) {
             log_error("%s: (%s) ARP response read failed: %s",
                       client_config.interface, __func__, strerror(errno));
-            switch (garp.state) {
-            case AS_COLLISION_CHECK: arp_failed(cs); break;
-            case AS_GW_CHECK: arp_gw_failed(cs); break;
-            default: arp_reopen_fd(cs); break;
-            }
-        } else
-            garp.reply_offset += (size_t)r;
-    }
-
-    if (r <= 0) {
-        handle_arp_timeout(cs, curms());
-        return;
+            return ARPR_ERROR;
+        }
+        garp.reply_offset += (size_t)r;
     }
 
     if (garp.reply_offset < ARP_MSG_SIZE)
-        return;
+        return ARPR_NONE;
 
     // Emulate the BPF filters if they are not in use.
     if (!garp.using_bpf &&
@@ -826,12 +781,9 @@ void handle_arp_response(struct client_state_t cs[static 1])
          (garp.state == AS_DEFENSE &&
           !arp_validate_bpf_defense(cs, &garp.reply)))) {
         arp_reply_clear();
-        return;
+        return ARPR_NONE;
     }
-
-    if (arp_states[garp.state].packet_fn)
-        arp_states[garp.state].packet_fn(cs);
-    arp_reply_clear();
+    return ARPR_PENDING;
 }
 
 // Perform retransmission if necessary.

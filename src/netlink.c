@@ -43,67 +43,81 @@
 #include "nl.h"
 #include "state.h"
 
-static void nl_process_msgs(const struct nlmsghdr *nlh, void *data)
+int nl_event_react(struct client_state_t cs[static 1], int state)
 {
-    struct ifinfomsg *ifm = NLMSG_DATA(nlh);
-    struct client_state_t *cs = data;
+    if (state == cs->ifsPrevState)
+        return -1;
 
     // If the rfkill switch is set, a lot of netlink state change
     // commands will fail outright, so just ignore events until
     // it is gone.
     if (cs->rfkill_set)
-        return;
+        return -1;
 
-    switch(nlh->nlmsg_type) {
-        case RTM_NEWLINK:
-            if (ifm->ifi_index != client_config.ifindex)
-                break;
-            // IFF_UP corresponds to ifconfig down or ifconfig up.
-            if (ifm->ifi_flags & IFF_UP) {
-                // IFF_RUNNING is the hardware carrier.
-                if (ifm->ifi_flags & IFF_RUNNING) {
-                    if (cs->ifsPrevState != IFS_UP) {
-                        cs->ifsPrevState = IFS_UP;
-                        ifup_action(cs);
-                    }
-                } else if (cs->ifsPrevState != IFS_DOWN) {
-                    // Interface configured, but no hardware carrier.
-                    cs->ifsPrevState = IFS_DOWN;
-                    ifnocarrier_action(cs);
-                }
-            } else if (cs->ifsPrevState != IFS_SHUT) {
-                // User shut down the interface.
-                cs->ifsPrevState = IFS_SHUT;
-                ifdown_action(cs);
-            }
-            break;
-        case RTM_DELLINK:
-            if (ifm->ifi_index != client_config.ifindex)
-                break;
-            if (cs->ifsPrevState != IFS_REMOVED) {
-                cs->ifsPrevState = IFS_REMOVED;
-                log_line("Interface removed.  Exiting.");
-                exit(EXIT_SUCCESS);
-            }
-            break;
-        default:
-            break;
+    switch (state) {
+    case IFS_UP:
+        cs->ifsPrevState = IFS_UP;
+        ifup_action(cs);
+        break;
+    case IFS_DOWN:
+        // Interface configured, but no hardware carrier.
+        cs->ifsPrevState = IFS_DOWN;
+        ifnocarrier_action(cs);
+        break;
+    case IFS_SHUT:
+        // User shut down the interface.
+        cs->ifsPrevState = IFS_SHUT;
+        ifdown_action(cs);
+        break;
+    case IFS_REMOVED:
+        cs->ifsPrevState = IFS_REMOVED;
+        log_line("Interface removed.  Exiting.");
+        exit(EXIT_SUCCESS);
+        break;
+    default: break;
     }
+    return 0;
 }
 
-void handle_nl_message(struct client_state_t cs[static 1])
+static int nl_process_msgs_return;
+static void nl_process_msgs(const struct nlmsghdr *nlh, void *data)
+{
+    (void)data;
+    struct ifinfomsg *ifm = NLMSG_DATA(nlh);
+
+    if (ifm->ifi_index != client_config.ifindex)
+        return;
+
+    if (nlh->nlmsg_type == RTM_NEWLINK) {
+        // IFF_UP corresponds to ifconfig down or ifconfig up.
+        // IFF_RUNNING is the hardware carrier.
+        if (ifm->ifi_flags & IFF_UP) {
+            if (ifm->ifi_flags & IFF_RUNNING)
+                nl_process_msgs_return = IFS_UP;
+            else
+                nl_process_msgs_return = IFS_DOWN;
+        } else {
+            nl_process_msgs_return = IFS_SHUT;
+        }
+    } else if (nlh->nlmsg_type == RTM_DELLINK)
+        nl_process_msgs_return = IFS_REMOVED;
+}
+
+int nl_event_get(struct client_state_t cs[static 1])
 {
     char nlbuf[8192];
     ssize_t ret;
     assert(cs->nlFd != -1);
+    nl_process_msgs_return = IFS_NONE;
     do {
         ret = nl_recv_buf(cs->nlFd, nlbuf, sizeof nlbuf);
         if (ret < 0)
             break;
-        if (nl_foreach_nlmsg(nlbuf, ret, 0, cs->nlPortId, nl_process_msgs, cs)
+        if (nl_foreach_nlmsg(nlbuf, ret, 0, cs->nlPortId, nl_process_msgs, 0)
             < 0)
             break;
     } while (ret > 0);
+    return nl_process_msgs_return;
 }
 
 static int get_if_index_and_mac(const struct nlmsghdr *nlh,

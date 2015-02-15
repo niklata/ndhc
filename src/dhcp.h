@@ -83,7 +83,10 @@ struct udp_dhcp_packet {
 
 void start_dhcp_listen(struct client_state_t cs[static 1]);
 void stop_dhcp_listen(struct client_state_t cs[static 1]);
-void handle_packet(struct client_state_t cs[static 1]);
+int dhcp_packet_get(struct client_state_t cs[static 1],
+                    struct dhcpmsg packet[static 1],
+                    uint8_t msgtype[static 1],
+                    uint32_t srcaddr[static 1]);
 ssize_t send_discover(struct client_state_t cs[static 1]);
 ssize_t send_selecting(struct client_state_t cs[static 1]);
 ssize_t send_renew(struct client_state_t cs[static 1]);

@@ -182,7 +182,13 @@ static void setup_signals_ndhc(void)
     epoll_add(cs.epollFd, cs.signalFd);
 }
 
-static void signal_dispatch(void)
+enum {
+    SIGNAL_NONE = 0,
+    SIGNAL_RENEW,
+    SIGNAL_RELEASE
+};
+
+static int signal_dispatch(void)
 {
     struct signalfd_siginfo si;
     memset(&si, 0, sizeof si);
@@ -190,24 +196,22 @@ static void signal_dispatch(void)
     if (r < 0) {
         log_error("%s: ndhc: error reading from signalfd: %s",
                   client_config.interface, strerror(errno));
-        return;
+        return SIGNAL_NONE;
     }
     if ((size_t)r < sizeof si) {
         log_error("%s: ndhc: short read from signalfd: %zd < %zu",
                   client_config.interface, r, sizeof si);
-        return;
+        return SIGNAL_NONE;
     }
     switch (si.ssi_signo) {
-        case SIGUSR1: force_renew_action(&cs); break;
-        case SIGUSR2: force_release_action(&cs); break;
+        case SIGUSR1: return SIGNAL_RENEW;
+        case SIGUSR2: return SIGNAL_RELEASE;
         case SIGCHLD:
             suicide("ndhc-master: Subprocess terminated unexpectedly.  Exiting.");
-            break;
         case SIGTERM:
             log_line("Received SIGTERM.  Exiting gracefully.");
             exit(EXIT_SUCCESS);
-            break;
-        default: break;
+        default: return SIGNAL_NONE;
     }
 }
 
@@ -261,6 +265,7 @@ static void fail_if_state_dir_dne(void)
 #define NDHC_NUM_EP_FDS 7
 static void do_ndhc_work(void)
 {
+    struct dhcpmsg dhcp_packet;
     struct epoll_event events[NDHC_NUM_EP_FDS];
     long long nowts;
     int timeout;
@@ -284,27 +289,53 @@ static void do_ndhc_work(void)
     goto jumpstart;
 
     for (;;) {
-        int r = epoll_wait(cs.epollFd, events, NDHC_NUM_EP_FDS, timeout);
-        if (r < 0) {
+        int maxi = epoll_wait(cs.epollFd, events, NDHC_NUM_EP_FDS, timeout);
+        if (maxi < 0) {
             if (errno == EINTR)
                 continue;
             else
                 suicide("epoll_wait failed");
         }
-        for (int i = 0; i < r; ++i) {
+        for (int i = 0; i < maxi; ++i) {
             int fd = events[i].data.fd;
             if (fd == cs.signalFd) {
-                if (events[i].events & EPOLLIN)
-                    signal_dispatch();
+                if (!(events[i].events & EPOLLIN))
+                    return;
+                int sigv = signal_dispatch();
+                if (sigv == SIGNAL_RENEW)
+                    force_renew_action(&cs);
+                else if (sigv == SIGNAL_RELEASE)
+                    force_release_action(&cs);
             } else if (fd == cs.listenFd) {
-                if (events[i].events & EPOLLIN)
-                    handle_packet(&cs);
+                if (!(events[i].events & EPOLLIN))
+                    return;
+                uint32_t srcaddr;
+                uint8_t msgtype;
+                int r = dhcp_packet_get(&cs, &dhcp_packet, &msgtype, &srcaddr);
+                if (!r)
+                    packet_action(&cs, &dhcp_packet, msgtype, srcaddr);
             } else if (fd == cs.arpFd) {
-                if (events[i].events & EPOLLIN)
-                    handle_arp_response(&cs);
+                if (!(events[i].events & EPOLLIN))
+                    return;
+                int r = arp_packet_get(&cs);
+                if (r == ARPR_PENDING) {
+                    arp_packet_action(&cs);
+                } else if (r == ARPR_ERROR) {
+                    if (garp.state == AS_COLLISION_CHECK)
+                        arp_failed(&cs);
+                    else if (garp.state == AS_GW_CHECK)
+                        arp_gw_failed(&cs);
+                    else
+                        arp_reopen_fd(&cs);
+                    handle_arp_timeout(&cs, curms());
+                } else if (r == ARPR_CLOSED)
+                    handle_arp_timeout(&cs, curms());
             } else if (fd == cs.nlFd) {
-                if (events[i].events & EPOLLIN)
-                    handle_nl_message(&cs);
+                if (!(events[i].events & EPOLLIN))
+                    return;
+                int nl_event = nl_event_get(&cs);
+                if (nl_event != IFS_NONE)
+                    nl_event_react(&cs, nl_event);
             } else if (fd == ifchStream[0]) {
                 if (events[i].events & (EPOLLHUP|EPOLLERR|EPOLLRDHUP))
                     exit(EXIT_FAILURE);
@@ -312,8 +343,30 @@ static void do_ndhc_work(void)
                 if (events[i].events & (EPOLLHUP|EPOLLERR|EPOLLRDHUP))
                     exit(EXIT_FAILURE);
             } else if (fd == cs.rfkillFd && client_config.enable_rfkill) {
-                if (events[i].events & EPOLLIN)
-                    handle_rfkill_notice(&cs, client_config.rfkillIdx);
+                if (!(events[i].events & EPOLLIN))
+                    return;
+                int rfk = rfkill_get(&cs, 1, client_config.rfkillIdx);
+                if (rfk == RFK_ENABLED) {
+                    cs.rfkill_set = 1;
+                    if (cs.ifsPrevState == IFS_UP) {
+                        log_line("rfkill: radio now blocked; bringing interface down");
+                        cs.ifsPrevState = IFS_DOWN;
+                        ifnocarrier_action(&cs);
+                    } else
+                        log_line("rfkill: radio now blocked, but interface isn't up");
+                } else if (rfk == RFK_DISABLED) {
+                    cs.rfkill_set = 0;
+                    if (cs.ifsPrevState == IFS_DOWN) {
+                        log_line("rfkill: radio now unblocked; bringing interface up");
+                        cs.ifsPrevState = IFS_UP;
+                        ifup_action(&cs);
+                    } else {
+                        if (cs.ifsPrevState == IFS_SHUT)
+                            log_line("rfkill: radio now unblocked, but interface was shut down by user");
+                        else
+                            log_line("rfkill: radio now unblocked, but interface is removed");
+                    }
+                }
             } else
                 suicide("epoll_wait: unknown fd");
         }
@@ -461,7 +514,6 @@ void background(void)
 
 static void wait_for_rfkill()
 {
-    cs.rfkill_set = 1;
     struct epoll_event events[2];
     cs.rfkillFd = rfkill_open(&client_config.enable_rfkill);
     if (cs.rfkillFd < 0)
@@ -480,13 +532,20 @@ static void wait_for_rfkill()
         }
         for (int i = 0; i < r; ++i) {
             int fd = events[i].data.fd;
-            if (fd == cs.rfkillFd) {
-                if (events[i].events & EPOLLIN) {
-                    if (!rfkill_wait_for_end(&cs))
-                        goto rfkill_gone;
-                }
-            } else
+            if (fd != cs.rfkillFd)
                 suicide("epoll_wait: unknown fd");
+            if (events[i].events & EPOLLIN) {
+                int rfk = rfkill_get(&cs, 0, 0);
+                if (rfk == RFK_DISABLED) {
+                    switch (perform_ifup()) {
+                    case 1: case 0: goto rfkill_gone;
+                    case -3:
+                        log_line("rfkill: radio immediately blocked again; spurious?");
+                        break;
+                    default: suicide("failed to set the interface to up state");
+                    }
+                }
+            }
         }
     }
 rfkill_gone:

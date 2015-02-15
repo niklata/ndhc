@@ -58,6 +58,53 @@ extern int arp_probe_num;
 extern int arp_probe_min;
 extern int arp_probe_max;
 
+typedef enum {
+    AS_NONE = 0,        // Nothing to react to wrt ARP
+    AS_COLLISION_CHECK, // Checking to see if another host has our IP before
+                        // accepting a new lease.
+    AS_GW_CHECK,        // Seeing if the default GW still exists on the local
+                        // segment after the hardware link was lost.
+    AS_GW_QUERY,        // Finding the default GW MAC address.
+    AS_DEFENSE,         // Defending our IP address (RFC5227)
+    AS_MAX,
+} arp_state_t;
+
+typedef enum {
+    ASEND_COLLISION_CHECK,
+    ASEND_GW_PING,
+    ASEND_ANNOUNCE,
+    ASEND_MAX,
+} arp_send_t;
+
+struct arp_stats {
+    long long ts;
+    int count;
+};
+
+struct arp_data {
+    struct dhcpmsg dhcp_packet;   // Used only for AS_COLLISION_CHECK
+    struct arpMsg reply;
+    struct arp_stats send_stats[ASEND_MAX];
+    long long wake_ts[AS_MAX];
+    long long last_conflict_ts;   // TS of the last conflicting ARP seen.
+    long long arp_check_start_ts; // TS of when we started the
+                                  // AS_COLLISION_CHECK state.
+    size_t reply_offset;
+    arp_state_t state;
+    unsigned int total_conflicts; // Total number of address conflicts on
+                                  // the interface.  Never decreases.
+    int gw_check_initpings;       // Initial count of ASEND_GW_PING when
+                                  // AS_GW_CHECK was entered.
+    uint16_t probe_wait_time;     // Time to wait for a COLLISION_CHECK reply
+                                  // (in ms?).
+    bool using_bpf:1;             // Is a BPF installed on the ARP socket?
+    bool relentless_def:1;        // Don't give up defense no matter what.
+    bool router_replied:1;
+    bool server_replied:1;
+};
+
+extern struct arp_data garp;
+
 void set_arp_relentless_def(bool v);
 void arp_reset_send_stats(void);
 void arp_close_fd(struct client_state_t cs[static 1]);
@@ -66,7 +113,19 @@ int arp_check(struct client_state_t cs[static 1],
 int arp_gw_check(struct client_state_t cs[static 1]);
 void arp_set_defense_mode(struct client_state_t cs[static 1]);
 void arp_success(struct client_state_t cs[static 1]);
-void handle_arp_response(struct client_state_t cs[static 1]);
+void arp_failed(struct client_state_t cs[static 1]);
+void arp_gw_failed(struct client_state_t cs[static 1]);
+void arp_reopen_fd(struct client_state_t cs[static 1]);
+
+enum {
+    ARPR_NONE = 0,
+    ARPR_ERROR,
+    ARPR_PENDING,
+    ARPR_CLOSED,
+};
+void arp_packet_action(struct client_state_t cs[static 1]);
+int arp_packet_get(struct client_state_t cs[static 1]);
+
 void handle_arp_timeout(struct client_state_t cs[static 1], long long nowts);
 long long arp_get_wake_ts(void);
 

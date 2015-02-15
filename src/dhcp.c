@@ -380,13 +380,14 @@ static int validate_dhcp_packet(struct client_state_t cs[static 1],
     return 1;
 }
 
-void handle_packet(struct client_state_t cs[static 1])
+int dhcp_packet_get(struct client_state_t cs[static 1],
+                    struct dhcpmsg packet[static 1],
+                    uint8_t msgtype[static 1],
+                    uint32_t srcaddr[static 1])
 {
     if (cs->listenFd < 0)
-        return;
-    struct dhcpmsg packet;
-    uint32_t srcaddr;
-    ssize_t r = get_raw_packet(cs, &packet, &srcaddr);
+        return -1;
+    ssize_t r = get_raw_packet(cs, packet, srcaddr);
     if (r < 0) {
         // Not a transient issue handled by packet collection functions.
         if (r != -2) {
@@ -395,12 +396,11 @@ void handle_packet(struct client_state_t cs[static 1])
             stop_dhcp_listen(cs);
             start_dhcp_listen(cs);
         }
-        return;
+        return -1;
     }
-    uint8_t msgtype;
-    if (!validate_dhcp_packet(cs, (size_t)r, &packet, &msgtype))
-        return;
-    packet_action(cs, &packet, msgtype, srcaddr);
+    if (!validate_dhcp_packet(cs, (size_t)r, packet, msgtype))
+        return -1;
+    return 0;
 }
 
 // Initialize a DHCP client packet that will be sent to a server
