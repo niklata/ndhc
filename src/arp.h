@@ -90,7 +90,6 @@ struct arp_data {
     long long arp_check_start_ts; // TS of when we started the
                                   // AS_COLLISION_CHECK state.
     size_t reply_offset;
-    arp_state_t state;
     unsigned int total_conflicts; // Total number of address conflicts on
                                   // the interface.  Never decreases.
     int gw_check_initpings;       // Initial count of ASEND_GW_PING when
@@ -103,7 +102,9 @@ struct arp_data {
     bool server_replied:1;
 };
 
-extern struct arp_data garp;
+void arp_reply_clear(void);
+
+int arp_packet_get(struct client_state_t cs[static 1]);
 
 void set_arp_relentless_def(bool v);
 void arp_reset_send_stats(void);
@@ -111,22 +112,33 @@ void arp_close_fd(struct client_state_t cs[static 1]);
 int arp_check(struct client_state_t cs[static 1],
               struct dhcpmsg packet[static 1]);
 int arp_gw_check(struct client_state_t cs[static 1]);
-void arp_set_defense_mode(struct client_state_t cs[static 1]);
-void arp_success(struct client_state_t cs[static 1]);
-void arp_failed(struct client_state_t cs[static 1]);
-void arp_gw_failed(struct client_state_t cs[static 1]);
-void arp_reopen_fd(struct client_state_t cs[static 1]);
+int arp_set_defense_mode(struct client_state_t cs[static 1]);
+int arp_gw_failed(struct client_state_t cs[static 1]);
 
-enum {
-    ARPR_NONE = 0,
-    ARPR_ERROR,
-    ARPR_PENDING,
-    ARPR_CLOSED,
-};
-void arp_packet_action(struct client_state_t cs[static 1]);
-int arp_packet_get(struct client_state_t cs[static 1]);
+int arp_do_collision_check(struct client_state_t cs[static 1]);
+int arp_collision_timeout(struct client_state_t cs[static 1], long long nowts);
+int arp_do_defense(struct client_state_t cs[static 1]);
+int arp_defense_timeout(struct client_state_t cs[static 1], long long nowts);
+int arp_do_gw_query(struct client_state_t cs[static 1]);
+int arp_gw_query_timeout(struct client_state_t cs[static 1], long long nowts);
+int arp_do_gw_check(struct client_state_t cs[static 1]);
+int arp_gw_check_timeout(struct client_state_t cs[static 1], long long nowts);
 
-void handle_arp_timeout(struct client_state_t cs[static 1], long long nowts);
+// No action needs to be taken.
+#define ARPR_OK 0
+// There was no conflict with another host.
+#define ARPR_FREE 1
+// Another host already has our assigned address.
+#define ARPR_CONFLICT -1
+// The operation couldn't complete because of an error such as rfkill.
+#define ARPR_FAIL -2
+
+
+// There is no new packet.
+#define ARPP_NONE 0
+// We have a pending packet.
+#define ARPP_HAVE 1
+
 long long arp_get_wake_ts(void);
 
 #endif /* ARP_H_ */

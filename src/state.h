@@ -31,31 +31,13 @@
 #include "ndhc.h"
 #include "dhcp.h"
 
-typedef enum {
-    DS_SELECTING = 0,
-    DS_REQUESTING,
-    DS_BOUND,
-    DS_RENEWING,
-    DS_REBINDING,
-    DS_BOUND_GW_CHECK,
-    DS_COLLISION_CHECK,
-    DS_RELEASED,
-    DS_NUM_STATES,
-} dhcp_states_t;
+#define COR_SUCCESS 0
+#define COR_ERROR -1
 
-int reinit_selecting(struct client_state_t cs[static 1], int timeout);
-
-void packet_action(struct client_state_t cs[static 1],
-                   struct dhcpmsg packet[static 1], uint8_t msgtype,
-                   uint32_t srcaddr);
-void timeout_action(struct client_state_t cs[static 1], long long nowts);
-void force_renew_action(struct client_state_t cs[static 1]);
-void force_release_action(struct client_state_t cs[static 1]);
-
-void ifup_action(struct client_state_t cs[static 1]);
-void ifnocarrier_action(struct client_state_t cs[static 1]);
-void ifdown_action(struct client_state_t cs[static 1]);
-long long dhcp_get_wake_ts(void);
+int dhcp_handle(struct client_state_t cs[static 1], long long nowts,
+                int sev_dhcp, struct dhcpmsg dhcp_packet[static 1],
+                uint8_t dhcp_msgtype, uint32_t dhcp_srcaddr, int sev_arp,
+                bool force_fingerprint, bool dhcp_timeout, bool arp_timeout);
 
 #endif
 

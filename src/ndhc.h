@@ -29,24 +29,26 @@
 #define NJK_NDHC_NDHC_H_
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <limits.h>
 #include <net/if.h>
 #include "nk/random.h"
 
 struct client_state_t {
     unsigned long long leaseStartTime;
-    int dhcpState;
-    int arpPrevState;
     int ifsPrevState;
     int ifDeconfig; // Set if the interface has already been deconfigured.
     int epollFd, signalFd, listenFd, arpFd, nlFd, rfkillFd;
     int nlPortId;
+    unsigned int num_dhcp_requests;
     uint32_t clientAddr, serverAddr, srcAddr, routerAddr;
     uint32_t lease, renewTime, rebindTime, xid;
     struct nk_random_state_u32 rnd32_state;
     uint8_t routerArp[6], serverArp[6];
-    uint8_t using_dhcp_bpf, init, got_router_arp, got_server_arp;
-    uint8_t rfkill_set;
+    uint8_t using_dhcp_bpf, init, got_router_arp, got_server_arp,
+            check_fingerprint;
+    bool arp_is_defense;
+    long long dhcp_wake_ts;
 };
 
 struct client_config_t {

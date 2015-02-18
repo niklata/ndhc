@@ -82,6 +82,7 @@ struct client_state_t cs = {
     .nlFd = -1,
     .nlPortId = -1,
     .rfkillFd = -1,
+    .dhcp_wake_ts = -1,
     .routerArp = "\0\0\0\0\0\0",
     .serverArp = "\0\0\0\0\0\0",
 };
@@ -265,6 +266,9 @@ static void fail_if_state_dir_dne(void)
 #define NDHC_NUM_EP_FDS 7
 static void do_ndhc_work(void)
 {
+    static bool rfkill_set; // Is the rfkill switch set?
+    static bool rfkill_nl_state_changed; // iface state changed during rfkill
+    static int rfkill_nl_state; // current iface state during rfkill
     struct dhcpmsg dhcp_packet;
     struct epoll_event events[NDHC_NUM_EP_FDS];
     long long nowts;
@@ -285,11 +289,10 @@ static void do_ndhc_work(void)
     if (client_config.enable_rfkill && cs.rfkillFd != -1)
         epoll_add(cs.epollFd, cs.rfkillFd);
     start_dhcp_listen(&cs);
-    nowts = curms();
-    goto jumpstart;
+    timeout = 0;
 
     for (;;) {
-        int maxi = epoll_wait(cs.epollFd, events, NDHC_NUM_EP_FDS, timeout);
+        int maxi = epoll_wait(cs.epollFd, events, 1, timeout);
         if (maxi < 0) {
             if (errno == EINTR)
                 continue;
@@ -299,10 +302,11 @@ static void do_ndhc_work(void)
         int sev_dhcp = -1;
         uint32_t dhcp_srcaddr;
         uint8_t dhcp_msgtype;
-        int sev_arp = ARPR_NONE;
+        int sev_arp = ARPP_NONE;
         int sev_nl = IFS_NONE;
         int sev_rfk = RFK_NONE;
         int sev_signal = SIGNAL_NONE;
+        bool force_fingerprint = false;
         for (int i = 0; i < maxi; ++i) {
             int fd = events[i].data.fd;
             if (fd == cs.signalFd) {
@@ -334,81 +338,89 @@ static void do_ndhc_work(void)
                 sev_rfk = rfkill_get(&cs, 1, client_config.rfkillIdx);
             } else
                 suicide("epoll_wait: unknown fd");
+
+            if (sev_rfk == RFK_ENABLED) {
+                rfkill_set = 1;
+                rfkill_nl_state = cs.ifsPrevState;
+                rfkill_nl_state_changed = false;
+                log_line("rfkill: radio now blocked");
+            } else if (sev_rfk == RFK_DISABLED) {
+                rfkill_set = 0;
+                log_line("rfkill: radio now unblocked");
+                // We now simulate the state changes that may have happened
+                // during rfkill.
+                if (rfkill_nl_state != cs.ifsPrevState)
+                    nl_event_react(&cs, rfkill_nl_state);
+                else if (rfkill_nl_state_changed && rfkill_nl_state == IFS_UP) {
+                    // We might have changed networks even if we ended up
+                    // back in IFS_UP state.  We need to fingerprint the
+                    // network and confirm that we're on the same network.
+                    force_fingerprint = true;
+                }
+            }
         }
 
+        if (sev_nl != IFS_NONE) {
+            if (!rfkill_set) {
+                if (nl_event_react(&cs, sev_nl))
+                    force_fingerprint = true;
+            } else {
+                // Store the state so it can be replayed later.
+                rfkill_nl_state_changed = true;
+                rfkill_nl_state = sev_nl;
+            }
+        }
+
+        if (rfkill_set || cs.ifsPrevState != IFS_UP) {
+            // We can't do anything while the iface is disabled, anyway.
+            // XXX: It may be smart to set a non-infinite timeout
+            // and periodically poll to see if the rfkill or iface
+            // state changed; it might happen during suspend.
+            timeout = -1;
+            continue;
+        }
+
+        // XXX: Make these work again.  See xmit_release(), print_release(),
+        //      and frenew().
+#if 0
         if (sev_signal == SIGNAL_RENEW)
             force_renew_action(&cs);
         else if (sev_signal == SIGNAL_RELEASE)
             force_release_action(&cs);
-        if (!sev_dhcp)
-            packet_action(&cs, &dhcp_packet, dhcp_msgtype, dhcp_srcaddr);
-        if (sev_arp == ARPR_PENDING) {
-            arp_packet_action(&cs);
-        } else if (sev_arp == ARPR_ERROR) {
-            if (garp.state == AS_COLLISION_CHECK)
-                arp_failed(&cs);
-            else if (garp.state == AS_GW_CHECK)
-                arp_gw_failed(&cs);
-            else
-                arp_reopen_fd(&cs);
-            handle_arp_timeout(&cs, curms());
-        } else if (sev_arp == ARPR_CLOSED)
-            handle_arp_timeout(&cs, curms());
-        if (sev_nl != IFS_NONE)
-            nl_event_react(&cs, sev_nl);
-        if (sev_rfk == RFK_ENABLED) {
-            cs.rfkill_set = 1;
-            if (cs.ifsPrevState == IFS_UP) {
-                log_line("rfkill: radio now blocked; bringing interface down");
-                cs.ifsPrevState = IFS_DOWN;
-                ifnocarrier_action(&cs);
-            } else
-                log_line("rfkill: radio now blocked, but interface isn't up");
-        } else if (sev_rfk == RFK_DISABLED) {
-            cs.rfkill_set = 0;
-            if (cs.ifsPrevState == IFS_DOWN) {
-                log_line("rfkill: radio now unblocked; bringing interface up");
-                cs.ifsPrevState = IFS_UP;
-                ifup_action(&cs);
-            } else {
-                if (cs.ifsPrevState == IFS_SHUT)
-                    log_line("rfkill: radio now unblocked, but interface was shut down by user");
-                else
-                    log_line("rfkill: radio now unblocked, but interface is removed");
-            }
+#endif
+
+        nowts = curms();
+        long long arp_wake_ts = arp_get_wake_ts();
+        int dhcp_ok = dhcp_handle(&cs, nowts, sev_dhcp, &dhcp_packet,
+                                  dhcp_msgtype, dhcp_srcaddr,
+                                  sev_arp, force_fingerprint,
+                                  cs.dhcp_wake_ts <= nowts,
+                                  arp_wake_ts <= nowts);
+        if (sev_arp)
+            arp_reply_clear();
+
+        // XXX: Would be best if we detected RFKILL being set via an
+        //      error message and propagated it back to here as a
+        //      distinct return value.
+        if (dhcp_ok == COR_ERROR) {
+            timeout = -1;
+            continue;
         }
 
-        for (;;) {
-            nowts = curms();
-            long long arp_wake_ts = arp_get_wake_ts();
-            long long dhcp_wake_ts = dhcp_get_wake_ts();
-            if (arp_wake_ts < 0) {
-                if (dhcp_wake_ts != -1) {
-                    timeout = dhcp_wake_ts - nowts;
-                    if (timeout < 0)
-                        timeout = 0;
-                } else
-                    timeout = -1;
-            } else {
-                // If dhcp_wake_ts is -1 then we want to sleep anyway.
-                timeout = (arp_wake_ts < dhcp_wake_ts ?
-                           arp_wake_ts : dhcp_wake_ts) - nowts;
+        arp_wake_ts = arp_get_wake_ts();
+        if (arp_wake_ts < 0) {
+            if (cs.dhcp_wake_ts != -1) {
+                timeout = cs.dhcp_wake_ts - nowts;
                 if (timeout < 0)
                     timeout = 0;
-            }
-
-            if (cs.rfkill_set) {
-                // We can't do anything until the rfkill is gone.
-                if (timeout <= 0)
-                    timeout = -1;
-                break;
-            }
-
-            if (!timeout) {
-jumpstart:
-                timeout_action(&cs, nowts);
             } else
-                break;
+                timeout = -1;
+        } else {
+            // If cs.dhcp_wake_ts is -1 then we want to sleep anyway.
+            timeout = (arp_wake_ts < cs.dhcp_wake_ts ?
+                       arp_wake_ts : cs.dhcp_wake_ts) - nowts;
+            if (timeout < 0)
+                timeout = 0;
         }
     }
 }

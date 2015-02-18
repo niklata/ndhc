@@ -46,37 +46,33 @@
 int nl_event_react(struct client_state_t cs[static 1], int state)
 {
     if (state == cs->ifsPrevState)
-        return -1;
-
-    // If the rfkill switch is set, a lot of netlink state change
-    // commands will fail outright, so just ignore events until
-    // it is gone.
-    if (cs->rfkill_set)
-        return -1;
+        return 0;
 
     switch (state) {
     case IFS_UP:
         cs->ifsPrevState = IFS_UP;
-        ifup_action(cs);
-        break;
+        return 1;
     case IFS_DOWN:
         // Interface configured, but no hardware carrier.
         cs->ifsPrevState = IFS_DOWN;
-        ifnocarrier_action(cs);
-        break;
+        log_line("%s: Carrier down.", client_config.interface);
+        return 0;
     case IFS_SHUT:
         // User shut down the interface.
         cs->ifsPrevState = IFS_SHUT;
-        ifdown_action(cs);
-        break;
+        log_line("%s: Interface shut down.  Going to sleep.",
+                 client_config.interface);
+        // XXX: I think this was wrong; instead it should just sleep.
+        //      The lease has not expired just because the user shut down
+        //      the interface...
+        // set_released(cs);
+        return 0;
     case IFS_REMOVED:
         cs->ifsPrevState = IFS_REMOVED;
         log_line("Interface removed.  Exiting.");
         exit(EXIT_SUCCESS);
-        break;
-    default: break;
+    default: return 0;
     }
-    return 0;
 }
 
 static int nl_process_msgs_return;

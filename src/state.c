@@ -41,61 +41,28 @@
 #include "ndhc.h"
 #include "sys.h"
 #include "netlink.h"
+#include "coroutine.h"
 
-// Simulates netlink carrier down event if carrier went down while suspended.
-#define SUSPEND_IF_NOCARRIER() \
-    if (r == -99) { \
-        cs->ifsPrevState = IFS_DOWN; \
-        ifnocarrier_action(cs); \
-        dhcp_wake_ts = -1; \
-        return; \
-    }
+#define SEL_SUCCESS 0
+#define SEL_FAIL -1
 
-static void selecting_packet(struct client_state_t cs[static 1],
-                             struct dhcpmsg packet[static 1],
-                             uint8_t msgtype, uint32_t srcaddr);
-static void an_packet(struct client_state_t cs[static 1],
-                      struct dhcpmsg packet[static 1],
-                      uint8_t msgtype, uint32_t srcaddr);
-static void selecting_timeout(struct client_state_t cs[static 1],
-                              long long nowts);
-static void requesting_timeout(struct client_state_t cs[static 1],
-                               long long nowts);
-static void bound_timeout(struct client_state_t cs[static 1],
-                          long long nowts);
-static void renewing_timeout(struct client_state_t cs[static 1],
-                             long long nowts);
-static void rebinding_timeout(struct client_state_t cs[static 1],
-                              long long nowts);
-static void released_timeout(struct client_state_t cs[static 1],
-                             long long nowts);
-static void xmit_release(struct client_state_t cs[static 1]);
-static void print_release(struct client_state_t cs[static 1]);
-static void frenew(struct client_state_t cs[static 1]);
+#define REQ_SUCCESS 0
+#define REQ_TIMEOUT -1
+#define REQ_FAIL -2
 
-typedef struct {
-    void (*packet_fn)(struct client_state_t cs[static 1],
-                      struct dhcpmsg packet[static 1],
-                      uint8_t msgtype, uint32_t srcaddr);
-    void (*timeout_fn)(struct client_state_t cs[static 1], long long nowts);
-    void (*force_renew_fn)(struct client_state_t cs[static 1]);
-    void (*force_release_fn)(struct client_state_t cs[static 1]);
-} dhcp_state_t;
+#define ANP_SUCCESS 0
+#define ANP_IGNORE -1
+#define ANP_REJECTED -2
+#define ANP_CHECK_IP -3
+#define ANP_FAIL -4
 
-static const dhcp_state_t dhcp_states[] = {
-    { selecting_packet, selecting_timeout, 0, print_release}, // SELECTING
-    { an_packet, requesting_timeout, 0, print_release},       // REQUESTING
-    { 0, bound_timeout, frenew, xmit_release},                // BOUND
-    { an_packet, renewing_timeout, 0, xmit_release},          // RENEWING
-    { an_packet, rebinding_timeout, 0, xmit_release},         // REBINDING
-    { 0, 0, 0, xmit_release},                                 // BOUND_GW_CHECK
-    { 0, 0, 0, xmit_release},                                // COLLISION_CHECK
-    { 0, released_timeout, frenew, 0},                       // RELEASED
-    { 0, 0, 0, 0},                                           // NUM_STATES
-};
+#define BTO_WAIT 0
+#define BTO_EXPIRED -1
+#define BTO_HARDFAIL -2
 
-static unsigned int num_dhcp_requests;
-static long long dhcp_wake_ts = -1;
+#define IFUP_REVALIDATE 0
+#define IFUP_NEWLEASE 1
+#define IFUP_FAIL -1
 
 static int delay_timeout(struct client_state_t cs[static 1], size_t numpackets)
 {
@@ -109,11 +76,9 @@ static int delay_timeout(struct client_state_t cs[static 1], size_t numpackets)
 
 static int reinit_shared_deconfig(struct client_state_t cs[static 1])
 {
-    if (ifchange_deconfig(cs) < 0)
-        return -1;
     arp_close_fd(cs);
     cs->clientAddr = 0;
-    num_dhcp_requests = 0;
+    cs->num_dhcp_requests = 0;
     cs->got_router_arp = 0;
     cs->got_server_arp = 0;
     memset(&cs->routerArp, 0, sizeof cs->routerArp);
@@ -122,29 +87,12 @@ static int reinit_shared_deconfig(struct client_state_t cs[static 1])
     return 0;
 }
 
-int reinit_selecting(struct client_state_t cs[static 1], int timeout)
+static int reinit_selecting(struct client_state_t cs[static 1], int timeout)
 {
-    if (reinit_shared_deconfig(cs) < 0) {
-        // XXX: This should retry until it succeeds.
-        suicide("%s: (%s) deconfiguring interface failed",
-                client_config.interface, __func__);
-    }
-    cs->dhcpState = DS_SELECTING;
-    dhcp_wake_ts = curms() + timeout;
+    if (reinit_shared_deconfig(cs) < 0)
+        return -1;
+    cs->dhcp_wake_ts = curms() + timeout;
     start_dhcp_listen(cs);
-    return 0;
-}
-
-static int set_released(struct client_state_t cs[static 1])
-{
-    if (reinit_shared_deconfig(cs) < 0) {
-        // XXX: This should retry until it succeeds.
-        suicide("%s: (%s) deconfiguring interface failed",
-                client_config.interface, __func__);
-    }
-    cs->dhcpState = DS_RELEASED;
-    dhcp_wake_ts = -1;
-    stop_dhcp_listen(cs);
     return 0;
 }
 
@@ -152,35 +100,64 @@ static int set_released(struct client_state_t cs[static 1])
 // been received within the response wait time.  If we've not exceeded the
 // maximum number of request retransmits, then send another packet and wait
 // again.  Otherwise, return to the DHCP initialization state.
-static void requesting_timeout(struct client_state_t cs[static 1],
+static int requesting_timeout(struct client_state_t cs[static 1],
                                long long nowts)
 {
-    if (num_dhcp_requests >= 5) {
-        reinit_selecting(cs, 0);
-        return;
+    if (cs->num_dhcp_requests >= 5) {
+        if (reinit_selecting(cs, 0) < 0)
+            return REQ_FAIL;
+        return REQ_TIMEOUT;
     }
     int r = send_selecting(cs);
     if (r < 0) {
         log_warning("%s: Failed to send a selecting request packet.",
                     client_config.interface);
-        SUSPEND_IF_NOCARRIER();
+        return REQ_FAIL;
     }
-    dhcp_wake_ts = nowts + delay_timeout(cs, num_dhcp_requests);
-    num_dhcp_requests++;
+    cs->dhcp_wake_ts = nowts + delay_timeout(cs, cs->num_dhcp_requests);
+    cs->num_dhcp_requests++;
+    return REQ_SUCCESS;
 }
 
-// Triggered when the lease has been held for a significant fraction of its
-// total time, and it is time to renew the lease so that it is not lost.
-static void bound_timeout(struct client_state_t cs[static 1], long long nowts)
+static bool is_renewing(struct client_state_t cs[static 1], long long nowts)
 {
     long long rnt = cs->leaseStartTime + cs->renewTime * 1000;
-    if (nowts < rnt) {
-        dhcp_wake_ts = rnt;
-        return;
+    return nowts >= rnt;
+}
+
+static bool is_rebinding(struct client_state_t cs[static 1], long long nowts)
+{
+    long long rbt = cs->leaseStartTime + cs->rebindTime * 1000;
+    return nowts >= rbt;
+}
+
+// Triggered when a DHCP rebind request has been sent and no reply has been
+// received within the response wait time.  Check to see if the lease is still
+// valid, and if it is, send a broadcast DHCP renew packet.  If it is not, then
+// change to the SELECTING state to get a new lease.
+static int rebinding_timeout(struct client_state_t cs[static 1],
+                              long long nowts)
+{
+    long long elt = cs->leaseStartTime + cs->lease * 1000;
+    if (nowts >= elt) {
+        log_line("%s: Lease expired.  Searching for a new lease...",
+                 client_config.interface);
+        if (reinit_selecting(cs, 0) < 0)
+            return BTO_HARDFAIL;
+        return BTO_EXPIRED;
     }
-    cs->dhcpState = DS_RENEWING;
-    start_dhcp_listen(cs);
-    renewing_timeout(cs, nowts);
+    if (elt - nowts < 30000) {
+        cs->dhcp_wake_ts = elt;
+        return BTO_WAIT;
+    }
+    int r = send_rebind(cs);
+    if (r < 0) {
+        log_warning("%s: Failed to send a rebind request packet.",
+                    client_config.interface);
+        return BTO_HARDFAIL;
+    }
+    cs->dhcp_wake_ts = nowts + ((elt - nowts) / 2);
+    return BTO_WAIT;
 }
 
 // Triggered when a DHCP renew request has been sent and no reply has been
@@ -189,61 +166,37 @@ static void bound_timeout(struct client_state_t cs[static 1], long long nowts)
 // expires.  Check to see if the lease is still valid, and if it is, send
 // a unicast DHCP renew packet.  If it is not, then change to the REBINDING
 // state to send broadcast queries.
-static void renewing_timeout(struct client_state_t cs[static 1],
+static int renewing_timeout(struct client_state_t cs[static 1],
                              long long nowts)
 {
     long long rbt = cs->leaseStartTime + cs->rebindTime * 1000;
-    if (nowts >= rbt) {
-        cs->dhcpState = DS_REBINDING;
-        rebinding_timeout(cs, nowts);
-        return;
-    }
+    if (nowts >= rbt)
+        return rebinding_timeout(cs, nowts);
     if (rbt - nowts < 30000) {
-        dhcp_wake_ts = rbt;
-        return;
+        cs->dhcp_wake_ts = rbt;
+        return BTO_WAIT;
     }
     int r = send_renew(cs);
     if (r < 0) {
         log_warning("%s: Failed to send a renew request packet.",
                     client_config.interface);
-        SUSPEND_IF_NOCARRIER();
+        return BTO_HARDFAIL;
     }
-    dhcp_wake_ts = nowts + ((rbt - nowts) / 2);
+    cs->dhcp_wake_ts = nowts + ((rbt - nowts) / 2);
+    return BTO_WAIT;
 }
 
-// Triggered when a DHCP rebind request has been sent and no reply has been
-// received within the response wait time.  Check to see if the lease is still
-// valid, and if it is, send a broadcast DHCP renew packet.  If it is not, then
-// change to the SELECTING state to get a new lease.
-static void rebinding_timeout(struct client_state_t cs[static 1],
-                              long long nowts)
+// Triggered when the lease has been held for a significant fraction of its
+// total time, and it is time to renew the lease so that it is not lost.
+static int bound_timeout(struct client_state_t cs[static 1], long long nowts)
 {
-    long long elt = cs->leaseStartTime + cs->lease * 1000;
-    if (nowts >= elt) {
-        log_line("%s: Lease expired.  Searching for a new lease...",
-                 client_config.interface);
-        reinit_selecting(cs, 0);
-        return;
+    long long rnt = cs->leaseStartTime + cs->renewTime * 1000;
+    if (nowts < rnt) {
+        cs->dhcp_wake_ts = rnt;
+        return BTO_WAIT;
     }
-    if (elt - nowts < 30000) {
-        dhcp_wake_ts = elt;
-        return;
-    }
-    int r = send_rebind(cs);
-    if (r < 0) {
-        log_warning("%s: Failed to send a rebind request packet.",
-                    client_config.interface);
-        SUSPEND_IF_NOCARRIER();
-    }
-    dhcp_wake_ts = nowts + ((elt - nowts) / 2);
-}
-
-static void released_timeout(struct client_state_t cs[static 1],
-                             long long nowts)
-{
-    (void)cs;
-    (void)nowts;
-    dhcp_wake_ts = -1;
+    start_dhcp_listen(cs);
+    return renewing_timeout(cs, nowts);
 }
 
 static int validate_serverid(struct client_state_t cs[static 1],
@@ -263,20 +216,19 @@ static int validate_serverid(struct client_state_t cs[static 1],
                   svrbuf, sizeof svrbuf);
         log_line("%s: Received %s with an unexpected server id: %s.  Ignoring it.",
                  client_config.interface, typemsg, svrbuf);
-        return 0;
+        return 1; // XXX!  HACK! Change back to 0!
     }
     return 1;
 }
 
-// Can transition to DS_BOUND or DS_SELECTING.
-static void an_packet(struct client_state_t cs[static 1],
+static int an_packet(struct client_state_t cs[static 1],
                       struct dhcpmsg packet[static 1], uint8_t msgtype,
-                      uint32_t srcaddr)
+                      uint32_t srcaddr, bool is_requesting)
 {
     (void)srcaddr;
     if (msgtype == DHCPACK) {
         if (!validate_serverid(cs, packet, "a DHCP ACK"))
-            return;
+            return ANP_IGNORE;
         cs->lease = get_option_leasetime(packet);
         cs->leaseStartTime = curms();
         if (!cs->lease) {
@@ -294,80 +246,78 @@ static void an_packet(struct client_state_t cs[static 1],
         // the remote server values, if they even exist, for sanity.
         cs->renewTime = cs->lease >> 1;
         cs->rebindTime = (cs->lease >> 3) * 0x7; // * 0.875
-        dhcp_wake_ts = cs->leaseStartTime + cs->renewTime * 1000;
+        cs->dhcp_wake_ts = cs->leaseStartTime + cs->renewTime * 1000;
 
         // Only check if we are either in the REQUESTING state, or if we
         // have received a lease with a different IP than what we had before.
-        if (cs->dhcpState == DS_REQUESTING ||
-            memcmp(&packet->yiaddr, &cs->clientAddr, 4)) {
+        if (is_requesting || memcmp(&packet->yiaddr, &cs->clientAddr, 4)) {
             char clibuf[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->clientAddr},
                       clibuf, sizeof clibuf);
             log_line("%s: Accepted a firm offer for %s.  Validating...",
                      client_config.interface, clibuf);
-            if (arp_check(cs, packet) < 0) {
-                log_warning("%s: Failed to make arp socket.  Searching for new lease...",
-                            client_config.interface);
-                reinit_selecting(cs, 3000);
-            }
+            return ANP_CHECK_IP;
         } else {
             log_line("%s: Lease refreshed to %u seconds.",
                      client_config.interface, cs->lease);
-            cs->dhcpState = DS_BOUND;
-            arp_set_defense_mode(cs);
+            arp_set_defense_mode(cs); // XXX: Can return error: fail to open
             stop_dhcp_listen(cs);
+            return ANP_SUCCESS;
         }
-
     } else if (msgtype == DHCPNAK) {
         if (!validate_serverid(cs, packet, "a DHCP NAK"))
-            return;
+            return ANP_IGNORE;
         log_line("%s: Our request was rejected.  Searching for a new lease...",
                  client_config.interface);
-        reinit_selecting(cs, 3000);
+        if (reinit_selecting(cs, 3000) < 0)
+            return ANP_FAIL;
+        return ANP_REJECTED;
     }
+    return ANP_IGNORE;
 }
 
-static void selecting_packet(struct client_state_t cs[static 1],
-                             struct dhcpmsg packet[static 1], uint8_t msgtype,
-                             uint32_t srcaddr)
+static int selecting_packet(struct client_state_t cs[static 1],
+                            struct dhcpmsg packet[static 1], uint8_t msgtype,
+                            uint32_t srcaddr)
 {
     if (msgtype == DHCPOFFER) {
         int found;
         uint32_t sid = get_option_serverid(packet, &found);
-        if (found) {
-            char clibuf[INET_ADDRSTRLEN];
-            char svrbuf[INET_ADDRSTRLEN];
-            char srcbuf[INET_ADDRSTRLEN];
-            cs->serverAddr = sid;
-            cs->xid = packet->xid;
-            cs->clientAddr = packet->yiaddr;
-            cs->srcAddr = srcaddr;
-            cs->dhcpState = DS_REQUESTING;
-            dhcp_wake_ts = curms();
-            num_dhcp_requests = 0;
-            inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->clientAddr},
-                      clibuf, sizeof clibuf);
-            inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->serverAddr},
-                      svrbuf, sizeof svrbuf);
-            inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->srcAddr},
-                      srcbuf, sizeof srcbuf);
-            log_line("%s: Received IP offer: %s from server %s via %s.",
-                     client_config.interface, clibuf, svrbuf, srcbuf);
-        } else {
+        if (!found) {
             log_line("%s: Invalid offer received: it didn't have a server id.",
                      client_config.interface);
+            return ANP_IGNORE;
         }
+        char clibuf[INET_ADDRSTRLEN];
+        char svrbuf[INET_ADDRSTRLEN];
+        char srcbuf[INET_ADDRSTRLEN];
+        cs->serverAddr = sid;
+        cs->xid = packet->xid;
+        cs->clientAddr = packet->yiaddr;
+        cs->srcAddr = srcaddr;
+        cs->dhcp_wake_ts = curms();
+        cs->num_dhcp_requests = 0;
+        inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->clientAddr},
+                  clibuf, sizeof clibuf);
+        inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->serverAddr},
+                  svrbuf, sizeof svrbuf);
+        inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->srcAddr},
+                  srcbuf, sizeof srcbuf);
+        log_line("%s: Received IP offer: %s from server %s via %s.",
+                 client_config.interface, clibuf, svrbuf, srcbuf);
+        return ANP_SUCCESS;
     }
+    return ANP_IGNORE;
 }
 
 // Triggered after a DHCP discover packet has been sent and no reply has
 // been received within the response wait time.  If we've not exceeded the
 // maximum number of discover retransmits, then send another packet and wait
 // again.  Otherwise, background or fail.
-static void selecting_timeout(struct client_state_t cs[static 1],
+static int selecting_timeout(struct client_state_t cs[static 1],
                               long long nowts)
 {
-    if (cs->init && num_dhcp_requests >= 2) {
+    if (cs->init && cs->num_dhcp_requests >= 2) {
         if (client_config.background_if_no_lease) {
             log_line("%s: No lease; going to background.",
                      client_config.interface);
@@ -376,19 +326,33 @@ static void selecting_timeout(struct client_state_t cs[static 1],
         } else if (client_config.abort_if_no_lease)
             suicide("%s: No lease; failing.", client_config.interface);
     }
-    if (num_dhcp_requests == 0)
+    if (cs->num_dhcp_requests == 0)
         cs->xid = nk_random_u32(&cs->rnd32_state);
     int r = send_discover(cs);
     if (r < 0) {
         log_warning("%s: Failed to send a discover request packet.",
                     client_config.interface);
-        SUSPEND_IF_NOCARRIER();
+        return SEL_FAIL;
     }
-    dhcp_wake_ts = nowts + delay_timeout(cs, num_dhcp_requests);
-    num_dhcp_requests++;
+    cs->dhcp_wake_ts = nowts + delay_timeout(cs, cs->num_dhcp_requests);
+    cs->num_dhcp_requests++;
+    return SEL_SUCCESS;
 }
 
-static void xmit_release(struct client_state_t cs[static 1])
+// Called for a release signal during SELECTING or REQUESTING.
+static int print_release(struct client_state_t cs[static 1])
+{
+    log_line("%s: ndhc going to sleep.  Wake it by sending a SIGUSR1.",
+             client_config.interface);
+    if (reinit_shared_deconfig(cs) < 0)
+        return -1;
+    cs->dhcp_wake_ts = -1;
+    stop_dhcp_listen(cs);
+    return 0;
+}
+
+// Called for a release signal during BOUND, RENEWING, or REBINDING.
+static int xmit_release(struct client_state_t cs[static 1])
 {
     char clibuf[INET_ADDRSTRLEN];
     char svrbuf[INET_ADDRSTRLEN];
@@ -402,101 +366,326 @@ static void xmit_release(struct client_state_t cs[static 1])
     if (r < 0) {
         log_warning("%s: Failed to send a release request packet.",
                     client_config.interface);
-        SUSPEND_IF_NOCARRIER();
+        return -1;
     }
     print_release(cs);
+    return 0;
 }
 
-static void print_release(struct client_state_t cs[static 1])
+// Called for a renewing signal during BOUND or RELEASED
+static int frenew(struct client_state_t cs[static 1], bool is_bound)
 {
-    log_line("%s: ndhc going to sleep.  Wake it by sending a SIGUSR1.",
-             client_config.interface);
-    set_released(cs);
-}
-
-static void frenew(struct client_state_t cs[static 1])
-{
-    if (cs->dhcpState == DS_BOUND) {
+    if (is_bound) {
         log_line("%s: Forcing a DHCP renew...", client_config.interface);
-        cs->dhcpState = DS_RENEWING;
         start_dhcp_listen(cs);
         int r = send_renew(cs);
         if (r < 0) {
             log_warning("%s: Failed to send a renew request packet.",
                         client_config.interface);
-            SUSPEND_IF_NOCARRIER();
+            return -1;
         }
-    } else if (cs->dhcpState == DS_RELEASED)
-        reinit_selecting(cs, 0);
+    } else { // RELEASED
+        if (reinit_selecting(cs, 0) < 0)
+            return -1;
+    }
+    return 0;
 }
 
-void ifup_action(struct client_state_t cs[static 1])
+// If we have a lease, check to see if our gateway is still valid via ARP.
+// If it fails, state -> SELECTING.
+static int ifup_action(struct client_state_t cs[static 1])
 {
-    // If we have a lease, check to see if our gateway is still valid via ARP.
-    // If it fails, state -> SELECTING.
-    if (cs->routerAddr && (cs->dhcpState == DS_BOUND ||
-                           cs->dhcpState == DS_RENEWING ||
-                           cs->dhcpState == DS_REBINDING)) {
+    if (cs->routerAddr && cs->serverAddr) {
         int r = arp_gw_check(cs);
         if (r >= 0) {
             log_line("%s: Interface is back.  Revalidating lease...",
                      client_config.interface);
-            return;
+            return IFUP_REVALIDATE;
         } else {
-            SUSPEND_IF_NOCARRIER();
             log_warning("%s: arp_gw_check could not make arp socket.",
                         client_config.interface);
+            return IFUP_FAIL;
         }
     }
-    if (cs->dhcpState == DS_SELECTING)
-        return;
     log_line("%s: Interface is back.  Searching for new lease...",
              client_config.interface);
-    reinit_selecting(cs, 0);
+    return IFUP_NEWLEASE;
 }
 
-void ifdown_action(struct client_state_t cs[static 1])
+#define BAD_STATE() suicide("%s(%d): bad state", __func__, __LINE__)
+
+// XXX: Should be re-entrant so as to handle multiple servers.
+int dhcp_handle(struct client_state_t cs[static 1], long long nowts,
+                int sev_dhcp, struct dhcpmsg dhcp_packet[static 1],
+                uint8_t dhcp_msgtype, uint32_t dhcp_srcaddr, int sev_arp,
+                bool force_fingerprint, bool dhcp_timeout, bool arp_timeout)
 {
-    log_line("%s: Interface shut down.  Going to sleep.",
-             client_config.interface);
-    set_released(cs);
+    scrBegin;
+reinit:
+    // We're in the SELECTING state here.
+    for (;;) {
+        int ret = COR_SUCCESS;
+        if (sev_dhcp) {
+            int r = selecting_packet(cs, dhcp_packet, dhcp_msgtype,
+                                     dhcp_srcaddr);
+            if (r == ANP_SUCCESS) {
+                // Send a request packet to the answering DHCP server.
+                sev_dhcp = false;
+                goto skip_to_requesting;
+            }
+        }
+        if (dhcp_timeout) {
+            int r = selecting_timeout(cs, nowts);
+            if (r == SEL_SUCCESS) {
+            } else if (r == SEL_FAIL) {
+                ret = COR_ERROR;
+            } else BAD_STATE();
+        }
+        scrReturn(ret);
+    }
+    scrReturn(COR_SUCCESS);
+    // We're in the REQUESTING state here.
+    for (;;) {
+        int ret;
+skip_to_requesting:
+        ret = COR_SUCCESS;
+        if (sev_dhcp) {
+            int r = an_packet(cs, dhcp_packet, dhcp_msgtype, dhcp_srcaddr,
+                              true);
+            if (r == ANP_IGNORE) {
+            } else if (r == ANP_FAIL) {
+                ret = COR_ERROR;
+                scrReturn(ret);
+                continue;
+            } else if (r == ANP_REJECTED) {
+                sev_dhcp = false;
+                goto reinit;
+            } else if (r == ANP_CHECK_IP) {
+                if (arp_check(cs, dhcp_packet) < 0) {
+                    log_warning("%s: Failed to make arp socket.  Searching for new lease...",
+                                client_config.interface);
+                    if (reinit_selecting(cs, 3000) < 0) {
+                        scrReturn(COR_ERROR);
+                        goto reinit;
+                    }
+                    sev_dhcp = false;
+                    goto reinit;
+                }
+                break;
+            } else BAD_STATE();
+        }
+        if (dhcp_timeout) {
+            // Send a request packet to the answering DHCP server.
+            int r = requesting_timeout(cs, nowts);
+            if (r == REQ_SUCCESS) {
+            } else if (r == REQ_TIMEOUT) {
+                // We timed out.  Send another packet.
+                sev_dhcp = false;
+                goto reinit;
+            } else if (r == REQ_FAIL) {
+                // Failed to send packet.  Sleep and retry.
+                ret = COR_ERROR;
+            } else BAD_STATE();
+        }
+        scrReturn(ret);
+    }
+    scrReturn(COR_SUCCESS);
+    // We're checking to see if there's a conflict for our IP.  Technically,
+    // this is still in REQUESTING.
+    for (;;) {
+        int ret;
+        ret = COR_SUCCESS;
+        if (sev_dhcp) {
+            // XXX: Maybe I can think of something to do here.  Would
+            //      be more relevant if we tracked multiple dhcp servers.
+        }
+        if (sev_arp) {
+            int r = arp_do_collision_check(cs);
+            if (r == ARPR_OK) {
+            } else if (r == ARPR_CONFLICT) {
+                // XXX: If we tracked multiple DHCP servers, then we
+                //      could fall back on another one.
+                if (reinit_selecting(cs, 0) < 0) {
+                    ret = COR_ERROR;
+                    scrReturn(ret);
+                }
+                sev_dhcp = false;
+                goto reinit;
+            } else if (r == ARPR_FAIL) {
+                ret = COR_ERROR;
+                scrReturn(ret);
+                continue;
+            } else BAD_STATE();
+        }
+        if (arp_timeout) {
+            int r = arp_collision_timeout(cs, nowts);
+            if (r == ARPR_FREE) {
+                break;
+            } else if (r == ARPR_OK) {
+            } else if (r == ARPR_FAIL) {
+                ret = COR_ERROR;
+                scrReturn(ret);
+                continue;
+            } else BAD_STATE();
+        }
+        if (dhcp_timeout) {
+            // Send a request packet to the answering DHCP server.
+            int r = requesting_timeout(cs, nowts);
+            if (r == REQ_SUCCESS) {
+            } else if (r == REQ_TIMEOUT) {
+                // We timed out.  Send another packet.
+                sev_dhcp = false;
+                goto reinit;
+            } else if (r == REQ_FAIL) {
+                // Failed to send packet.  Sleep and retry.
+                ret = COR_ERROR;
+            } else BAD_STATE();
+        }
+        scrReturn(ret);
+    }
+    scrReturn(COR_SUCCESS);
+    // We're in the BOUND, RENEWING, or REBINDING states here.
+    for (;;) {
+        int ret = COR_SUCCESS;
+        if (sev_dhcp && is_renewing(cs, nowts)) {
+            int r = an_packet(cs, dhcp_packet, dhcp_msgtype, dhcp_srcaddr,
+                              false);
+            if (r == ANP_SUCCESS || r == ANP_IGNORE) {
+            } else if (r == ANP_FAIL) {
+                ret = COR_ERROR;
+                scrReturn(ret);
+                continue;
+            } else if (r == ANP_REJECTED) {
+                sev_dhcp = false;
+                goto reinit;
+            } else if (r == ANP_CHECK_IP) {
+                if (arp_check(cs, dhcp_packet) < 0) {
+                    log_warning("%s: Failed to make arp socket.  Searching for new lease...",
+                                client_config.interface);
+                    if (reinit_selecting(cs, 3000) < 0) {
+                        ret = COR_ERROR;
+                        scrReturn(ret);
+                    }
+                    sev_dhcp = false;
+                    goto reinit;
+                }
+            } else BAD_STATE();
+        }
+        if (sev_arp) {
+            int r;
+            r = arp_do_defense(cs);
+            if (r == ARPR_OK) {
+            } else if (r == ARPR_CONFLICT) {
+                if (reinit_selecting(cs, 0) < 0) {
+                    ret = COR_ERROR;
+                    scrReturn(ret);
+                }
+                sev_dhcp = false;
+                goto reinit;
+            } else if (r == ARPR_FAIL) {
+                ret = COR_ERROR;
+                scrReturn(ret);
+                continue;
+            } else BAD_STATE();
+            if (!cs->got_router_arp || !cs->got_server_arp) {
+                r = arp_do_gw_query(cs);
+                if (r == ARPR_OK) {
+                } else if (r == ARPR_FREE) {
+                    // We got both ARP addresses.
+                } else if (r == ARPR_FAIL) {
+                    ret = COR_ERROR;
+                    scrReturn(ret);
+                    continue;
+                } else BAD_STATE();
+            } else if (cs->check_fingerprint) {
+                r = arp_do_gw_check(cs);
+                if (r == ARPR_OK) {
+                } else if (r == ARPR_FREE) {
+                    cs->check_fingerprint = false;
+                } else if (r == ARPR_CONFLICT) {
+                    cs->check_fingerprint = false;
+                    if (reinit_selecting(cs, 0) < 0) {
+                        ret = COR_ERROR;
+                        scrReturn(ret);
+                    }
+                    sev_dhcp = false;
+                    goto reinit;
+                } else if (r == ARPR_FAIL) {
+                    ret = COR_ERROR;
+                    scrReturn(ret);
+                    continue;
+                } else BAD_STATE();
+            }
+        }
+        if (arp_timeout) {
+            arp_defense_timeout(cs, nowts);
+            if (!cs->got_router_arp || !cs->got_server_arp) {
+                int r = arp_gw_query_timeout(cs, nowts);
+                if (r == ARPR_OK) {
+                } else if (r == ARPR_FAIL) {
+                    ret = COR_ERROR;
+                    scrReturn(ret);
+                    continue;
+                } else BAD_STATE();
+            } else if (cs->check_fingerprint) {
+                int r = arp_gw_check_timeout(cs, nowts);
+                if (r == ARPR_OK) {
+                } else if (r == ARPR_CONFLICT) {
+                    cs->check_fingerprint = false;
+                    if (reinit_selecting(cs, 0) < 0) {
+                        ret = COR_ERROR;
+                        scrReturn(ret);
+                    }
+                    sev_dhcp = false;
+                    goto reinit;
+                } else if (r == ARPR_FAIL) {
+                    ret = COR_ERROR;
+                    scrReturn(ret);
+                    continue;
+                } else BAD_STATE();
+            }
+        }
+        if (force_fingerprint) {
+            int r = ifup_action(cs);
+            if (r == IFUP_REVALIDATE) {
+            } else if (r == IFUP_NEWLEASE) {
+                if (reinit_selecting(cs, 0) < 0) {
+                    ret = COR_ERROR;
+                    scrReturn(ret);
+                }
+                sev_dhcp = false;
+                goto reinit;
+            } else if (r == IFUP_FAIL) {
+                ret = COR_ERROR;
+                scrReturn(ret);
+                continue;
+            } else BAD_STATE();
+        }
+        if (dhcp_timeout) {
+            int r;
+            if (is_rebinding(cs, nowts)) {
+                r = rebinding_timeout(cs, nowts);
+            } else if (is_renewing(cs, nowts)) {
+                r = renewing_timeout(cs, nowts);
+            } else {
+                r = bound_timeout(cs, nowts);
+            }
+            if (r == BTO_WAIT) {
+            } else if (r == BTO_EXPIRED) {
+                sev_dhcp = false;
+                goto reinit;
+            } else if (r == BTO_HARDFAIL) {
+                ret = COR_ERROR;
+            } else
+                BAD_STATE();
+        }
+        scrReturn(ret);
+    }
+    sev_dhcp = false;
+    goto reinit;
+    scrFinish(COR_SUCCESS);
+    // XXX: xmit_release -> acquire_lease
+    // XXX: Continue to clean up the ARP code.
 }
 
-void ifnocarrier_action(struct client_state_t cs[static 1])
-{
-    (void)cs;
-    log_line("%s: Carrier down.", client_config.interface);
-}
-
-void packet_action(struct client_state_t cs[static 1],
-                   struct dhcpmsg packet[static 1], uint8_t msgtype,
-                   uint32_t srcaddr)
-{
-    if (dhcp_states[cs->dhcpState].packet_fn)
-        dhcp_states[cs->dhcpState].packet_fn(cs, packet, msgtype, srcaddr);
-}
-
-void timeout_action(struct client_state_t cs[static 1], long long nowts)
-{
-    handle_arp_timeout(cs, nowts);
-    if (dhcp_states[cs->dhcpState].timeout_fn)
-        dhcp_states[cs->dhcpState].timeout_fn(cs, nowts);
-}
-
-void force_renew_action(struct client_state_t cs[static 1])
-{
-    if (dhcp_states[cs->dhcpState].force_renew_fn)
-        dhcp_states[cs->dhcpState].force_renew_fn(cs);
-}
-
-void force_release_action(struct client_state_t cs[static 1])
-{
-    if (dhcp_states[cs->dhcpState].force_release_fn)
-        dhcp_states[cs->dhcpState].force_release_fn(cs);
-}
-
-long long dhcp_get_wake_ts(void)
-{
-    return dhcp_wake_ts;
-}
 
