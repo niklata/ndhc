@@ -292,10 +292,10 @@ static void do_ndhc_work(void)
             else
                 suicide("epoll_wait failed");
         }
-        int sev_dhcp = -1;
+        bool sev_dhcp = false;
         uint32_t dhcp_srcaddr;
         uint8_t dhcp_msgtype;
-        int sev_arp = ARPP_NONE;
+        bool sev_arp = false;
         int sev_nl = IFS_NONE;
         int sev_rfk = RFK_NONE;
         int sev_signal = SIGNAL_NONE;

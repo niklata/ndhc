@@ -104,7 +104,7 @@ struct arp_data {
 
 void arp_reply_clear(void);
 
-int arp_packet_get(struct client_state_t cs[static 1]);
+bool arp_packet_get(struct client_state_t cs[static 1]);
 
 void set_arp_relentless_def(bool v);
 void arp_reset_send_stats(void);
@@ -133,11 +133,6 @@ int arp_gw_check_timeout(struct client_state_t cs[static 1], long long nowts);
 // The operation couldn't complete because of an error such as rfkill.
 #define ARPR_FAIL -2
 
-
-// There is no new packet.
-#define ARPP_NONE 0
-// We have a pending packet.
-#define ARPP_HAVE 1
 
 long long arp_get_wake_ts(void);
 

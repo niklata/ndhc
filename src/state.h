@@ -41,8 +41,8 @@ enum {
 };
 
 int dhcp_handle(struct client_state_t cs[static 1], long long nowts,
-                int sev_dhcp, struct dhcpmsg dhcp_packet[static 1],
-                uint8_t dhcp_msgtype, uint32_t dhcp_srcaddr, int sev_arp,
+                bool sev_dhcp, struct dhcpmsg dhcp_packet[static 1],
+                uint8_t dhcp_msgtype, uint32_t dhcp_srcaddr, bool sev_arp,
                 bool force_fingerprint, bool dhcp_timeout, bool arp_timeout,
                 int sev_signal);
 

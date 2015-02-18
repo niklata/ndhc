@@ -674,14 +674,14 @@ server_is_router:
     return ARPR_OK;
 }
 
-int arp_packet_get(struct client_state_t cs[static 1])
+bool arp_packet_get(struct client_state_t cs[static 1])
 {
     ssize_t r = 0;
     if (garp.reply_offset < sizeof garp.reply) {
         r = safe_read(cs->arpFd, (char *)&garp.reply + garp.reply_offset,
                       sizeof garp.reply - garp.reply_offset);
         if (r == 0)
-            return ARPP_NONE;
+            return false;
         if (r < 0) {
             log_error("%s: (%s) ARP response read failed: %s",
                       client_config.interface, __func__, strerror(errno));
@@ -690,13 +690,13 @@ int arp_packet_get(struct client_state_t cs[static 1])
             if (arp_open_fd(cs, cs->arp_is_defense) < 0)
                 suicide("%s: (%s) Failed to reopen ARP fd: %s",
                         client_config.interface, __func__, strerror(errno));
-            return ARPP_NONE;
+            return false;
         }
         garp.reply_offset += (size_t)r;
     }
 
     if (garp.reply_offset < ARP_MSG_SIZE)
-        return ARPP_NONE;
+        return false;
 
     // Emulate the BPF filters if they are not in use.
     if (!garp.using_bpf &&
@@ -704,9 +704,9 @@ int arp_packet_get(struct client_state_t cs[static 1])
          (cs->arp_is_defense &&
           !arp_validate_bpf_defense(cs, &garp.reply)))) {
         arp_reply_clear();
-        return ARPP_NONE;
+        return false;
     }
-    return ARPP_HAVE;
+    return true;
 }
 
 // XXX: Move into client_state
