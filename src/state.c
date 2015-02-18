@@ -54,7 +54,6 @@
 #define ANP_IGNORE -1
 #define ANP_REJECTED -2
 #define ANP_CHECK_IP -3
-#define ANP_FAIL -4
 
 #define BTO_WAIT 0
 #define BTO_EXPIRED -1
@@ -74,7 +73,7 @@ static int delay_timeout(struct client_state_t cs[static 1], size_t numpackets)
     return to * 1000 + (nk_random_u32(&cs->rnd32_state) & 0x7fffffffu) % 1000;
 }
 
-static int reinit_shared_deconfig(struct client_state_t cs[static 1])
+static void reinit_shared_deconfig(struct client_state_t cs[static 1])
 {
     arp_close_fd(cs);
     cs->clientAddr = 0;
@@ -84,16 +83,13 @@ static int reinit_shared_deconfig(struct client_state_t cs[static 1])
     memset(&cs->routerArp, 0, sizeof cs->routerArp);
     memset(&cs->serverArp, 0, sizeof cs->serverArp);
     arp_reset_send_stats();
-    return 0;
 }
 
-static int reinit_selecting(struct client_state_t cs[static 1], int timeout)
+static void reinit_selecting(struct client_state_t cs[static 1], int timeout)
 {
-    if (reinit_shared_deconfig(cs) < 0)
-        return -1;
+    reinit_shared_deconfig(cs);
     cs->dhcp_wake_ts = curms() + timeout;
     start_dhcp_listen(cs);
-    return 0;
 }
 
 // Triggered after a DHCP lease request packet has been sent and no reply has
@@ -104,12 +100,10 @@ static int requesting_timeout(struct client_state_t cs[static 1],
                                long long nowts)
 {
     if (cs->num_dhcp_requests >= 5) {
-        if (reinit_selecting(cs, 0) < 0)
-            return REQ_FAIL;
+        reinit_selecting(cs, 0);
         return REQ_TIMEOUT;
     }
-    int r = send_selecting(cs);
-    if (r < 0) {
+    if (send_selecting(cs) < 0) {
         log_warning("%s: Failed to send a selecting request packet.",
                     client_config.interface);
         return REQ_FAIL;
@@ -142,16 +136,14 @@ static int rebinding_timeout(struct client_state_t cs[static 1],
     if (nowts >= elt) {
         log_line("%s: Lease expired.  Searching for a new lease...",
                  client_config.interface);
-        if (reinit_selecting(cs, 0) < 0)
-            return BTO_HARDFAIL;
+        reinit_selecting(cs, 0);
         return BTO_EXPIRED;
     }
     if (elt - nowts < 30000) {
         cs->dhcp_wake_ts = elt;
         return BTO_WAIT;
     }
-    int r = send_rebind(cs);
-    if (r < 0) {
+    if (send_rebind(cs) < 0) {
         log_warning("%s: Failed to send a rebind request packet.",
                     client_config.interface);
         return BTO_HARDFAIL;
@@ -176,8 +168,7 @@ static int renewing_timeout(struct client_state_t cs[static 1],
         cs->dhcp_wake_ts = rbt;
         return BTO_WAIT;
     }
-    int r = send_renew(cs);
-    if (r < 0) {
+    if (send_renew(cs) < 0) {
         log_warning("%s: Failed to send a renew request packet.",
                     client_config.interface);
         return BTO_HARDFAIL;
@@ -275,8 +266,7 @@ static int extend_packet(struct client_state_t cs[static 1],
             return ANP_IGNORE;
         log_line("%s: Our request was rejected.  Searching for a new lease...",
                  client_config.interface);
-        if (reinit_selecting(cs, 3000) < 0)
-            return ANP_FAIL;
+        reinit_selecting(cs, 3000);
         return ANP_REJECTED;
     }
     return ANP_IGNORE;
@@ -365,8 +355,7 @@ static int selecting_timeout(struct client_state_t cs[static 1],
     }
     if (cs->num_dhcp_requests == 0)
         cs->xid = nk_random_u32(&cs->rnd32_state);
-    int r = send_discover(cs);
-    if (r < 0) {
+    if (send_discover(cs) < 0) {
         log_warning("%s: Failed to send a discover request packet.",
                     client_config.interface);
         return SEL_FAIL;
@@ -377,15 +366,13 @@ static int selecting_timeout(struct client_state_t cs[static 1],
 }
 
 // Called for a release signal during SELECTING or REQUESTING.
-static int print_release(struct client_state_t cs[static 1])
+static void print_release(struct client_state_t cs[static 1])
 {
     log_line("%s: ndhc going to sleep.  Wake it by sending a SIGUSR1.",
              client_config.interface);
-    if (reinit_shared_deconfig(cs) < 0)
-        return -1;
+    reinit_shared_deconfig(cs);
     cs->dhcp_wake_ts = -1;
     stop_dhcp_listen(cs);
-    return 0;
 }
 
 // Called for a release signal during BOUND, RENEWING, or REBINDING.
@@ -399,8 +386,7 @@ static int xmit_release(struct client_state_t cs[static 1])
               svrbuf, sizeof svrbuf);
     log_line("%s: Unicasting a release of %s to %s.", client_config.interface,
              clibuf, svrbuf);
-    int r = send_release(cs);
-    if (r < 0) {
+    if (send_release(cs) < 0) {
         log_warning("%s: Failed to send a release request packet.",
                     client_config.interface);
         return -1;
@@ -415,15 +401,13 @@ static int frenew(struct client_state_t cs[static 1], bool is_bound)
     if (is_bound) {
         log_line("%s: Forcing a DHCP renew...", client_config.interface);
         start_dhcp_listen(cs);
-        int r = send_renew(cs);
-        if (r < 0) {
+        if (send_renew(cs) < 0) {
             log_warning("%s: Failed to send a renew request packet.",
                         client_config.interface);
             return -1;
         }
     } else { // RELEASED
-        if (reinit_selecting(cs, 0) < 0)
-            return -1;
+        reinit_selecting(cs, 0);
     }
     return 0;
 }
@@ -433,8 +417,7 @@ static int frenew(struct client_state_t cs[static 1], bool is_bound)
 static int ifup_action(struct client_state_t cs[static 1])
 {
     if (cs->routerAddr && cs->serverAddr) {
-        int r = arp_gw_check(cs);
-        if (r >= 0) {
+        if (arp_gw_check(cs) >= 0) {
             log_line("%s: Interface is back.  Revalidating lease...",
                      client_config.interface);
             return IFUP_REVALIDATE;
@@ -494,10 +477,7 @@ skip_to_requesting:
                 if (arp_check(cs, dhcp_packet) < 0) {
                     log_warning("%s: Failed to make arp socket.  Searching for new lease...",
                                 client_config.interface);
-                    if (reinit_selecting(cs, 3000) < 0) {
-                        scrReturn(COR_ERROR);
-                        goto reinit;
-                    }
+                    reinit_selecting(cs, 3000);
                     sev_dhcp = false;
                     goto reinit;
                 }
@@ -535,10 +515,7 @@ skip_to_requesting:
             } else if (r == ARPR_CONFLICT) {
                 // XXX: If we tracked multiple DHCP servers, then we
                 //      could fall back on another one.
-                if (reinit_selecting(cs, 0) < 0) {
-                    ret = COR_ERROR;
-                    scrReturn(ret);
-                }
+                reinit_selecting(cs, 0);
                 sev_dhcp = false;
                 goto reinit;
             } else if (r == ARPR_FAIL) {
@@ -580,10 +557,6 @@ skip_to_requesting:
         if (sev_dhcp && is_renewing(cs, nowts)) {
             int r = extend_packet(cs, dhcp_packet, dhcp_msgtype, dhcp_srcaddr);
             if (r == ANP_SUCCESS || r == ANP_IGNORE) {
-            } else if (r == ANP_FAIL) {
-                ret = COR_ERROR;
-                scrReturn(ret);
-                continue;
             } else if (r == ANP_REJECTED) {
                 sev_dhcp = false;
                 goto reinit;
@@ -591,10 +564,7 @@ skip_to_requesting:
                 if (arp_check(cs, dhcp_packet) < 0) {
                     log_warning("%s: Failed to make arp socket.  Searching for new lease...",
                                 client_config.interface);
-                    if (reinit_selecting(cs, 3000) < 0) {
-                        ret = COR_ERROR;
-                        scrReturn(ret);
-                    }
+                    reinit_selecting(cs, 3000);
                     sev_dhcp = false;
                     goto reinit;
                 }
@@ -605,10 +575,7 @@ skip_to_requesting:
             r = arp_do_defense(cs);
             if (r == ARPR_OK) {
             } else if (r == ARPR_CONFLICT) {
-                if (reinit_selecting(cs, 0) < 0) {
-                    ret = COR_ERROR;
-                    scrReturn(ret);
-                }
+                reinit_selecting(cs, 0);
                 sev_dhcp = false;
                 goto reinit;
             } else if (r == ARPR_FAIL) {
@@ -633,10 +600,7 @@ skip_to_requesting:
                     cs->check_fingerprint = false;
                 } else if (r == ARPR_CONFLICT) {
                     cs->check_fingerprint = false;
-                    if (reinit_selecting(cs, 0) < 0) {
-                        ret = COR_ERROR;
-                        scrReturn(ret);
-                    }
+                    reinit_selecting(cs, 0);
                     sev_dhcp = false;
                     goto reinit;
                 } else if (r == ARPR_FAIL) {
@@ -661,10 +625,7 @@ skip_to_requesting:
                 if (r == ARPR_OK) {
                 } else if (r == ARPR_CONFLICT) {
                     cs->check_fingerprint = false;
-                    if (reinit_selecting(cs, 0) < 0) {
-                        ret = COR_ERROR;
-                        scrReturn(ret);
-                    }
+                    reinit_selecting(cs, 0);
                     sev_dhcp = false;
                     goto reinit;
                 } else if (r == ARPR_FAIL) {
