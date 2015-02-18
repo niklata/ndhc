@@ -183,12 +183,6 @@ static void setup_signals_ndhc(void)
     epoll_add(cs.epollFd, cs.signalFd);
 }
 
-enum {
-    SIGNAL_NONE = 0,
-    SIGNAL_RENEW,
-    SIGNAL_RELEASE
-};
-
 static int signal_dispatch(void)
 {
     struct signalfd_siginfo si;
@@ -379,22 +373,13 @@ static void do_ndhc_work(void)
             continue;
         }
 
-        // XXX: Make these work again.  See xmit_release(), print_release(),
-        //      and frenew().
-#if 0
-        if (sev_signal == SIGNAL_RENEW)
-            force_renew_action(&cs);
-        else if (sev_signal == SIGNAL_RELEASE)
-            force_release_action(&cs);
-#endif
-
         nowts = curms();
         long long arp_wake_ts = arp_get_wake_ts();
         int dhcp_ok = dhcp_handle(&cs, nowts, sev_dhcp, &dhcp_packet,
                                   dhcp_msgtype, dhcp_srcaddr,
                                   sev_arp, force_fingerprint,
                                   cs.dhcp_wake_ts <= nowts,
-                                  arp_wake_ts <= nowts);
+                                  arp_wake_ts <= nowts, sev_signal);
         if (sev_arp)
             arp_reply_clear();
 

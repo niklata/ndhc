@@ -438,13 +438,18 @@ static int ifup_action(struct client_state_t cs[static 1])
 int dhcp_handle(struct client_state_t cs[static 1], long long nowts,
                 int sev_dhcp, struct dhcpmsg dhcp_packet[static 1],
                 uint8_t dhcp_msgtype, uint32_t dhcp_srcaddr, int sev_arp,
-                bool force_fingerprint, bool dhcp_timeout, bool arp_timeout)
+                bool force_fingerprint, bool dhcp_timeout, bool arp_timeout,
+                int sev_signal)
 {
     scrBegin;
 reinit:
     // We're in the SELECTING state here.
     for (;;) {
         int ret = COR_SUCCESS;
+        if (sev_signal == SIGNAL_RELEASE) {
+            print_release(cs);
+            goto skip_to_released;
+        }
         if (sev_dhcp) {
             int r = selecting_packet(cs, dhcp_packet, dhcp_msgtype,
                                      dhcp_srcaddr, false);
@@ -469,6 +474,10 @@ reinit:
         int ret;
 skip_to_requesting:
         ret = COR_SUCCESS;
+        if (sev_signal == SIGNAL_RELEASE) {
+            print_release(cs);
+            goto skip_to_released;
+        }
         if (sev_dhcp) {
             int r = selecting_packet(cs, dhcp_packet, dhcp_msgtype,
                                      dhcp_srcaddr, true);
@@ -505,6 +514,10 @@ skip_to_requesting:
     for (;;) {
         int ret;
         ret = COR_SUCCESS;
+        if (sev_signal == SIGNAL_RELEASE) {
+            print_release(cs);
+            goto skip_to_released;
+        }
         if (sev_dhcp) {
             // XXX: Maybe I can think of something to do here.  Would
             //      be more relevant if we tracked multiple dhcp servers.
@@ -554,6 +567,25 @@ skip_to_requesting:
     // We're in the BOUND, RENEWING, or REBINDING states here.
     for (;;) {
         int ret = COR_SUCCESS;
+        if (sev_signal) {
+            if (sev_signal == SIGNAL_RELEASE) {
+                int r = xmit_release(cs);
+                if (r) {
+                    ret = COR_ERROR;
+                    scrReturn(ret);
+                    continue;
+                }
+                goto skip_to_released;
+            }
+            if (sev_signal == SIGNAL_RENEW) {
+                int r = frenew(cs, true);
+                if (r) {
+                    ret = COR_ERROR;
+                    scrReturn(ret);
+                    continue;
+                }
+            }
+        }
         if (sev_dhcp && is_renewing(cs, nowts)) {
             int r = extend_packet(cs, dhcp_packet, dhcp_msgtype, dhcp_srcaddr);
             if (r == ANP_SUCCESS || r == ANP_IGNORE) {
@@ -675,9 +707,25 @@ skip_to_requesting:
     }
     sev_dhcp = false;
     goto reinit;
+    // We're in the RELEASED state here.
+    for (;;) {
+        int ret;
+skip_to_released:
+        ret = COR_SUCCESS;
+        if (sev_signal == SIGNAL_RENEW) {
+            int r = frenew(cs, false);
+            if (r) {
+                ret = COR_ERROR;
+                scrReturn(ret);
+                continue;
+            }
+            break;
+        }
+        scrReturn(ret);
+    }
+    sev_dhcp = false;
+    goto reinit;
     scrFinish(COR_SUCCESS);
-    // XXX: xmit_release -> acquire_lease
-    // XXX: Continue to clean up the ARP code.
 }
 
 
