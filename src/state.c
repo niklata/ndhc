@@ -216,41 +216,47 @@ static int validate_serverid(struct client_state_t cs[static 1],
                   svrbuf, sizeof svrbuf);
         log_line("%s: Received %s with an unexpected server id: %s.  Ignoring it.",
                  client_config.interface, typemsg, svrbuf);
-        return 1; // XXX!  HACK! Change back to 0!
+        return 0;
     }
     return 1;
 }
 
-static int an_packet(struct client_state_t cs[static 1],
-                      struct dhcpmsg packet[static 1], uint8_t msgtype,
-                      uint32_t srcaddr, bool is_requesting)
+static void get_leasetime(struct client_state_t cs[static 1],
+                          struct dhcpmsg packet[static 1])
+{
+    cs->lease = get_option_leasetime(packet);
+    cs->leaseStartTime = curms();
+    if (!cs->lease) {
+        log_line("%s: No lease time received; assuming 1h.",
+                 client_config.interface);
+        cs->lease = 60 * 60;
+    } else {
+        if (cs->lease < 60) {
+            log_warning("Server sent lease of <1m.  Forcing lease to 1m.",
+                        client_config.interface);
+            cs->lease = 60;
+        }
+    }
+    // Always use RFC2131 'default' values.  It's not worth validating
+    // the remote server values, if they even exist, for sanity.
+    cs->renewTime = cs->lease >> 1;
+    cs->rebindTime = (cs->lease >> 3) * 0x7; // * 0.875
+    cs->dhcp_wake_ts = cs->leaseStartTime + cs->renewTime * 1000;
+}
+
+static int extend_packet(struct client_state_t cs[static 1],
+                         struct dhcpmsg packet[static 1], uint8_t msgtype,
+                         uint32_t srcaddr)
 {
     (void)srcaddr;
     if (msgtype == DHCPACK) {
         if (!validate_serverid(cs, packet, "a DHCP ACK"))
             return ANP_IGNORE;
-        cs->lease = get_option_leasetime(packet);
-        cs->leaseStartTime = curms();
-        if (!cs->lease) {
-            log_line("%s: No lease time received; assuming 1h.",
-                     client_config.interface);
-            cs->lease = 60 * 60;
-        } else {
-            if (cs->lease < 60) {
-                log_warning("Server sent lease of <1m.  Forcing lease to 1m.",
-                            client_config.interface);
-                cs->lease = 60;
-            }
-        }
-        // Always use RFC2131 'default' values.  It's not worth validating
-        // the remote server values, if they even exist, for sanity.
-        cs->renewTime = cs->lease >> 1;
-        cs->rebindTime = (cs->lease >> 3) * 0x7; // * 0.875
-        cs->dhcp_wake_ts = cs->leaseStartTime + cs->renewTime * 1000;
+        get_leasetime(cs, packet);
 
         // Only check if we are either in the REQUESTING state, or if we
         // have received a lease with a different IP than what we had before.
-        if (is_requesting || memcmp(&packet->yiaddr, &cs->clientAddr, 4)) {
+        if (memcmp(&packet->yiaddr, &cs->clientAddr, 4)) {
             char clibuf[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->clientAddr},
                       clibuf, sizeof clibuf);
@@ -276,14 +282,11 @@ static int an_packet(struct client_state_t cs[static 1],
     return ANP_IGNORE;
 }
 
-// XXX: This should also handle the REQUESTING part of an_packet and
-//      be used during REQUESTING; that will allow ndhc to track multiple
-//      DHCPOFFERs.
 static int selecting_packet(struct client_state_t cs[static 1],
                             struct dhcpmsg packet[static 1], uint8_t msgtype,
-                            uint32_t srcaddr)
+                            uint32_t srcaddr, bool is_requesting)
 {
-    if (msgtype == DHCPOFFER) {
+    if (!is_requesting && msgtype == DHCPOFFER) {
         int found;
         uint32_t sid = get_option_serverid(packet, &found);
         if (!found) {
@@ -294,8 +297,8 @@ static int selecting_packet(struct client_state_t cs[static 1],
         char clibuf[INET_ADDRSTRLEN];
         char svrbuf[INET_ADDRSTRLEN];
         char srcbuf[INET_ADDRSTRLEN];
-        cs->serverAddr = sid;
         cs->clientAddr = packet->yiaddr;
+        cs->serverAddr = sid;
         cs->srcAddr = srcaddr;
         cs->dhcp_wake_ts = curms();
         cs->num_dhcp_requests = 0;
@@ -308,6 +311,38 @@ static int selecting_packet(struct client_state_t cs[static 1],
         log_line("%s: Received IP offer: %s from server %s via %s.",
                  client_config.interface, clibuf, svrbuf, srcbuf);
         return ANP_SUCCESS;
+    } else if (is_requesting && msgtype == DHCPACK) {
+        // Don't validate the server id.  Instead validate that the
+        // yiaddr matches.  Some networks have multiple servers
+        // that don't respect the serverid that was specified in
+        // our DHCPREQUEST.
+        if (!memcmp(&packet->yiaddr, &cs->clientAddr, 4)) {
+            char clibuf[INET_ADDRSTRLEN];
+            char svrbuf[INET_ADDRSTRLEN];
+            char srcbuf[INET_ADDRSTRLEN];
+            int found;
+            uint32_t sid = get_option_serverid(packet, &found);
+            if (!found) {
+                log_line("%s: Invalid offer received: it didn't have a server id.",
+                         client_config.interface);
+                return ANP_IGNORE;
+            }
+            if (cs->serverAddr != sid) {
+                cs->serverAddr = sid;
+                cs->srcAddr = srcaddr;
+            }
+            get_leasetime(cs, packet);
+
+            inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->clientAddr},
+                      clibuf, sizeof clibuf);
+            inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->serverAddr},
+                      svrbuf, sizeof svrbuf);
+            inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->srcAddr},
+                      srcbuf, sizeof srcbuf);
+            log_line("%s: Received ACK: %s from server %s via %s.  Validating...",
+                     client_config.interface, clibuf, svrbuf, srcbuf);
+            return ANP_CHECK_IP;
+        }
     }
     return ANP_IGNORE;
 }
@@ -429,7 +464,7 @@ reinit:
         int ret = COR_SUCCESS;
         if (sev_dhcp) {
             int r = selecting_packet(cs, dhcp_packet, dhcp_msgtype,
-                                     dhcp_srcaddr);
+                                     dhcp_srcaddr, false);
             if (r == ANP_SUCCESS) {
                 // Send a request packet to the answering DHCP server.
                 sev_dhcp = false;
@@ -452,16 +487,9 @@ reinit:
 skip_to_requesting:
         ret = COR_SUCCESS;
         if (sev_dhcp) {
-            int r = an_packet(cs, dhcp_packet, dhcp_msgtype, dhcp_srcaddr,
-                              true);
+            int r = selecting_packet(cs, dhcp_packet, dhcp_msgtype,
+                                     dhcp_srcaddr, true);
             if (r == ANP_IGNORE) {
-            } else if (r == ANP_FAIL) {
-                ret = COR_ERROR;
-                scrReturn(ret);
-                continue;
-            } else if (r == ANP_REJECTED) {
-                sev_dhcp = false;
-                goto reinit;
             } else if (r == ANP_CHECK_IP) {
                 if (arp_check(cs, dhcp_packet) < 0) {
                     log_warning("%s: Failed to make arp socket.  Searching for new lease...",
@@ -550,8 +578,7 @@ skip_to_requesting:
     for (;;) {
         int ret = COR_SUCCESS;
         if (sev_dhcp && is_renewing(cs, nowts)) {
-            int r = an_packet(cs, dhcp_packet, dhcp_msgtype, dhcp_srcaddr,
-                              false);
+            int r = extend_packet(cs, dhcp_packet, dhcp_msgtype, dhcp_srcaddr);
             if (r == ANP_SUCCESS || r == ANP_IGNORE) {
             } else if (r == ANP_FAIL) {
                 ret = COR_ERROR;
@@ -651,6 +678,7 @@ skip_to_requesting:
             int r = ifup_action(cs);
             if (r == IFUP_REVALIDATE) {
             } else if (r == IFUP_NEWLEASE) {
+                // XXX: Deconfigure the interface.  The network has changed.
                 if (reinit_selecting(cs, 0) < 0) {
                     ret = COR_ERROR;
                     scrReturn(ret);
