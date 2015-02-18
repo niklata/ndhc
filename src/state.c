@@ -245,19 +245,20 @@ static int extend_packet(struct client_state_t cs[static 1],
             return ANP_IGNORE;
         get_leasetime(cs, packet);
 
-        // Only check if we are either in the REQUESTING state, or if we
-        // have received a lease with a different IP than what we had before.
+        // Did we receive a lease with a different IP than we had before?
         if (memcmp(&packet->yiaddr, &cs->clientAddr, 4)) {
             char clibuf[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->clientAddr},
                       clibuf, sizeof clibuf);
-            log_line("%s: Accepted a firm offer for %s.  Validating...",
+            log_line("%s: Server is now offering IP %s.  Validating...",
                      client_config.interface, clibuf);
             return ANP_CHECK_IP;
         } else {
             log_line("%s: Lease refreshed to %u seconds.",
                      client_config.interface, cs->lease);
-            arp_set_defense_mode(cs); // XXX: Can return error: fail to open
+            if (arp_set_defense_mode(cs) < 0)
+                log_warning("%s: Failed to create ARP defense socket.",
+                            client_config.interface);
             stop_dhcp_listen(cs);
             return ANP_SUCCESS;
         }
