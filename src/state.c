@@ -276,6 +276,9 @@ static int an_packet(struct client_state_t cs[static 1],
     return ANP_IGNORE;
 }
 
+// XXX: This should also handle the REQUESTING part of an_packet and
+//      be used during REQUESTING; that will allow ndhc to track multiple
+//      DHCPOFFERs.
 static int selecting_packet(struct client_state_t cs[static 1],
                             struct dhcpmsg packet[static 1], uint8_t msgtype,
                             uint32_t srcaddr)
@@ -292,7 +295,6 @@ static int selecting_packet(struct client_state_t cs[static 1],
         char svrbuf[INET_ADDRSTRLEN];
         char srcbuf[INET_ADDRSTRLEN];
         cs->serverAddr = sid;
-        cs->xid = packet->xid;
         cs->clientAddr = packet->yiaddr;
         cs->srcAddr = srcaddr;
         cs->dhcp_wake_ts = curms();
