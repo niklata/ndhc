@@ -139,16 +139,14 @@ static int rebinding_timeout(struct client_state_t cs[static 1],
         reinit_selecting(cs, 0);
         return BTO_EXPIRED;
     }
-    if (elt - nowts < 30000) {
-        cs->dhcp_wake_ts = elt;
-        return BTO_WAIT;
-    }
+    start_dhcp_listen(cs);
     if (send_rebind(cs) < 0) {
         log_warning("%s: Failed to send a rebind request packet.",
                     client_config.interface);
         return BTO_HARDFAIL;
     }
-    cs->dhcp_wake_ts = nowts + ((elt - nowts) / 2);
+    long long ts0 = nowts + (50 + nk_random_u32(&cs->rnd32_state) % 20) * 1000;
+    cs->dhcp_wake_ts = ts0 < elt ? ts0 : elt;
     return BTO_WAIT;
 }
 
@@ -164,16 +162,14 @@ static int renewing_timeout(struct client_state_t cs[static 1],
     long long rbt = cs->leaseStartTime + cs->rebindTime * 1000;
     if (nowts >= rbt)
         return rebinding_timeout(cs, nowts);
-    if (rbt - nowts < 30000) {
-        cs->dhcp_wake_ts = rbt;
-        return BTO_WAIT;
-    }
+    start_dhcp_listen(cs);
     if (send_renew(cs) < 0) {
         log_warning("%s: Failed to send a renew request packet.",
                     client_config.interface);
         return BTO_HARDFAIL;
     }
-    cs->dhcp_wake_ts = nowts + ((rbt - nowts) / 2);
+    long long ts0 = nowts + (50 + nk_random_u32(&cs->rnd32_state) % 20) * 1000;
+    cs->dhcp_wake_ts = ts0 < rbt ? ts0 : rbt;
     return BTO_WAIT;
 }
 
@@ -186,7 +182,6 @@ static int bound_timeout(struct client_state_t cs[static 1], long long nowts)
         cs->dhcp_wake_ts = rnt;
         return BTO_WAIT;
     }
-    start_dhcp_listen(cs);
     return renewing_timeout(cs, nowts);
 }
 
