@@ -263,14 +263,13 @@ static void fail_if_state_dir_dne(void)
         suicide("state_dir path '%s' does not specify a directory", state_dir);
 }
 
-#define NDHC_NUM_EP_FDS 7
 static void do_ndhc_work(void)
 {
     static bool rfkill_set; // Is the rfkill switch set?
     static bool rfkill_nl_state_changed; // iface state changed during rfkill
     static int rfkill_nl_state; // current iface state during rfkill
     struct dhcpmsg dhcp_packet;
-    struct epoll_event events[NDHC_NUM_EP_FDS];
+    struct epoll_event events[1];
     long long nowts;
     int timeout;
 
