@@ -678,11 +678,12 @@ skip_to_requesting:
             int r = ifup_action(cs);
             if (r == IFUP_REVALIDATE) {
             } else if (r == IFUP_NEWLEASE) {
-                // XXX: Deconfigure the interface.  The network has changed.
-                if (reinit_selecting(cs, 0) < 0) {
+                if (ifchange_deconfig(cs) < 0) {
+                    // Likely only to fail because of rfkill.
                     ret = COR_ERROR;
                     scrReturn(ret);
                 }
+                reinit_selecting(cs, 0);
                 sev_dhcp = false;
                 goto reinit;
             } else if (r == IFUP_FAIL) {
