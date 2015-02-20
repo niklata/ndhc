@@ -78,8 +78,10 @@ void add_option_clientid(struct dhcpmsg *packet,
                          const char * const clientid, size_t clen);
 #ifndef NDHS_BUILD
 void add_option_maxsize(struct dhcpmsg *packet);
-void add_option_vendor(struct dhcpmsg *packet);
-void add_option_hostname(struct dhcpmsg *packet);
+void add_option_vendor(struct dhcpmsg *packet, const char * const vendor,
+                       size_t vsize);
+void add_option_hostname(struct dhcpmsg *packet, const char * const hostname,
+                         size_t hsize);
 #endif
 uint32_t get_option_router(const struct dhcpmsg * const packet);
 uint8_t get_option_msgtype(const struct dhcpmsg * const packet);

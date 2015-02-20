@@ -287,20 +287,18 @@ void add_option_maxsize(struct dhcpmsg *packet)
                    htons(sizeof(struct ip_udp_dhcp_packet)));
 }
 
-void add_option_vendor(struct dhcpmsg *packet)
+void add_option_vendor(struct dhcpmsg *packet, const char * const vendor,
+                       size_t vsize)
 {
-    size_t len = strlen(client_config.vendor);
-    if (len)
-        add_option_string(packet, DCODE_VENDOR, client_config.vendor, len);
-    else
-        add_option_string(packet, DCODE_VENDOR, "ndhc", sizeof "ndhc" - 1);
+    if (vsize)
+        add_option_string(packet, DCODE_VENDOR, vendor, vsize);
 }
 
-void add_option_hostname(struct dhcpmsg *packet)
+void add_option_hostname(struct dhcpmsg *packet, const char * const hostname,
+                         size_t hsize)
 {
-    size_t len = strlen(client_config.hostname);
-    if (len)
-        add_option_string(packet, DCODE_HOSTNAME, client_config.hostname, len);
+    if (hsize)
+        add_option_string(packet, DCODE_HOSTNAME, hostname, hsize);
 }
 #endif
 

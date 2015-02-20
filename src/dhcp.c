@@ -403,6 +403,17 @@ bool dhcp_packet_get(struct client_state_t cs[static 1],
     return true;
 }
 
+static void add_options_vendor_hostname(struct dhcpmsg packet[static 1])
+{
+    size_t vlen = strlen(client_config.vendor);
+    size_t hlen = strlen(client_config.hostname);
+    if (vlen)
+        add_option_vendor(packet, client_config.vendor, vlen);
+    else
+        add_option_vendor(packet, "ndhc", sizeof "ndhc" - 1);
+    add_option_hostname(packet, client_config.hostname, hlen);
+}
+
 // Initialize a DHCP client packet that will be sent to a server
 static void init_packet(struct dhcpmsg packet[static 1], char type)
 {
@@ -425,8 +436,7 @@ ssize_t send_discover(struct client_state_t cs[static 1])
         add_option_reqip(&packet, cs->clientAddr);
     add_option_maxsize(&packet);
     add_option_request_list(&packet);
-    add_option_vendor(&packet);
-    add_option_hostname(&packet);
+    add_options_vendor_hostname(&packet);
     log_line("%s: Discovering DHCP servers...", client_config.interface);
     return send_dhcp_raw(&packet);
 }
@@ -440,8 +450,7 @@ ssize_t send_selecting(struct client_state_t cs[static 1])
     add_option_serverid(&packet, cs->serverAddr);
     add_option_maxsize(&packet);
     add_option_request_list(&packet);
-    add_option_vendor(&packet);
-    add_option_hostname(&packet);
+    add_options_vendor_hostname(&packet);
     inet_ntop(AF_INET, &(struct in_addr){.s_addr = cs->clientAddr},
               clibuf, sizeof clibuf);
     log_line("%s: Sending a selection request for %s...",
@@ -456,8 +465,7 @@ ssize_t send_renew(struct client_state_t cs[static 1])
     packet.ciaddr = cs->clientAddr;
     add_option_maxsize(&packet);
     add_option_request_list(&packet);
-    add_option_vendor(&packet);
-    add_option_hostname(&packet);
+    add_options_vendor_hostname(&packet);
     log_line("%s: Sending a renew request...", client_config.interface);
     return send_dhcp_unicast(cs, &packet);
 }
@@ -470,8 +478,7 @@ ssize_t send_rebind(struct client_state_t cs[static 1])
     add_option_reqip(&packet, cs->clientAddr);
     add_option_maxsize(&packet);
     add_option_request_list(&packet);
-    add_option_vendor(&packet);
-    add_option_hostname(&packet);
+    add_options_vendor_hostname(&packet);
     log_line("%s: Sending a rebind request...", client_config.interface);
     return send_dhcp_raw(&packet);
 }
