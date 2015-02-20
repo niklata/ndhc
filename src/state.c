@@ -439,6 +439,7 @@ int dhcp_handle(struct client_state_t cs[static 1], long long nowts,
 {
     scrBegin;
 reinit:
+    cs->xid = nk_random_u32(&cs->rnd32_state);
     // We're in the SELECTING state here.
     for (;;) {
         int ret = COR_SUCCESS;
