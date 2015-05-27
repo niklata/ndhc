@@ -265,7 +265,8 @@ static void do_ndhc_work(void)
     struct dhcpmsg dhcp_packet;
     struct epoll_event events[1];
     long long nowts;
-    int timeout;
+    int timeout = 0;
+    bool had_event;
 
     cs.epollFd = epoll_create1(0);
     if (cs.epollFd < 0)
@@ -282,9 +283,9 @@ static void do_ndhc_work(void)
     if (client_config.enable_rfkill && cs.rfkillFd != -1)
         epoll_add(cs.epollFd, cs.rfkillFd);
     start_dhcp_listen(&cs);
-    timeout = 0;
 
     for (;;) {
+        had_event = false;
         int maxi = epoll_wait(cs.epollFd, events, 1, timeout);
         if (maxi < 0) {
             if (errno == EINTR)
@@ -301,6 +302,7 @@ static void do_ndhc_work(void)
         int sev_signal = SIGNAL_NONE;
         bool force_fingerprint = false;
         for (int i = 0; i < maxi; ++i) {
+            had_event = true;
             int fd = events[i].data.fd;
             if (fd == cs.signalFd) {
                 if (!(events[i].events & EPOLLIN))
@@ -391,21 +393,26 @@ static void do_ndhc_work(void)
             continue;
         }
 
+        int prev_timeout = timeout;
+
         arp_wake_ts = arp_get_wake_ts();
-        if (arp_wake_ts < 0) {
-            if (cs.dhcp_wake_ts != -1) {
-                timeout = cs.dhcp_wake_ts - nowts;
-                if (timeout < 0)
-                    timeout = 0;
-            } else
-                timeout = -1;
+        if (arp_wake_ts < 0 && cs.dhcp_wake_ts < 0) {
+            timeout = -1;
+            continue;
+        } else if (arp_wake_ts < 0) {
+            timeout = cs.dhcp_wake_ts - nowts;
+        } else if (cs.dhcp_wake_ts < 0) {
+            timeout = arp_wake_ts - nowts;
         } else {
-            // If cs.dhcp_wake_ts is -1 then we want to sleep anyway.
             timeout = (arp_wake_ts < cs.dhcp_wake_ts ?
                        arp_wake_ts : cs.dhcp_wake_ts) - nowts;
-            if (timeout < 0)
-                timeout = 0;
         }
+        if (timeout < 0)
+            timeout = 0;
+
+        // Failsafe to prevent busy-spin.
+        if (prev_timeout == 0 && !had_event)
+            timeout = 10;
     }
 }
 
