@@ -394,19 +394,22 @@ static void do_ndhc_work(void)
         }
 
         int prev_timeout = timeout;
+        long long tt;
 
         arp_wake_ts = arp_get_wake_ts();
         if (arp_wake_ts < 0 && cs.dhcp_wake_ts < 0) {
             timeout = -1;
             continue;
         } else if (arp_wake_ts < 0) {
-            timeout = cs.dhcp_wake_ts - nowts;
+            tt = cs.dhcp_wake_ts - nowts;
         } else if (cs.dhcp_wake_ts < 0) {
-            timeout = arp_wake_ts - nowts;
+            tt = arp_wake_ts - nowts;
         } else {
-            timeout = (arp_wake_ts < cs.dhcp_wake_ts ?
-                       arp_wake_ts : cs.dhcp_wake_ts) - nowts;
+            tt = (arp_wake_ts < cs.dhcp_wake_ts ?
+                  arp_wake_ts : cs.dhcp_wake_ts) - nowts;
         }
+        if (tt > INT_MAX) tt = INT_MAX;
+        timeout = tt;
         if (timeout < 0)
             timeout = 0;
 
