@@ -412,7 +412,7 @@ static void do_ndhc_work(void)
 
         // Failsafe to prevent busy-spin.
         if (prev_timeout == 0 && !had_event)
-            timeout = 10;
+            timeout = 10000;
     }
 }
 
