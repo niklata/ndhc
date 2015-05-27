@@ -409,6 +409,7 @@ static void do_ndhc_work(void)
                   arp_wake_ts : cs.dhcp_wake_ts) - nowts;
         }
         if (tt > INT_MAX) tt = INT_MAX;
+        if (tt < INT_MIN) tt = INT_MIN;
         timeout = tt;
         if (timeout < 0)
             timeout = 0;
