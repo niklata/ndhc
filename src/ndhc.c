@@ -411,7 +411,7 @@ static void do_ndhc_work(void)
             timeout = 0;
 
         // Failsafe to prevent busy-spin.
-        if (prev_timeout == 0 && !had_event)
+        if (timeout == 0 && prev_timeout == 0 && !had_event)
             timeout = 10000;
     }
 }
