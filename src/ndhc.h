@@ -35,20 +35,20 @@
 #include "nk/random.h"
 
 struct client_state_t {
-    unsigned long long leaseStartTime;
+    struct nk_random_state_u32 rnd32_state;
+    unsigned long long leaseStartTime, renewTime, rebindTime;
+    long long dhcp_wake_ts;
     int ifsPrevState;
     int ifDeconfig; // Set if the interface has already been deconfigured.
     int epollFd, signalFd, listenFd, arpFd, nlFd, rfkillFd;
     int nlPortId;
     unsigned int num_dhcp_requests;
     uint32_t clientAddr, serverAddr, srcAddr, routerAddr;
-    uint32_t lease, renewTime, rebindTime, xid;
-    struct nk_random_state_u32 rnd32_state;
+    uint32_t lease, xid;
     uint8_t routerArp[6], serverArp[6];
     uint8_t using_dhcp_bpf, init, got_router_arp, got_server_arp,
             check_fingerprint;
     bool arp_is_defense;
-    long long dhcp_wake_ts;
 };
 
 struct client_config_t {
