@@ -48,10 +48,10 @@ typedef int (*nl_rtattr_parse_fn)(struct rtattr *attr, int type, void *data);
 void nl_rtattr_parse(const struct nlmsghdr *nlh, size_t offset,
                      nl_rtattr_parse_fn workfn, void *data);
 
-ssize_t nl_recv_buf(int fd, char buf[static 1], size_t blen);
+ssize_t nl_recv_buf(int fd, char *buf, size_t blen);
 
 typedef void (*nlmsg_foreach_fn)(const struct nlmsghdr *, void *);
-int nl_foreach_nlmsg(char buf[static 1], size_t blen, uint32_t seq,
+int nl_foreach_nlmsg(char *buf, size_t blen, uint32_t seq,
                      uint32_t portid,
                      nlmsg_foreach_fn pfn, void *fnarg);
 int nl_sendgetlinks(int fd, int seq);
