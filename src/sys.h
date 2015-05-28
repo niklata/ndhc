@@ -31,11 +31,11 @@
 #include <time.h>
 #include "ndhc-defines.h"
 
-static inline unsigned long long curms()
+static inline long long curms()
 {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec * 1000ULL + ts.tv_nsec / 1000000ULL;
+    return ts.tv_sec * 1000LL + ts.tv_nsec / 1000000LL;
 }
 
 static inline size_t min_size_t(size_t a, size_t b)

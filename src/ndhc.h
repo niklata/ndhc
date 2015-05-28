@@ -36,7 +36,7 @@
 
 struct client_state_t {
     struct nk_random_state_u32 rnd32_state;
-    unsigned long long leaseStartTime, renewTime, rebindTime;
+    long long leaseStartTime, renewTime, rebindTime;
     long long dhcp_wake_ts;
     int ifsPrevState;
     int ifDeconfig; // Set if the interface has already been deconfigured.
