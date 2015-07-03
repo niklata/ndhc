@@ -292,10 +292,12 @@ static void process_client_socket(void)
                 client_config.interface, __func__, strerror(errno));
     }
 
-    if (execute_buffer(buf) < 0) {
+    int ebr = execute_buffer(buf);
+    if (ebr < 0) {
         inform_execute('-');
-        suicide("%s: (%s) received invalid commands: '%s'",
-                client_config.interface, __func__, buf);
+        if (ebr == -99)
+            suicide("%s: (%s) received invalid commands: '%s'",
+                    client_config.interface, __func__, buf);
     } else
         inform_execute('+');
 }

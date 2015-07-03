@@ -339,7 +339,7 @@ int perform_carrier(void)
     }
 
     if (link_flags_get(fd, &flags) < 0)
-        goto fail_fd;;
+        goto fail_fd;
     if ((flags & IFF_RUNNING) && (flags & IFF_UP))
         ret = 0;
 fail_fd:
@@ -519,7 +519,7 @@ int perform_ip_subnet_bcast(const char str_ipaddr[static 1],
                             const char *str_bcast)
 {
     struct in_addr ipaddr, subnet, bcast;
-    int fd, r, ret = -1;
+    int fd, r, ret = -99;
     uint8_t prefixlen;
 
     if (inet_pton(AF_INET, str_ipaddr, &ipaddr) <= 0) {
@@ -583,6 +583,7 @@ int perform_ip_subnet_bcast(const char str_ipaddr[static 1],
                  client_config.interface);
 
     if (link_set_flags(fd, IFF_UP | IFF_RUNNING) < 0) {
+        ret = -1;
         log_error("%s: (%s) Failed to set link to be up and running.",
                   client_config.interface, __func__);
         goto fail_fd;
@@ -597,7 +598,7 @@ fail:
 
 int perform_router(const char str_router[static 1], size_t len)
 {
-    int ret = -1;
+    int ret = -99;
     if (len < 7)
         goto fail;
     struct in_addr router;
@@ -631,7 +632,7 @@ fail:
 int perform_mtu(const char str[static 1], size_t len)
 {
     unsigned int mtu;
-    int fd, ret = -1;
+    int fd, ret = -99;
     if (len < 2)
         goto fail;
 

@@ -129,23 +129,27 @@ static int perform_ip4set(const char buf[static 1], size_t len)
     }
 
     action Dispatch {
+        int pr = 0;
         switch (cl.state) {
-        case STATE_IP4SET: cmdf |= perform_ip4set(tb, arg_len); break;
-        case STATE_TIMEZONE: cmdf |= perform_timezone( tb, arg_len); break;
-        case STATE_ROUTER: cmdf |= perform_router(tb, arg_len); break;
-        case STATE_DNS: cmdf |= perform_dns(tb, arg_len); break;
-        case STATE_LPRSVR: cmdf |= perform_lprsvr(tb, arg_len); break;
-        case STATE_HOSTNAME: cmdf |= perform_hostname(tb, arg_len); break;
-        case STATE_DOMAIN: cmdf |= perform_domain(tb, arg_len); break;
-        case STATE_IPTTL: cmdf |= perform_ipttl(tb, arg_len); break;
-        case STATE_MTU: cmdf |= perform_mtu(tb, arg_len); break;
-        case STATE_NTPSVR: cmdf |= perform_ntpsrv(tb, arg_len); break;
-        case STATE_WINS: cmdf |= perform_wins(tb, arg_len); break;
-        case STATE_CARRIER: cmdf |= perform_carrier(); break;
+        case STATE_IP4SET: pr = perform_ip4set(tb, arg_len); break;
+        case STATE_TIMEZONE: pr = perform_timezone( tb, arg_len); break;
+        case STATE_ROUTER: pr = perform_router(tb, arg_len); break;
+        case STATE_DNS: pr = perform_dns(tb, arg_len); break;
+        case STATE_LPRSVR: pr = perform_lprsvr(tb, arg_len); break;
+        case STATE_HOSTNAME: pr = perform_hostname(tb, arg_len); break;
+        case STATE_DOMAIN: pr = perform_domain(tb, arg_len); break;
+        case STATE_IPTTL: pr = perform_ipttl(tb, arg_len); break;
+        case STATE_MTU: pr = perform_mtu(tb, arg_len); break;
+        case STATE_NTPSVR: pr = perform_ntpsrv(tb, arg_len); break;
+        case STATE_WINS: pr = perform_wins(tb, arg_len); break;
+        case STATE_CARRIER: pr = perform_carrier(); break;
         default:
             log_line("error: invalid state in dispatch_work");
             return -99;
         }
+        if (pr == -99)
+            return -99;
+        cmdf |= pr;
     }
 
     terminator = ';' > Dispatch;
