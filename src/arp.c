@@ -499,9 +499,8 @@ int arp_collision_timeout(struct client_state_t cs[static 1], long long nowts)
         garp.last_conflict_ts = 0;
         garp.wake_ts[AS_COLLISION_CHECK] = -1;
         if (ifchange_bind(cs, &garp.dhcp_packet) < 0) {
-            log_warning("%s: Failed to set the interface IP address and properties!",
-                        client_config.interface);
-            return ARPR_FAIL;
+            suicide("%s: Failed to set the interface IP address and properties!",
+                    client_config.interface);
         }
         cs->routerAddr = get_option_router(&garp.dhcp_packet);
         if (arp_get_gw_hwaddr(cs) < 0) {
