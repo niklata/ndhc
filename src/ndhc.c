@@ -306,20 +306,20 @@ static void do_ndhc_work(void)
             int fd = events[i].data.fd;
             if (fd == cs.signalFd) {
                 if (!(events[i].events & EPOLLIN))
-                    return;
+                    suicide("signalfd closed unexpectedly");
                 sev_signal = signal_dispatch();
             } else if (fd == cs.listenFd) {
                 if (!(events[i].events & EPOLLIN))
-                    return;
+                    suicide("listenfd closed unexpectedly");
                 sev_dhcp = dhcp_packet_get(&cs, &dhcp_packet, &dhcp_msgtype,
                                            &dhcp_srcaddr);
             } else if (fd == cs.arpFd) {
                 if (!(events[i].events & EPOLLIN))
-                    return;
+                    suicide("arpfd closed unexpectedly");
                 sev_arp = arp_packet_get(&cs);
             } else if (fd == cs.nlFd) {
                 if (!(events[i].events & EPOLLIN))
-                    return;
+                    suicide("nlfd closed unexpectedly");
                 sev_nl = nl_event_get(&cs);
             } else if (fd == ifchStream[0]) {
                 if (events[i].events & (EPOLLHUP|EPOLLERR|EPOLLRDHUP))
@@ -329,7 +329,7 @@ static void do_ndhc_work(void)
                     exit(EXIT_FAILURE);
             } else if (fd == cs.rfkillFd && client_config.enable_rfkill) {
                 if (!(events[i].events & EPOLLIN))
-                    return;
+                    suicide("rfkillfd closed unexpectedly");
                 sev_rfk = rfkill_get(&cs, 1, client_config.rfkillIdx);
             } else
                 suicide("epoll_wait: unknown fd");
