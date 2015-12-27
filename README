@@ -4,18 +4,18 @@ See LICENSE for licensing information.  In short: Two-clause / New BSD.
 Requirements:
 
 Linux kernel
-GNU Make (tested: 3.82) or CMake (tested: 2.8)
-Ragel (tested: 6.7)
+GNU Make or CMake
+Ragel
 
 INTRODUCTION
 ------------
 
-ndhc is a multi-process, privilege-separated dhcp client.  Each subprocess runs
+ndhc is a multi-process, privilege-separated DHCP client.  Each subprocess runs
 with the minimal necessary privileges in order to perform its task.  Currently,
 ndhc consists of three subprocesses: the ndhc-master, ndhc-ifch, and
 ndhc-sockd.
 
-ndhc-master communicates with dhcp servers and handles the vagaries of the dhcp
+ndhc-master communicates with DHCP servers and handles the vagaries of the DHCP
 client protocol.  It runs as a non-root user inside a chroot.  ndhc runs as a
 normal user with no special privileges and is restricted to a chroot that
 contains nothing more than a domain socket filesystem object (if using syslog),
@@ -80,7 +80,7 @@ Self-contained.  ndhc does not exec other processes, or rely on the shell.
 Further, ndhc relies on no external libraries aside from the system libc.
 
 Aware of the hardware link status.  If you disconnect an interface on which
-ndhc is providing dhcp service, it will be aware.  When the link status
+ndhc is providing DHCP service, it will be aware.  When the link status
 returns, ndhc will fingerprint the reconnected network and make sure that it
 corresponds to the one on which it has a lease.  If the new network is
 different, it will forget about the old lease and request a new one.
@@ -204,8 +204,8 @@ PORTING NOTES
 
 DHCP clients aren't naturally very portable.  It's necessary to perform a lot
 of tasks that are platform-specific.  ndhc is rather platform-dependent, and it
-extensively uses Linux-specific features.  Some of these features are also
-available on the BSDs.
+uses many Linux-specific features.  The following list is not intended to
+be exhaustive:
 
 1) ndhc takes advantage of Linux capabilities so that it does not need full
 root privileges.  Capabilities were a proposed POSIX feature that was not made
@@ -215,8 +215,8 @@ system-dependent.
 2) ndhc configures network interfaces and routes.  Interface and route
 configuration is entirely non-portable.
 
-3) ndhc uses netlink sockets extensively for fetching data, setting data,
-and hardware link state change notification events.
+3) ndhc uses netlink sockets for fetching data, setting data, and hardware link
+state change notification events.
 
 4) ndhc uses the Berkeley Packet Filter / Linux Packet Filter interfaces to
 drop unwanted packets in kernelspace.  This functionality is available on
@@ -233,7 +233,7 @@ syscalls.  This functionality is Linux-specific.
 HISTORY
 -------
 
-I started writing ndhc back in 2004.  My ISP at the time required a dhcp
+I started writing ndhc back in 2004.  My ISP at the time required a DHCP
 client for connection authentication, and I was not comfortable with any
 of the existing clients, which all ran as root and had colorful security
 histories.  DHCP is generally not a routed protocol, and lacks real
@@ -269,15 +269,15 @@ mechanisms and replaced them with ifchd requests.  Bounds-checking was
 aggressively (and somewhat hamfistedly) retrofitted into the code.  It was
 cleaned to a degree, and importantly it worked for connecting to my ISP.
 
-Then I changed ISPs.  My new ISP used PPPoE, not dhcp.  Around the same time, I
+Then I changed ISPs.  My new ISP used PPPoE, not DHCP.  Around the same time, I
 also switched to using Gentoo rather than a hand-built distribution.  I didn't
 have time to maintain the old custom setup, and it was very hard keeping up
 with library vulnerabilties in eg, zlib or openssl, and ensuring that all
 installed binaries, dynamic and static, were updated.  ndhc was abandoned for
 many years.  It wasn't needed on my server, and it was "too much effort" to
-deviate from the stock distro dhcp clients on other machines.
+deviate from the stock distro DHCP clients on other machines.
 
-Then, around 2008, I changed ISPs again.  This time my new ISP used dhcp and
+Then, around 2008, I changed ISPs again.  This time my new ISP used DHCP and
 not PPPoE.  So, after a few months, I decided to dust off the old ndhc/ifchd
 project and adapt it to my modern standards and machines.
 
@@ -285,8 +285,8 @@ ifchd was in good shape and required little work.  I ended up rewriting
 ndhc.  The only parts that remained from the original were the parts that
 I had already rewritten before, and some of those were rewritten, too.
 
-Eventually ifchd was rewritten to extensively use a Ragel-generated DFA-based
-parser to make it easier to verify correct behavior for all possible inputs.
+Eventually ifchd was rewritten to use a Ragel-generated DFA-based parser to
+make it easier to verify correct behavior for all possible inputs.
 
 Quite a while later, I eventually merged ifchd into the same binary as ndhc
 and instead rely on forking subprocesses and using socketpairs for IPC.  This
@@ -297,7 +297,7 @@ creating the ndhc-sockd subprocess.  After this change, the main ndhc
 process runs completely unprivileged.
 
 The end result is a modern DHCP client is largely RFC-compliant, except where
-the RFCs dictate behavior that would be problematic, overly complex, useless,
+the RFCs dictate behavior that would be buggy, overly complex, useless,
 or exploitable.  DHCP is poorly specified, and real-world servers and clients
 vary a lot from the RFCs, so these conditions are necessary for a useful
 program.
@@ -322,7 +322,7 @@ Send a packet that has an options field set to:
 'DHCP-OPTION-OVERLOAD:3'
 Then in the file and sname fields:
 'DHCP-OPTION-OVERLOAD:3'
-I suspect some bad dhcp programs will hang given this input.
+I suspect some bad DHCP programs will hang given this input.
 
 DHCP explicitly specifies that there is no minimum lease time and also
 specifies that the minimum default rebinding time is leasetime*0.875 and
