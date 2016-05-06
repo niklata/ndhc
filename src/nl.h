@@ -56,6 +56,7 @@ int nl_foreach_nlmsg(char *buf, size_t blen, uint32_t seq,
                      nlmsg_foreach_fn pfn, void *fnarg);
 int nl_sendgetlinks(int fd, int seq);
 int nl_sendgetlink(int fd, int seq, int ifindex);
+int nl_sendgetaddr(int fd, int seq, int ifindex);
 int nl_sendgetaddr4(int fd, int seq, int ifindex);
 int nl_sendgetaddr6(int fd, int seq, int ifindex);
 int nl_sendgetaddrs(int fd, int seq);

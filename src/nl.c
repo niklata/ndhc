@@ -243,6 +243,11 @@ int nl_sendgetaddrs6(int fd, int seq)
     return nl_sendgetaddr_do(fd, seq, 0, 0, AF_INET6, 1);
 }
 
+int nl_sendgetaddr(int fd, int seq, int ifindex)
+{
+    return nl_sendgetaddr_do(fd, seq, ifindex, 1, 0, 0);
+}
+
 int nl_sendgetaddr4(int fd, int seq, int ifindex)
 {
     return nl_sendgetaddr_do(fd, seq, ifindex, 1, AF_INET, 1);
