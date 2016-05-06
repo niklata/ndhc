@@ -1,4 +1,7 @@
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
@@ -12,6 +15,7 @@
 #include "nk/log.h"
 #include "nk/privilege.h"
 #include "nk/copy_cmdarg.h"
+#include "nk/io.h"
 
 struct cfgparse {
    char buf[MAX_BUF];
@@ -227,26 +231,58 @@ struct cfgparse {
 
 static void parse_cfgfile(const char fname[static 1])
 {
+    bool reached_eof = false;
     struct cfgparse ccfg;
     memset(&ccfg, 0, sizeof ccfg);
-    FILE *f = fopen(fname, "r");
-    if (!f)
-        suicide("Unable to open config file '%s'.", fname);
     char l[MAX_BUF];
-    size_t linenum = 0;
-    while (linenum++, fgets(l, sizeof l, f)) {
-        size_t llen = strlen(l);
-        const char *p = l;
-        const char *pe = l + llen;
-        %% write init;
-        %% write exec;
+    size_t lc = 0;
+    memset(l, 0, sizeof l);
+    int fd = open(fname, O_RDONLY|O_CLOEXEC, 0);
+    if (fd < 0)
+        suicide("Unable to open config file '%s'.", fname);
 
-        if (ccfg.cs == file_cfg_error)
-            suicide("error parsing config file line %zu: malformed", linenum);
-        if (ccfg.cs < file_cfg_first_final)
-            suicide("error parsing config file line %zu: incomplete", linenum);
+    size_t linenum = 0;
+    for (;;) {
+        if (lc + 1 >= sizeof l) suicide("sizeof l - 1 - lc would underflow");
+        ssize_t rc = safe_read(fd, l + lc, sizeof l - 1 - lc);
+        if (rc < 0)
+            suicide("Error reading config file '%s'.", fname);
+        if (rc == 0) {
+            l[lc] = '\n'; rc = 1; reached_eof = true; // Emulate a LF to terminate the line.
+        }
+        lc += rc;
+
+        size_t lstart = 0, lend = 0, consumed = 0;
+        for (; lend < lc; ++lend) {
+            if (l[lend] == '\n') {
+                ++linenum; consumed = lend;
+
+                size_t llen = lend - lstart;
+                const char *p = l + lstart;
+                const char *pe = l + lstart + llen + 1;
+                %% write init;
+                %% write exec;
+
+                if (ccfg.cs == file_cfg_error)
+                    suicide("error parsing config file line %zu: malformed", linenum);
+                if (ccfg.cs < file_cfg_first_final)
+                    suicide("error parsing config file line %zu: incomplete", linenum);
+                lstart = lend + 1;
+            }
+        }
+        if (reached_eof)
+            break;
+        if (!consumed && lend >= sizeof l - 1)
+            suicide("Line %u in config file '%s' is too long: %u > %u.",
+                    linenum, fname, lend, sizeof l - 1);
+
+        if (consumed + 1 > lc) suicide("lc[%zu] - consumed[%zu] would underflow", lc, lend);
+        if (consumed) {
+            memmove(l, l + consumed + 1, lc - consumed - 1);
+            lc -= consumed + 1;
+        }
     }
-    fclose(f);
+    close(fd);
 }
 
 %%{
