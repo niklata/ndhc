@@ -60,6 +60,8 @@ static struct epoll_event events[2];
 
 static int resolv_conf_fd = -1;
 /* int ntp_conf_fd = -1; */
+static int resolv_conf_head_fd = -1;
+static int resolv_conf_tail_fd = -1;
 
 /* If true, allow HOSTNAME changes from dhcp server. */
 int allow_hostname = 0;
@@ -73,6 +75,38 @@ static void writeordie(int fd, const char buf[static 1], size_t len)
     if (r < 0 || (size_t)r != len)
         suicide("%s: (%s) write failed: %d", client_config.interface,
                 __func__, r);
+}
+
+static int write_append_fd(int to_fd, int from_fd, const char descr[static 1])
+{
+    if (from_fd < 0) return 0;
+    if (to_fd < 0) return -1;
+
+    const off_t lse = lseek(from_fd, 0, SEEK_END);
+    if (lse < 0) {
+        log_warning("%s: (%s) lseek(SEEK_END) failed %s",
+                    client_config.interface, __func__, descr);
+        return -2;
+    }
+    if (lseek(from_fd, 0, SEEK_SET) < 0) {
+        log_warning("%s: (%s) lseek(SEEK_SET) failed %s",
+                    client_config.interface, __func__, descr);
+        return -2;
+    }
+
+    char buf[4096];
+    size_t from_fd_len = lse;
+    while (from_fd_len > 0) {
+        const size_t to_read = from_fd_len <= sizeof buf ? from_fd_len : sizeof buf;
+        ssize_t r = safe_read(from_fd, buf, to_read);
+        if (r < 0 || (size_t)r != to_read)
+            suicide("%s: (%s) read failed %s", client_config.interface, __func__, descr);
+        r = safe_write(to_fd, buf, to_read);
+        if (r < 0 || (size_t)r != to_read)
+            suicide("%s: (%s) write failed %s", client_config.interface, __func__, descr);
+        from_fd_len -= to_read;
+    }
+    return 0;
 }
 
 /* Writes a new resolv.conf based on the information we have received. */
@@ -91,6 +125,8 @@ static int write_resolve_conf(void)
 
     if (lseek(resolv_conf_fd, 0, SEEK_SET) < 0)
         return -1;
+
+    write_append_fd(resolv_conf_fd, resolv_conf_head_fd, "prepending resolv_conf head");
 
     char *p = cl.namesvrs;
     while (p && (*p != '\0')) {
@@ -146,6 +182,8 @@ static int write_resolve_conf(void)
             break;
     }
     writeordie(resolv_conf_fd, "\n", 1);
+
+    write_append_fd(resolv_conf_fd, resolv_conf_tail_fd, "appending resolv_conf tail");
 
     off = lseek(resolv_conf_fd, 0, SEEK_CUR);
     if (off < 0) {
@@ -345,24 +383,43 @@ static void do_ifch_work(void)
     }
 }
 
+// If we are requested to update resolv.conf, preopen the fd before
+// we drop root privileges, making sure that if we create
+// resolv.conf, it will be world-readable.
+static void setup_resolv_conf(void)
+{
+    if (strncmp(resolv_conf_d, "", sizeof resolv_conf_d)) {
+        umask(022);
+        resolv_conf_fd = open(resolv_conf_d, O_RDWR|O_CREAT|O_CLOEXEC, 644);
+        umask(077);
+        if (resolv_conf_fd < 0) {
+            suicide("FATAL - unable to open resolv.conf");
+        }
+        char buf[PATH_MAX];
+
+        ssize_t sl = snprintf(buf, sizeof buf, "%s.head", resolv_conf_d);
+        if (sl < 0 || (size_t)sl >= sizeof buf)
+            log_warning("snprintf failed appending resolv_conf_head; path too long?");
+        else
+            resolv_conf_head_fd = open(buf, O_RDONLY|O_CLOEXEC, 0);
+
+        sl = snprintf(buf, sizeof buf, "%s.tail", resolv_conf_d);
+        if (sl < 0 || (size_t)sl >= sizeof buf)
+            log_warning("snprintf failed appending resolv_conf_tail; path too long?");
+        else
+            resolv_conf_tail_fd = open(buf, O_RDONLY|O_CLOEXEC, 0);
+
+        memset(buf, '\0', sizeof buf);
+    }
+    memset(resolv_conf_d, '\0', sizeof resolv_conf_d);
+}
+
 void ifch_main(void)
 {
     prctl(PR_SET_NAME, "ndhc: ifch");
     umask(077);
     signalFd = setup_signals_subprocess();
-
-    // If we are requested to update resolv.conf, preopen the fd before
-    // we drop root privileges, making sure that if we create
-    // resolv.conf, it will be world-readable.
-    if (strncmp(resolv_conf_d, "", sizeof resolv_conf_d)) {
-        umask(022);
-        resolv_conf_fd = open(resolv_conf_d, O_RDWR | O_CREAT, 644);
-        umask(077);
-        if (resolv_conf_fd < 0) {
-            suicide("FATAL - unable to open resolv.conf");
-        }
-    }
-    memset(resolv_conf_d, '\0', sizeof resolv_conf_d);
+    setup_resolv_conf();
 
     nk_set_chroot(chroot_dir);
     memset(chroot_dir, '\0', sizeof chroot_dir);
