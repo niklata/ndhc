@@ -80,6 +80,7 @@ extern char resolv_conf_d[PATH_MAX];
 extern char pidfile[PATH_MAX];
 extern uid_t ndhc_uid;
 extern gid_t ndhc_gid;
+extern bool write_pid_enabled;
 
 void set_client_addr(const char v[static 1]);
 void show_usage(void);

@@ -423,13 +423,14 @@ static void do_ndhc_work(void)
 char state_dir[PATH_MAX] = "/etc/ndhc";
 char chroot_dir[PATH_MAX] = "";
 char resolv_conf_d[PATH_MAX] = "";
-char pidfile[PATH_MAX] = PID_FILE_DEFAULT;
+char pidfile[PATH_MAX] = "";
 uid_t ndhc_uid = 0;
 gid_t ndhc_gid = 0;
 int ifchSock[2];
 int sockdSock[2];
 int ifchStream[2];
 int sockdStream[2];
+bool write_pid_enabled = false;
 
 static void create_ifch_ipc_sockets(void) {
     if (socketpair(AF_UNIX, SOCK_DGRAM, 0, ifchSock) < 0)
@@ -489,12 +490,9 @@ static void ndhc_main(void) {
 
     cs.rfkillFd = rfkill_open(&client_config.enable_rfkill);
 
-    if (client_config.foreground && !client_config.background_if_no_lease) {
-        if (file_exists(pidfile, "w") < 0)
-            suicide("%s: can't open pidfile '%s' for write!",
-                    __func__, pidfile);
+    if (write_pid_enabled &&
+        client_config.foreground && !client_config.background_if_no_lease)
         write_pid(pidfile);
-    }
 
     open_leasefile();
 
@@ -520,9 +518,7 @@ void background(void)
             exit(EXIT_SUCCESS);
         }
     }
-    if (file_exists(pidfile, "w") < 0) {
-        log_warning("Cannot open pidfile for write!");
-    } else
+    if (write_pid_enabled)
         write_pid(pidfile);
 }
 

@@ -57,6 +57,7 @@ struct cfgparse {
         }
     }
     action pidfile {
+        write_pid_enabled = true;
         copy_cmdarg(pidfile, ccfg.buf, sizeof pidfile, "pidfile");
     }
     action hostname {
