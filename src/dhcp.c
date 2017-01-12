@@ -108,7 +108,7 @@ static ssize_t send_dhcp_unicast(struct client_state_t cs[static 1],
     }
     size_t payload_len =
         sizeof *payload - (sizeof payload->options - 1 - endloc);
-    if (check_carrier()) {
+    if (!carrier_isup()) {
         log_error("%s: (%s) carrier down; write would fail",
                   client_config.interface, __func__);
         ret = -99;
@@ -286,7 +286,7 @@ static ssize_t send_dhcp_raw(struct dhcpmsg payload[static 1])
         .sll_halen = 6,
     };
     memcpy(da.sll_addr, "\xff\xff\xff\xff\xff\xff", 6);
-    if (check_carrier()) {
+    if (!carrier_isup()) {
         log_error("%s: (%s) carrier down; sendto would fail",
                   client_config.interface, __func__);
         ret = -99;
