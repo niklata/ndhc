@@ -260,8 +260,7 @@ static void fail_if_state_dir_dne(void)
 static void do_ndhc_work(void)
 {
     static bool rfkill_set; // Is the rfkill switch set?
-    static bool rfkill_nl_state_changed; // iface state changed during rfkill
-    static int rfkill_nl_state; // current iface state during rfkill
+    static bool rfkill_nl_carrier_wentup; // iface carrier changed to up during rfkill
     struct dhcpmsg dhcp_packet;
     struct epoll_event events[1];
     long long nowts;
@@ -333,45 +332,33 @@ static void do_ndhc_work(void)
                 sev_rfk = rfkill_get(&cs, 1, client_config.rfkillIdx);
             } else
                 suicide("epoll_wait: unknown fd");
+        }
 
-            if (sev_rfk == RFK_ENABLED) {
-                rfkill_set = 1;
-                rfkill_nl_state = cs.ifsPrevState;
-                rfkill_nl_state_changed = false;
-                log_line("rfkill: radio now blocked");
-            } else if (sev_rfk == RFK_DISABLED) {
-                rfkill_set = 0;
-                log_line("rfkill: radio now unblocked");
-                // We now simulate the state changes that may have happened
-                // during rfkill.
-                if (rfkill_nl_state != cs.ifsPrevState)
-                    nl_event_react(&cs, rfkill_nl_state);
-                else if (rfkill_nl_state_changed && rfkill_nl_state == IFS_UP) {
-                    // We might have changed networks even if we ended up
-                    // back in IFS_UP state.  We need to fingerprint the
-                    // network and confirm that we're on the same network.
-                    force_fingerprint = true;
-                }
+        if (sev_rfk == RFK_ENABLED) {
+            rfkill_set = 1;
+            rfkill_nl_carrier_wentup = false;
+            log_line("rfkill: radio now blocked");
+        } else if (sev_rfk == RFK_DISABLED) {
+            rfkill_set = 0;
+            log_line("rfkill: radio now unblocked");
+            if (rfkill_nl_carrier_wentup && carrier_isup()) {
+                // We might have changed networks while the radio was down.
+                force_fingerprint = true;
             }
         }
 
-        if (sev_nl != IFS_NONE) {
-            if (!rfkill_set) {
-                if (nl_event_react(&cs, sev_nl))
-                    force_fingerprint = true;
-            } else {
-                // Store the state so it can be replayed later.
-                rfkill_nl_state_changed = true;
-                rfkill_nl_state = sev_nl;
-            }
+        if (sev_nl != IFS_NONE && nl_event_carrier_wentup(sev_nl)) {
+            if (!rfkill_set)
+                force_fingerprint = true;
+            else
+                rfkill_nl_carrier_wentup = true;
         }
 
-        if (rfkill_set || cs.ifsPrevState != IFS_UP) {
+        if (rfkill_set || !carrier_isup()) {
             // We can't do anything while the iface is disabled, anyway.
-            // XXX: It may be smart to set a non-infinite timeout
-            // and periodically poll to see if the rfkill or iface
-            // state changed; it might happen during suspend.
-            timeout = -1;
+            // Suspend might cause link state change notifications to be
+            // missed, so we use a non-infinite timeout.
+            timeout = 2000 + nk_random_u32(&cs.rnd32_state) % 3000;
             continue;
         }
 
@@ -385,11 +372,8 @@ static void do_ndhc_work(void)
         if (sev_arp)
             arp_reply_clear();
 
-        // XXX: Would be best if we detected RFKILL being set via an
-        //      error message and propagated it back to here as a
-        //      distinct return value.
         if (dhcp_ok == COR_ERROR) {
-            timeout = -1;
+            timeout = 2000 + nk_random_u32(&cs.rnd32_state) % 3000;
             continue;
         }
 
@@ -500,7 +484,7 @@ static void ndhc_main(void) {
     memset(chroot_dir, '\0', sizeof chroot_dir);
     nk_set_uidgid(ndhc_uid, ndhc_gid, NULL, 0);
 
-    if (cs.ifsPrevState != IFS_UP) {
+    if (!carrier_isup()) {
         if (ifchange_deconfig(&cs) < 0)
             suicide("%s: can't deconfigure interface settings", __func__);
     }
@@ -584,8 +568,7 @@ int main(int argc, char *argv[])
     get_clientid(&cs, &client_config);
 
     switch (perform_ifup()) {
-    case 1: cs.ifsPrevState = IFS_UP;
-    case 0: break;
+    case 1: case 0: break;
     case -3: wait_for_rfkill(); break;
     default: suicide("failed to set the interface to up state");
     }

@@ -29,6 +29,7 @@
 #ifndef NK_NETLINK_H_
 #define NK_NETLINK_H_
 
+#include <stdbool.h>
 #include <linux/rtnetlink.h>
 #include "state.h"
 
@@ -40,7 +41,7 @@ enum {
     IFS_REMOVED
 };
 
-int nl_event_react(struct client_state_t cs[static 1], int state);
+bool nl_event_carrier_wentup(int state);
 int nl_event_get(struct client_state_t cs[static 1]);
 int nl_getifdata(void);
 

@@ -43,35 +43,25 @@
 #include "nl.h"
 #include "state.h"
 
-int nl_event_react(struct client_state_t cs[static 1], int state)
+// Returns true if the current interface state is UP.
+bool nl_event_carrier_wentup(int state)
 {
-    if (state == cs->ifsPrevState)
-        return 0;
-
     switch (state) {
     case IFS_UP:
-        cs->ifsPrevState = IFS_UP;
-        return 1;
+        log_line("%s: Carrier up.", client_config.interface);
+        return true;
     case IFS_DOWN:
         // Interface configured, but no hardware carrier.
-        cs->ifsPrevState = IFS_DOWN;
         log_line("%s: Carrier down.", client_config.interface);
-        return 0;
+        return false;
     case IFS_SHUT:
         // User shut down the interface.
-        cs->ifsPrevState = IFS_SHUT;
-        log_line("%s: Interface shut down.  Going to sleep.",
-                 client_config.interface);
-        // XXX: I think this was wrong; instead it should just sleep.
-        //      The lease has not expired just because the user shut down
-        //      the interface...
-        // set_released(cs);
-        return 0;
+        log_line("%s: Interface shut down.", client_config.interface);
+        return false;
     case IFS_REMOVED:
-        cs->ifsPrevState = IFS_REMOVED;
         log_line("Interface removed.  Exiting.");
         exit(EXIT_SUCCESS);
-    default: return 0;
+    default: return false;
     }
 }
 
