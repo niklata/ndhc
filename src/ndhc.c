@@ -1,6 +1,6 @@
 /* ndhc.c - DHCP client
  *
- * Copyright (c) 2004-2015 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright (c) 2004-2017 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -100,7 +100,7 @@ void set_client_addr(const char v[static 1]) { cs.clientAddr = inet_addr(v); }
 void print_version(void)
 {
     printf("ndhc %s, dhcp client.\n", NDHC_VERSION);
-    printf("Copyright (c) 2004-2015 Nicholas J. Kain\n"
+    printf("Copyright (c) 2004-2017 Nicholas J. Kain\n"
            "All rights reserved.\n\n"
            "Redistribution and use in source and binary forms, with or without\n"
            "modification, are permitted provided that the following conditions are met:\n\n"
@@ -127,7 +127,7 @@ void show_usage(void)
 {
     printf(
 "ndhc " NDHC_VERSION ", dhcp client.  Licensed under 2-clause BSD.\n"
-"Copyright (C) 2004-2015 Nicholas J. Kain\n"
+"Copyright (C) 2004-2017 Nicholas J. Kain\n"
 "Usage: ndhc [OPTIONS]\n\n"
 "  -c, --config=FILE               Path to ndhc configuration file\n"
 "  -I, --clientid=CLIENTID         Client identifier\n"
