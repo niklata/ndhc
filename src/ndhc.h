@@ -50,19 +50,19 @@ struct client_state_t {
 };
 
 struct client_config_t {
+    char interface[IFNAMSIZ];    // The name of the interface to use
+    char clientid[64];           // Optional client id to use
+    char hostname[64];           // Optional hostname to use
+    char vendor[64];             // Vendor identification that will be sent
+    uint8_t arp[6];              // Our arp address
+    uint32_t rfkillIdx;          // Index of the corresponding rfkill device
+    int metric;                  // Metric for the default route
+    int ifindex;                 // Index number of the interface to use
+    uint8_t clientid_len;        // Length of the clientid
     bool quit_after_lease;       // Quit after obtaining lease
     bool abort_if_no_lease;      // Abort if no lease
     bool background_if_no_lease; // Fork to background if no lease
     bool enable_rfkill;          // Listen for rfkill events
-    char interface[IFNAMSIZ];    // The name of the interface to use
-    char clientid[64];           // Optional client id to use
-    uint8_t clientid_len;        // Length of the clientid
-    char hostname[64];           // Optional hostname to use
-    char vendor[64];             // Vendor identification that will be sent
-    int metric;                  // Metric for the default route
-    int ifindex;                 // Index number of the interface to use
-    uint32_t rfkillIdx;          // Index of the corresponding rfkill device
-    uint8_t arp[6];              // Our arp address
 };
 
 extern struct client_config_t client_config;
