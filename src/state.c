@@ -340,11 +340,11 @@ static int selecting_packet(struct client_state_t cs[static 1],
 static int selecting_timeout(struct client_state_t cs[static 1],
                               long long nowts)
 {
-    if (cs->init && cs->num_dhcp_requests >= 2) {
+    if (cs->program_init && cs->num_dhcp_requests >= 2) {
         if (client_config.background_if_no_lease) {
             log_line("%s: No lease; going to background.",
                      client_config.interface);
-            cs->init = false;
+            cs->program_init = false;
             background();
         } else if (client_config.abort_if_no_lease)
             suicide("%s: No lease; failing.", client_config.interface);

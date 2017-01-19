@@ -495,7 +495,7 @@ int arp_collision_timeout(struct client_state_t cs[static 1], long long nowts)
         log_line("%s: Lease of %s obtained.  Lease time is %ld seconds.",
                  client_config.interface, clibuf, cs->lease);
         cs->clientAddr = garp.dhcp_packet.yiaddr;
-        cs->init = false;
+        cs->program_init = false;
         garp.last_conflict_ts = 0;
         garp.wake_ts[AS_COLLISION_CHECK] = -1;
         if (ifchange_bind(cs, &garp.dhcp_packet) < 0) {
