@@ -348,6 +348,11 @@ fail:
     return ret;
 }
 
+// Return  0 if flags were successfully changed.
+// Return  1 if flags were already set.
+// Return -1 on error.
+// Return -2 if NL response had no status notification.
+// Return -3 if RFKILL is set and flags cannot be changed.
 static int link_set_flags(int fd, uint32_t flags)
 {
     uint32_t oldflags;
