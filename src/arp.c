@@ -515,8 +515,6 @@ int arp_collision_timeout(struct client_state_t cs[static 1], long long nowts)
             ret = ARPR_FAIL;
         if (client_config.quit_after_lease)
             exit(EXIT_SUCCESS);
-        if (!client_config.foreground)
-            background();
         return ret;
     }
     long long rtts = garp.send_stats[ASEND_COLLISION_CHECK].ts +

@@ -92,7 +92,6 @@ struct client_config_t client_config = {
     .arp = "\0\0\0\0\0\0",
     .clientid_len = 0,
     .metric = 0,
-    .foreground = true,
 };
 
 void set_client_addr(const char v[static 1]) { cs.clientAddr = inet_addr(v); }
@@ -474,8 +473,7 @@ static void ndhc_main(void) {
 
     cs.rfkillFd = rfkill_open(&client_config.enable_rfkill);
 
-    if (write_pid_enabled &&
-        client_config.foreground && !client_config.background_if_no_lease)
+    if (write_pid_enabled && !client_config.background_if_no_lease)
         write_pid(pidfile);
 
     open_leasefile();

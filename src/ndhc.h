@@ -50,7 +50,6 @@ struct client_state_t {
 };
 
 struct client_config_t {
-    bool foreground;             // Do not fork
     bool quit_after_lease;       // Quit after obtaining lease
     bool abort_if_no_lease;      // Abort if no lease
     bool background_if_no_lease; // Fork to background if no lease
