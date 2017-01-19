@@ -92,7 +92,7 @@ struct client_config_t client_config = {
     .arp = "\0\0\0\0\0\0",
     .clientid_len = 0,
     .metric = 0,
-    .foreground = 1,
+    .foreground = true,
 };
 
 void set_client_addr(const char v[static 1]) { cs.clientAddr = inet_addr(v); }

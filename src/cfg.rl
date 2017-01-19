@@ -50,11 +50,11 @@ struct cfgparse {
     action background {
         switch (ccfg.ternary) {
         case 1:
-            client_config.background_if_no_lease = 1;
+            client_config.background_if_no_lease = true;
             gflags_detach = 1;
             break;
         case -1:
-            client_config.background_if_no_lease = 0;
+            client_config.background_if_no_lease = false;
             gflags_detach = 0;
         default:
             break;
@@ -74,14 +74,14 @@ struct cfgparse {
     }
     action now {
         switch (ccfg.ternary) {
-        case 1: client_config.abort_if_no_lease = 1; break;
-        case -1: client_config.abort_if_no_lease = 0; default: break;
+        case 1: client_config.abort_if_no_lease = true; break;
+        case -1: client_config.abort_if_no_lease = false; default: break;
         }
     }
     action quit {
         switch (ccfg.ternary) {
-        case 1: client_config.quit_after_lease = 1; break;
-        case -1: client_config.quit_after_lease = 0; default: break;
+        case 1: client_config.quit_after_lease = true; break;
+        case -1: client_config.quit_after_lease = false; default: break;
         }
     }
     action request { set_client_addr(ccfg.buf); }
@@ -171,7 +171,7 @@ struct cfgparse {
     action rfkill_idx {
         uint32_t t = atoi(ccfg.buf);
         client_config.rfkillIdx = t;
-        client_config.enable_rfkill = 1;
+        client_config.enable_rfkill = true;
     }
     action version { print_version(); exit(EXIT_SUCCESS); }
     action help { show_usage(); exit(EXIT_SUCCESS); }

@@ -37,13 +37,13 @@
 #include "ndhc.h"
 #include "rfkill.h"
 
-int rfkill_open(char enable_rfkill[static 1])
+int rfkill_open(bool enable_rfkill[static 1])
 {
     if (!*enable_rfkill)
         return -1;
     int r = open("/dev/rfkill", O_RDONLY|O_CLOEXEC|O_NONBLOCK);
     if (r < 0) {
-        *enable_rfkill = 0;
+        *enable_rfkill = false;
         log_line("rfkill disabled: could not open /dev/rfkill: %s",
                  strerror(errno));
     }
