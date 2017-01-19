@@ -68,8 +68,8 @@ static int get_raw_listen_socket(struct client_state_t cs[static 1])
     char resp;
     int fd = request_sockd_fd("L", 1, &resp);
     switch (resp) {
-    case 'L': cs->using_dhcp_bpf = 1; break;
-    case 'l': cs->using_dhcp_bpf = 0; break;
+    case 'L': cs->using_dhcp_bpf = true; break;
+    case 'l': cs->using_dhcp_bpf = false; break;
     default: suicide("%s: (%s) expected l or L sockd reply but got %c",
                      client_config.interface, __func__, resp);
     }

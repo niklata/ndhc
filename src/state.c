@@ -78,8 +78,8 @@ static void reinit_shared_deconfig(struct client_state_t cs[static 1])
     arp_close_fd(cs);
     cs->clientAddr = 0;
     cs->num_dhcp_requests = 0;
-    cs->got_router_arp = 0;
-    cs->got_server_arp = 0;
+    cs->got_router_arp = false;
+    cs->got_server_arp = false;
     memset(&cs->routerArp, 0, sizeof cs->routerArp);
     memset(&cs->serverArp, 0, sizeof cs->serverArp);
     arp_reset_send_stats();
@@ -344,7 +344,7 @@ static int selecting_timeout(struct client_state_t cs[static 1],
         if (client_config.background_if_no_lease) {
             log_line("%s: No lease; going to background.",
                      client_config.interface);
-            cs->init = 0;
+            cs->init = false;
             background();
         } else if (client_config.abort_if_no_lease)
             suicide("%s: No lease; failing.", client_config.interface);

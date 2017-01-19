@@ -45,9 +45,8 @@ struct client_state_t {
     uint32_t clientAddr, serverAddr, srcAddr, routerAddr;
     uint32_t lease, xid;
     uint8_t routerArp[6], serverArp[6];
-    uint8_t using_dhcp_bpf, init, got_router_arp, got_server_arp,
-            check_fingerprint;
-    bool arp_is_defense;
+    bool using_dhcp_bpf, got_router_arp, got_server_arp, arp_is_defense,
+         check_fingerprint, init;
 };
 
 struct client_config_t {

@@ -306,15 +306,15 @@ static int arp_get_gw_hwaddr(struct client_state_t cs[static 1])
     else
         log_line("%s: arp: Searching for dhcp server address...",
                  client_config.interface);
-    cs->got_server_arp = 0;
+    cs->got_server_arp = false;
     if (arp_ping(cs, cs->srcAddr) < 0)
         return -1;
     if (cs->routerAddr) {
-        cs->got_router_arp = 0;
+        cs->got_router_arp = false;
         if (arp_ping(cs, cs->routerAddr) < 0)
             return -1;
     } else
-        cs->got_router_arp = 1;
+        cs->got_router_arp = true;
     garp.wake_ts[AS_GW_QUERY] =
         garp.send_stats[ASEND_GW_PING].ts + ARP_RETRANS_DELAY + 250;
     return 0;
@@ -495,7 +495,7 @@ int arp_collision_timeout(struct client_state_t cs[static 1], long long nowts)
         log_line("%s: Lease of %s obtained.  Lease time is %ld seconds.",
                  client_config.interface, clibuf, cs->lease);
         cs->clientAddr = garp.dhcp_packet.yiaddr;
-        cs->init = 0;
+        cs->init = false;
         garp.last_conflict_ts = 0;
         garp.wake_ts[AS_COLLISION_CHECK] = -1;
         if (ifchange_bind(cs, &garp.dhcp_packet) < 0) {
@@ -576,7 +576,7 @@ int arp_do_gw_query(struct client_state_t cs[static 1])
                  client_config.interface, cs->routerArp[0], cs->routerArp[1],
                  cs->routerArp[2], cs->routerArp[3],
                  cs->routerArp[4], cs->routerArp[5]);
-        cs->got_router_arp = 1;
+        cs->got_router_arp = true;
         if (cs->routerAddr == cs->srcAddr)
             goto server_is_router;
         if (cs->got_server_arp) {
@@ -597,7 +597,7 @@ server_is_router:
                  client_config.interface, cs->serverArp[0], cs->serverArp[1],
                  cs->serverArp[2], cs->serverArp[3],
                  cs->serverArp[4], cs->serverArp[5]);
-        cs->got_server_arp = 1;
+        cs->got_server_arp = true;
         if (cs->got_router_arp) {
             garp.wake_ts[AS_GW_QUERY] = -1;
             if (arp_open_fd(cs, true) < 0)
