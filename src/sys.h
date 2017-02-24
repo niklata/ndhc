@@ -31,18 +31,13 @@
 #include <time.h>
 #include "ndhc-defines.h"
 
-static inline long long curms()
-{
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec * 1000LL + ts.tv_nsec / 1000000LL;
-}
-
 static inline size_t min_size_t(size_t a, size_t b)
 {
     return a < b ? a : b;
 }
 
+#define curms() IMPL_curms(__func__)
+long long IMPL_curms(const char *parent_function);
 void epoll_add(int epfd, int fd);
 void epoll_del(int epfd, int fd);
 

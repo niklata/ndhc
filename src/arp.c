@@ -491,22 +491,13 @@ int arp_gw_query_timeout(struct client_state_t cs[static 1], long long nowts)
 __attribute__((noreturn))
 static void quit_after_lease_handler(struct client_state_t cs[static 1])
 {
-    struct timespec res;
-    if (clock_gettime(CLOCK_MONOTONIC, &res) < 0) {
-        suicide("%s: (%s) clock_gettime failed: %s",
-                client_config.interface, __func__, strerror(errno));
-    }
-    time_t init_ts = res.tv_sec;
+    long long init_ts = curms();
     for (;;) {
         if (arp_announcement(cs) >= 0)
             exit(EXIT_SUCCESS);
         log_warning("%s: (%s) Failed to send ARP announcement: %s",
                     client_config.interface, __func__, strerror(errno));
-        if (clock_gettime(CLOCK_MONOTONIC, &res) < 0) {
-            suicide("%s: (%s) clock_gettime failed: %s",
-                    client_config.interface, __func__, strerror(errno));
-        }
-        if (res.tv_sec - init_ts > 60) break;
+        if (curms() - init_ts > (60LL * 1000LL)) break;
     }
     exit(EXIT_FAILURE);
 }

@@ -38,6 +38,16 @@
 #include "ndhc.h"
 #include "sys.h"
 
+long long IMPL_curms(const char *parent_function)
+{
+    struct timespec ts;
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) < 0) {
+        suicide("%s: (%s) clock_gettime failed: %s",
+                client_config.interface, parent_function, strerror(errno));
+    }
+    return ts.tv_sec * 1000LL + ts.tv_nsec / 1000000LL;
+}
+
 void epoll_add(int epfd, int fd)
 {
     struct epoll_event ev;
