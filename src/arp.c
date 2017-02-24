@@ -63,7 +63,7 @@ int arp_probe_max = 2000;          // maximum delay until repeated probe (ms)
 #define DEFEND_INTERVAL 10000      // minimum interval between defensive ARPs
 
 static struct arp_data garp = {
-    .wake_ts = { -1, -1, -1, -1, -1 },
+    .wake_ts = { -1, -1, -1, -1, -1, -1 },
     .send_stats = {{0,0},{0,0},{0,0}},
     .last_conflict_ts = 0,
     .gw_check_initpings = 0,
@@ -565,12 +565,34 @@ int arp_query_gateway(struct client_state_t cs[static 1])
 
 int arp_announce(struct client_state_t cs[static 1])
 {
+    if (cs->sent_first_announce && cs->sent_second_announce) {
+        garp.wake_ts[AS_ANNOUNCE] = -1;
+        return ARPR_OK;
+    }
     if (arp_announcement(cs) < 0) {
         log_warning("%s: (%s) Failed to send ARP announcement: %s",
                     client_config.interface, __func__, strerror(errno));
+        garp.wake_ts[AS_ANNOUNCE] = curms() + ARP_RETRANS_DELAY ;
         return ARPR_FAIL;
     }
+    if (!cs->sent_first_announce)
+        cs->sent_first_announce = true;
+    else if (!cs->sent_second_announce)
+        cs->sent_second_announce = true;
+    if (!cs->sent_first_announce || !cs->sent_second_announce)
+        garp.wake_ts[AS_ANNOUNCE] = curms() + ARP_RETRANS_DELAY;
+    else
+        garp.wake_ts[AS_ANNOUNCE] = -1;
     return ARPR_OK;
+}
+
+// 1 == not yet time, 0 == timed out, success, -1 == timed out, failure
+int arp_announce_timeout(struct client_state_t cs[static 1], long long nowts)
+{
+    long long rtts = garp.wake_ts[AS_ANNOUNCE];
+    if (rtts == -1) return 0;
+    if (nowts < rtts) return 1;
+    return arp_announce(cs) == ARPR_OK ? 0 : -1;
 }
 
 int arp_do_defense(struct client_state_t cs[static 1])
@@ -620,9 +642,6 @@ int arp_do_gw_query(struct client_state_t cs[static 1])
             garp.wake_ts[AS_GW_QUERY] = -1;
             if (arp_open_fd(cs, true) < 0)
                 return ARPR_FAIL;
-            // Do a second announcement.
-            if (arp_announcement(cs) < 0)
-                return ARPR_FAIL;
             return ARPR_FREE;
         }
         return ARPR_OK;
@@ -638,9 +657,6 @@ server_is_router:
         if (cs->got_router_arp) {
             garp.wake_ts[AS_GW_QUERY] = -1;
             if (arp_open_fd(cs, true) < 0)
-                return ARPR_FAIL;
-            // Do a second announcement.
-            if (arp_announcement(cs) < 0)
                 return ARPR_FAIL;
             return ARPR_FREE;
         }

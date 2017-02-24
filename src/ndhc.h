@@ -47,6 +47,7 @@ struct client_state_t {
     uint8_t routerArp[6], serverArp[6];
     bool using_dhcp_bpf, got_router_arp, got_server_arp, arp_is_defense,
          check_fingerprint, program_init;
+    bool sent_gw_query, sent_first_announce, sent_second_announce;
 };
 
 struct client_config_t {

@@ -537,8 +537,9 @@ skip_to_requesting:
         if (arp_timeout) {
             int r = arp_collision_timeout(cs, nowts);
             if (r == ARPR_FREE) {
-                arp_query_gateway(cs); // XXX: Handle failure
-                arp_announce(cs); // XXX: Handle failure
+                if (arp_query_gateway(cs) == ARPR_OK)
+                    cs->sent_gw_query = true; // XXX: Handle the false case
+                arp_announce(cs);
                 break;
             } else if (r == ARPR_OK) {
             } else if (r == ARPR_FAIL) {
@@ -643,6 +644,8 @@ skip_to_requesting:
         }
         if (arp_timeout) {
             arp_defense_timeout(cs, nowts);
+            if (!cs->sent_first_announce || !cs->sent_second_announce)
+                arp_announce_timeout(cs, nowts);
             if (!cs->got_router_arp || !cs->got_server_arp) {
                 int r = arp_gw_query_timeout(cs, nowts);
                 if (r == ARPR_OK) {

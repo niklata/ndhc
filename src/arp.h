@@ -60,6 +60,7 @@ extern int arp_probe_max;
 
 typedef enum {
     AS_NONE = 0,        // Nothing to react to wrt ARP
+    AS_ANNOUNCE,        // Announcing our MAC/IP mapping to ethernet peers.
     AS_COLLISION_CHECK, // Checking to see if another host has our IP before
                         // accepting a new lease.
     AS_GW_CHECK,        // Seeing if the default GW still exists on the local
@@ -119,7 +120,9 @@ int arp_do_collision_check(struct client_state_t cs[static 1]);
 int arp_collision_timeout(struct client_state_t cs[static 1], long long nowts);
 
 int arp_query_gateway(struct client_state_t cs[static 1]);
+
 int arp_announce(struct client_state_t cs[static 1]);
+int arp_announce_timeout(struct client_state_t cs[static 1], long long nowts);
 
 int arp_do_defense(struct client_state_t cs[static 1]);
 int arp_defense_timeout(struct client_state_t cs[static 1], long long nowts);
