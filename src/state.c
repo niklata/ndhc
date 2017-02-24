@@ -537,6 +537,8 @@ skip_to_requesting:
         if (arp_timeout) {
             int r = arp_collision_timeout(cs, nowts);
             if (r == ARPR_FREE) {
+                arp_query_gateway(cs); // XXX: Handle failure
+                arp_announce(cs); // XXX: Handle failure
                 break;
             } else if (r == ARPR_OK) {
             } else if (r == ARPR_FAIL) {

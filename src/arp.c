@@ -484,6 +484,33 @@ int arp_gw_query_timeout(struct client_state_t cs[static 1], long long nowts)
     return ARPR_OK;
 }
 
+// Failure here is difficult to handle gracefully, as we do have a valid
+// IP but have not yet announced it to other hosts on our ethernet
+// segment.  We try to do so for one minute.  We must measure the time
+// directly so that carrier loss or suspend are handled properly.
+__attribute__((noreturn))
+static void quit_after_lease_handler(struct client_state_t cs[static 1])
+{
+    struct timespec res;
+    if (clock_gettime(CLOCK_MONOTONIC, &res) < 0) {
+        suicide("%s: (%) clock_gettime failed: %s",
+                client_config.interface, __func__, strerror(errno));
+    }
+    time_t init_ts = res.tv_sec;
+    for (;;) {
+        if (arp_announcement(cs) >= 0)
+            exit(EXIT_SUCCESS);
+        log_warning("%s: (%s) Failed to send ARP announcement: %s",
+                    client_config.interface, __func__, strerror(errno));
+        if (clock_gettime(CLOCK_MONOTONIC, &res) < 0) {
+            suicide("%s: (%) clock_gettime failed: %s",
+                    client_config.interface, __func__, strerror(errno));
+        }
+        if (res.tv_sec - init_ts > 60) break;
+    }
+    exit(EXIT_FAILURE);
+}
+
 int arp_collision_timeout(struct client_state_t cs[static 1], long long nowts)
 {
     if (nowts >= garp.arp_check_start_ts + ANNOUNCE_WAIT ||
@@ -503,22 +530,10 @@ int arp_collision_timeout(struct client_state_t cs[static 1], long long nowts)
                     client_config.interface);
         }
         cs->routerAddr = get_option_router(&garp.dhcp_packet);
-        if (arp_get_gw_hwaddr(cs) < 0) {
-            log_warning("%s: (%s) Failed to send request to get gateway and agent hardware addresses: %s",
-                        client_config.interface, __func__, strerror(errno));
-            return ARPR_FAIL;
-        }
         stop_dhcp_listen(cs);
         write_leasefile(temp_addr);
-        if (arp_announcement(cs) < 0) {
-            log_warning("%s: (%s) Failed to send first ARP announcement: %s",
-                        client_config.interface, __func__, strerror(errno));
-            // If we return ARPR_FAIL here, the state machine will get messed up since we
-            // do have a binding, we've just not announced it yet.  Ideally, we will note
-            // this issue and will try to announce again.
-        }
         if (client_config.quit_after_lease)
-            exit(EXIT_SUCCESS);
+            quit_after_lease_handler(cs);
         return ARPR_FREE;
     }
     long long rtts = garp.send_stats[ASEND_COLLISION_CHECK].ts +
@@ -535,6 +550,26 @@ int arp_collision_timeout(struct client_state_t cs[static 1], long long nowts)
     garp.probe_wait_time = arp_gen_probe_wait(cs);
     garp.wake_ts[AS_COLLISION_CHECK] =
         garp.send_stats[ASEND_COLLISION_CHECK].ts + garp.probe_wait_time;
+    return ARPR_OK;
+}
+
+int arp_query_gateway(struct client_state_t cs[static 1])
+{
+    if (arp_get_gw_hwaddr(cs) < 0) {
+        log_warning("%s: (%s) Failed to send request to get gateway and agent hardware addresses: %s",
+                    client_config.interface, __func__, strerror(errno));
+        return ARPR_FAIL;
+    }
+    return ARPR_OK;
+}
+
+int arp_announce(struct client_state_t cs[static 1])
+{
+    if (arp_announcement(cs) < 0) {
+        log_warning("%s: (%s) Failed to send ARP announcement: %s",
+                    client_config.interface, __func__, strerror(errno));
+        return ARPR_FAIL;
+    }
     return ARPR_OK;
 }
 

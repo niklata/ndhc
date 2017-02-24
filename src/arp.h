@@ -117,6 +117,10 @@ int arp_gw_failed(struct client_state_t cs[static 1]);
 
 int arp_do_collision_check(struct client_state_t cs[static 1]);
 int arp_collision_timeout(struct client_state_t cs[static 1], long long nowts);
+
+int arp_query_gateway(struct client_state_t cs[static 1]);
+int arp_announce(struct client_state_t cs[static 1]);
+
 int arp_do_defense(struct client_state_t cs[static 1]);
 int arp_defense_timeout(struct client_state_t cs[static 1], long long nowts);
 int arp_do_gw_query(struct client_state_t cs[static 1]);
