@@ -510,12 +510,16 @@ int arp_collision_timeout(struct client_state_t cs[static 1], long long nowts)
         }
         stop_dhcp_listen(cs);
         write_leasefile(temp_addr);
-        int ret = ARPR_FREE;
-        if (arp_announcement(cs) < 0)
-            ret = ARPR_FAIL;
+        if (arp_announcement(cs) < 0) {
+            log_warning("%s: (%s) Failed to send first ARP announcement: %s",
+                        client_config.interface, __func__, strerror(errno));
+            // If we return ARPR_FAIL here, the state machine will get messed up since we
+            // do have a binding, we've just not announced it yet.  Ideally, we will note
+            // this issue and will try to announce again.
+        }
         if (client_config.quit_after_lease)
             exit(EXIT_SUCCESS);
-        return ret;
+        return ARPR_FREE;
     }
     long long rtts = garp.send_stats[ASEND_COLLISION_CHECK].ts +
         garp.probe_wait_time;
