@@ -643,8 +643,9 @@ skip_to_requesting:
             }
         }
         if (arp_timeout) {
-            arp_defense_timeout(cs, nowts);
-            if (!cs->sent_first_announce || !cs->sent_second_announce)
+            if (cs->sent_first_announce && cs->sent_second_announce)
+                arp_defense_timeout(cs, nowts);
+            else
                 arp_announce_timeout(cs, nowts);
             if (!cs->got_router_arp || !cs->got_server_arp) {
                 int r = arp_gw_query_timeout(cs, nowts);
