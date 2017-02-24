@@ -63,7 +63,7 @@ int arp_probe_max = 2000;          // maximum delay until repeated probe (ms)
 #define DEFEND_INTERVAL 10000      // minimum interval between defensive ARPs
 
 static struct arp_data garp = {
-    .wake_ts = { -1, -1, -1, -1, -1, -1 },
+    .wake_ts = { -1, -1, -1, -1, -1, -1, -1 },
     .send_stats = {{0,0},{0,0},{0,0}},
     .last_conflict_ts = 0,
     .gw_check_initpings = 0,
@@ -555,12 +555,28 @@ int arp_collision_timeout(struct client_state_t cs[static 1], long long nowts)
 
 int arp_query_gateway(struct client_state_t cs[static 1])
 {
+    if (cs->sent_gw_query) {
+        garp.wake_ts[AS_QUERY_GW_SEND] = -1;
+        return ARPR_OK;
+    }
     if (arp_get_gw_hwaddr(cs) < 0) {
         log_warning("%s: (%s) Failed to send request to get gateway and agent hardware addresses: %s",
                     client_config.interface, __func__, strerror(errno));
+        garp.wake_ts[AS_QUERY_GW_SEND] = curms() + ARP_RETRANS_DELAY;
         return ARPR_FAIL;
     }
+    cs->sent_gw_query = true;
+    garp.wake_ts[AS_QUERY_GW_SEND] = -1;
     return ARPR_OK;
+}
+
+// 1 == not yet time, 0 == timed out, success, -1 == timed out, failure
+int arp_query_gateway_timeout(struct client_state_t cs[static 1], long long nowts)
+{
+    long long rtts = garp.wake_ts[AS_QUERY_GW_SEND];
+    if (rtts == -1) return 0;
+    if (nowts < rtts) return 1;
+    return arp_query_gateway(cs) == ARPR_OK ? 0 : -1;
 }
 
 int arp_announce(struct client_state_t cs[static 1])
