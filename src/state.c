@@ -80,6 +80,10 @@ static void reinit_shared_deconfig(struct client_state_t cs[static 1])
     cs->num_dhcp_requests = 0;
     cs->got_router_arp = false;
     cs->got_server_arp = false;
+    cs->check_fingerprint = false;
+    cs->sent_gw_query = false;
+    cs->sent_first_announce = false;
+    cs->sent_second_announce = false;
     memset(&cs->routerArp, 0, sizeof cs->routerArp);
     memset(&cs->serverArp, 0, sizeof cs->serverArp);
     arp_reset_send_stats();
