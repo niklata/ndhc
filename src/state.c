@@ -75,7 +75,6 @@ static int delay_timeout(struct client_state_t cs[static 1], size_t numpackets)
 
 static void reinit_shared_deconfig(struct client_state_t cs[static 1])
 {
-    arp_close_fd(cs);
     cs->clientAddr = 0;
     cs->num_dhcp_requests = 0;
     cs->got_router_arp = false;
@@ -86,7 +85,7 @@ static void reinit_shared_deconfig(struct client_state_t cs[static 1])
     cs->sent_second_announce = false;
     memset(&cs->routerArp, 0, sizeof cs->routerArp);
     memset(&cs->serverArp, 0, sizeof cs->serverArp);
-    arp_reset_send_stats();
+    arp_reset_state(cs);
 }
 
 static void reinit_selecting(struct client_state_t cs[static 1], int timeout)

@@ -85,8 +85,34 @@ void arp_reply_clear(void)
     garp.reply_offset = 0;
 }
 
-void arp_reset_send_stats(void)
+static void arp_min_close_fd(struct client_state_t cs[static 1])
 {
+    if (cs->arpFd < 0)
+        return;
+    epoll_del(cs->epollFd, cs->arpFd);
+    close(cs->arpFd);
+    cs->arpFd = -1;
+    cs->arp_is_defense = false;
+}
+
+static void arp_close_fd(struct client_state_t cs[static 1])
+{
+    arp_min_close_fd(cs);
+    for (int i = 0; i < AS_MAX; ++i)
+        garp.wake_ts[i] = -1;
+}
+
+void arp_reset_state(struct client_state_t cs[static 1])
+{
+    arp_close_fd(cs);
+    arp_reply_clear();
+    garp.last_conflict_ts = 0;
+    garp.gw_check_initpings = 0;
+    garp.arp_check_start_ts = 0;
+    garp.total_conflicts = 0;
+    garp.probe_wait_time = 0;
+    garp.server_replied = false;
+    garp.router_replied = false;
     for (int i = 0; i < ASEND_MAX; ++i) {
         garp.send_stats[i].ts = 0;
         garp.send_stats[i].count = 0;
@@ -127,23 +153,6 @@ static int get_arp_defense_socket(struct client_state_t cs[static 1])
     }
     cs->arp_is_defense = true;
     return fd;
-}
-
-static void arp_min_close_fd(struct client_state_t cs[static 1])
-{
-    if (cs->arpFd < 0)
-        return;
-    epoll_del(cs->epollFd, cs->arpFd);
-    close(cs->arpFd);
-    cs->arpFd = -1;
-    cs->arp_is_defense = false;
-}
-
-void arp_close_fd(struct client_state_t cs[static 1])
-{
-    arp_min_close_fd(cs);
-    for (int i = 0; i < AS_MAX; ++i)
-        garp.wake_ts[i] = -1;
 }
 
 static int arp_open_fd(struct client_state_t cs[static 1], bool defense)
