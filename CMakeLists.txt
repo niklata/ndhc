@@ -77,8 +77,8 @@ ENDMACRO(COMPARE_VERSION_STRINGS)
 
 ####################################
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -pedantic -Wall -Wextra -Wformat=2 -Wformat-nonliteral -Wformat-security -Wshadow -Wpointer-arith -Wmissing-prototypes -D_GNU_SOURCE -DNK_USE_CAPABILITY")
-set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -pedantic -Wall -Wextra -Wformat=2 -Wformat-nonliteral -Wformat-security -Wshadow -Wpointer-arith -Wmissing-prototypes -D_GNU_SOURCE -DNK_USE_CAPABILITY")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -fno-strict-overflow -pedantic -Wall -Wextra -Wformat=2 -Wformat-nonliteral -Wformat-security -Wshadow -Wpointer-arith -Wmissing-prototypes -D_GNU_SOURCE -DNK_USE_CAPABILITY")
+set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -fno-strict-overflow -pedantic -Wall -Wextra -Wformat=2 -Wformat-nonliteral -Wformat-security -Wshadow -Wpointer-arith -Wmissing-prototypes -D_GNU_SOURCE -DNK_USE_CAPABILITY")
 
 if (WIN32)
   set(OSNAME "Win32")
