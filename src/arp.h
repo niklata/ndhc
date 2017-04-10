@@ -91,7 +91,6 @@ struct arp_data {
     long long last_conflict_ts;   // TS of the last conflicting ARP seen.
     long long arp_check_start_ts; // TS of when we started the
                                   // AS_COLLISION_CHECK state.
-    size_t reply_offset;
     unsigned int total_conflicts; // Total number of address conflicts on
                                   // the interface.  Never decreases.
     int gw_check_initpings;       // Initial count of ASEND_GW_PING when
@@ -104,7 +103,6 @@ struct arp_data {
     bool server_replied:1;
 };
 
-void arp_reply_clear(void);
 void arp_reset_state(struct client_state_t cs[static 1]);
 
 bool arp_packet_get(struct client_state_t cs[static 1]);

@@ -368,8 +368,6 @@ static void do_ndhc_work(void)
                                   sev_arp, force_fingerprint,
                                   cs.dhcp_wake_ts <= nowts,
                                   arp_wake_ts <= nowts, sev_signal);
-        if (sev_arp)
-            arp_reply_clear();
 
         if (dhcp_ok == COR_ERROR) {
             timeout = 2000 + nk_random_u32(&cs.rnd32_state) % 3000;

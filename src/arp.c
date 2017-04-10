@@ -70,7 +70,6 @@ static struct arp_data garp = {
     .arp_check_start_ts = 0,
     .total_conflicts = 0,
     .probe_wait_time = 0,
-    .reply_offset = 0,
     .using_bpf = false,
     .relentless_def = false,
     .router_replied = false,
@@ -79,10 +78,9 @@ static struct arp_data garp = {
 
 void set_arp_relentless_def(bool v) { garp.relentless_def = v; }
 
-void arp_reply_clear(void)
+static void arp_reply_clear(void)
 {
     memset(&garp.reply, 0, sizeof garp.reply);
-    garp.reply_offset = 0;
 }
 
 static void arp_min_close_fd(struct client_state_t cs[static 1])
@@ -745,9 +743,10 @@ server_is_router:
 bool arp_packet_get(struct client_state_t cs[static 1])
 {
     ssize_t r = 0;
-    if (garp.reply_offset < sizeof garp.reply) {
-        r = safe_read(cs->arpFd, (char *)&garp.reply + garp.reply_offset,
-                      sizeof garp.reply - garp.reply_offset);
+    size_t bytes_read = 0;
+    if (bytes_read < sizeof garp.reply) {
+        r = safe_read(cs->arpFd, (char *)&garp.reply + bytes_read,
+                      sizeof garp.reply - bytes_read);
         if (r == 0)
             return false;
         if (r < 0) {
@@ -760,10 +759,10 @@ bool arp_packet_get(struct client_state_t cs[static 1])
                         client_config.interface, __func__, strerror(errno));
             return false;
         }
-        garp.reply_offset += (size_t)r;
+        bytes_read += (size_t)r;
     }
 
-    if (garp.reply_offset < ARP_MSG_SIZE)
+    if (bytes_read < ARP_MSG_SIZE)
         return false;
 
     // Emulate the BPF filters if they are not in use.
