@@ -83,6 +83,7 @@ static void reinit_shared_deconfig(struct client_state_t cs[static 1])
     cs->sent_gw_query = false;
     cs->sent_first_announce = false;
     cs->sent_second_announce = false;
+    cs->init_fingerprint_inprogress = false;
     memset(&cs->routerArp, 0, sizeof cs->routerArp);
     memset(&cs->serverArp, 0, sizeof cs->serverArp);
     arp_reset_state(cs);
@@ -416,6 +417,10 @@ static int frenew(struct client_state_t cs[static 1], bool is_bound)
 static int ifup_action(struct client_state_t cs[static 1])
 {
     if (cs->routerAddr && cs->serverAddr) {
+        if (cs->init_fingerprint_inprogress) {
+            suicide("%s: Carrier lost during initial fingerprint.  Forcing restart.",
+                    client_config.interface);
+        }
         if (arp_gw_check(cs) >= 0) {
             log_line("%s: Interface is back.  Revalidating lease...",
                      client_config.interface);
@@ -621,7 +626,8 @@ skip_to_requesting:
                 r = arp_do_gw_query(cs);
                 if (r == ARPR_OK) {
                 } else if (r == ARPR_FREE) {
-                    // We got both ARP addresses.
+                    log_line("%s: Network fingerprinting complete.", client_config.interface);
+                    cs->init_fingerprint_inprogress = false;
                 } else if (r == ARPR_FAIL) {
                     ret = COR_ERROR;
                     scrReturn(ret);
