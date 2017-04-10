@@ -78,11 +78,6 @@ static struct arp_data garp = {
 
 void set_arp_relentless_def(bool v) { garp.relentless_def = v; }
 
-static void arp_reply_clear(void)
-{
-    memset(&garp.reply, 0, sizeof garp.reply);
-}
-
 static void arp_min_close_fd(struct client_state_t cs[static 1])
 {
     if (cs->arpFd < 0)
@@ -103,7 +98,7 @@ static void arp_close_fd(struct client_state_t cs[static 1])
 void arp_reset_state(struct client_state_t cs[static 1])
 {
     arp_close_fd(cs);
-    arp_reply_clear();
+    memset(&garp.reply, 0, sizeof garp.reply);
     garp.last_conflict_ts = 0;
     garp.gw_check_initpings = 0;
     garp.arp_check_start_ts = 0;
@@ -166,7 +161,6 @@ static int arp_open_fd(struct client_state_t cs[static 1], bool defense)
         return -1;
     }
     epoll_add(cs->epollFd, cs->arpFd);
-    arp_reply_clear();
     return 0;
 }
 
@@ -742,11 +736,12 @@ server_is_router:
 
 bool arp_packet_get(struct client_state_t cs[static 1])
 {
+    struct arpMsg amsg;
     ssize_t r = 0;
     size_t bytes_read = 0;
-    if (bytes_read < sizeof garp.reply) {
-        r = safe_read(cs->arpFd, (char *)&garp.reply + bytes_read,
-                      sizeof garp.reply - bytes_read);
+    if (bytes_read < sizeof amsg) {
+        r = safe_read(cs->arpFd, (char *)&amsg + bytes_read,
+                      sizeof amsg - bytes_read);
         if (r == 0)
             return false;
         if (r < 0) {
@@ -767,12 +762,12 @@ bool arp_packet_get(struct client_state_t cs[static 1])
 
     // Emulate the BPF filters if they are not in use.
     if (!garp.using_bpf &&
-        (!arp_validate_bpf(&garp.reply) ||
+        (!arp_validate_bpf(&amsg) ||
          (cs->arp_is_defense &&
-          !arp_validate_bpf_defense(cs, &garp.reply)))) {
-        arp_reply_clear();
+          !arp_validate_bpf_defense(cs, &amsg)))) {
         return false;
     }
+    memcpy(&garp.reply, &amsg, sizeof garp.reply);
     return true;
 }
 
