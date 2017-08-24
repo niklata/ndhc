@@ -1,4 +1,4 @@
-ndhc, Copyright (C) 2004-2015 Nicholas J. Kain.
+ndhc, Copyright (C) 2004-2017 Nicholas J. Kain.
 See LICENSE for licensing information.  In short: Two-clause / New BSD.
 
 Requirements:
@@ -6,6 +6,7 @@ Requirements:
 Linux kernel
 GNU Make or CMake
 Ragel
+ncmlib
 
 INTRODUCTION
 ------------
@@ -87,6 +88,10 @@ different, it will forget about the old lease and request a new one.
 
 USAGE
 -----
+
+0) Make sure that ncmlib is present in the ndhc source directory:
+    $ ls
+    CMakeLists.txt  LICENSE  Makefile  ncmlib  README  src
 
 1) Compile and install ndhc.
     a) make
@@ -188,16 +193,12 @@ subprocesses.
 If the host system lacks volatile storage, then a clientid should manually
 be specified using the -I or --clientid command arguments.
 
-RANDOMNESS NOTES
+GRSECURITY NOTES
 ----------------
 
-Each ndhc subprocess maintains a PCG PRNG that is uniquely seeded from the
-kernel random device at startup.  Each PRNG consumes 128 bits of entropy for
-its initial state.
-
-DHCP does not require cryptographic randomness, so this arrangement should
-be more than sufficient to ensure proper UUIDs, assuming only that the
-kernel random device is even minimally seeded with real entropy.
+Make sure that CONFIG_GRKERNSEC_CHROOT_CAPS is disabled.  Otherwise, ndhc will
+lose its capabilities (in particular, the ability to reconfigure interfaces)
+when it chroots.
 
 PORTING NOTES
 -------------
@@ -229,116 +230,3 @@ for raw sockets and ARP.  These are largely Linux-specific, too.
 
 7) ndhc can optionally use seccomp-filter to allow only a set of whitelisted
 syscalls.  This functionality is Linux-specific.
-
-HISTORY
--------
-
-I started writing ndhc back in 2004.  My ISP at the time required a DHCP
-client for connection authentication, and I was not comfortable with any
-of the existing clients, which all ran as root and had colorful security
-histories.  DHCP is generally not a routed protocol, and lacks real
-authentication mechanisms in real world deployments (some largely
-abandoned RFCs for such behavior do exist), so no program existed to
-fill the niche of a truly secure DHCP client.
-
-My router/server at the time ran a custom Linux distro that was designed
-for extreme security.  A root privileged DHCP client would be nearly the
-only root-owned process running on the machine, so I was highly motivated
-to develop an alternative.
-
-A separate ifchd was first written entirely from scratch.  It did not take long
-to write, since it was by design rather simple, and I was already familiar with
-the quirks of Linux capabilities.  That left me with the choice of adapting an
-existing DHCP client or writing my own from scratch.
-
-At the time, I just wanted something that would work, so my choice was to
-adapt udhcpc to work with ifchd.  udhcpc was chosen since it was intended to
-be used with resource-constrained or embedded systems, and was thus very
-small.  ISC dhclient was another alternative, but it is an extremely large
-program, and it would have been very hard to audit it for correctness.
-
-udhcpc was not did not really fit my requirements well, since it was designed
-to be small at all costs, sacrificing correctness when necessary.  The code was
-hard to follow, and had many quirks.  Bounds-checking was rare, type aliasing
-common, and state transitions were convoluted.  Not all of the client was
-asynchronous, and no precautions were taken against conflicting peers.  ARP was
-not used at all.
-
-However, it was small.  With a lot of work, I ripped out the script-calling
-mechanisms and replaced them with ifchd requests.  Bounds-checking was
-aggressively (and somewhat hamfistedly) retrofitted into the code.  It was
-cleaned to a degree, and importantly it worked for connecting to my ISP.
-
-Then I changed ISPs.  My new ISP used PPPoE, not DHCP.  Around the same time, I
-also switched to using Gentoo rather than a hand-built distribution.  I didn't
-have time to maintain the old custom setup, and it was very hard keeping up
-with library vulnerabilties in eg, zlib or openssl, and ensuring that all
-installed binaries, dynamic and static, were updated.  ndhc was abandoned for
-many years.  It wasn't needed on my server, and it was "too much effort" to
-deviate from the stock distro DHCP clients on other machines.
-
-Then, around 2008, I changed ISPs again.  This time my new ISP used DHCP and
-not PPPoE.  So, after a few months, I decided to dust off the old ndhc/ifchd
-project and adapt it to my modern standards and machines.
-
-ifchd was in good shape and required little work.  I ended up rewriting
-ndhc.  The only parts that remained from the original were the parts that
-I had already rewritten before, and some of those were rewritten, too.
-
-Eventually ifchd was rewritten to use a Ragel-generated DFA-based parser to
-make it easier to verify correct behavior for all possible inputs.
-
-Quite a while later, I eventually merged ifchd into the same binary as ndhc
-and instead rely on forking subprocesses and using socketpairs for IPC.  This
-brought a lot of simplifications, particularly for user configuration.
-
-Afterwards, privilege separation was applied to the remaining capabilities,
-creating the ndhc-sockd subprocess.  After this change, the main ndhc
-process runs completely unprivileged.
-
-The end result is a modern DHCP client is largely RFC-compliant, except where
-the RFCs dictate behavior that would be buggy, overly complex, useless,
-or exploitable.  DHCP is poorly specified, and real-world servers and clients
-vary a lot from the RFCs, so these conditions are necessary for a useful
-program.
-
-Although ndhc's implementation and behavior are different, I have to credit
-the idea of using netlink events to discover hardware link status transitions
-to Stefan Rompf and his 'dhcpclient' program.  The Linux netlink events that
-are used are otherwise rather obscure and poorly documented, and I wouldn't
-have known about them otherwise.
-
-GRSECURITY NOTES
-----------------
-
-Make sure that CONFIG_GRKERNSEC_CHROOT_CAPS is disabled.  Otherwise, ndhc will
-lose its capabilities (in particular, the ability to reconfigure interfaces)
-when it chroots.
-
-DHCP PROTOCOL QUIRKS
---------------------
-
-Send a packet that has an options field set to:
-'DHCP-OPTION-OVERLOAD:3'
-Then in the file and sname fields:
-'DHCP-OPTION-OVERLOAD:3'
-I suspect some bad DHCP programs will hang given this input.
-
-DHCP explicitly specifies that there is no minimum lease time and also
-specifies that the minimum default rebinding time is leasetime*0.875 and
-the minimum default renewing time is leasetime*0.500.  All times are relative
-to the instant when the lease is bound and are specified in seconds.  Taken
-together, this means that a client strictly implementing the RFC should
-accept a lease that either is perpetually rebinding (lease == 1s) or instantly
-expires (lease == 0s).  ndhc ignores the RFC and specifies a minimum lease
-time of one minute.
-
-Renew and rebind times are optionally specified and may take on any value.
-This means that a malicious server could demand a rebind time before a renew
-time, or make these times ridiculously short, or specify both times past
-that of the lease duration.  ndhc avoids all of this nonsense by simply
-ignoring these options and using the default values specified by the RFC.
-
-There are other quirks, but these are just several interesting ones that
-immediately occur to me while I'm writing this document.
-
