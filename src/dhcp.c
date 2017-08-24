@@ -495,7 +495,7 @@ ssize_t send_decline(struct client_state_t cs[static 1], uint32_t server)
 
 ssize_t send_release(struct client_state_t cs[static 1])
 {
-    struct dhcpmsg packet = {.xid = nk_random_u32(&cs->rnd32_state)};
+    struct dhcpmsg packet = {.xid = nk_random_u32(&cs->rnd_state)};
     init_packet(&packet, DHCPRELEASE);
     packet.ciaddr = cs->clientAddr;
     add_option_reqip(&packet, cs->clientAddr);

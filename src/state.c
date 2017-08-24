@@ -70,7 +70,7 @@ static int delay_timeout(struct client_state_t cs[static 1], size_t numpackets)
     if (numpackets < sizeof tot)
         to = tot[numpackets];
     // Distribution is a bit biased but it doesn't really matter.
-    return to * 1000 + (nk_random_u32(&cs->rnd32_state) & 0x7fffffffu) % 1000;
+    return to * 1000 + (nk_random_u32(&cs->rnd_state) & 0x7fffffffu) % 1000;
 }
 
 static void reinit_shared_deconfig(struct client_state_t cs[static 1])
@@ -149,7 +149,7 @@ static int rebinding_timeout(struct client_state_t cs[static 1],
                     client_config.interface);
         return BTO_HARDFAIL;
     }
-    long long ts0 = nowts + (50 + nk_random_u32(&cs->rnd32_state) % 20) * 1000;
+    long long ts0 = nowts + (50 + nk_random_u32(&cs->rnd_state) % 20) * 1000;
     cs->dhcp_wake_ts = ts0 < elt ? ts0 : elt;
     return BTO_WAIT;
 }
@@ -172,7 +172,7 @@ static int renewing_timeout(struct client_state_t cs[static 1],
                     client_config.interface);
         return BTO_HARDFAIL;
     }
-    long long ts0 = nowts + (50 + nk_random_u32(&cs->rnd32_state) % 20) * 1000;
+    long long ts0 = nowts + (50 + nk_random_u32(&cs->rnd_state) % 20) * 1000;
     cs->dhcp_wake_ts = ts0 < rbt ? ts0 : rbt;
     return BTO_WAIT;
 }
@@ -354,7 +354,7 @@ static int selecting_timeout(struct client_state_t cs[static 1],
             suicide("%s: No lease; failing.", client_config.interface);
     }
     if (cs->num_dhcp_requests == 0)
-        cs->xid = nk_random_u32(&cs->rnd32_state);
+        cs->xid = nk_random_u32(&cs->rnd_state);
     if (send_discover(cs) < 0) {
         log_warning("%s: Failed to send a discover request packet.",
                     client_config.interface);
@@ -447,7 +447,7 @@ int dhcp_handle(struct client_state_t cs[static 1], long long nowts,
 {
     scrBegin;
 reinit:
-    cs->xid = nk_random_u32(&cs->rnd32_state);
+    cs->xid = nk_random_u32(&cs->rnd_state);
     // We're in the SELECTING state here.
     for (;;) {
         int ret = COR_SUCCESS;

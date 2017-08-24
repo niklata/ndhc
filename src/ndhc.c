@@ -357,7 +357,7 @@ static void do_ndhc_work(void)
             // We can't do anything while the iface is disabled, anyway.
             // Suspend might cause link state change notifications to be
             // missed, so we use a non-infinite timeout.
-            timeout = 2000 + nk_random_u32(&cs.rnd32_state) % 3000;
+            timeout = 2000 + nk_random_u32(&cs.rnd_state) % 3000;
             continue;
         }
 
@@ -370,7 +370,7 @@ static void do_ndhc_work(void)
                                   arp_wake_ts <= nowts, sev_signal);
 
         if (dhcp_ok == COR_ERROR) {
-            timeout = 2000 + nk_random_u32(&cs.rnd32_state) % 3000;
+            timeout = 2000 + nk_random_u32(&cs.rnd_state) % 3000;
             continue;
         }
 
@@ -435,7 +435,7 @@ static void spawn_ifch(void)
         close(ifchSock[0]);
         close(ifchStream[0]);
         // Don't share the RNG state with the master process.
-        nk_random_u32_init(&cs.rnd32_state);
+        nk_random_init(&cs.rnd_state);
         ifch_main();
     } else if (ifch_pid > 0) {
         close(ifchSock[1]);
@@ -452,7 +452,7 @@ static void spawn_sockd(void)
         close(sockdSock[0]);
         close(sockdStream[0]);
         // Don't share the RNG state with the master process.
-        nk_random_u32_init(&cs.rnd32_state);
+        nk_random_init(&cs.rnd_state);
         sockd_main();
     } else if (sockd_pid > 0) {
         close(sockdSock[1]);
@@ -550,7 +550,7 @@ int main(int argc, char *argv[])
 {
     parse_cmdline(argc, argv);
 
-    nk_random_u32_init(&cs.rnd32_state);
+    nk_random_init(&cs.rnd_state);
 
     if (getuid())
         suicide("I need to be started as root.");

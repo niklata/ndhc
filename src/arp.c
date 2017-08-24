@@ -396,7 +396,7 @@ static int arp_is_query_reply(struct arpMsg am[static 1])
 static int arp_gen_probe_wait(struct client_state_t cs[static 1])
 {
     // This is not a uniform distribution but it doesn't matter here.
-    return arp_probe_min + (nk_random_u32(&cs->rnd32_state) & 0x7fffffffu)
+    return arp_probe_min + (nk_random_u32(&cs->rnd_state) & 0x7fffffffu)
         % (arp_probe_max - arp_probe_min);
 }
 

@@ -121,7 +121,7 @@ static int open_iaidfile_write(const uint8_t hwaddr[static 6],
 // RFC6355 specifies a RFC4122 UUID, but I simply use a 128-byte random
 // value, as the complexity of RFC4122 UUID generation is completely
 // unwarranted for DHCPv4.
-static size_t generate_duid(struct nk_random_state_u32 s[static 1],
+static size_t generate_duid(struct nk_random_state s[static 1],
                             char dest[static 1], size_t dlen)
 {
     const size_t tlen = sizeof(uint16_t) + 4 * sizeof(uint32_t);
@@ -143,7 +143,7 @@ static size_t generate_duid(struct nk_random_state_u32 s[static 1],
 
 // RFC6355 specifies the IAID as a 32-bit value that uniquely identifies
 // a hardware link for a given host.
-static size_t generate_iaid(struct nk_random_state_u32 s[static 1],
+static size_t generate_iaid(struct nk_random_state s[static 1],
                             char dest[static 1], size_t dlen)
 {
     if (dlen < sizeof(uint32_t))
@@ -169,7 +169,7 @@ void get_clientid(struct client_state_t cs[static 1],
 
     int fd = open_iaidfile_read(cc->arp, sizeof cc->arp);
     if (fd < 0) {
-        iaid_len = generate_iaid(&cs->rnd32_state, iaid, sizeof iaid);
+        iaid_len = generate_iaid(&cs->rnd_state, iaid, sizeof iaid);
         fd = open_iaidfile_write(cc->arp, sizeof cc->arp);
         ssize_t r = safe_write(fd, iaid, iaid_len);
         if (r < 0 || (size_t)r != iaid_len)
@@ -186,7 +186,7 @@ void get_clientid(struct client_state_t cs[static 1],
 
     fd = open_duidfile_read();
     if (fd < 0) {
-        duid_len = generate_duid(&cs->rnd32_state, duid, sizeof duid);
+        duid_len = generate_duid(&cs->rnd_state, duid, sizeof duid);
         fd = open_duidfile_write();
         ssize_t r = safe_write(fd, duid, duid_len);
         if (r < 0 || (size_t)r != duid_len)

@@ -35,7 +35,7 @@
 #include "nk/random.h"
 
 struct client_state_t {
-    struct nk_random_state_u32 rnd32_state;
+    struct nk_random_state rnd_state;
     long long leaseStartTime, renewTime, rebindTime;
     long long dhcp_wake_ts;
     int ifDeconfig; // Set if the interface has already been deconfigured.
