@@ -1,4 +1,4 @@
-## ndhc
+# ndhc
 Copyright (C) 2004-2017 Nicholas J. Kain.
 
 See LICENSE for licensing information.  In short: Two-clause / New BSD.
@@ -44,39 +44,39 @@ in practice.
 
 ## Features
 
-Privilege-separated.  ndhc does not run as root after initial startup,
+*Privilege-separated*.  ndhc does not run as root after initial startup,
 and capabilities are divided between the subprocesses.  All processes
 run in a chroot.
 
-Robust.  ndhc performs no runtime heap allocations -- `malloc()` (more
+*Robust*.  ndhc performs no runtime heap allocations -- `malloc()` (more
 specifically, `brk()`, `mmap()`, etc) is never called after initialization
 (libc behavior during initialization time will vary), and ndhc never
 performs recursive calls and only stack-allocates fixed-length types,
 so stack depth is bounded, too.
 
-Active defense of IP address and IP collision avoidance.  ndhc fully
+*Active defense of IP address and IP collision avoidance*.  ndhc fully
 implements RFC5227.  It is capable of both a normal level of tenacity in
 defense, where it will eventually back off and request a new lease if a
 peer won't relent in the case of a conflict, and of relentlessly defending
 a lease forever.  In either mode, it rate-limits defense messages, so it
 can't be tricked into flooding by a hostile peer or DHCP server, either.
 
-Small.  Both ndhc avoids unnecessary outside dependencies and is written
+*Small*.  Both ndhc avoids unnecessary outside dependencies and is written
 in plain C.
 
-Fast.  ndhc filters input using the BPF/LPF mechanism so that
+*Fast*.  ndhc filters input using the BPF/LPF mechanism so that
 uninteresting packets are dropped by the operating system before ndhc
 even sees the data.  ndhc also only listens to DHCP traffic when it's
 necessary.
 
-Flexible.  ndhc can request particular IPs, send user-specified client
+*Flexible*.  ndhc can request particular IPs, send user-specified client
 IDs, write a file that contains the current lease IP, write PID files,
 etc.
 
-Self-contained.  ndhc does not exec other processes, or rely on the shell.
+*Self-contained*.  ndhc does not exec other processes, or rely on the shell.
 Further, ndhc relies on no external libraries aside from the system libc.
 
-Aware of the hardware link status.  If you disconnect an interface on
+*Aware of the hardware link status*.  If you disconnect an interface on
 which ndhc is providing DHCP service, it will be aware.  When the link
 status returns, ndhc will fingerprint the reconnected network and make
 sure that it corresponds to the one on which it has a lease.  If the new
@@ -104,7 +104,7 @@ Compile and install ndhc.
 * Install the `ndhc/ndhc` executable in a normal place.  I would
   suggest `/usr/sbin` or `/usr/local/sbin`.
 
-Time to create the jail in which ndhc will run. Become root and create new group "ndhc".
+Time to create the jail in which ndhc will run. Become root and create new group `ndhc`.
 ```
 $ su -
 # umask 077
