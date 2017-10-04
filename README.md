@@ -186,9 +186,9 @@ be specified using the `-I` or `--clientid` command arguments.
 
 ## Downloads
 
-* [GitLab](https://github.com/niklata/ndhc)
-* [BitBucket](https://gitlab.com/niklata/ndhc)
-* [GitHub](https://bitbucket.com/niklata/ndhc)
+* [GitLab](https://gitlab.com/niklata/ndhc)
+* [BitBucket](https://bitbucket.com/niklata/ndhc)
+* [GitHub](https://github.com/niklata/ndhc)
 
 ## Porting Notes
 
