@@ -45,7 +45,6 @@
 #include "nk/signals.h"
 #include "nk/io.h"
 
-#include "seccomp.h"
 #include "ifchd.h"
 #include "ndhc.h"
 #include "ifchd-parse.h"
@@ -345,9 +344,6 @@ static void do_ifch_work(void)
     epollfd = epoll_create1(0);
     if (epollfd < 0)
         suicide("epoll_create1 failed");
-
-    if (enforce_seccomp_ifch())
-        log_line("ifch seccomp filter cannot be installed");
 
     cl.state = STATE_NOTHING;
     memset(cl.ibuf, 0, sizeof cl.ibuf);

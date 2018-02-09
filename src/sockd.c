@@ -57,7 +57,6 @@
 #include "ndhc.h"
 #include "dhcp.h"
 #include "sys.h"
-#include "seccomp.h"
 
 static int epollfd, signalFd;
 /* Slots are for signalFd and the ndhc -> ifchd socket. */
@@ -554,9 +553,6 @@ static void do_sockd_work(void)
     epollfd = epoll_create1(0);
     if (epollfd < 0)
         suicide("epoll_create1 failed");
-
-    if (enforce_seccomp_sockd())
-        log_line("sockd seccomp filter cannot be installed");
 
     epoll_add(epollfd, sockdSock[1]);
     epoll_add(epollfd, sockdStream[1]);

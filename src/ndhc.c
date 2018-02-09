@@ -57,7 +57,6 @@
 #include "ndhc.h"
 #include "ndhc-defines.h"
 #include "cfg.h"
-#include "seccomp.h"
 #include "state.h"
 #include "options.h"
 #include "dhcp.h"
@@ -145,9 +144,6 @@ void show_usage(void)
 "  -D, --sockd-user=USER           Change ndhc-sockd privileges to this user\n"
 "  -C, --chroot=DIR                Chroot to this directory\n"
 "  -s, --state-dir=DIR             State storage dir (default: /etc/ndhc)\n"
-#ifdef ENABLE_SECCOMP_FILTER
-"  -S, --seccomp-enforce           Enforce seccomp syscall restrictions\n"
-#endif
 "  -d, --relentless-defense        Never back off in defending IP against\n"
 "                                  conflicting hosts (servers only)\n"
 "  -w, --arp-probe-wait            Time to delay before first ARP probe\n"
@@ -269,9 +265,6 @@ static void do_ndhc_work(void)
     cs.epollFd = epoll_create1(0);
     if (cs.epollFd < 0)
         suicide("epoll_create1 failed");
-
-    if (enforce_seccomp_ndhc())
-        log_line("ndhc seccomp filter cannot be installed");
 
     setup_signals_ndhc();
 

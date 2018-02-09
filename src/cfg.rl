@@ -11,7 +11,6 @@
 #include "ndhc.h"
 #include "ifchd.h"
 #include "sockd.h"
-#include "seccomp.h"
 #include "nk/log.h"
 #include "nk/privilege.h"
 #include "nk/copy_cmdarg.h"
@@ -108,10 +107,8 @@ struct cfgparse {
         copy_cmdarg(state_dir, ccfg.buf, sizeof state_dir, "state-dir");
     }
     action seccomp_enforce {
-        switch (ccfg.ternary) {
-        case 1: seccomp_enforce = true; break;
-        case -1: seccomp_enforce = false; default: break;
-        }
+        log_line("seccomp_enforce option is deprecated; please remove it");
+        log_line("In the meanwhile, it is ignored and seccomp is disabled.");
     }
     action relentless_defense {
         switch (ccfg.ternary) {

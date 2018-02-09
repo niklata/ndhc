@@ -101,15 +101,6 @@ hostname option field provided by a remote DHCP server on the request of
 a ndhc client.  If this option is not specified, ndhc will never change
 the system hostname.
 .TP
-.BI \-S ,\  \-\-seccomp\-enforce
-Enforces seccomp-based syscall whitelisting.  System calls that ndhc and
-ndhc-ifch are not expected to need are prohibited from being called if this
-flag is set.  The lists of allowed syscalls are hardcoded, and attempts
-to call a non-listed syscall will result in the ndhc process being
-terminated.  As systems vary, it cannot be guaranteed that these system
-call lists are accurate for your system, and thus seccomp filtering will
-not be used unless this flag is set.
-.TP
 .BI \-w\  TIMEMS ,\  \-\-arp\-probe\-wait= TIMEMS
 Adjusts the time that we wait for an ARP response when checking to see if
 our lease assignment is already taken by an existing host.  Default is
