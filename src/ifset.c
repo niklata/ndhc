@@ -149,7 +149,7 @@ static ssize_t rtnl_do_send(int fd, const uint8_t *sbuf, size_t slen,
     return -1;
 }
 
-static ssize_t rtnl_if_flags_send(int fd, int type, int ifi_flags)
+static ssize_t rtnl_if_flags_send(int fd, int type, unsigned ifi_flags)
 {
     uint8_t request[NLMSG_ALIGN(sizeof(struct nlmsghdr)) +
                     NLMSG_ALIGN(sizeof(struct ifinfomsg))];
@@ -199,7 +199,8 @@ static ssize_t rtnl_addr_broadcast_send(int fd, int type, int ifa_flags,
     ifaddrmsg->ifa_prefixlen = prefixlen;
     ifaddrmsg->ifa_flags = ifa_flags;
     ifaddrmsg->ifa_scope = ifa_scope;
-    ifaddrmsg->ifa_index = client_config.ifindex;
+    // Linux is inconsistent about the type of ifindex.
+    ifaddrmsg->ifa_index = (uint32_t)client_config.ifindex;
 
     if (ipaddr) {
         if (nl_add_rtattr(header, sizeof request, IFA_LOCAL,
@@ -316,8 +317,7 @@ static int link_flags_get(int fd, uint32_t flags[static 1])
         ret = nl_recv_buf(fd, nlbuf, sizeof nlbuf);
         if (ret < 0)
             return -2;
-        if (nl_foreach_nlmsg(nlbuf, ret, seq, 0, link_flags_get_do,
-                             &ipx) < 0)
+        if (nl_foreach_nlmsg(nlbuf, (size_t)ret, seq, 0, link_flags_get_do, &ipx) < 0)
             return -3;
     } while (ret > 0);
     if (ipx.got_flags) {
@@ -444,14 +444,14 @@ static int ipbcpfx_clear_others(int fd, uint32_t ipaddr, uint32_t bcast,
                            .prefixlen = prefixlen, .already_ok = false };
     ssize_t ret;
     uint32_t seq = ifset_nl_seq++;
-    if (nl_sendgetaddr4(fd, seq, client_config.ifindex) < 0)
+    if (nl_sendgetaddr4(fd, seq, (uint32_t)client_config.ifindex) < 0)
         return -1;
 
     do {
         ret = nl_recv_buf(fd, nlbuf, sizeof nlbuf);
         if (ret < 0)
             return -2;
-        if (nl_foreach_nlmsg(nlbuf, ret, seq, 0,
+        if (nl_foreach_nlmsg(nlbuf, (size_t)ret, seq, 0,
                              ipbcpfx_clear_others_do, &ipx) < 0)
             return -3;
     } while (ret > 0);

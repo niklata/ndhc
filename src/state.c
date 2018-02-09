@@ -70,7 +70,7 @@ static int delay_timeout(struct client_state_t cs[static 1], size_t numpackets)
     if (numpackets < sizeof tot)
         to = tot[numpackets];
     // Distribution is a bit biased but it doesn't really matter.
-    return to * 1000 + (nk_random_u32(&cs->rnd_state) & 0x7fffffffu) % 1000;
+    return to * 1000 + (int)(nk_random_u32(&cs->rnd_state) % 1000);
 }
 
 static void reinit_shared_deconfig(struct client_state_t cs[static 1])

@@ -40,7 +40,7 @@ struct client_state_t {
     long long dhcp_wake_ts;
     int ifDeconfig; // Set if the interface has already been deconfigured.
     int epollFd, signalFd, listenFd, arpFd, nlFd, rfkillFd;
-    int nlPortId;
+    uint32_t nlPortId;
     unsigned int num_dhcp_requests;
     uint32_t clientAddr, serverAddr, srcAddr, routerAddr;
     uint32_t lease, xid;

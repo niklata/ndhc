@@ -95,7 +95,7 @@ static int write_append_fd(int to_fd, int from_fd, const char descr[static 1])
     }
 
     char buf[4096];
-    size_t from_fd_len = lse;
+    size_t from_fd_len = (size_t)lse;
     while (from_fd_len > 0) {
         const size_t to_read = from_fd_len <= sizeof buf ? from_fd_len : sizeof buf;
         ssize_t r = safe_read(from_fd, buf, to_read);

@@ -80,7 +80,7 @@ struct client_state_t cs = {
     .listenFd = -1,
     .arpFd = -1,
     .nlFd = -1,
-    .nlPortId = -1,
+    .nlPortId = 0,
     .rfkillFd = -1,
     .dhcp_wake_ts = -1,
     .routerArp = "\0\0\0\0\0\0",
@@ -357,7 +357,7 @@ static void do_ndhc_work(void)
             // We can't do anything while the iface is disabled, anyway.
             // Suspend might cause link state change notifications to be
             // missed, so we use a non-infinite timeout.
-            timeout = 2000 + nk_random_u32(&cs.rnd_state) % 3000;
+            timeout = 2000 + (int)(nk_random_u32(&cs.rnd_state) % 3000);
             continue;
         }
 
@@ -370,7 +370,7 @@ static void do_ndhc_work(void)
                                   arp_wake_ts <= nowts, sev_signal);
 
         if (dhcp_ok == COR_ERROR) {
-            timeout = 2000 + nk_random_u32(&cs.rnd_state) % 3000;
+            timeout = 2000 + (int)(nk_random_u32(&cs.rnd_state) % 3000);
             continue;
         }
 

@@ -49,14 +49,14 @@ static struct dhcpmsg cfg_packet; // Copy of the current configuration packet.
 
 static int ifcmd_raw(char buf[static 1], size_t buflen,
                      const char optname[static 1],
-                     char *optdata, ssize_t optlen)
+                     char *optdata, size_t optlen)
 {
     if (!optdata) {
         log_warning("%s: (%s) '%s' option has no data",
                     client_config.interface, __func__, optname);
         return -1;
     }
-    if (optlen > INT_MAX || optlen < 0) {
+    if (optlen > INT_MAX) {
         log_warning("%s: (%s) '%s' option optlen out of bounds",
                     client_config.interface, __func__, optname);
         return -1;
@@ -80,14 +80,14 @@ static int ifcmd_raw(char buf[static 1], size_t buflen,
 
 static int ifcmd_bytes(char buf[static 1], size_t buflen,
                        const char optname[static 1],
-                       uint8_t *optdata, ssize_t optlen)
+                       uint8_t *optdata, size_t optlen)
 {
     return ifcmd_raw(buf, buflen, optname, (char *)optdata, optlen);
 }
 
 static int ifcmd_u8(char buf[static 1], size_t buflen,
                     const char optname[static 1],
-                    uint8_t *optdata, ssize_t optlen)
+                    uint8_t *optdata, size_t optlen)
 {
     if (!optdata || optlen < 1)
         return -1;
@@ -101,7 +101,7 @@ static int ifcmd_u8(char buf[static 1], size_t buflen,
 
 static int ifcmd_u16(char buf[static 1], size_t buflen,
                      const char optname[static 1],
-                     uint8_t *optdata, ssize_t optlen)
+                     uint8_t *optdata, size_t optlen)
 {
     if (!optdata || optlen < 2)
         return -1;
@@ -117,12 +117,12 @@ static int ifcmd_u16(char buf[static 1], size_t buflen,
 
 static int ifcmd_s32(char buf[static 1], size_t buflen,
                      const char optname[static 1],
-                     uint8_t *optdata, ssize_t optlen)
+                     uint8_t *optdata, size_t optlen)
 {
     if (!optdata || optlen < 4)
         return -1;
     char numbuf[16];
-    int32_t v;
+    uint32_t v;
     memcpy(&v, optdata, 4);
     v = ntohl(v);
     ssize_t olen = snprintf(numbuf, sizeof numbuf, "%d", v);
@@ -133,7 +133,7 @@ static int ifcmd_s32(char buf[static 1], size_t buflen,
 
 static int ifcmd_ip(char buf[static 1], size_t buflen,
                     const char optname[static 1],
-                    uint8_t *optdata, ssize_t optlen)
+                    uint8_t *optdata, size_t optlen)
 {
     if (!optdata || optlen < 4)
         return -1;
@@ -144,7 +144,7 @@ static int ifcmd_ip(char buf[static 1], size_t buflen,
 
 static int ifcmd_iplist(char out[static 1], size_t outlen,
                         const char optname[static 1],
-                        uint8_t *optdata, ssize_t optlen)
+                        uint8_t *optdata, size_t optlen)
 {
     char buf[2048];
     char ipbuf[INET_ADDRSTRLEN];
@@ -159,20 +159,20 @@ static int ifcmd_iplist(char out[static 1], size_t outlen,
     if (wc < 0 || (size_t)wc >= sizeof buf)
         return -1;
     optoff += 4;
-    bufoff += wc;
-    while (optlen - optoff >= 4) {
+    bufoff += (size_t)wc;
+    while (optlen >= 4 + optoff) {
         inet_ntop(AF_INET, optdata + optoff, ipbuf, sizeof ipbuf);
         wc = snprintf(buf + bufoff, sizeof buf, ",%s", ipbuf);
         if (wc < 0 || (size_t)wc >= sizeof buf)
             return -1;
         optoff += 4;
-        bufoff += wc;
+        bufoff += (size_t)wc;
     }
     return ifcmd_raw(out, outlen, optname, buf, strlen(buf));
 }
 
 static int ifchd_cmd(char b[static 1], size_t bl, uint8_t *od,
-                     ssize_t ol, uint8_t code)
+                     size_t ol, uint8_t code)
 {
     switch (code) {
     case DCODE_ROUTER: return ifcmd_ip(b, bl, "routr", od, ol);
@@ -196,7 +196,7 @@ static int ifchwrite(const char buf[static 1], size_t count)
 {
     ssize_t r = safe_write(ifchSock[0], buf, count);
     if (r < 0 || (size_t)r != count) {
-        log_error("%s: (%s) write failed: %d", client_config.interface);
+        log_error("%s: (%s) write failed: %d", client_config.interface, __func__, r);
         return -1;
     }
     char data[256], control[256];
@@ -255,7 +255,7 @@ static size_t send_client_ip(char out[static 1], size_t olen,
 {
     uint8_t optdata[MAX_DOPT_SIZE], olddata[MAX_DOPT_SIZE];
     char ip[INET_ADDRSTRLEN], sn[INET_ADDRSTRLEN], bc[INET_ADDRSTRLEN];
-    ssize_t optlen, oldlen;
+    size_t optlen, oldlen;
     bool change_ipaddr = false;
     bool have_subnet = false;
     bool change_subnet = false;
@@ -309,14 +309,14 @@ static size_t send_client_ip(char out[static 1], size_t olen,
         memset(out, 0, olen);
         return 0;
     }
-    return snlen;
+    return (size_t)snlen;
 }
 
 static size_t send_cmd(char out[static 1], size_t olen,
                        struct dhcpmsg packet[static 1], uint8_t code)
 {
     uint8_t optdata[MAX_DOPT_SIZE], olddata[MAX_DOPT_SIZE];
-    ssize_t optlen, oldlen;
+    size_t optlen, oldlen;
 
     optlen = get_dhcp_opt(packet, code, optdata, sizeof optdata);
     if (!optlen)
@@ -325,7 +325,7 @@ static size_t send_cmd(char out[static 1], size_t olen,
     if (oldlen == optlen && !memcmp(optdata, olddata, optlen))
         return 0;
     int r = ifchd_cmd(out, olen, optdata, optlen, code);
-    return r > 0 ? r : 0;
+    return r > 0 ? (size_t)r : 0;
 }
 
 int ifchange_bind(struct client_state_t cs[static 1],

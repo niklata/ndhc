@@ -169,7 +169,7 @@ struct cfgparse {
         }
     }
     action rfkill_idx {
-        uint32_t t = atoi(ccfg.buf);
+        uint32_t t = (uint32_t)atoi(ccfg.buf);
         client_config.rfkillIdx = t;
         client_config.enable_rfkill = true;
     }
@@ -250,7 +250,7 @@ static void parse_cfgfile(const char fname[static 1])
         if (rc == 0) {
             l[lc] = '\n'; rc = 1; reached_eof = true; // Emulate a LF to terminate the line.
         }
-        lc += rc;
+        lc += (size_t)rc;
 
         size_t lstart = 0, lend = 0, consumed = 0;
         for (; lend < lc; ++lend) {
@@ -350,7 +350,7 @@ void parse_cmdline(int argc, char *argv[])
             snl = snprintf(argb + argbl, sizeof argb - argbl, "%s", argv[i]);
         if (snl < 0 || (size_t)snl >= sizeof argb)
             suicide("error parsing command line option: option too long");
-        argbl += snl;
+        argbl += (size_t)snl;
     }
     if (argbl == 0)
         return;

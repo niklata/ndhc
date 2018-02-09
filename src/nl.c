@@ -148,7 +148,7 @@ int nl_foreach_nlmsg(char buf[static 1], size_t blen, uint32_t seq, uint32_t por
     return 0;
 }
 
-static int nl_sendgetlink_do(int fd, int seq, int ifindex, int by_ifindex)
+static int nl_sendgetlink_do(int fd, uint32_t seq, int ifindex, int by_ifindex)
 {
     char nlbuf[512];
     struct nlmsghdr *nlh = (struct nlmsghdr *)nlbuf;
@@ -182,17 +182,17 @@ static int nl_sendgetlink_do(int fd, int seq, int ifindex, int by_ifindex)
     return 0;
 }
 
-int nl_sendgetlinks(int fd, int seq)
+int nl_sendgetlinks(int fd, uint32_t seq)
 {
     return nl_sendgetlink_do(fd, seq, 0, 0);
 }
 
-int nl_sendgetlink(int fd, int seq, int ifindex)
+int nl_sendgetlink(int fd, uint32_t seq, int ifindex)
 {
     return nl_sendgetlink_do(fd, seq, ifindex, 1);
 }
 
-static int nl_sendgetaddr_do(int fd, int seq, int ifindex, int by_ifindex,
+static int nl_sendgetaddr_do(int fd, uint32_t seq, uint32_t ifindex, int by_ifindex,
                              int afamily, int by_afamily)
 {
     char nlbuf[512];
@@ -228,37 +228,37 @@ static int nl_sendgetaddr_do(int fd, int seq, int ifindex, int by_ifindex,
     return 0;
 }
 
-int nl_sendgetaddrs(int fd, int seq)
+int nl_sendgetaddrs(int fd, uint32_t seq)
 {
     return nl_sendgetaddr_do(fd, seq, 0, 0, 0, 0);
 }
 
-int nl_sendgetaddrs4(int fd, int seq)
+int nl_sendgetaddrs4(int fd, uint32_t seq)
 {
     return nl_sendgetaddr_do(fd, seq, 0, 0, AF_INET, 1);
 }
 
-int nl_sendgetaddrs6(int fd, int seq)
+int nl_sendgetaddrs6(int fd, uint32_t seq)
 {
     return nl_sendgetaddr_do(fd, seq, 0, 0, AF_INET6, 1);
 }
 
-int nl_sendgetaddr(int fd, int seq, int ifindex)
+int nl_sendgetaddr(int fd, uint32_t seq, uint32_t ifindex)
 {
     return nl_sendgetaddr_do(fd, seq, ifindex, 1, 0, 0);
 }
 
-int nl_sendgetaddr4(int fd, int seq, int ifindex)
+int nl_sendgetaddr4(int fd, uint32_t seq, uint32_t ifindex)
 {
     return nl_sendgetaddr_do(fd, seq, ifindex, 1, AF_INET, 1);
 }
 
-int nl_sendgetaddr6(int fd, int seq, int ifindex)
+int nl_sendgetaddr6(int fd, uint32_t seq, uint32_t ifindex)
 {
     return nl_sendgetaddr_do(fd, seq, ifindex, 1, AF_INET6, 1);
 }
 
-int nl_open(int nltype, int nlgroup, int *nlportid)
+int nl_open(int nltype, unsigned nlgroup, uint32_t *nlportid)
 {
     int fd;
     fd = socket(AF_NETLINK, SOCK_RAW | SOCK_NONBLOCK | SOCK_CLOEXEC, nltype);

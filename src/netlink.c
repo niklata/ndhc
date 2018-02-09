@@ -99,8 +99,7 @@ int nl_event_get(struct client_state_t cs[static 1])
         ret = nl_recv_buf(cs->nlFd, nlbuf, sizeof nlbuf);
         if (ret < 0)
             break;
-        if (nl_foreach_nlmsg(nlbuf, ret, 0, cs->nlPortId, nl_process_msgs, 0)
-            < 0)
+        if (nl_foreach_nlmsg(nlbuf, (size_t)ret, 0, cs->nlPortId, nl_process_msgs, 0) < 0)
             break;
     } while (ret > 0);
     return nl_process_msgs_return;
@@ -155,7 +154,7 @@ static int handle_getifdata(int fd, uint32_t seq)
         ret = nl_recv_buf(fd, nlbuf, sizeof nlbuf);
         if (ret < 0)
             return -1;
-        if (nl_foreach_nlmsg(nlbuf, ret, seq, 0,
+        if (nl_foreach_nlmsg(nlbuf, (size_t)ret, seq, 0,
                              do_handle_getifdata, &got_ifdata) < 0)
             return -1;
     } while (ret > 0);

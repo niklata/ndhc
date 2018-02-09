@@ -31,6 +31,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include "nk/log.h"
+#include <limits.h>
 
 #include "options.h"
 
@@ -74,10 +75,10 @@ static int overload_value(const struct dhcpmsg * const packet)
     return ol; // ol == 0
 }
 
-static void do_get_dhcp_opt(const uint8_t *sbuf, ssize_t slen, uint8_t code,
-                            uint8_t *dbuf, ssize_t dlen, ssize_t *didx)
+static void do_get_dhcp_opt(const uint8_t *sbuf, size_t slen, uint8_t code,
+                            uint8_t *dbuf, size_t dlen, size_t *didx)
 {
-    ssize_t i = 0;
+    size_t i = 0;
     while (i < slen) {
         if (sbuf[i] == DCODE_PADDING) {
             ++i;
@@ -87,11 +88,11 @@ static void do_get_dhcp_opt(const uint8_t *sbuf, ssize_t slen, uint8_t code,
             break;
         if (i >= slen - 2)
             break;
-        ssize_t soptsiz = sbuf[i+1];
+        size_t soptsiz = sbuf[i+1];
         if (sbuf[i] == code) {
-            if (dlen - *didx < soptsiz)
+            if (dlen < soptsiz + *didx)
                 return;
-            if (slen - i - 2 < soptsiz)
+            if (slen < soptsiz + i + 2)
                 return;
             memcpy(dbuf + *didx, sbuf+i+2, soptsiz);
             *didx += soptsiz;
@@ -100,11 +101,11 @@ static void do_get_dhcp_opt(const uint8_t *sbuf, ssize_t slen, uint8_t code,
     }
 }
 
-ssize_t get_dhcp_opt(const struct dhcpmsg * const packet, uint8_t code,
-                     uint8_t *dbuf, ssize_t dlen)
+size_t get_dhcp_opt(const struct dhcpmsg * const packet, uint8_t code,
+                     uint8_t *dbuf, size_t dlen)
 {
     int ol = overload_value(packet);
-    ssize_t didx = 0;
+    size_t didx = 0;
     do_get_dhcp_opt(packet->options, sizeof packet->options, code,
                     dbuf, dlen, &didx);
     if (ol & 1)
@@ -121,12 +122,12 @@ ssize_t get_end_option_idx(const struct dhcpmsg * const packet)
 {
     for (size_t i = 0; i < sizeof packet->options; ++i) {
         if (packet->options[i] == DCODE_END)
-            return i;
+            return (ssize_t)i;
         if (packet->options[i] == DCODE_PADDING)
             continue;
         if (i + 1 >= sizeof packet->options)
             break;
-        i += packet->options[i+1] + 1;
+        i += (size_t)packet->options[i+1] + 1;
     }
     log_warning("get_end_option_idx: Did not find DCODE_END marker.");
     return -1;
@@ -156,14 +157,14 @@ size_t add_option_string(struct dhcpmsg *packet, uint8_t code,
         log_warning("add_option_string: Buffer has no DCODE_END marker.");
         return 0;
     }
-    if (end + len >= sizeof packet->options) {
+    if ((size_t)end + len >= sizeof packet->options) {
         log_warning("add_option_string: No space for option 0x%02x.", code);
         return 0;
     }
     packet->options[end] = code;
     packet->options[end+1] = slen;
     memcpy(packet->options + end + 2, str, slen);
-    packet->options[end+len] = DCODE_END;
+    packet->options[(size_t)end+len] = DCODE_END;
     return len;
 }
 
@@ -304,10 +305,9 @@ void add_option_hostname(struct dhcpmsg *packet, const char * const hostname,
 
 uint32_t get_option_router(const struct dhcpmsg * const packet)
 {
-    ssize_t ol;
     uint32_t ret = 0;
     uint8_t buf[MAX_DOPT_SIZE];
-    ol = get_dhcp_opt(packet, DCODE_ROUTER, buf, sizeof buf);
+    const size_t ol = get_dhcp_opt(packet, DCODE_ROUTER, buf, sizeof buf);
     if (ol == sizeof ret)
         memcpy(&ret, buf, sizeof ret);
     return ret;
@@ -315,10 +315,9 @@ uint32_t get_option_router(const struct dhcpmsg * const packet)
 
 uint8_t get_option_msgtype(const struct dhcpmsg * const packet)
 {
-    ssize_t ol;
     uint8_t ret = 0;
     uint8_t buf[MAX_DOPT_SIZE];
-    ol = get_dhcp_opt(packet, DCODE_MSGTYPE, buf, sizeof buf);
+    const size_t ol = get_dhcp_opt(packet, DCODE_MSGTYPE, buf, sizeof buf);
     if (ol == sizeof ret)
         ret = buf[0];
     return ret;
@@ -326,11 +325,10 @@ uint8_t get_option_msgtype(const struct dhcpmsg * const packet)
 
 uint32_t get_option_serverid(const struct dhcpmsg *const packet, int *found)
 {
-    ssize_t ol;
     uint32_t ret = 0;
     uint8_t buf[MAX_DOPT_SIZE];
     *found = 0;
-    ol = get_dhcp_opt(packet, DCODE_SERVER_ID, buf, sizeof buf);
+    const size_t ol = get_dhcp_opt(packet, DCODE_SERVER_ID, buf, sizeof buf);
     if (ol == sizeof ret) {
         *found = 1;
         memcpy(&ret, buf, sizeof ret);
@@ -340,10 +338,9 @@ uint32_t get_option_serverid(const struct dhcpmsg *const packet, int *found)
 
 uint32_t get_option_leasetime(const struct dhcpmsg * const packet)
 {
-    ssize_t ol;
     uint32_t ret = 0;
     uint8_t buf[MAX_DOPT_SIZE];
-    ol = get_dhcp_opt(packet, DCODE_LEASET, buf, sizeof buf);
+    const size_t ol = get_dhcp_opt(packet, DCODE_LEASET, buf, sizeof buf);
     if (ol == sizeof ret) {
         memcpy(&ret, buf, sizeof ret);
         ret = ntohl(ret);
@@ -357,8 +354,6 @@ size_t get_option_clientid(const struct dhcpmsg * const packet, char *cbuf,
 {
     if (clen < 1)
         return 0;
-    ssize_t ol = get_dhcp_opt(packet, DCODE_CLIENT_ID,
-                              (uint8_t *)cbuf, clen);
-    return ol > 0 ? ol : 0;
+    return get_dhcp_opt(packet, DCODE_CLIENT_ID, (uint8_t *)cbuf, clen);
 }
 

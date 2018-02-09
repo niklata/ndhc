@@ -395,9 +395,10 @@ static int arp_is_query_reply(struct arpMsg am[static 1])
 
 static int arp_gen_probe_wait(struct client_state_t cs[static 1])
 {
+    int range = arp_probe_max - arp_probe_min;
+    if (range < 1000) range = 1000;
     // This is not a uniform distribution but it doesn't matter here.
-    return arp_probe_min + (nk_random_u32(&cs->rnd_state) & 0x7fffffffu)
-        % (arp_probe_max - arp_probe_min);
+    return arp_probe_min + (int)(nk_random_u32(&cs->rnd_state) % (unsigned)range);
 }
 
 int arp_defense_timeout(struct client_state_t cs[static 1], long long nowts)

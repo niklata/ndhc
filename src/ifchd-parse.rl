@@ -43,26 +43,26 @@
 
     action XSt { arg_start = p; }
     action IpEn {
-        arg_len = p - arg_start;
-        if (arg_len < sizeof ip4_addr) {
+        ptrdiff_t arg_len = p - arg_start;
+        if (arg_len > 0 && (size_t)arg_len < sizeof ip4_addr) {
             have_ip = true;
-            memcpy(ip4_addr, arg_start, arg_len);
+            memcpy(ip4_addr, arg_start, (size_t)arg_len);
         }
         ip4_addr[arg_len] = 0;
     }
     action SnEn {
-        arg_len = p - arg_start;
-        if (arg_len < sizeof ip4_subnet) {
+        ptrdiff_t arg_len = p - arg_start;
+        if (arg_len > 0 && (size_t)arg_len < sizeof ip4_subnet) {
             have_subnet = true;
-            memcpy(ip4_subnet, arg_start, arg_len);
+            memcpy(ip4_subnet, arg_start, (size_t)arg_len);
         }
         ip4_subnet[arg_len] = 0;
     }
     action BcEn {
-        arg_len = p - arg_start;
-        if (arg_len < sizeof ip4_bcast) {
+        ptrdiff_t arg_len = p - arg_start;
+        if (arg_len > 0 && (size_t)arg_len < sizeof ip4_bcast) {
             have_ip = true;
-            memcpy(ip4_bcast, arg_start, arg_len);
+            memcpy(ip4_bcast, arg_start, (size_t)arg_len);
         }
         ip4_bcast[arg_len] = 0;
     }
@@ -85,7 +85,6 @@ static int perform_ip4set(const char buf[static 1], size_t len)
     const char *pe = p + len;
     const char *eof = pe;
     const char *arg_start;
-    size_t arg_len;
     int cs = 0;
     bool have_ip = false;
     bool have_subnet = false;
@@ -119,11 +118,12 @@ static int perform_ip4set(const char buf[static 1], size_t len)
     action Reset { cl.state = STATE_NOTHING; }
     action ArgSt { arg_start = p; }
     action ArgEn {
-        arg_len = p - arg_start;
-        if (arg_len > sizeof tb - 1) {
+        ptrdiff_t al = p - arg_start;
+        if (al < 0 || (size_t)al > sizeof tb - 1) {
             log_line("command argument would overflow");
             return -99;
         }
+        arg_len = (size_t)al;
         memcpy(tb, arg_start, arg_len);
         tb[arg_len] = 0;
     }
@@ -144,9 +144,11 @@ static int perform_ip4set(const char buf[static 1], size_t len)
         case STATE_WINS: pr = perform_wins(tb, arg_len); break;
         case STATE_CARRIER: pr = perform_carrier(); break;
         default:
+            arg_len = 0;
             log_line("error: invalid state in dispatch_work");
             return -99;
         }
+        arg_len = 0;
         if (pr == -99)
             return -99;
         cmdf |= pr;
@@ -210,13 +212,14 @@ int execute_buffer(const char newbuf[static 1])
     const char *p = buf;
     const char *pe = p + init_siz;
     const char *arg_start;
-    size_t arg_len;
+    size_t arg_len = 0;
     int cs = 0;
 
     %% write init;
     %% write exec;
 
-    size_t bytes_left = pe - p;
+    ptrdiff_t blt = pe - p;
+    size_t bytes_left = blt >= 0 ? (size_t)blt : 0;
     if (bytes_left > 0) {
         size_t taken = init_siz - bytes_left;
         ssize_t ilen = snprintf(cl.ibuf, sizeof cl.ibuf, "%s", buf + taken);

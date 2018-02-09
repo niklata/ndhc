@@ -106,8 +106,14 @@ static ssize_t send_dhcp_unicast(struct client_state_t cs[static 1],
                   client_config.interface, __func__);
         goto out_fd;
     }
+    const size_t el = (size_t)endloc + 1;
+    if (el > sizeof payload->options) {
+        log_error("%s: (%s) Invalid value of endloc.  Not sending.",
+                  client_config.interface, __func__);
+        goto out_fd;
+    }
     size_t payload_len =
-        sizeof *payload - (sizeof payload->options - 1 - endloc);
+        sizeof *payload - (sizeof payload->options - el);
     if (!carrier_isup()) {
         log_error("%s: (%s) carrier down; write would fail",
                   client_config.interface, __func__);
@@ -213,8 +219,7 @@ static ssize_t get_raw_packet(struct client_state_t cs[static 1],
     }
     size_t l = iphdrlen - sizeof packet.ip - sizeof packet.udp;
     if (l > sizeof *payload) {
-        log_error("%s: Packet received that is too long (%zu bytes).",
-                  l);
+        log_error("%s: Packet received that is too long (%zu bytes).", l);
         return -2;
     }
     if (packet.udp.check && !udp_checksum(&packet)) {
@@ -225,7 +230,7 @@ static ssize_t get_raw_packet(struct client_state_t cs[static 1],
     if (srcaddr)
         *srcaddr = packet.ip.saddr;
     memcpy(payload, &packet.data, l);
-    return l;
+    return (ssize_t)l;
 }
 
 // Broadcast a DHCP message using a raw socket.
@@ -247,7 +252,14 @@ static ssize_t send_dhcp_raw(struct dhcpmsg payload[static 1])
         close(fd);
         return ret;
     }
-    size_t padding = sizeof payload->options - 1 - endloc;
+    const size_t el = (size_t)endloc + 1;
+    if (el > sizeof payload->options) {
+        log_error("%s: (%s) Invalid value of endloc.  Not sending.",
+                  client_config.interface, __func__);
+        close(fd);
+        return ret;
+    }
+    size_t padding = sizeof payload->options - el;
     size_t iud_len = sizeof(struct ip_udp_dhcp_packet) - padding;
     size_t ud_len = sizeof(struct udp_dhcp_packet) - padding;
 
@@ -415,7 +427,7 @@ static void add_options_vendor_hostname(struct dhcpmsg packet[static 1])
 }
 
 // Initialize a DHCP client packet that will be sent to a server
-static void init_packet(struct dhcpmsg packet[static 1], char type)
+static void init_packet(struct dhcpmsg packet[static 1], uint8_t type)
 {
     packet->op = 1; // BOOTREQUEST (client)
     packet->htype = 1; // ETH_10MB
