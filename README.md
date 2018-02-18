@@ -1,5 +1,5 @@
 # ndhc
-Copyright (C) 2004-2017 Nicholas J. Kain.
+Copyright (C) 2004-2018 Nicholas J. Kain.
 
 See LICENSE for licensing information.  In short: Two-clause / New BSD.
 
@@ -61,7 +61,7 @@ peer won't relent in the case of a conflict, and of relentlessly defending
 a lease forever.  In either mode, it rate-limits defense messages, so it
 can't be tricked into flooding by a hostile peer or DHCP server, either.
 
-*Small*.  Both ndhc avoids unnecessary outside dependencies and is written
+*Small*.  ndhc avoids unnecessary outside dependencies and is written
 in plain C.
 
 *Fast*.  ndhc filters input using the BPF/LPF mechanism so that
@@ -110,7 +110,8 @@ $ su -
 # umask 077
 # groupadd ndhc
 ```
-Create new users `dhcpifch` and `dhcp`.  The primary group of these users should be `ndhc`.
+Create new users `dhcpsockd`, `dhcpifch` and `dhcp`.  The primary group of
+these users should be `ndhc`.
 ```
 # useradd -d /var/lib/ndhc -s /sbin/nologin -g ndhc dhcpsockd
 # useradd -d /var/lib/ndhc -s /sbin/nologin -g ndhc dhcpifch
@@ -216,7 +217,4 @@ on most modern unix systems, but it is not standard.
 
 * Numerous socket options are used, and the `AF_PACKET` socket family
 is used for raw sockets and ARP.  These are largely Linux-specific, too.
-
-* ndhc can optionally use seccomp-filter to allow only a set of
-whitelisted syscalls.  This functionality is Linux-specific.
 
