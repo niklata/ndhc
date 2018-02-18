@@ -1,6 +1,6 @@
 /* state.c - high level DHCP state machine
  *
- * Copyright (c) 2011-2017 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright (c) 2011-2018 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
