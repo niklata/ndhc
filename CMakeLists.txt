@@ -1,6 +1,9 @@
-project (ndhc)
-
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required(VERSION 3.3)
+if(${CMAKE_VERSION} VERSION_LESS 3.12)
+  cmake_policy(VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION})
+else()
+  cmake_policy(VERSION 3.12)
+endif()
 
 ####################################
 
@@ -77,8 +80,8 @@ ENDMACRO(COMPARE_VERSION_STRINGS)
 
 ####################################
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -fno-strict-overflow -pedantic -Wall -Wextra -Wimplicit-fallthrough=0 -Wformat=2 -Wformat-nonliteral -Wformat-security -Wshadow -Wpointer-arith -Wmissing-prototypes -Wunused-const-variable=0 -Wsign-conversion -D_GNU_SOURCE -DNK_USE_CAPABILITY")
-set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -fno-strict-overflow -pedantic -Wall -Wextra -Wimplicit-fallthrough=0 -Wformat-security -Wshadow -Wpointer-arith -Wmissing-prototypes -Wunused-const-variable=0 -Wsign-conversion -D_GNU_SOURCE -DNK_USE_CAPABILITY")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -fno-strict-overflow -pedantic -Wall -Wextra -Wimplicit-fallthrough=0 -Wformat=2 -Wformat-nonliteral -Wformat-security -Wshadow -Wpointer-arith -Wmissing-prototypes -Wunused-const-variable=0 -Wcast-qual -Wsign-conversion -D_GNU_SOURCE -DNK_USE_CAPABILITY -Wno-discarded-qualifiers")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++17 -fno-strict-overflow -fno-rtti -pedantic -Wall -Wextra -Wimplicit-fallthrough=0 -Wformat-security -Wshadow -Wpointer-arith -Wmissing-prototypes -Wunused-const-variable=0 -Wcast-qual -Wsign-conversion -D_GNU_SOURCE -DNK_USE_CAPABILITY")
 
 if (WIN32)
   set(OSNAME "Win32")
@@ -134,7 +137,5 @@ else()
   set(MACHINENAME $ENV{CROSSCOMPILE_MACHINENAME})
 endif()
 
-include_directories("${PROJECT_SOURCE_DIR}/ncmlib")
 add_subdirectory(ncmlib)
-
 add_subdirectory(src)
