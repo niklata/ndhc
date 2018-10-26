@@ -77,7 +77,7 @@ int setup_signals_subprocess(void)
     sigaddset(&mask, SIGHUP);
     sigaddset(&mask, SIGINT);
     sigaddset(&mask, SIGTERM);
-    if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0)
+    if (sigprocmask(SIG_BLOCK, &mask, (sigset_t *)0) < 0)
         suicide("sigprocmask failed");
     int sfd = signalfd(-1, &mask, SFD_NONBLOCK);
     if (sfd < 0)

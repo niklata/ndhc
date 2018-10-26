@@ -109,7 +109,7 @@ static int perform_ip4set(const char buf[static 1], size_t len)
     }
 
     return perform_ip_subnet_bcast(ip4_addr, ip4_subnet,
-                                   have_bcast ? ip4_bcast : NULL);
+                                   have_bcast ? ip4_bcast : (char *)0);
 }
 
 %%{

@@ -319,7 +319,7 @@ static int create_raw_broadcast_socket(void)
         .sll_halen = 6,
     };
     memcpy(da.sll_addr, "\xff\xff\xff\xff\xff\xff", 6);
-    return create_raw_socket(&da, NULL, NULL);
+    return create_raw_socket(&da, (bool *)0, (struct sock_fprog *)0);
 }
 
 static bool arp_set_bpf_basic(int fd)

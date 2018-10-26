@@ -55,12 +55,12 @@ static int get_udp_unicast_socket(struct client_state_t cs[static 1])
     char buf[32];
     buf[0] = 'u';
     memcpy(buf + 1, &cs->clientAddr, sizeof cs->clientAddr);
-    return request_sockd_fd(buf, 1 + sizeof cs->clientAddr, NULL);
+    return request_sockd_fd(buf, 1 + sizeof cs->clientAddr, (char *)0);
 }
 
 static int get_raw_broadcast_socket(void)
 {
-    return request_sockd_fd("s", 1, NULL);
+    return request_sockd_fd("s", 1, (char *)0);
 }
 
 static int get_raw_listen_socket(struct client_state_t cs[static 1])

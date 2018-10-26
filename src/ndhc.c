@@ -166,7 +166,7 @@ static void setup_signals_ndhc(void)
     sigaddset(&mask, SIGUSR2);
     sigaddset(&mask, SIGCHLD);
     sigaddset(&mask, SIGTERM);
-    if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0)
+    if (sigprocmask(SIG_BLOCK, &mask, (sigset_t *)0) < 0)
         suicide("sigprocmask failed");
     if (cs.signalFd >= 0) {
         epoll_del(cs.epollFd, cs.signalFd);
@@ -232,7 +232,7 @@ int get_clientid_string(const char str[static 1], size_t slen)
 
     uint8_t mac[6];
     for (size_t i = 0; i < sizeof mac; ++i)
-        mac[i] = strtol(str+i*3, NULL, 16);
+        mac[i] = strtol(str+i*3, (char **)0, 16);
     client_config.clientid[0] = 1; // Ethernet MAC type
     memcpy(client_config.clientid + 1, mac,
            min_size_t(sizeof mac, sizeof client_config.clientid - 1));
@@ -471,7 +471,7 @@ static void ndhc_main(void) {
 
     nk_set_chroot(chroot_dir);
     memset(chroot_dir, '\0', sizeof chroot_dir);
-    nk_set_uidgid(ndhc_uid, ndhc_gid, NULL, 0);
+    nk_set_uidgid(ndhc_uid, ndhc_gid, (const unsigned char *)0, 0);
 
     if (!carrier_isup()) {
         if (ifchange_deconfig(&cs) < 0)

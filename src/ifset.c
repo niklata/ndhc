@@ -426,8 +426,8 @@ static void ipbcpfx_clear_others_do(const struct nlmsghdr *nlh, void *data)
   erase:
     r = rtnl_addr_broadcast_send(ipx->fd, RTM_DELADDR, ifm->ifa_flags,
                                  ifm->ifa_scope,
-                                 tb[IFA_ADDRESS] ? RTA_DATA(tb[IFA_ADDRESS]) : NULL,
-                                 tb[IFA_BROADCAST] ? RTA_DATA(tb[IFA_BROADCAST]) : NULL,
+                                 tb[IFA_ADDRESS] ? RTA_DATA(tb[IFA_ADDRESS]) : (uint32_t *)0,
+                                 tb[IFA_BROADCAST] ? RTA_DATA(tb[IFA_BROADCAST]) : (uint32_t *)0,
                                  ifm->ifa_prefixlen);
     if (r < 0 && r != -2) {
         log_warning("%s: (%s) Failed to delete IP and broadcast addresses.",
