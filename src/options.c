@@ -234,12 +234,12 @@ size_t add_u32_option(struct dhcpmsg *packet, uint8_t code, uint32_t data)
 // Add a parameter request list for stubborn DHCP servers
 size_t add_option_request_list(struct dhcpmsg *packet)
 {
-    static const uint8_t reqdata[] = {
+    static const char reqdata[] = {
         DCODE_SUBNET, DCODE_ROUTER, DCODE_DNS, DCODE_HOSTNAME, DCODE_DOMAIN,
         DCODE_BROADCAST,
     };
     return add_option_string(packet, DCODE_PARAM_REQ,
-                             (char *)reqdata, sizeof reqdata);
+                             reqdata, sizeof reqdata);
 }
 
 #ifdef NDHS_BUILD
