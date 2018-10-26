@@ -1,6 +1,6 @@
 /* ifset.h - Linux-specific net interface settings include
  *
- * Copyright (c) 2004-2018 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2004-2018 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

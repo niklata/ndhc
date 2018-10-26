@@ -1,6 +1,6 @@
 /* sys.c - linux-specific signal and epoll functions
  *
- * Copyright (c) 2010-2018 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2010-2018 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

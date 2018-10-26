@@ -1,6 +1,6 @@
 /* leasefile.c - functions for writing the lease file
  *
- * Copyright (c) 2011-2018 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2011-2018 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

@@ -1,6 +1,6 @@
 /* duiaid.h - DUID/IAID storage and generation for clientids
  *
- * Copyright (c) 2014-2018 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2014-2018 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
