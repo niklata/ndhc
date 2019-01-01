@@ -12,6 +12,10 @@ add_custom_command(
   COMMENT "Compiling Ragel state machine: ifchd-parse.rl"
   VERBATIM
   )
+set_property(SOURCE ${RAGEL_IFCHD_PARSE} APPEND PROPERTY GENERATED TRUE)
+if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+  set_property(SOURCE ${RAGEL_IFCHD_PARSE} APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-unused-const-variable")
+endif()
 add_custom_command(
   OUTPUT ${RAGEL_CFG_PARSE}
   COMMAND ${RAGEL} -G2 -o ${RAGEL_CFG_PARSE} cfg.rl
@@ -20,6 +24,10 @@ add_custom_command(
   COMMENT "Compiling Ragel state machine: cfg.rl"
   VERBATIM
   )
+set_property(SOURCE ${RAGEL_CFG_PARSE} APPEND PROPERTY GENERATED TRUE)
+if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+  set_property(SOURCE ${RAGEL_CFG_PARSE} APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-unused-const-variable")
+endif()
 
 add_executable(ndhc ${RAGEL_CFG_PARSE} ${RAGEL_IFCHD_PARSE})
 target_sources(ndhc PRIVATE
