@@ -166,7 +166,7 @@ static void setup_signals_ndhc(void)
     sigaddset(&mask, SIGUSR2);
     sigaddset(&mask, SIGCHLD);
     sigaddset(&mask, SIGTERM);
-    if (sigprocmask(SIG_BLOCK, &mask, (sigset_t *)0) < 0)
+    if (sigprocmask(SIG_UNBLOCK, &mask, (sigset_t *)0) < 0)
         suicide("sigprocmask failed");
     if (cs.signalFd >= 0) {
         epoll_del(cs.epollFd, cs.signalFd);
