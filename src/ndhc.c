@@ -544,6 +544,7 @@ int main(int argc, char *argv[])
     parse_cmdline(argc, argv);
 
     nk_random_init(&cs.rnd_state);
+    cs.xid = nk_random_u32(&cs.rnd_state);
 
     if (getuid())
         suicide("I need to be started as root.");

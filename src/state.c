@@ -75,6 +75,7 @@ static int delay_timeout(struct client_state_t cs[static 1], size_t numpackets)
 
 static void reinit_shared_deconfig(struct client_state_t cs[static 1])
 {
+    cs->xid = nk_random_u32(&cs->rnd_state);
     cs->clientAddr = 0;
     cs->num_dhcp_requests = 0;
     cs->server_arp_sent = 0;
@@ -289,6 +290,7 @@ static int selecting_packet(struct client_state_t cs[static 1],
                      client_config.interface);
             return ANP_IGNORE;
         }
+        cs->xid = packet->xid; // Use for subsequent DHCPREQUESTs
         cs->clientAddr = packet->yiaddr;
         cs->serverAddr = sid;
         cs->srcAddr = srcaddr;
@@ -351,8 +353,6 @@ static int selecting_timeout(struct client_state_t cs[static 1],
         } else if (client_config.abort_if_no_lease)
             suicide("%s: No lease; failing.", client_config.interface);
     }
-    if (cs->num_dhcp_requests == 0)
-        cs->xid = nk_random_u32(&cs->rnd_state);
     if (send_discover(cs) < 0) {
         log_warning("%s: Failed to send a discover request packet.",
                     client_config.interface);
@@ -450,7 +450,6 @@ int dhcp_handle(struct client_state_t cs[static 1], long long nowts,
 {
     scrBegin;
 reinit:
-    cs->xid = nk_random_u32(&cs->rnd_state);
     // We're in the SELECTING state here.
     for (;;) {
         int ret = COR_SUCCESS;
