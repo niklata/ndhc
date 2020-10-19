@@ -166,7 +166,8 @@ static void setup_signals_ndhc(void)
     sigaddset(&mask, SIGUSR2);
     sigaddset(&mask, SIGCHLD);
     sigaddset(&mask, SIGTERM);
-    if (sigprocmask(SIG_UNBLOCK, &mask, (sigset_t *)0) < 0)
+    sigaddset(&mask, SIGINT);
+    if (sigprocmask(SIG_BLOCK, &mask, (sigset_t *)0) < 0)
         suicide("sigprocmask failed");
     if (cs.signalFd >= 0) {
         epoll_del(cs.epollFd, cs.signalFd);
@@ -200,6 +201,9 @@ static int signal_dispatch(void)
             suicide("ndhc-master: Subprocess terminated unexpectedly.  Exiting.");
         case SIGTERM:
             log_line("Received SIGTERM.  Exiting gracefully.");
+            exit(EXIT_SUCCESS);
+        case SIGINT:
+            log_line("Received SIGINT.  Exiting gracefully.");
             exit(EXIT_SUCCESS);
         default: return SIGNAL_NONE;
     }
