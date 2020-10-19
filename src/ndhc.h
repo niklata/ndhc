@@ -46,15 +46,14 @@ struct client_state_t {
     long long dhcp_wake_ts;
     int ifDeconfig; // Set if the interface has already been deconfigured.
     int epollFd, signalFd, listenFd, arpFd, nlFd, rfkillFd;
-    int server_arp_sent;
+    int server_arp_sent, router_arp_sent;
     uint32_t nlPortId;
     unsigned int num_dhcp_requests;
     uint32_t clientAddr, serverAddr, srcAddr, routerAddr;
     uint32_t lease, xid;
     uint8_t routerArp[6], serverArp[6];
-    enum arp_state server_arp_state;
-    bool using_dhcp_bpf, got_router_arp, arp_is_defense,
-         check_fingerprint, program_init;
+    enum arp_state server_arp_state, router_arp_state;
+    bool using_dhcp_bpf, arp_is_defense, check_fingerprint, program_init;
     bool sent_gw_query, sent_first_announce, sent_second_announce,
          init_fingerprint_inprogress;
 };

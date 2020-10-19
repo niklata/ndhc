@@ -313,11 +313,11 @@ static int arp_get_gw_hwaddr(struct client_state_t cs[static 1])
     if (arp_ping(cs, cs->srcAddr) < 0)
         return -1;
     if (cs->routerAddr) {
-        cs->got_router_arp = false;
+        cs->router_arp_state = ARP_QUERY;
+        ++cs->router_arp_sent;
         if (arp_ping(cs, cs->routerAddr) < 0)
             return -1;
-    } else
-        cs->got_router_arp = true;
+    } else cs->router_arp_state = ARP_FAILED;
     garp.wake_ts[AS_GW_QUERY] =
         garp.send_stats[ASEND_GW_PING].ts + ARP_RETRANS_DELAY + 250;
     return 0;
@@ -465,9 +465,16 @@ int arp_gw_query_timeout(struct client_state_t cs[static 1], long long nowts)
         garp.wake_ts[AS_GW_QUERY] = rtts;
         return ARPR_OK;
     }
-    if (!cs->got_router_arp) {
+    if (cs->router_arp_state == ARP_QUERY) {
+        if (cs->router_arp_sent >= ARP_MAX_TRIES) {
+            log_line("%s: arp: Gateway is ignoring ARPs.",
+                     client_config.interface);
+            cs->router_arp_state = ARP_FAILED;
+            return ARPR_OK;
+        }
         log_line("%s: arp: Still looking for gateway hardware address...",
                  client_config.interface);
+        ++cs->router_arp_sent;
         if (arp_ping(cs, cs->routerAddr) < 0) {
             log_warning("%s: arp: Failed to send ARP ping in retransmission.",
                         client_config.interface);
@@ -654,7 +661,7 @@ int arp_do_gw_query(struct client_state_t cs[static 1])
                  client_config.interface, cs->routerArp[0], cs->routerArp[1],
                  cs->routerArp[2], cs->routerArp[3],
                  cs->routerArp[4], cs->routerArp[5]);
-        cs->got_router_arp = true;
+        cs->router_arp_state = ARP_FOUND;
         if (cs->routerAddr == cs->srcAddr)
             goto server_is_router;
         if (cs->server_arp_state != ARP_QUERY) {
@@ -673,7 +680,7 @@ server_is_router:
                  cs->serverArp[2], cs->serverArp[3],
                  cs->serverArp[4], cs->serverArp[5]);
         cs->server_arp_state = ARP_FOUND;
-        if (cs->got_router_arp) {
+        if (cs->router_arp_state != ARP_QUERY) {
             garp.wake_ts[AS_GW_QUERY] = -1;
             if (arp_open_fd(cs, true) < 0)
                 return ARPR_FAIL;
