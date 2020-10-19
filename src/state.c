@@ -277,17 +277,17 @@ static int selecting_packet(struct client_state_t cs[static 1],
                             struct dhcpmsg packet[static 1], uint8_t msgtype,
                             uint32_t srcaddr, bool is_requesting)
 {
+    char clibuf[INET_ADDRSTRLEN];
+    char svrbuf[INET_ADDRSTRLEN];
+    char srcbuf[INET_ADDRSTRLEN];
+    int found;
     if (!is_requesting && msgtype == DHCPOFFER) {
-        int found;
         uint32_t sid = get_option_serverid(packet, &found);
         if (!found) {
             log_line("%s: Invalid offer received: it didn't have a server id.",
                      client_config.interface);
             return ANP_IGNORE;
         }
-        char clibuf[INET_ADDRSTRLEN];
-        char svrbuf[INET_ADDRSTRLEN];
-        char srcbuf[INET_ADDRSTRLEN];
         cs->clientAddr = packet->yiaddr;
         cs->serverAddr = sid;
         cs->srcAddr = srcaddr;
@@ -308,10 +308,6 @@ static int selecting_packet(struct client_state_t cs[static 1],
         // that don't respect the serverid that was specified in
         // our DHCPREQUEST.
         if (!memcmp(&packet->yiaddr, &cs->clientAddr, 4)) {
-            char clibuf[INET_ADDRSTRLEN];
-            char svrbuf[INET_ADDRSTRLEN];
-            char srcbuf[INET_ADDRSTRLEN];
-            int found;
             uint32_t sid = get_option_serverid(packet, &found);
             if (!found) {
                 log_line("%s: Invalid offer received: it didn't have a server id.",
