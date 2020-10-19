@@ -89,8 +89,15 @@ bool dhcp_packet_get(struct client_state_t cs[static 1],
                      uint32_t srcaddr[static 1]);
 ssize_t send_discover(struct client_state_t cs[static 1]);
 ssize_t send_selecting(struct client_state_t cs[static 1]);
-ssize_t send_renew(struct client_state_t cs[static 1]);
-ssize_t send_rebind(struct client_state_t cs[static 1]);
+ssize_t send_renew_or_rebind(struct client_state_t cs[static 1], bool is_renew);
+static inline ssize_t send_renew(struct client_state_t cs[static 1])
+{
+    return send_renew_or_rebind(cs, true);
+}
+static inline ssize_t send_rebind(struct client_state_t cs[static 1])
+{
+    return send_renew_or_rebind(cs, false);
+}
 ssize_t send_decline(struct client_state_t cs[static 1], uint32_t server);
 ssize_t send_release(struct client_state_t cs[static 1]);
 

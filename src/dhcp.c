@@ -470,7 +470,7 @@ ssize_t send_selecting(struct client_state_t cs[static 1])
     return send_dhcp_raw(&packet);
 }
 
-ssize_t send_renew(struct client_state_t cs[static 1])
+ssize_t send_renew_or_rebind(struct client_state_t cs[static 1], bool is_renew)
 {
     struct dhcpmsg packet = {.xid = cs->xid};
     init_packet(&packet, DHCPREQUEST);
@@ -478,20 +478,9 @@ ssize_t send_renew(struct client_state_t cs[static 1])
     add_option_maxsize(&packet);
     add_option_request_list(&packet);
     add_options_vendor_hostname(&packet);
-    log_line("%s: Sending a renew request...", client_config.interface);
-    return send_dhcp_unicast(cs, &packet);
-}
-
-ssize_t send_rebind(struct client_state_t cs[static 1])
-{
-    struct dhcpmsg packet = {.xid = cs->xid};
-    init_packet(&packet, DHCPREQUEST);
-    packet.ciaddr = cs->clientAddr;
-    add_option_maxsize(&packet);
-    add_option_request_list(&packet);
-    add_options_vendor_hostname(&packet);
-    log_line("%s: Sending a rebind request...", client_config.interface);
-    return send_dhcp_raw(&packet);
+    log_line("%s: Sending a %s request...", client_config.interface,
+             is_renew? "renew" : "rebind");
+    return is_renew? send_dhcp_unicast(cs, &packet) : send_dhcp_raw(&packet);
 }
 
 ssize_t send_decline(struct client_state_t cs[static 1], uint32_t server)
