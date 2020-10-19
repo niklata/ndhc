@@ -487,7 +487,6 @@ ssize_t send_rebind(struct client_state_t cs[static 1])
     struct dhcpmsg packet = {.xid = cs->xid};
     init_packet(&packet, DHCPREQUEST);
     packet.ciaddr = cs->clientAddr;
-    add_option_reqip(&packet, cs->clientAddr);
     add_option_maxsize(&packet);
     add_option_request_list(&packet);
     add_options_vendor_hostname(&packet);
