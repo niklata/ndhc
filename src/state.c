@@ -83,6 +83,7 @@ static void reinit_shared_deconfig(struct client_state_t cs[static 1])
     cs->server_arp_state = ARP_QUERY;
     cs->router_arp_state = ARP_QUERY;
     cs->check_fingerprint = false;
+    cs->sent_renew_or_rebind = false;
     cs->sent_gw_query = false;
     cs->sent_first_announce = false;
     cs->sent_second_announce = false;
@@ -120,24 +121,10 @@ static int requesting_timeout(struct client_state_t cs[static 1],
     return REQ_SUCCESS;
 }
 
-static bool is_renewing(struct client_state_t cs[static 1], long long nowts)
-{
-    long long rnt = cs->leaseStartTime + cs->renewTime * 1000;
-    return nowts >= rnt;
-}
-
-static bool is_rebinding(struct client_state_t cs[static 1], long long nowts)
-{
-    long long rbt = cs->leaseStartTime + cs->rebindTime * 1000;
-    return nowts >= rbt;
-}
-
-// Triggered when a DHCP rebind request has been sent and no reply has been
-// received within the response wait time.  Check to see if the lease is still
-// valid, and if it is, send a broadcast DHCP renew packet.  If it is not, then
-// change to the SELECTING state to get a new lease.
+// Called by renewing_timeout() to try to renew the lease.  If all
+// timeouts expire, then expire the lease and notify the caller.
 static int rebinding_timeout(struct client_state_t cs[static 1],
-                              long long nowts)
+                             long long nowts)
 {
     long long elt = cs->leaseStartTime + cs->lease * 1000;
     if (nowts >= elt) {
@@ -152,19 +139,15 @@ static int rebinding_timeout(struct client_state_t cs[static 1],
                     client_config.interface);
         return BTO_HARDFAIL;
     }
+    cs->sent_renew_or_rebind = true;
     long long ts0 = nowts + (50 + nk_random_u32(&cs->rnd_state) % 20) * 1000;
     cs->dhcp_wake_ts = ts0 < elt ? ts0 : elt;
     return BTO_WAIT;
 }
 
-// Triggered when a DHCP renew request has been sent and no reply has been
-// received within the response wait time.  This function is also directly
-// called by bound_timeout() when it is time to renew a lease before it
-// expires.  Check to see if the lease is still valid, and if it is, send
-// a unicast DHCP renew packet.  If it is not, then change to the REBINDING
-// state to send broadcast queries.
+// Called by bound_timeout() to try to renew the lease.
 static int renewing_timeout(struct client_state_t cs[static 1],
-                             long long nowts)
+                            long long nowts)
 {
     long long rbt = cs->leaseStartTime + cs->rebindTime * 1000;
     if (nowts >= rbt)
@@ -175,13 +158,14 @@ static int renewing_timeout(struct client_state_t cs[static 1],
                     client_config.interface);
         return BTO_HARDFAIL;
     }
+    cs->sent_renew_or_rebind = true;
     long long ts0 = nowts + (50 + nk_random_u32(&cs->rnd_state) % 20) * 1000;
     cs->dhcp_wake_ts = ts0 < rbt ? ts0 : rbt;
     return BTO_WAIT;
 }
 
-// Triggered when the lease has been held for a significant fraction of its
-// total time, and it is time to renew the lease so that it is not lost.
+// Called to handle dhcp state timeouts, such as when RENEW or REBIND
+// DHCPREQUESTs must be sent.  Can return BTO_(WAIT|EXPIRED|HARDFAIL).
 static int bound_timeout(struct client_state_t cs[static 1], long long nowts)
 {
     long long rnt = cs->leaseStartTime + cs->renewTime * 1000;
@@ -245,6 +229,7 @@ static int extend_packet(struct client_state_t cs[static 1],
     if (msgtype == DHCPACK) {
         if (!validate_serverid(cs, packet, "a DHCP ACK"))
             return ANP_IGNORE;
+        cs->sent_renew_or_rebind = false;
         get_leasetime(cs, packet);
 
         // Did we receive a lease with a different IP than we had before?
@@ -267,6 +252,7 @@ static int extend_packet(struct client_state_t cs[static 1],
     } else if (msgtype == DHCPNAK) {
         if (!validate_serverid(cs, packet, "a DHCP NAK"))
             return ANP_IGNORE;
+        cs->sent_renew_or_rebind = false;
         log_line("%s: Our request was rejected.  Searching for a new lease...",
                  client_config.interface);
         reinit_selecting(cs, 3000);
@@ -595,7 +581,7 @@ skip_to_requesting:
                 }
             }
         }
-        if (sev_dhcp && is_renewing(cs, nowts)) {
+        if (sev_dhcp && cs->sent_renew_or_rebind) {
             int r = extend_packet(cs, dhcp_packet, dhcp_msgtype, dhcp_srcaddr);
             if (r == ANP_SUCCESS || r == ANP_IGNORE) {
             } else if (r == ANP_REJECTED) {
@@ -701,14 +687,7 @@ skip_to_requesting:
             } else BAD_STATE();
         }
         if (dhcp_timeout) {
-            int r;
-            if (is_rebinding(cs, nowts)) {
-                r = rebinding_timeout(cs, nowts);
-            } else if (is_renewing(cs, nowts)) {
-                r = renewing_timeout(cs, nowts);
-            } else {
-                r = bound_timeout(cs, nowts);
-            }
+            int r = bound_timeout(cs, nowts);
             if (r == BTO_WAIT) {
             } else if (r == BTO_EXPIRED) {
                 sev_dhcp = false;

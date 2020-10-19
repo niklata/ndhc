@@ -53,7 +53,8 @@ struct client_state_t {
     uint32_t lease, xid;
     uint8_t routerArp[6], serverArp[6];
     enum arp_state server_arp_state, router_arp_state;
-    bool using_dhcp_bpf, arp_is_defense, check_fingerprint, program_init;
+    bool using_dhcp_bpf, arp_is_defense, check_fingerprint, program_init,
+         sent_renew_or_rebind;
     bool sent_gw_query, sent_first_announce, sent_second_announce,
          init_fingerprint_inprogress;
 };
