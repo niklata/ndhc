@@ -43,6 +43,8 @@
 #include "netlink.h"
 #include "coroutine.h"
 
+#define IGNORED_RENEWS_BEFORE_REBIND 3
+
 #define SEL_SUCCESS 0
 #define SEL_FAIL -1
 
@@ -78,6 +80,7 @@ static void reinit_shared_deconfig(struct client_state_t cs[static 1])
     cs->xid = nk_random_u32(&cs->rnd_state);
     cs->clientAddr = 0;
     cs->num_dhcp_requests = 0;
+    cs->num_dhcp_renews = 0;
     cs->server_arp_sent = 0;
     cs->router_arp_sent = 0;
     cs->server_arp_state = ARP_QUERY;
@@ -150,7 +153,7 @@ static int renewing_timeout(struct client_state_t cs[static 1],
                             long long nowts)
 {
     long long rbt = cs->leaseStartTime + cs->rebindTime * 1000;
-    if (nowts >= rbt)
+    if (nowts >= rbt || cs->num_dhcp_renews >= IGNORED_RENEWS_BEFORE_REBIND)
         return rebinding_timeout(cs, nowts);
     start_dhcp_listen(cs);
     if (send_renew(cs) < 0) {
@@ -159,6 +162,7 @@ static int renewing_timeout(struct client_state_t cs[static 1],
         return BTO_HARDFAIL;
     }
     cs->sent_renew_or_rebind = true;
+    ++cs->num_dhcp_renews;
     long long ts0 = nowts + (50 + nk_random_u32(&cs->rnd_state) % 20) * 1000;
     cs->dhcp_wake_ts = ts0 < rbt ? ts0 : rbt;
     return BTO_WAIT;
@@ -230,6 +234,7 @@ static int extend_packet(struct client_state_t cs[static 1],
         if (!validate_serverid(cs, packet, "a DHCP ACK"))
             return ANP_IGNORE;
         cs->sent_renew_or_rebind = false;
+        cs->num_dhcp_renews = 0;
         get_leasetime(cs, packet);
 
         // Did we receive a lease with a different IP than we had before?
@@ -253,6 +258,7 @@ static int extend_packet(struct client_state_t cs[static 1],
         if (!validate_serverid(cs, packet, "a DHCP NAK"))
             return ANP_IGNORE;
         cs->sent_renew_or_rebind = false;
+        cs->num_dhcp_renews = 0;
         log_line("%s: Our request was rejected.  Searching for a new lease...",
                  client_config.interface);
         reinit_selecting(cs, 3000);

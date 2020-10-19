@@ -48,7 +48,7 @@ struct client_state_t {
     int epollFd, signalFd, listenFd, arpFd, nlFd, rfkillFd;
     int server_arp_sent, router_arp_sent;
     uint32_t nlPortId;
-    unsigned int num_dhcp_requests;
+    unsigned int num_dhcp_requests, num_dhcp_renews;
     uint32_t clientAddr, serverAddr, srcAddr, routerAddr;
     uint32_t lease, xid;
     uint8_t routerArp[6], serverArp[6];
