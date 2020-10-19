@@ -34,18 +34,26 @@
 #include <net/if.h>
 #include "nk/random.h"
 
+enum arp_state {
+    ARP_QUERY = 0,
+    ARP_FOUND,
+    ARP_FAILED,
+};
+
 struct client_state_t {
     struct nk_random_state rnd_state;
     long long leaseStartTime, renewTime, rebindTime;
     long long dhcp_wake_ts;
     int ifDeconfig; // Set if the interface has already been deconfigured.
     int epollFd, signalFd, listenFd, arpFd, nlFd, rfkillFd;
+    int server_arp_sent;
     uint32_t nlPortId;
     unsigned int num_dhcp_requests;
     uint32_t clientAddr, serverAddr, srcAddr, routerAddr;
     uint32_t lease, xid;
     uint8_t routerArp[6], serverArp[6];
-    bool using_dhcp_bpf, got_router_arp, got_server_arp, arp_is_defense,
+    enum arp_state server_arp_state;
+    bool using_dhcp_bpf, got_router_arp, arp_is_defense,
          check_fingerprint, program_init;
     bool sent_gw_query, sent_first_announce, sent_second_announce,
          init_fingerprint_inprogress;

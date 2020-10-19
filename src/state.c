@@ -77,8 +77,9 @@ static void reinit_shared_deconfig(struct client_state_t cs[static 1])
 {
     cs->clientAddr = 0;
     cs->num_dhcp_requests = 0;
+    cs->server_arp_sent = 0;
+    cs->server_arp_state = ARP_QUERY;
     cs->got_router_arp = false;
-    cs->got_server_arp = false;
     cs->check_fingerprint = false;
     cs->sent_gw_query = false;
     cs->sent_first_announce = false;
@@ -417,6 +418,8 @@ static int frenew(struct client_state_t cs[static 1], bool is_bound)
 static int ifup_action(struct client_state_t cs[static 1])
 {
     if (cs->routerAddr && cs->serverAddr) {
+        if ((cs->routerAddr == cs->serverAddr) && cs->server_arp_state != ARP_FOUND)
+            goto no_fingerprint;
         if (cs->init_fingerprint_inprogress) {
             suicide("%s: Carrier lost during initial fingerprint.  Forcing restart.",
                     client_config.interface);
@@ -431,6 +434,7 @@ static int ifup_action(struct client_state_t cs[static 1])
             return IFUP_FAIL;
         }
     }
+no_fingerprint:
     log_line("%s: Interface is back.  Searching for new lease...",
              client_config.interface);
     return IFUP_NEWLEASE;
@@ -622,7 +626,7 @@ skip_to_requesting:
                 scrReturn(ret);
                 continue;
             } else BAD_STATE();
-            if (!cs->got_router_arp || !cs->got_server_arp) {
+            if (!cs->got_router_arp || cs->server_arp_state == ARP_QUERY) {
                 r = arp_do_gw_query(cs);
                 if (r == ARPR_OK) {
                 } else if (r == ARPR_FREE) {
@@ -657,7 +661,7 @@ skip_to_requesting:
                 arp_announce_timeout(cs, nowts);
             if (!cs->sent_gw_query)
                 arp_query_gateway_timeout(cs, nowts);
-            else if (!cs->got_router_arp || !cs->got_server_arp) {
+            else if (!cs->got_router_arp || cs->server_arp_state == ARP_QUERY) {
                 int r = arp_gw_query_timeout(cs, nowts);
                 if (r == ARPR_OK) {
                 } else if (r == ARPR_FAIL) {

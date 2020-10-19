@@ -49,6 +49,7 @@
 
 #define ARP_MSG_SIZE 0x2a
 #define ARP_RETRANS_DELAY 5000 // ms
+#define ARP_MAX_TRIES 3
 
 // From RFC5227
 int arp_probe_wait = 1000;         // initial random delay (ms)
@@ -307,7 +308,8 @@ static int arp_get_gw_hwaddr(struct client_state_t cs[static 1])
     else
         log_line("%s: arp: Searching for dhcp server address...",
                  client_config.interface);
-    cs->got_server_arp = false;
+    cs->server_arp_state = ARP_QUERY;
+    ++cs->server_arp_sent;
     if (arp_ping(cs, cs->srcAddr) < 0)
         return -1;
     if (cs->routerAddr) {
@@ -472,9 +474,16 @@ int arp_gw_query_timeout(struct client_state_t cs[static 1], long long nowts)
             return ARPR_FAIL;
         }
     }
-    if (!cs->got_server_arp) {
+    if (cs->server_arp_state == ARP_QUERY) {
+        if (cs->server_arp_sent >= ARP_MAX_TRIES) {
+            log_line("%s: arp: DHCP agent is ignoring ARPs.",
+                     client_config.interface);
+            cs->server_arp_state = ARP_FAILED;
+            return ARPR_OK;
+        }
         log_line("%s: arp: Still looking for DHCP agent hardware address...",
                  client_config.interface);
+        ++cs->server_arp_sent;
         if (arp_ping(cs, cs->srcAddr) < 0) {
             log_warning("%s: arp: Failed to send ARP ping in retransmission.",
                         client_config.interface);
@@ -648,7 +657,7 @@ int arp_do_gw_query(struct client_state_t cs[static 1])
         cs->got_router_arp = true;
         if (cs->routerAddr == cs->srcAddr)
             goto server_is_router;
-        if (cs->got_server_arp) {
+        if (cs->server_arp_state != ARP_QUERY) {
             garp.wake_ts[AS_GW_QUERY] = -1;
             if (arp_open_fd(cs, true) < 0)
                 return ARPR_FAIL;
@@ -663,7 +672,7 @@ server_is_router:
                  client_config.interface, cs->serverArp[0], cs->serverArp[1],
                  cs->serverArp[2], cs->serverArp[3],
                  cs->serverArp[4], cs->serverArp[5]);
-        cs->got_server_arp = true;
+        cs->server_arp_state = ARP_FOUND;
         if (cs->got_router_arp) {
             garp.wake_ts[AS_GW_QUERY] = -1;
             if (arp_open_fd(cs, true) < 0)
