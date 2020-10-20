@@ -34,7 +34,7 @@
 #include <sys/un.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/epoll.h>
+#include <poll.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -52,10 +52,6 @@
 #include "ifset.h"
 
 struct ifchd_client cl;
-
-static int epollfd;
-/* Slots are for the ndhc -> ifchd socket. */
-static struct epoll_event events[2];
 
 static int resolv_conf_fd = -1;
 /* int ntp_conf_fd = -1; */
@@ -341,36 +337,33 @@ static void process_client_socket(void)
 
 static void do_ifch_work(void)
 {
-    epollfd = epoll_create1(0);
-    if (epollfd < 0)
-        suicide("epoll_create1 failed");
-
     cl.state = STATE_NOTHING;
     memset(cl.ibuf, 0, sizeof cl.ibuf);
     memset(cl.namesvrs, 0, sizeof cl.namesvrs);
     memset(cl.domains, 0, sizeof cl.domains);
 
-    epoll_add(epollfd, ifchSock[1]);
-    epoll_add(epollfd, ifchStream[1]);
+    struct pollfd pfds[2] = {0};
+    pfds[0].fd = ifchSock[1];
+    pfds[0].events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+    pfds[1].fd = ifchStream[1];
+    pfds[1].events = POLLHUP|POLLERR|POLLRDHUP;
 
     for (;;) {
-        int r = epoll_wait(epollfd, events, 2, -1);
-        if (r < 0) {
-            if (errno == EINTR)
-                continue;
-            else
-                suicide("epoll_wait failed");
+        if (poll(pfds, 2, -1) < 0) {
+            if (errno == EINTR) continue;
+            else suicide("pollt failed");
         }
-        for (int i = 0; i < r; ++i) {
-            int fd = events[i].data.fd;
-            if (fd == ifchSock[1]) {
-                if (events[i].events & EPOLLIN)
-                    process_client_socket();
-            } else if (fd == ifchStream[1]) {
-                if (events[i].events & (EPOLLHUP|EPOLLERR|EPOLLRDHUP))
-                    exit(EXIT_SUCCESS);
-            } else
-                suicide("ifch: unexpected fd while performing epoll");
+        if (pfds[0].revents & POLLIN) {
+            pfds[0].revents &= ~POLLIN;
+            process_client_socket();
+        }
+        if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+            pfds[0].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
+            suicide("ifchSock closed unexpectedly");
+        }
+        if (pfds[1].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+            pfds[1].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
+            exit(EXIT_SUCCESS);
         }
     }
 }

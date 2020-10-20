@@ -36,7 +36,7 @@
 #include <fcntl.h>
 #include <assert.h>
 #include <sys/socket.h>
-#include <sys/epoll.h>
+#include <poll.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/prctl.h>
@@ -57,10 +57,6 @@
 #include "ndhc.h"
 #include "dhcp.h"
 #include "sys.h"
-
-static int epollfd;
-/* Slots are for the ndhc -> ifchd socket. */
-static struct epoll_event events[2];
 
 uid_t sockd_uid = 0;
 gid_t sockd_gid = 0;
@@ -550,31 +546,28 @@ static void process_client_socket(void)
 
 static void do_sockd_work(void)
 {
-    epollfd = epoll_create1(0);
-    if (epollfd < 0)
-        suicide("epoll_create1 failed");
-
-    epoll_add(epollfd, sockdSock[1]);
-    epoll_add(epollfd, sockdStream[1]);
+    struct pollfd pfds[2] = {0};
+    pfds[0].fd = sockdSock[1];
+    pfds[0].events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+    pfds[1].fd = sockdStream[1];
+    pfds[1].events = POLLHUP|POLLERR|POLLRDHUP;
 
     for (;;) {
-        int r = epoll_wait(epollfd, events, 2, -1);
-        if (r < 0) {
-            if (errno == EINTR)
-                continue;
-            else
-                suicide("epoll_wait failed");
+        if (poll(pfds, 2, -1) < 0) {
+            if (errno == EINTR) continue;
+            else suicide("poll failed");
         }
-        for (int i = 0; i < r; ++i) {
-            int fd = events[i].data.fd;
-            if (fd == sockdSock[1]) {
-                if (events[i].events & EPOLLIN)
-                    process_client_socket();
-            } else if (fd == sockdStream[1]) {
-                if (events[i].events & (EPOLLHUP|EPOLLERR|EPOLLRDHUP))
-                    exit(EXIT_SUCCESS);
-            } else
-                suicide("sockd: unexpected fd while performing epoll");
+        if (pfds[0].revents & POLLIN) {
+            pfds[0].revents &= ~POLLIN;
+            process_client_socket();
+        }
+        if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+            pfds[0].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
+            suicide("sockdSock closed unexpectedly");
+        }
+        if (pfds[1].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+            pfds[1].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
+            exit(EXIT_SUCCESS);
         }
     }
 }
