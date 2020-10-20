@@ -84,7 +84,7 @@ static int perform_ip4set(const char buf[static 1], size_t len)
     const char *p = buf;
     const char *pe = p + len;
     const char *eof = pe;
-    const char *arg_start;
+    const char *arg_start = p;
     int cs = 0;
     bool have_ip = false;
     bool have_subnet = false;
@@ -211,7 +211,7 @@ int execute_buffer(const char newbuf[static 1])
     size_t init_siz = strlen(buf);
     const char *p = buf;
     const char *pe = p + init_siz;
-    const char *arg_start;
+    const char *arg_start = p;
     size_t arg_len = 0;
     int cs = 0;
 

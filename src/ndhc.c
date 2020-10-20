@@ -48,8 +48,7 @@
 #include <grp.h>
 #include <limits.h>
 #include "nk/log.h"
-#include "nk/privilege.h"
-#include "nk/pidfile.h"
+#include "nk/privs.h"
 #include "nk/io.h"
 #include "nk/copy_cmdarg.h"
 
@@ -153,9 +152,9 @@ void show_usage(void)
 "  -n, --now                       Exit with failure if lease cannot be\n"
 "                                  immediately negotiated.\n"
 "  -r, --request=IP                IP address to request (default: none)\n"
-"  -u, --user=USER                 Change ndhc privileges to this user\n"
-"  -U, --ifch-user=USER            Change ndhc-ifch privileges to this user\n"
-"  -D, --sockd-user=USER           Change ndhc-sockd privileges to this user\n"
+"  -u, --user=USER                 ndhc runs as this user\n"
+"  -U, --ifch-user=USER            ndhc-ifch runs as this user\n"
+"  -D, --sockd-user=USER           ndhc-sockd runs as this user\n"
 "  -C, --chroot=DIR                Chroot to this directory\n"
 "  -s, --state-dir=DIR             State storage dir (default: /etc/ndhc)\n"
 "  -d, --relentless-defense        Never back off in defending IP against\n"

@@ -41,8 +41,7 @@
 #include <signal.h>
 #include <errno.h>
 #include "nk/log.h"
-#include "nk/privilege.h"
-#include "nk/signals.h"
+#include "nk/privs.h"
 #include "nk/io.h"
 
 #include "ifchd.h"
@@ -368,9 +367,8 @@ static void do_ifch_work(void)
     }
 }
 
-// If we are requested to update resolv.conf, preopen the fd before
-// we drop root privileges, making sure that if we create
-// resolv.conf, it will be world-readable.
+// If we are requested to update resolv.conf, preopen the fd before we drop
+// root, making sure that if we create resolv.conf, it will be world-readable.
 static void setup_resolv_conf(void)
 {
     if (strncmp(resolv_conf_d, "", sizeof resolv_conf_d)) {

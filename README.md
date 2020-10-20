@@ -88,15 +88,9 @@ new one.
 * Linux kernel
 * GNU Make or CMake
 * [Ragel 6](https://www.colm.net/open-source/ragel)
-* [ncmlib](https://github.com/niklata/ncmlib)
 
 ## Installation
 
-Make sure that ncmlib is present in the ndhc source directory:
-```
-$ ls
-CMakeLists.txt  LICENSE  Makefile  ncmlib  README  src
-```
 Compile and install ndhc.
 * Create a build directory: `mkdir build && cd build`
 * Create the makefiles: `cmake ..`

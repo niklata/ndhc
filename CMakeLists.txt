@@ -1,11 +1,11 @@
-project(ndhc)
-
 cmake_minimum_required(VERSION 3.3)
 if(${CMAKE_VERSION} VERSION_LESS 3.12)
   cmake_policy(VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION})
 else()
   cmake_policy(VERSION 3.12)
 endif()
+
+project (ndhc DESCRIPTION "dhcp4 client" LANGUAGES C)
 
 ####################################
 
@@ -101,6 +101,31 @@ if (NOT (${OSNAME} STREQUAL "Linux"))
   return()
 endif()
 
+if (${OSNAME} STREQUAL "Linux")
+  execute_process(
+    COMMAND uname -r
+    COMMAND tr "\n" " "
+    COMMAND sed "s/ //"
+    OUTPUT_VARIABLE LINUX_VERSION
+    )
+  COMPARE_VERSION_STRINGS(${LINUX_VERSION} "3.5" LINUX_HAS_NO_NEW_PRIVS)
+  if (NOT ${LINUX_HAS_NO_NEW_PRIVS} LESS 0)
+    message("ncmlib: Enabling use of prctl SET_NO_NEW_PRIVS.")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DNK_USE_NO_NEW_PRIVS")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNK_USE_NO_NEW_PRIVS")
+  else()
+    message("ncmlib: prctl SET_NO_NEW_PRIVS not available.")
+  endif()
+  COMPARE_VERSION_STRINGS(${LINUX_VERSION} "3.17" LINUX_HAS_GETRANDOM_SYSCALL)
+  if (NOT ${LINUX_HAS_GETRANDOM_SYSCALL} LESS 0)
+    message("ncmlib: Enabling use of getrandom syscall.")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DNK_USE_GETRANDOM_SYSCALL")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNK_USE_GETRANDOM_SYSCALL")
+  else()
+    message("ncmlib: getrandom syscall not available.")
+  endif()
+endif()
+
 if (NOT CMAKE_CROSSCOMPILING)
   set(GLIBC_DETECT_TEST_C
     "
@@ -139,5 +164,66 @@ else()
   set(MACHINENAME $ENV{CROSSCOMPILE_MACHINENAME})
 endif()
 
-add_subdirectory(ncmlib)
-add_subdirectory(src)
+add_executable(ndhc "")
+
+set(RAGEL_IFCHD_PARSE ${CMAKE_CURRENT_BINARY_DIR}/ifchd-parse.c)
+set(RAGEL_CFG_PARSE ${CMAKE_CURRENT_BINARY_DIR}/cfg.c)
+
+find_program(RAGEL ragel)
+
+set(RAGEL_PRINT_COMMENT "Compiling Ragel state machine: FILE")
+file(GLOB_RECURSE RAGEL_FILES
+  "src/ifchd-parse.rl"
+  "src/cfg.rl"
+  )
+foreach(RAGEL_FILE ${RAGEL_FILES})
+  string(REGEX REPLACE "^[^/]*[/]" "" RAGEL_FILE_BASE ${RAGEL_FILE})
+  string(REGEX REPLACE ${RAGEL_FILE_BASE} "" RAGEL_FILE_PATH ${RAGEL_FILE})
+  string(REGEX REPLACE "[.]rl$" ".c" RAGEL_FILE_C ${RAGEL_FILE_BASE})
+  string(REGEX REPLACE "FILE$" ${RAGEL_FILE_BASE} RAGEL_COMMENT ${RAGEL_PRINT_COMMENT})
+  set(RAGEL_FILE_C_OUT ${CMAKE_CURRENT_BINARY_DIR}/${RAGEL_FILE_C})
+  list(APPEND RAGEL_C_FILES ${RAGEL_FILE_C_OUT})
+  add_custom_command(
+    OUTPUT ${RAGEL_FILE_C_OUT}
+    COMMAND ${RAGEL} -T0 ${RAGEL_ERRFMT_ARG} -o ${RAGEL_FILE_C_OUT} ${RAGEL_FILE_BASE}
+    MAIN_DEPENDENCY ${RAGEL_FILE}
+    WORKING_DIRECTORY ${RAGEL_FILE_PATH}
+    COMMENT ${RAGEL_COMMENT}
+    VERBATIM
+    )
+  set_property(SOURCE ${RAGEL_FILE_C_OUT} APPEND PROPERTY GENERATED TRUE)
+  if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    set_property(SOURCE ${RAGEL_FILE_C_OUT} APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-unused-const-variable")
+  endif()
+  set_source_files_properties(${RAGEL_FILE_C_OUT} PROPERTIES GENERATED true)
+  target_sources(ndhc PRIVATE ${RAGEL_FILE_C_OUT})
+endforeach(RAGEL_FILE)
+add_custom_target(ndhc_ragel DEPENDS ${RAGEL_C_FILES})
+add_dependencies(ndhc ndhc_ragel)
+
+target_sources(ndhc PRIVATE
+  "src/lib/io.c"
+  "src/lib/log.c"
+  "src/lib/hwrng.c"
+  "src/lib/random.c"
+  "src/lib/privs.c"
+  ${RAGEL_C_FILES}
+  "src/arp.c"
+  "src/ifchd.c"
+  "src/netlink.c"
+  "src/sockd.c"
+  "src/dhcp.c"
+  "src/ifset.c"
+  "src/nl.c"
+  "src/state.c"
+  "src/duiaid.c"
+  "src/leasefile.c"
+  "src/options.c"
+  "src/sys.c"
+  "src/ifchange.c"
+  "src/ndhc.c"
+  "src/rfkill.c"
+)
+target_include_directories(ndhc PRIVATE
+  "${PROJECT_SOURCE_DIR}/src"
+  )

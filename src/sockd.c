@@ -50,7 +50,7 @@
 #include <grp.h>
 #include "nk/log.h"
 #include "nk/io.h"
-#include "nk/privilege.h"
+#include "nk/privs.h"
 
 #include "sockd.h"
 #include "ndhc-defines.h"

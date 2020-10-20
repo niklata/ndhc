@@ -12,7 +12,7 @@
 #include "ifchd.h"
 #include "sockd.h"
 #include "nk/log.h"
-#include "nk/privilege.h"
+#include "nk/privs.h"
 #include "nk/copy_cmdarg.h"
 #include "nk/io.h"
 
