@@ -91,10 +91,8 @@ extern int sockdStream[2];
 extern char state_dir[PATH_MAX];
 extern char chroot_dir[PATH_MAX];
 extern char resolv_conf_d[PATH_MAX];
-extern char pidfile[PATH_MAX];
 extern uid_t ndhc_uid;
 extern gid_t ndhc_gid;
-extern bool write_pid_enabled;
 
 int signals_flagged(void);
 void set_client_addr(const char v[static 1]);
