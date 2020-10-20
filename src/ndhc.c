@@ -158,17 +158,42 @@ void show_usage(void)
     exit(EXIT_SUCCESS);
 }
 
+static void signal_handler(int signo)
+{
+    switch (signo) {
+    case SIGCHLD: {
+        static const char errstr[] = "ndhc-master: Subprocess terminated unexpectedly. Exiting.";
+        safe_write(STDOUT_FILENO, errstr, sizeof errstr - 1);
+        exit(EXIT_FAILURE);
+    }
+    default:
+        break;
+    }
+}
+
 static void setup_signals_ndhc(void)
 {
     sigset_t mask;
     sigemptyset(&mask);
     sigaddset(&mask, SIGUSR1);
     sigaddset(&mask, SIGUSR2);
-    sigaddset(&mask, SIGCHLD);
     sigaddset(&mask, SIGTERM);
     sigaddset(&mask, SIGINT);
     if (sigprocmask(SIG_BLOCK, &mask, (sigset_t *)0) < 0)
         suicide("sigprocmask failed");
+
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGCHLD);
+    if (sigprocmask(SIG_UNBLOCK, &mask, (sigset_t *)0) < 0)
+        suicide("sigprocmask failed");
+    struct sigaction sa = {
+        .sa_handler = signal_handler,
+        .sa_flags = SA_RESTART,
+    };
+    sigemptyset(&sa.sa_mask);
+    if (sigaction(SIGCHLD, &sa, NULL))
+        suicide("sigaction failed");
+
     if (cs.signalFd >= 0) {
         epoll_del(cs.epollFd, cs.signalFd);
         close(cs.signalFd);
@@ -197,8 +222,6 @@ static int signal_dispatch(void)
     switch (si.ssi_signo) {
         case SIGUSR1: return SIGNAL_RENEW;
         case SIGUSR2: return SIGNAL_RELEASE;
-        case SIGCHLD:
-            suicide("ndhc-master: Subprocess terminated unexpectedly.  Exiting.");
         case SIGTERM:
             log_line("Received SIGTERM.  Exiting gracefully.");
             exit(EXIT_SUCCESS);
