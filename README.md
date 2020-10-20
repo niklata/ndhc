@@ -207,8 +207,6 @@ link state change notification events.
 to drop unwanted packets in kernelspace.  This functionality is available
 on most modern unix systems, but it is not standard.
 
-* ndhc uses `epoll()` and `signalfd()`.  These are Linux-specific.
-
 * Numerous socket options are used, and the `AF_PACKET` socket family
 is used for raw sockets and ARP.  These are largely Linux-specific, too.
 
