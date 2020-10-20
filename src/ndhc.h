@@ -69,7 +69,6 @@ struct client_config_t {
     int metric;                  // Metric for the default route
     int ifindex;                 // Index number of the interface to use
     uint8_t clientid_len;        // Length of the clientid
-    bool quit_after_lease;       // Quit after obtaining lease
     bool abort_if_no_lease;      // Abort if no lease
     bool enable_rfkill;          // Listen for rfkill events
 };

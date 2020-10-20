@@ -500,24 +500,6 @@ int arp_gw_query_timeout(struct client_state_t cs[static 1], long long nowts)
     return ARPR_OK;
 }
 
-// Failure here is difficult to handle gracefully, as we do have a valid
-// IP but have not yet announced it to other hosts on our ethernet
-// segment.  We try to do so for one minute.  We must measure the time
-// directly so that carrier loss or suspend are handled properly.
-__attribute__((noreturn))
-static void quit_after_lease_handler(struct client_state_t cs[static 1])
-{
-    long long init_ts = curms();
-    for (;;) {
-        if (arp_announcement(cs) >= 0)
-            exit(EXIT_SUCCESS);
-        log_warning("%s: (%s) Failed to send ARP announcement: %s",
-                    client_config.interface, __func__, strerror(errno));
-        if (curms() - init_ts > (60LL * 1000LL)) break;
-    }
-    exit(EXIT_FAILURE);
-}
-
 int arp_collision_timeout(struct client_state_t cs[static 1], long long nowts)
 {
     if (nowts >= garp.arp_check_start_ts + ANNOUNCE_WAIT ||
@@ -539,8 +521,6 @@ int arp_collision_timeout(struct client_state_t cs[static 1], long long nowts)
         cs->routerAddr = get_option_router(&garp.dhcp_packet);
         stop_dhcp_listen(cs);
         write_leasefile(temp_addr);
-        if (client_config.quit_after_lease)
-            quit_after_lease_handler(cs);
         return ARPR_FREE;
     }
     long long rtts = garp.send_stats[ASEND_COLLISION_CHECK].ts +

@@ -60,12 +60,6 @@ struct cfgparse {
         case -1: client_config.abort_if_no_lease = false; default: break;
         }
     }
-    action quit {
-        switch (ccfg.ternary) {
-        case 1: client_config.quit_after_lease = true; break;
-        case -1: client_config.quit_after_lease = false; default: break;
-        }
-    }
     action request { set_client_addr(ccfg.buf); }
     action vendorid {
         copy_cmdarg(client_config.vendor, ccfg.buf,
@@ -177,7 +171,6 @@ struct cfgparse {
     hostname = 'hostname' value @hostname;
     interface = 'interface' value @interface;
     now = 'now' boolval @now;
-    quit = 'quit' boolval @quit;
     request = 'request' value @request;
     vendorid = 'vendorid' value @vendorid;
     user = 'user' value @user;
@@ -197,7 +190,7 @@ struct cfgparse {
     rfkill_idx = 'rfkill-idx' value @rfkill_idx;
 
     main := blankline |
-        clientid | hostname | interface | now | quit |
+        clientid | hostname | interface | now |
         request | vendorid | user | ifch_user | sockd_user | chroot |
         state_dir | seccomp_enforce | relentless_defense | arp_probe_wait |
         arp_probe_num | arp_probe_min | arp_probe_max | gw_metric |
@@ -280,7 +273,6 @@ static void parse_cfgfile(const char fname[static 1])
     hostname = ('-h'|'--hostname') argval @hostname;
     interface = ('-i'|'--interface') argval @interface;
     now = ('-n'|'--now') tbv @now;
-    quit = ('-q'|'--quit') tbv @quit;
     request = ('-r'|'--request') argval @request;
     vendorid = ('-V'|'--vendorid') argval @vendorid;
     user = ('-u'|'--user') argval @user;
@@ -303,7 +295,7 @@ static void parse_cfgfile(const char fname[static 1])
 
     main := (
         cfgfile | clientid | hostname | interface |
-        now | quit | request | vendorid | user | ifch_user | sockd_user |
+        now | request | vendorid | user | ifch_user | sockd_user |
         chroot | state_dir | seccomp_enforce | relentless_defense |
         arp_probe_wait | arp_probe_num | arp_probe_min | arp_probe_max |
         gw_metric | resolv_conf | dhcp_set_hostname | rfkill_idx |

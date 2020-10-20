@@ -152,7 +152,6 @@ void show_usage(void)
 "  -i, --interface=INTERFACE       Interface to use (default: eth0)\n"
 "  -n, --now                       Exit with failure if lease cannot be\n"
 "                                  immediately negotiated.\n"
-"  -q, --quit                      Quit after obtaining lease\n"
 "  -r, --request=IP                IP address to request (default: none)\n"
 "  -u, --user=USER                 Change ndhc privileges to this user\n"
 "  -U, --ifch-user=USER            Change ndhc-ifch privileges to this user\n"
