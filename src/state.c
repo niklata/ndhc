@@ -332,17 +332,12 @@ static int selecting_packet(struct client_state_t cs[static 1],
 // Triggered after a DHCP discover packet has been sent and no reply has
 // been received within the response wait time.  If we've not exceeded the
 // maximum number of discover retransmits, then send another packet and wait
-// again.  Otherwise, background or fail.
+// again.  Otherwise fail.
 static int selecting_timeout(struct client_state_t cs[static 1],
                               long long nowts)
 {
     if (cs->program_init && cs->num_dhcp_requests >= 2) {
-        if (client_config.background_if_no_lease) {
-            log_line("%s: No lease; going to background.",
-                     client_config.interface);
-            cs->program_init = false;
-            background();
-        } else if (client_config.abort_if_no_lease)
+        if (client_config.abort_if_no_lease)
             suicide("%s: No lease; failing.", client_config.interface);
     }
     if (send_discover(cs) < 0) {

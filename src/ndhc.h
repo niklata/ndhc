@@ -71,7 +71,6 @@ struct client_config_t {
     uint8_t clientid_len;        // Length of the clientid
     bool quit_after_lease;       // Quit after obtaining lease
     bool abort_if_no_lease;      // Abort if no lease
-    bool background_if_no_lease; // Fork to background if no lease
     bool enable_rfkill;          // Listen for rfkill events
 };
 
@@ -99,7 +98,6 @@ void set_client_addr(const char v[static 1]);
 void show_usage(void);
 void signal_exit(int status);
 int get_clientid_string(const char str[static 1], size_t slen);
-void background(void);
 void print_version(void);
 
 #endif /* NJK_NDHC_NDHC_H_ */

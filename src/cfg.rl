@@ -46,19 +46,6 @@ struct cfgparse {
     action falsval { ccfg.ternary = -1; }
 
     action clientid { get_clientid_string(ccfg.buf, ccfg.buflen); }
-    action background {
-        switch (ccfg.ternary) {
-        case 1:
-            client_config.background_if_no_lease = true;
-            gflags_detach = 1;
-            break;
-        case -1:
-            client_config.background_if_no_lease = false;
-            gflags_detach = 0;
-        default:
-            break;
-        }
-    }
     action hostname {
         copy_cmdarg(client_config.hostname, ccfg.buf,
                     sizeof client_config.hostname, "hostname");
@@ -187,7 +174,6 @@ struct cfgparse {
     blankline = term;
 
     clientid = 'clientid' value @clientid;
-    background = 'background' boolval @background;
     hostname = 'hostname' value @hostname;
     interface = 'interface' value @interface;
     now = 'now' boolval @now;
@@ -211,7 +197,7 @@ struct cfgparse {
     rfkill_idx = 'rfkill-idx' value @rfkill_idx;
 
     main := blankline |
-        clientid | background | hostname | interface | now | quit |
+        clientid | hostname | interface | now | quit |
         request | vendorid | user | ifch_user | sockd_user | chroot |
         state_dir | seccomp_enforce | relentless_defense | arp_probe_wait |
         arp_probe_num | arp_probe_min | arp_probe_max | gw_metric |
@@ -291,7 +277,6 @@ static void parse_cfgfile(const char fname[static 1])
 
     cfgfile = ('-c'|'--config') argval @cfgfile;
     clientid = ('-I'|'--clientid') argval @clientid;
-    background = ('-b'|'--background') tbv @background;
     hostname = ('-h'|'--hostname') argval @hostname;
     interface = ('-i'|'--interface') argval @interface;
     now = ('-n'|'--now') tbv @now;
@@ -317,7 +302,7 @@ static void parse_cfgfile(const char fname[static 1])
     help = ('-?'|'--help') 0 @help;
 
     main := (
-        cfgfile | clientid | background | hostname | interface |
+        cfgfile | clientid | hostname | interface |
         now | quit | request | vendorid | user | ifch_user | sockd_user |
         chroot | state_dir | seccomp_enforce | relentless_defense |
         arp_probe_wait | arp_probe_num | arp_probe_min | arp_probe_max |

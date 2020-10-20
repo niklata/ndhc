@@ -149,8 +149,6 @@ void show_usage(void)
 "  -I, --clientid=CLIENTID         Client identifier\n"
 "  -h, --hostname=HOSTNAME         Client hostname\n"
 "  -V, --vendorid=VENDORID         Client vendor identification string\n"
-"  -b, --background                Fork to background if lease cannot be\n"
-"                                  immediately negotiated.\n"
 "  -i, --interface=INTERFACE       Interface to use (default: eth0)\n"
 "  -n, --now                       Exit with failure if lease cannot be\n"
 "                                  immediately negotiated.\n"
@@ -515,18 +513,6 @@ static void ndhc_main(void) {
     }
 
     do_ndhc_work();
-}
-
-void background(void)
-{
-    static char called;
-    if (!called) {
-        called = 1;  // Do not fork again.
-        if (daemon(0, 0) < 0) {
-            perror("fork");
-            exit(EXIT_SUCCESS);
-        }
-    }
 }
 
 static void wait_for_rfkill()
