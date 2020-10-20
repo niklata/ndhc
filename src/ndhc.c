@@ -175,7 +175,7 @@ static void signal_handler(int signo)
 {
     switch (signo) {
     case SIGCHLD: {
-        static const char errstr[] = "ndhc-master: Subprocess terminated unexpectedly. Exiting.";
+        static const char errstr[] = "ndhc-master: Subprocess terminated unexpectedly. Exiting.\n";
         safe_write(STDOUT_FILENO, errstr, sizeof errstr - 1);
         exit(EXIT_FAILURE);
     }
