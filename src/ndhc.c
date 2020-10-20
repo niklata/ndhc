@@ -1,6 +1,6 @@
 /* ndhc.c - DHCP client
  *
- * Copyright 2004-2018 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2004-2020 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/epoll.h>
-#include <sys/signalfd.h>
 #include <sys/prctl.h>
 #include <net/if.h>
 #include <errno.h>
@@ -75,7 +74,6 @@
 struct client_state_t cs = {
     .program_init = true,
     .epollFd = -1,
-    .signalFd = -1,
     .listenFd = -1,
     .arpFd = -1,
     .nlFd = -1,
@@ -93,12 +91,33 @@ struct client_config_t client_config = {
     .metric = 0,
 };
 
+static volatile sig_atomic_t l_signal_exit;
+static volatile sig_atomic_t l_signal_renew;
+static volatile sig_atomic_t l_signal_release;
+// Intended to be called in a loop until SIGNAL_NONE is returned.
+int signals_flagged(void)
+{
+    if (l_signal_exit) {
+        l_signal_exit = 0;
+        return SIGNAL_EXIT;
+    }
+    if (l_signal_renew) {
+        l_signal_renew = 0;
+        return SIGNAL_RENEW;
+    }
+    if (l_signal_release) {
+        l_signal_release = 0;
+        return SIGNAL_RELEASE;
+    }
+    return SIGNAL_NONE;
+}
+
 void set_client_addr(const char v[static 1]) { cs.clientAddr = inet_addr(v); }
 
 void print_version(void)
 {
     printf("ndhc %s, dhcp client.\n", NDHC_VERSION);
-    printf("Copyright 2004-2018 Nicholas J. Kain\n"
+    printf("Copyright 2004-2020 Nicholas J. Kain\n"
            "All rights reserved.\n\n"
            "Redistribution and use in source and binary forms, with or without\n"
            "modification, are permitted provided that the following conditions are met:\n\n"
@@ -125,7 +144,7 @@ void show_usage(void)
 {
     printf(
 "ndhc " NDHC_VERSION ", dhcp client.  Licensed under 2-clause BSD.\n"
-"Copyright 2004-2018 Nicholas J. Kain\n"
+"Copyright 2004-2020 Nicholas J. Kain\n"
 "Usage: ndhc [OPTIONS]\n\n"
 "  -c, --config=FILE               Path to ndhc configuration file\n"
 "  -I, --clientid=CLIENTID         Client identifier\n"
@@ -166,70 +185,46 @@ static void signal_handler(int signo)
         safe_write(STDOUT_FILENO, errstr, sizeof errstr - 1);
         exit(EXIT_FAILURE);
     }
-    default:
-        break;
+    case SIGINT:
+    case SIGTERM: l_signal_exit = 1; break;
+    case SIGUSR1: l_signal_renew = 1; break;
+    case SIGUSR2: l_signal_release = 1; break;
+    default: break;
     }
+}
+
+void signal_exit(int status)
+{
+    log_line("Received terminal signal. Exiting.");
+    exit(status);
 }
 
 static void setup_signals_ndhc(void)
 {
+    static const int ss[] = {
+        SIGCHLD, SIGINT, SIGTERM, SIGUSR1, SIGUSR2, SIGKILL
+    };
     sigset_t mask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGUSR1);
-    sigaddset(&mask, SIGUSR2);
-    sigaddset(&mask, SIGTERM);
-    sigaddset(&mask, SIGINT);
-    if (sigprocmask(SIG_BLOCK, &mask, (sigset_t *)0) < 0)
+
+    if (sigprocmask(0, 0, &mask) < 0)
+        suicide("sigprocmask failed");
+    for (int i = 0; ss[i] != SIGKILL; ++i)
+        if (sigdelset(&mask, ss[i]))
+            suicide("sigdelset failed");
+    if (sigaddset(&mask, SIGPIPE))
+        suicide("sigaddset failed");
+    if (sigprocmask(SIG_SETMASK, &mask, (sigset_t *)0) < 0)
         suicide("sigprocmask failed");
 
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGCHLD);
-    if (sigprocmask(SIG_UNBLOCK, &mask, (sigset_t *)0) < 0)
-        suicide("sigprocmask failed");
     struct sigaction sa = {
         .sa_handler = signal_handler,
         .sa_flags = SA_RESTART,
     };
-    sigemptyset(&sa.sa_mask);
-    if (sigaction(SIGCHLD, &sa, NULL))
-        suicide("sigaction failed");
-
-    if (cs.signalFd >= 0) {
-        epoll_del(cs.epollFd, cs.signalFd);
-        close(cs.signalFd);
-    }
-    cs.signalFd = signalfd(-1, &mask, SFD_NONBLOCK);
-    if (cs.signalFd < 0)
-        suicide("signalfd failed");
-    epoll_add(cs.epollFd, cs.signalFd);
-}
-
-static int signal_dispatch(void)
-{
-    struct signalfd_siginfo si;
-    memset(&si, 0, sizeof si);
-    ssize_t r = safe_read(cs.signalFd, (char *)&si, sizeof si);
-    if (r < 0) {
-        log_error("%s: ndhc: error reading from signalfd: %s",
-                  client_config.interface, strerror(errno));
-        return SIGNAL_NONE;
-    }
-    if ((size_t)r < sizeof si) {
-        log_error("%s: ndhc: short read from signalfd: %zd < %zu",
-                  client_config.interface, r, sizeof si);
-        return SIGNAL_NONE;
-    }
-    switch (si.ssi_signo) {
-        case SIGUSR1: return SIGNAL_RENEW;
-        case SIGUSR2: return SIGNAL_RELEASE;
-        case SIGTERM:
-            log_line("Received SIGTERM.  Exiting gracefully.");
-            exit(EXIT_SUCCESS);
-        case SIGINT:
-            log_line("Received SIGINT.  Exiting gracefully.");
-            exit(EXIT_SUCCESS);
-        default: return SIGNAL_NONE;
-    }
+    if (sigemptyset(&sa.sa_mask))
+        suicide("sigemptyset failed");
+    for (int i = 0; ss[i] != SIGKILL; ++i)
+        if (sigaction(ss[i], &sa, NULL))
+            suicide("sigaction failed");
 }
 
 static int is_string_hwaddr(const char str[static 1], size_t slen)
@@ -317,16 +312,11 @@ static void do_ndhc_work(void)
         bool sev_arp = false;
         int sev_nl = IFS_NONE;
         int sev_rfk = RFK_NONE;
-        int sev_signal = SIGNAL_NONE;
         bool force_fingerprint = false;
         for (int i = 0; i < maxi; ++i) {
             had_event = true;
             int fd = events[i].data.fd;
-            if (fd == cs.signalFd) {
-                if (!(events[i].events & EPOLLIN))
-                    suicide("signalfd closed unexpectedly");
-                sev_signal = signal_dispatch();
-            } else if (fd == cs.listenFd) {
+            if (fd == cs.listenFd) {
                 if (!(events[i].events & EPOLLIN))
                     suicide("listenfd closed unexpectedly");
                 sev_dhcp = dhcp_packet_get(&cs, &dhcp_packet, &dhcp_msgtype,
@@ -387,7 +377,7 @@ static void do_ndhc_work(void)
                                   dhcp_msgtype, dhcp_srcaddr,
                                   sev_arp, force_fingerprint,
                                   cs.dhcp_wake_ts <= nowts,
-                                  arp_wake_ts <= nowts, sev_signal);
+                                  arp_wake_ts <= nowts);
 
         if (dhcp_ok == COR_ERROR) {
             timeout = 2000 + (int)(nk_random_u32(&cs.rnd_state) % 3000);

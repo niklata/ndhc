@@ -1,6 +1,6 @@
 /* ndhc.h - DHCP client
  *
- * Copyright 2014-2018 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2014-2020 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,7 +45,7 @@ struct client_state_t {
     long long leaseStartTime, renewTime, rebindTime;
     long long dhcp_wake_ts;
     int ifDeconfig; // Set if the interface has already been deconfigured.
-    int epollFd, signalFd, listenFd, arpFd, nlFd, rfkillFd;
+    int epollFd, listenFd, arpFd, nlFd, rfkillFd;
     int server_arp_sent, router_arp_sent;
     uint32_t nlPortId;
     unsigned int num_dhcp_requests, num_dhcp_renews;
@@ -75,6 +75,13 @@ struct client_config_t {
     bool enable_rfkill;          // Listen for rfkill events
 };
 
+enum {
+    SIGNAL_NONE = 0,
+    SIGNAL_EXIT,
+    SIGNAL_RENEW,
+    SIGNAL_RELEASE
+};
+
 extern struct client_config_t client_config;
 
 extern int ifchSock[2];
@@ -89,8 +96,10 @@ extern uid_t ndhc_uid;
 extern gid_t ndhc_gid;
 extern bool write_pid_enabled;
 
+int signals_flagged(void);
 void set_client_addr(const char v[static 1]);
 void show_usage(void);
+void signal_exit(int status);
 int get_clientid_string(const char str[static 1], size_t slen);
 void background(void);
 void print_version(void);

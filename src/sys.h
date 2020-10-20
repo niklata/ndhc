@@ -1,6 +1,6 @@
 /* sys.h - linux-specific signal and epoll functions
  *
- * Copyright 2010-2018 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2010-2020 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,7 @@ long long IMPL_curms(const char *parent_function);
 void epoll_add(int epfd, int fd);
 void epoll_del(int epfd, int fd);
 
-int setup_signals_subprocess(void);
+void setup_signals_subprocess(void);
 void signal_dispatch_subprocess(int sfd, const char pname[static 1]);
 
 #endif /* SYS_H_ */

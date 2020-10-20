@@ -1,6 +1,6 @@
 /* ifchd.c - interface change daemon
  *
- * Copyright 2004-2018 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2004-2020 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -53,8 +53,8 @@
 
 struct ifchd_client cl;
 
-static int epollfd, signalFd;
-/* Slots are for signalFd and the ndhc -> ifchd socket. */
+static int epollfd;
+/* Slots are for the ndhc -> ifchd socket. */
 static struct epoll_event events[2];
 
 static int resolv_conf_fd = -1;
@@ -352,10 +352,9 @@ static void do_ifch_work(void)
 
     epoll_add(epollfd, ifchSock[1]);
     epoll_add(epollfd, ifchStream[1]);
-    epoll_add(epollfd, signalFd);
 
     for (;;) {
-        int r = epoll_wait(epollfd, events, 3, -1);
+        int r = epoll_wait(epollfd, events, 2, -1);
         if (r < 0) {
             if (errno == EINTR)
                 continue;
@@ -370,9 +369,6 @@ static void do_ifch_work(void)
             } else if (fd == ifchStream[1]) {
                 if (events[i].events & (EPOLLHUP|EPOLLERR|EPOLLRDHUP))
                     exit(EXIT_SUCCESS);
-            } else if (fd == signalFd) {
-                if (events[i].events & EPOLLIN)
-                    signal_dispatch_subprocess(signalFd, "ifch");
             } else
                 suicide("ifch: unexpected fd while performing epoll");
         }
@@ -414,7 +410,7 @@ void ifch_main(void)
 {
     prctl(PR_SET_NAME, "ndhc: ifch");
     umask(077);
-    signalFd = setup_signals_subprocess();
+    setup_signals_subprocess();
     setup_resolv_conf();
 
     nk_set_chroot(chroot_dir);

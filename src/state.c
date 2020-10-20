@@ -1,6 +1,6 @@
 /* state.c - high level DHCP state machine
  *
- * Copyright 2011-2018 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2011-2020 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -431,24 +431,78 @@ no_fingerprint:
     return IFUP_NEWLEASE;
 }
 
+// If ret == 0: do nothing
+//    ret == 1: ret = COR_ERROR; scrReturn(ret); continue
+//    ret == 2: goto skip_to_released
+//    ret == 3: break
+static int signal_check_nolease(struct client_state_t cs[static 1])
+{
+    for (;;) {
+        int s = signals_flagged();
+        if (s == SIGNAL_NONE) break;
+        if (s == SIGNAL_EXIT) signal_exit(EXIT_SUCCESS);
+        if (s == SIGNAL_RELEASE) {
+            print_release(cs);
+            return 2;
+        }
+    }
+    return 0;
+}
+static int signal_check_havelease(struct client_state_t cs[static 1])
+{
+    for (;;) {
+        int s = signals_flagged();
+        if (s == SIGNAL_NONE) break;
+        if (s == SIGNAL_EXIT) signal_exit(EXIT_SUCCESS);
+        if (s == SIGNAL_RELEASE) {
+            int r = xmit_release(cs);
+            if (r) return 1;
+            return 2;
+        }
+        if (s == SIGNAL_RENEW) {
+            int r = frenew(cs, true);
+            if (r) return 1;
+        }
+    }
+    return 0;
+}
+static int signal_check_released(struct client_state_t cs[static 1])
+{
+    (void)cs;
+    for (;;) {
+        int s = signals_flagged();
+        if (s == SIGNAL_NONE) break;
+        if (s == SIGNAL_EXIT) signal_exit(EXIT_SUCCESS);
+        if (s == SIGNAL_RENEW) return 3;
+    }
+    return 0;
+}
+#define SIGNAL_CHECK(NAME) \
+{ \
+    int tt = signal_check_ ## NAME(cs); \
+    if (tt == 1) { \
+        ret = COR_ERROR; \
+        scrReturn(ret); \
+        continue; \
+    } \
+    if (tt == 2) goto skip_to_released; \
+    if (tt == 3) break; \
+}
+
 #define BAD_STATE() suicide("%s(%d): bad state", __func__, __LINE__)
 
 // XXX: Should be re-entrant so as to handle multiple servers.
 int dhcp_handle(struct client_state_t cs[static 1], long long nowts,
                 bool sev_dhcp, struct dhcpmsg dhcp_packet[static 1],
                 uint8_t dhcp_msgtype, uint32_t dhcp_srcaddr, bool sev_arp,
-                bool force_fingerprint, bool dhcp_timeout, bool arp_timeout,
-                int sev_signal)
+                bool force_fingerprint, bool dhcp_timeout, bool arp_timeout)
 {
     scrBegin;
 reinit:
     // We're in the SELECTING state here.
     for (;;) {
         int ret = COR_SUCCESS;
-        if (sev_signal == SIGNAL_RELEASE) {
-            print_release(cs);
-            goto skip_to_released;
-        }
+        SIGNAL_CHECK(nolease);
         if (sev_dhcp) {
             int r = selecting_packet(cs, dhcp_packet, dhcp_msgtype,
                                      dhcp_srcaddr, false);
@@ -473,10 +527,7 @@ reinit:
         int ret;
 skip_to_requesting:
         ret = COR_SUCCESS;
-        if (sev_signal == SIGNAL_RELEASE) {
-            print_release(cs);
-            goto skip_to_released;
-        }
+        SIGNAL_CHECK(nolease);
         if (sev_dhcp) {
             int r = selecting_packet(cs, dhcp_packet, dhcp_msgtype,
                                      dhcp_srcaddr, true);
@@ -513,10 +564,7 @@ skip_to_requesting:
     for (;;) {
         int ret;
         ret = COR_SUCCESS;
-        if (sev_signal == SIGNAL_RELEASE) {
-            print_release(cs);
-            goto skip_to_released;
-        }
+        SIGNAL_CHECK(nolease);
         if (sev_dhcp) {
             // XXX: Maybe I can think of something to do here.  Would
             //      be more relevant if we tracked multiple dhcp servers.
@@ -568,25 +616,7 @@ skip_to_requesting:
     // We're in the BOUND, RENEWING, or REBINDING states here.
     for (;;) {
         int ret = COR_SUCCESS;
-        if (sev_signal) {
-            if (sev_signal == SIGNAL_RELEASE) {
-                int r = xmit_release(cs);
-                if (r) {
-                    ret = COR_ERROR;
-                    scrReturn(ret);
-                    continue;
-                }
-                goto skip_to_released;
-            }
-            if (sev_signal == SIGNAL_RENEW) {
-                int r = frenew(cs, true);
-                if (r) {
-                    ret = COR_ERROR;
-                    scrReturn(ret);
-                    continue;
-                }
-            }
-        }
+        SIGNAL_CHECK(havelease);
         if (sev_dhcp && cs->sent_renew_or_rebind) {
             int r = extend_packet(cs, dhcp_packet, dhcp_msgtype, dhcp_srcaddr);
             if (r == ANP_SUCCESS || r == ANP_IGNORE) {
@@ -712,15 +742,7 @@ skip_to_requesting:
         int ret;
 skip_to_released:
         ret = COR_SUCCESS;
-        if (sev_signal == SIGNAL_RENEW) {
-            int r = frenew(cs, false);
-            if (r) {
-                ret = COR_ERROR;
-                scrReturn(ret);
-                continue;
-            }
-            break;
-        }
+        SIGNAL_CHECK(released);
         scrReturn(ret);
     }
     sev_dhcp = false;

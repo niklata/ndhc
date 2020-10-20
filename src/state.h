@@ -1,6 +1,6 @@
 /* state.h - high level DHCP state machine
  *
- * Copyright 2011-2018 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2011-2020 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,17 +34,10 @@
 #define COR_SUCCESS 0
 #define COR_ERROR -1
 
-enum {
-    SIGNAL_NONE = 0,
-    SIGNAL_RENEW,
-    SIGNAL_RELEASE
-};
-
 int dhcp_handle(struct client_state_t cs[static 1], long long nowts,
                 bool sev_dhcp, struct dhcpmsg dhcp_packet[static 1],
                 uint8_t dhcp_msgtype, uint32_t dhcp_srcaddr, bool sev_arp,
-                bool force_fingerprint, bool dhcp_timeout, bool arp_timeout,
-                int sev_signal);
+                bool force_fingerprint, bool dhcp_timeout, bool arp_timeout);
 
 #endif
 

@@ -1,6 +1,6 @@
 /* sockd.c - privsep socket creation daemon
  *
- * Copyright 2014-2018 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2014-2020 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -58,8 +58,8 @@
 #include "dhcp.h"
 #include "sys.h"
 
-static int epollfd, signalFd;
-/* Slots are for signalFd and the ndhc -> ifchd socket. */
+static int epollfd;
+/* Slots are for the ndhc -> ifchd socket. */
 static struct epoll_event events[2];
 
 uid_t sockd_uid = 0;
@@ -556,10 +556,9 @@ static void do_sockd_work(void)
 
     epoll_add(epollfd, sockdSock[1]);
     epoll_add(epollfd, sockdStream[1]);
-    epoll_add(epollfd, signalFd);
 
     for (;;) {
-        int r = epoll_wait(epollfd, events, 3, -1);
+        int r = epoll_wait(epollfd, events, 2, -1);
         if (r < 0) {
             if (errno == EINTR)
                 continue;
@@ -574,9 +573,6 @@ static void do_sockd_work(void)
             } else if (fd == sockdStream[1]) {
                 if (events[i].events & (EPOLLHUP|EPOLLERR|EPOLLRDHUP))
                     exit(EXIT_SUCCESS);
-            } else if (fd == signalFd) {
-                if (events[i].events & EPOLLIN)
-                    signal_dispatch_subprocess(signalFd, "sockd");
             } else
                 suicide("sockd: unexpected fd while performing epoll");
         }
@@ -587,7 +583,7 @@ void sockd_main(void)
 {
     prctl(PR_SET_NAME, "ndhc: sockd");
     umask(077);
-    signalFd = setup_signals_subprocess();
+    setup_signals_subprocess();
     nk_set_chroot(chroot_dir);
     memset(chroot_dir, 0, sizeof chroot_dir);
     unsigned char keepcaps[] = { CAP_NET_BIND_SERVICE, CAP_NET_BROADCAST,

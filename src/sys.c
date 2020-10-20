@@ -1,6 +1,6 @@
 /* sys.c - linux-specific signal and epoll functions
  *
- * Copyright 2010-2018 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2010-2020 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,7 +32,6 @@
 #include <errno.h>
 #include <signal.h>
 #include <sys/epoll.h>
-#include <sys/signalfd.h>
 #include "nk/log.h"
 #include "nk/io.h"
 #include "ndhc.h"
@@ -70,41 +69,14 @@ void epoll_del(int epfd, int fd)
         suicide("epoll_del failed %s", strerror(errno));
 }
 
-int setup_signals_subprocess(void)
+void setup_signals_subprocess(void)
 {
     sigset_t mask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGHUP);
-    sigaddset(&mask, SIGINT);
-    sigaddset(&mask, SIGTERM);
-    if (sigprocmask(SIG_BLOCK, &mask, (sigset_t *)0) < 0)
+    if (sigprocmask(0, 0, &mask) < 0)
         suicide("sigprocmask failed");
-    int sfd = signalfd(-1, &mask, SFD_NONBLOCK);
-    if (sfd < 0)
-        suicide("signalfd failed");
-    return sfd;
-}
-
-void signal_dispatch_subprocess(int sfd, const char pname[static 1])
-{
-    struct signalfd_siginfo si;
-    memset(&si, 0, sizeof si);
-    ssize_t r = safe_read(sfd, (char *)&si, sizeof si);
-    if (r < 0) {
-        log_error("%s: %s: error reading from signalfd: %s",
-                  client_config.interface, pname, strerror(errno));
-        return;
-    }
-    if ((size_t)r < sizeof si) {
-        log_error("%s: %s: short read from signalfd: %zd < %zu",
-                  client_config.interface, pname, r, sizeof si);
-        return;
-    }
-    switch (si.ssi_signo) {
-        case SIGINT:
-        case SIGTERM:
-        case SIGHUP: exit(EXIT_SUCCESS); break;
-        default: break;
-    }
+    if (sigaddset(&mask, SIGPIPE))
+        suicide("sigaddset failed");
+    if (sigprocmask(SIG_SETMASK, &mask, (sigset_t *)0) < 0)
+        suicide("sigprocmask failed");
 }
 
