@@ -295,7 +295,7 @@ static int create_raw_listen_socket(bool *using_bpf)
     };
     static const struct sock_fprog sfp_dhcp = {
         .len = sizeof sf_dhcp / sizeof sf_dhcp[0],
-        .filter = (struct sock_filter * const)sf_dhcp,
+        .filter = (struct sock_filter const * const)sf_dhcp,
     };
     struct sockaddr_ll sa = {
         .sll_family = AF_PACKET,
@@ -338,7 +338,7 @@ static bool arp_set_bpf_basic(int fd)
     };
     static const struct sock_fprog sfp_arp = {
         .len = sizeof sf_arp / sizeof sf_arp[0],
-        .filter = (struct sock_filter * const)sf_arp,
+        .filter = (struct sock_filter const * const)sf_arp,
     };
     int ret = setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &sfp_arp,
                          sizeof sfp_arp) != -1;
