@@ -327,14 +327,12 @@ void start_dhcp_listen(struct client_state_t cs[static 1])
     if (cs->listenFd < 0)
         suicide("%s: FATAL: Couldn't listen on socket: %s",
                 client_config.interface, strerror(errno));
-    epoll_add(cs->epollFd, cs->listenFd);
 }
 
 void stop_dhcp_listen(struct client_state_t cs[static 1])
 {
     if (cs->listenFd < 0)
         return;
-    epoll_del(cs->epollFd, cs->listenFd);
     close(cs->listenFd);
     cs->listenFd = -1;
 }

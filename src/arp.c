@@ -83,7 +83,6 @@ static void arp_min_close_fd(struct client_state_t cs[static 1])
 {
     if (cs->arpFd < 0)
         return;
-    epoll_del(cs->epollFd, cs->arpFd);
     close(cs->arpFd);
     cs->arpFd = -1;
     cs->arp_is_defense = false;
@@ -161,7 +160,6 @@ static int arp_open_fd(struct client_state_t cs[static 1], bool defense)
                   client_config.interface, __func__, strerror(errno));
         return -1;
     }
-    epoll_add(cs->epollFd, cs->arpFd);
     return 0;
 }
 
@@ -754,6 +752,8 @@ server_is_router:
 
 bool arp_packet_get(struct client_state_t cs[static 1])
 {
+    if (cs->arpFd < 0)
+        return false;
     struct arpMsg amsg;
     ssize_t r = 0;
     size_t bytes_read = 0;

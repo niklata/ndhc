@@ -1,4 +1,4 @@
-/* sys.c - linux-specific signal and epoll functions
+/* sys.c - misc portable functions
  *
  * Copyright 2010-2020 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
@@ -26,14 +26,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <unistd.h>
-#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
-#include <sys/epoll.h>
+#include <time.h>
 #include "nk/log.h"
-#include "nk/io.h"
 #include "ndhc.h"
 #include "sys.h"
 
@@ -45,28 +42,6 @@ long long IMPL_curms(const char *parent_function)
                 client_config.interface, parent_function, strerror(errno));
     }
     return ts.tv_sec * 1000LL + ts.tv_nsec / 1000000LL;
-}
-
-void epoll_add(int epfd, int fd)
-{
-    struct epoll_event ev;
-    int r;
-    ev.events = EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLHUP;
-    ev.data.fd = fd;
-    r = epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &ev);
-    if (r < 0)
-        suicide("epoll_add failed %s", strerror(errno));
-}
-
-void epoll_del(int epfd, int fd)
-{
-    struct epoll_event ev;
-    int r;
-    ev.events = EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLHUP;
-    ev.data.fd = fd;
-    r = epoll_ctl(epfd, EPOLL_CTL_DEL, fd, &ev);
-    if (r < 0)
-        suicide("epoll_del failed %s", strerror(errno));
 }
 
 void setup_signals_subprocess(void)

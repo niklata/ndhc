@@ -45,7 +45,7 @@ struct client_state_t {
     long long leaseStartTime, renewTime, rebindTime;
     long long dhcp_wake_ts;
     int ifDeconfig; // Set if the interface has already been deconfigured.
-    int epollFd, listenFd, arpFd, nlFd, rfkillFd;
+    int listenFd, arpFd, nlFd, rfkillFd;
     int server_arp_sent, router_arp_sent;
     uint32_t nlPortId;
     unsigned int num_dhcp_requests, num_dhcp_renews;

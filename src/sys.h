@@ -1,4 +1,4 @@
-/* sys.h - linux-specific signal and epoll functions
+/* sys.h - misc portable functions
  *
  * Copyright 2010-2020 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
@@ -28,7 +28,6 @@
 #ifndef SYS_H_
 #define SYS_H_
 
-#include <time.h>
 #include "ndhc-defines.h"
 
 static inline size_t min_size_t(size_t a, size_t b)
@@ -38,11 +37,8 @@ static inline size_t min_size_t(size_t a, size_t b)
 
 #define curms() IMPL_curms(__func__)
 long long IMPL_curms(const char *parent_function);
-void epoll_add(int epfd, int fd);
-void epoll_del(int epfd, int fd);
 
 void setup_signals_subprocess(void);
-void signal_dispatch_subprocess(int sfd, const char pname[static 1]);
 
 #endif /* SYS_H_ */
 

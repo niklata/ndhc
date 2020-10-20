@@ -40,7 +40,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <sys/epoll.h>
+#include <poll.h>
 #include <sys/prctl.h>
 #include <net/if.h>
 #include <errno.h>
@@ -73,7 +73,6 @@
 
 struct client_state_t cs = {
     .program_init = true,
-    .epollFd = -1,
     .listenFd = -1,
     .arpFd = -1,
     .nlFd = -1,
@@ -279,33 +278,35 @@ static void do_ndhc_work(void)
     static bool rfkill_set; // Is the rfkill switch set?
     static bool rfkill_nl_carrier_wentup; // iface carrier changed to up during rfkill
     struct dhcpmsg dhcp_packet;
-    struct epoll_event events[1];
     long long nowts;
     int timeout = 0;
     bool had_event;
 
-    cs.epollFd = epoll_create1(0);
-    if (cs.epollFd < 0)
-        suicide("epoll_create1 failed");
-
     setup_signals_ndhc();
-
-    epoll_add(cs.epollFd, cs.nlFd);
-    epoll_add(cs.epollFd, ifchStream[0]);
-    epoll_add(cs.epollFd, sockdStream[0]);
-    if (client_config.enable_rfkill && cs.rfkillFd != -1)
-        epoll_add(cs.epollFd, cs.rfkillFd);
     start_dhcp_listen(&cs);
 
+    struct pollfd pfds[6] = {0};
+    pfds[0].fd = cs.nlFd;
+    pfds[0].events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+    pfds[1].fd = ifchStream[0];
+    pfds[1].events = POLLHUP|POLLERR|POLLRDHUP;
+    pfds[2].fd = sockdStream[0];
+    pfds[2].events = POLLHUP|POLLERR|POLLRDHUP;
+    pfds[3].fd = cs.rfkillFd;
+    pfds[3].events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+    // These can change on the fly.
+    pfds[4].events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+    pfds[5].events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
+
     for (;;) {
+        pfds[4].fd = cs.arpFd;
+        pfds[5].fd = cs.listenFd;
         had_event = false;
-        int maxi = epoll_wait(cs.epollFd, events, 1, timeout);
-        if (maxi < 0) {
-            if (errno == EINTR)
-                continue;
-            else
-                suicide("epoll_wait failed");
+        if (poll(pfds, 6, timeout) < 0) {
+            if (errno == EINTR) continue;
+            else suicide("poll failed");
         }
+
         bool sev_dhcp = false;
         uint32_t dhcp_srcaddr;
         uint8_t dhcp_msgtype;
@@ -313,34 +314,54 @@ static void do_ndhc_work(void)
         int sev_nl = IFS_NONE;
         int sev_rfk = RFK_NONE;
         bool force_fingerprint = false;
-        for (int i = 0; i < maxi; ++i) {
+        if (pfds[0].revents & POLLIN) {
+            pfds[0].revents &= ~POLLIN;
             had_event = true;
-            int fd = events[i].data.fd;
-            if (fd == cs.listenFd) {
-                if (!(events[i].events & EPOLLIN))
-                    suicide("listenfd closed unexpectedly");
+            sev_nl = nl_event_get(&cs);
+        }
+        if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+            pfds[0].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
+            suicide("nlfd closed unexpectedly");
+        }
+        if (pfds[1].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+            pfds[1].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
+            exit(EXIT_FAILURE);
+        }
+        if (pfds[2].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+            pfds[2].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
+            exit(EXIT_FAILURE);
+        }
+        if (pfds[3].revents & POLLIN) {
+            pfds[3].revents &= ~POLLIN;
+            had_event = true;
+            sev_rfk = rfkill_get(&cs, 1, client_config.rfkillIdx);
+        }
+        if (pfds[3].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+            pfds[3].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
+            suicide("rfkillfd closed unexpectedly");
+        }
+        if (pfds[4].revents & POLLIN) {
+            pfds[4].revents &= ~POLLIN;
+            had_event = true;
+            // Make sure the fd is still the same.
+            if (pfds[4].fd == cs.arpFd)
+                sev_arp = arp_packet_get(&cs);
+        }
+        if (pfds[4].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+            pfds[4].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
+            suicide("arpfd closed unexpectedly");
+        }
+        if (pfds[5].revents & POLLIN) {
+            pfds[5].revents &= ~POLLIN;
+            had_event = true;
+            // Make sure the fd is still the same.
+            if (pfds[5].fd == cs.listenFd)
                 sev_dhcp = dhcp_packet_get(&cs, &dhcp_packet, &dhcp_msgtype,
                                            &dhcp_srcaddr);
-            } else if (fd == cs.arpFd) {
-                if (!(events[i].events & EPOLLIN))
-                    suicide("arpfd closed unexpectedly");
-                sev_arp = arp_packet_get(&cs);
-            } else if (fd == cs.nlFd) {
-                if (!(events[i].events & EPOLLIN))
-                    suicide("nlfd closed unexpectedly");
-                sev_nl = nl_event_get(&cs);
-            } else if (fd == ifchStream[0]) {
-                if (events[i].events & (EPOLLHUP|EPOLLERR|EPOLLRDHUP))
-                    exit(EXIT_FAILURE);
-            } else if (fd == sockdStream[0]) {
-                if (events[i].events & (EPOLLHUP|EPOLLERR|EPOLLRDHUP))
-                    exit(EXIT_FAILURE);
-            } else if (fd == cs.rfkillFd && client_config.enable_rfkill) {
-                if (!(events[i].events & EPOLLIN))
-                    suicide("rfkillfd closed unexpectedly");
-                sev_rfk = rfkill_get(&cs, 1, client_config.rfkillIdx);
-            } else
-                suicide("epoll_wait: unknown fd");
+        }
+        if (pfds[5].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+            pfds[5].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
+            suicide("listenfd closed unexpectedly");
         }
 
         if (sev_rfk == RFK_ENABLED) {
@@ -370,6 +391,10 @@ static void do_ndhc_work(void)
             timeout = 2000 + (int)(nk_random_u32(&cs.rnd_state) % 3000);
             continue;
         }
+
+        // These two can change on the fly; make sure the event is current.
+        if (pfds[4].fd != cs.arpFd) sev_arp = false;
+        if (pfds[5].fd != cs.listenFd) sev_dhcp = false;
 
         nowts = curms();
         long long arp_wake_ts = arp_get_wake_ts();
@@ -514,42 +539,37 @@ void background(void)
 
 static void wait_for_rfkill()
 {
-    struct epoll_event events[2];
     cs.rfkillFd = rfkill_open(&client_config.enable_rfkill);
     if (cs.rfkillFd < 0)
         suicide("can't wait for rfkill to end if /dev/rfkill can't be opened");
-    int epfd = epoll_create1(0);
-    if (epfd < 0)
-        suicide("epoll_create1 failed");
-    epoll_add(epfd, cs.rfkillFd);
+
+    struct pollfd pfds[1] = {0};
+    pfds[0].events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
     for (;;) {
-        int r = epoll_wait(epfd, events, 2, -1);
-        if (r < 0) {
-            if (errno == EINTR)
-                continue;
-            else
-                suicide("epoll_wait failed");
+        pfds[0].fd = cs.rfkillFd;
+        if (poll(pfds, 1, -1) < 0) {
+            if (errno == EINTR) continue;
+            else suicide("poll failed");
         }
-        for (int i = 0; i < r; ++i) {
-            int fd = events[i].data.fd;
-            if (fd != cs.rfkillFd)
-                suicide("epoll_wait: unknown fd");
-            if (events[i].events & EPOLLIN) {
-                int rfk = rfkill_get(&cs, 0, 0);
-                if (rfk == RFK_DISABLED) {
-                    switch (perform_ifup()) {
-                    case 1: case 0: goto rfkill_gone;
-                    case -3:
-                        log_line("rfkill: radio immediately blocked again; spurious?");
-                        break;
-                    default: suicide("failed to set the interface to up state");
-                    }
+        if (pfds[0].revents & POLLIN) {
+            pfds[0].revents &= ~POLLIN;
+            if (rfkill_get(&cs, 0, 0) == RFK_DISABLED) {
+                switch (perform_ifup()) {
+                case 1:
+                case 0: goto rfkill_gone;
+                case -3:
+                    log_line("rfkill: radio immediately blocked again; spurious?");
+                    break;
+                default: suicide("failed to set the interface to up state");
                 }
             }
         }
+        if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+            pfds[0].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
+            suicide("rfkillFd closed unexpectedly");
+        }
     }
 rfkill_gone:
-    close(epfd);
     // We always close because ifchd and sockd shouldn't keep
     // an rfkill fd open.
     close(cs.rfkillFd);
