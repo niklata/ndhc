@@ -177,7 +177,7 @@ static void signal_handler(int signo)
     case SIGCHLD: {
         static const char errstr[] = "ndhc-master: Subprocess terminated unexpectedly. Exiting.\n";
         safe_write(STDOUT_FILENO, errstr, sizeof errstr - 1);
-        exit(EXIT_FAILURE);
+        _exit(EXIT_FAILURE);
     }
     case SIGINT:
     case SIGTERM: l_signal_exit = 1; break;
@@ -298,8 +298,8 @@ static void do_ndhc_work(void)
         pfds[5].fd = cs.listenFd;
         had_event = false;
         if (poll(pfds, 6, timeout) < 0) {
-            if (errno == EINTR) continue;
-            else suicide("poll failed");
+            if (errno != EINTR)
+                suicide("poll failed");
         }
 
         bool sev_dhcp = false;
