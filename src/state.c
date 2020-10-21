@@ -180,28 +180,6 @@ static int bound_timeout(struct client_state_t cs[static 1], long long nowts)
     return renewing_timeout(cs, nowts);
 }
 
-static int validate_serverid(struct client_state_t cs[static 1],
-                             struct dhcpmsg packet[static 1],
-                             const char typemsg[static 1])
-{
-    int found;
-    uint32_t sid = get_option_serverid(packet, &found);
-    if (!found) {
-        log_line("%s: Received %s with no server id.  Ignoring it.",
-                 client_config.interface, typemsg);
-        return 0;
-    }
-    if (cs->serverAddr != sid) {
-        char svrbuf[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &(struct in_addr){.s_addr=sid},
-                  svrbuf, sizeof svrbuf);
-        log_line("%s: Received %s with an unexpected server id: %s.  Ignoring it.",
-                 client_config.interface, typemsg, svrbuf);
-        return 0;
-    }
-    return 1;
-}
-
 static void get_leasetime(struct client_state_t cs[static 1],
                           struct dhcpmsg packet[static 1])
 {
@@ -225,13 +203,39 @@ static void get_leasetime(struct client_state_t cs[static 1],
     cs->dhcp_wake_ts = cs->leaseStartTime + cs->renewTime * 1000;
 }
 
+static bool validate_acknak(struct client_state_t cs[static 1],
+                            struct dhcpmsg packet[static 1],
+                            const char typemsg[static 1],
+                            uint32_t srcaddr)
+{
+    // Don't validate the server id.  Instead validate that the
+    // yiaddr matches.  Some networks have multiple servers
+    // that don't respect the serverid that was specified in
+    // our DHCPREQUEST.
+    if (memcmp(&packet->yiaddr, &cs->clientAddr, 4))
+        return false;
+
+    int found;
+    uint32_t sid = get_option_serverid(packet, &found);
+    if (!found) {
+        log_line("%s: Received %s with no server id.  Ignoring it.",
+                 client_config.interface, typemsg);
+        return false;
+    }
+    if (cs->serverAddr != sid) {
+        cs->serverAddr = sid;
+        cs->srcAddr = srcaddr;
+    }
+    return true;
+}
+
 static int extend_packet(struct client_state_t cs[static 1],
                          struct dhcpmsg packet[static 1], uint8_t msgtype,
                          uint32_t srcaddr)
 {
     (void)srcaddr;
     if (msgtype == DHCPACK) {
-        if (!validate_serverid(cs, packet, "a DHCP ACK"))
+        if (!validate_acknak(cs, packet, "DHCPACK", srcaddr))
             return ANP_IGNORE;
         cs->sent_renew_or_rebind = false;
         cs->num_dhcp_renews = 0;
@@ -255,7 +259,7 @@ static int extend_packet(struct client_state_t cs[static 1],
             return ANP_SUCCESS;
         }
     } else if (msgtype == DHCPNAK) {
-        if (!validate_serverid(cs, packet, "a DHCP NAK"))
+        if (!validate_acknak(cs, packet, "DHCPNAK", srcaddr))
             return ANP_IGNORE;
         cs->sent_renew_or_rebind = false;
         cs->num_dhcp_renews = 0;
@@ -298,33 +302,19 @@ static int selecting_packet(struct client_state_t cs[static 1],
                  client_config.interface, clibuf, svrbuf, srcbuf);
         return ANP_SUCCESS;
     } else if (is_requesting && msgtype == DHCPACK) {
-        // Don't validate the server id.  Instead validate that the
-        // yiaddr matches.  Some networks have multiple servers
-        // that don't respect the serverid that was specified in
-        // our DHCPREQUEST.
-        if (!memcmp(&packet->yiaddr, &cs->clientAddr, 4)) {
-            uint32_t sid = get_option_serverid(packet, &found);
-            if (!found) {
-                log_line("%s: Invalid offer received: it didn't have a server id.",
-                         client_config.interface);
-                return ANP_IGNORE;
-            }
-            if (cs->serverAddr != sid) {
-                cs->serverAddr = sid;
-                cs->srcAddr = srcaddr;
-            }
-            get_leasetime(cs, packet);
+        if (!validate_acknak(cs, packet, "DHCPACK", srcaddr))
+            return ANP_IGNORE;
+        get_leasetime(cs, packet);
 
-            inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->clientAddr},
-                      clibuf, sizeof clibuf);
-            inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->serverAddr},
-                      svrbuf, sizeof svrbuf);
-            inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->srcAddr},
-                      srcbuf, sizeof srcbuf);
-            log_line("%s: Received ACK: %s from server %s via %s.  Validating...",
-                     client_config.interface, clibuf, svrbuf, srcbuf);
-            return ANP_CHECK_IP;
-        }
+        inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->clientAddr},
+                  clibuf, sizeof clibuf);
+        inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->serverAddr},
+                  svrbuf, sizeof svrbuf);
+        inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->srcAddr},
+                  srcbuf, sizeof srcbuf);
+        log_line("%s: Received ACK: %s from server %s via %s.  Validating...",
+                 client_config.interface, clibuf, svrbuf, srcbuf);
+        return ANP_CHECK_IP;
     }
     return ANP_IGNORE;
 }
