@@ -166,9 +166,6 @@ endif()
 
 add_executable(ndhc "")
 
-set(RAGEL_IFCHD_PARSE ${CMAKE_CURRENT_BINARY_DIR}/ifchd-parse.c)
-set(RAGEL_CFG_PARSE ${CMAKE_CURRENT_BINARY_DIR}/cfg.c)
-
 find_program(RAGEL ragel)
 
 set(RAGEL_PRINT_COMMENT "Compiling Ragel state machine: FILE")
