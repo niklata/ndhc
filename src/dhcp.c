@@ -40,7 +40,7 @@
 #include "nk/log.h"
 #include "nk/io.h"
 #include "nk/random.h"
-#include "nk/net_checksum.h"
+#include "nk/net_checksum16.h"
 
 #include "dhcp.h"
 #include "state.h"
@@ -133,7 +133,7 @@ static ssize_t send_dhcp_unicast(struct client_state_t cs[static 1],
 // Returns 1 if IP checksum is correct, otherwise 0.
 static int ip_checksum(struct ip_udp_dhcp_packet packet[static 1])
 {
-    return net_checksum161c(&packet->ip, sizeof packet->ip) == 0;
+    return net_checksum16(&packet->ip, sizeof packet->ip) == 0;
 }
 
 // Returns 1 if UDP checksum is correct, otherwise 0.
@@ -146,11 +146,11 @@ static int udp_checksum(struct ip_udp_dhcp_packet packet[static 1])
         .tot_len = packet->udp.len,
     };
     uint16_t udpcs =
-        net_checksum161c(&packet->udp,
+        net_checksum16(&packet->udp,
                          min_size_t(ntohs(packet->udp.len),
                                     sizeof *packet - sizeof(struct iphdr)));
-    uint16_t hdrcs = net_checksum161c(&ph, sizeof ph);
-    uint16_t cs = net_checksum161c_add(udpcs, hdrcs);
+    uint16_t hdrcs = net_checksum16(&ph, sizeof ph);
+    uint16_t cs = net_checksum16_add(udpcs, hdrcs);
     return cs == 0;
 }
 
@@ -285,10 +285,10 @@ static ssize_t send_dhcp_raw(struct dhcpmsg payload[static 1])
     iudmsg.udp.dest = htons(DHCP_SERVER_PORT);
     iudmsg.udp.len = htons(ud_len);
     iudmsg.udp.check = 0;
-    uint16_t udpcs = net_checksum161c(&iudmsg.udp, ud_len);
-    uint16_t phcs = net_checksum161c(&ph, sizeof ph);
-    iudmsg.udp.check = net_checksum161c_add(udpcs, phcs);
-    iudmsg.ip.check = net_checksum161c(&iudmsg.ip, sizeof iudmsg.ip);
+    uint16_t udpcs = net_checksum16(&iudmsg.udp, ud_len);
+    uint16_t phcs = net_checksum16(&ph, sizeof ph);
+    iudmsg.udp.check = net_checksum16_add(udpcs, phcs);
+    iudmsg.ip.check = net_checksum16(&iudmsg.ip, sizeof iudmsg.ip);
 
     struct sockaddr_ll da = {
         .sll_family = AF_PACKET,

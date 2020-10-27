@@ -1,5 +1,5 @@
-#ifndef NCMLIB_NET_CHECKSUM_H
-#define NCMLIB_NET_CHECKSUM_H
+#ifndef NCMLIB_NET_CHECKSUM16_H
+#define NCMLIB_NET_CHECKSUM16_H
 
 // RFC 1071 is still a good reference.
 
@@ -9,7 +9,7 @@
 // representation, fold the carry bits that have spilled into the upper
 // 16-bits of the 32-bit unsigned value back into the 16-bit ones-complement
 // binary value.
-static inline uint16_t net_checksum161c_foldcarry(uint32_t v)
+static inline uint16_t net_checksum16_foldcarry(uint32_t v)
 {
     v = (v >> 16) + (v & 0xffff);
     v += v >> 16;
@@ -20,7 +20,7 @@ static inline uint16_t net_checksum161c_foldcarry(uint32_t v)
 // the binary value returned, when stored to memory, will match
 // the result on big endian; if the numeric value returned
 // must match big endian results, then call ntohs() on the result.
-static uint16_t net_checksum161c(const void *buf, size_t size)
+static uint16_t net_checksum16(const void *buf, size_t size)
 {
     const char *b = (const char *)buf;
     const char *bend = b + size;
@@ -37,17 +37,17 @@ static uint16_t net_checksum161c(const void *buf, size_t size)
         memcpy(&t, b, 2);
         sum += t;
     }
-    return ~net_checksum161c_foldcarry(sum + sumo);
+    return ~net_checksum16_foldcarry(sum + sumo);
 }
 
 // For two sequences of bytes A and B that return checksums CS(A) and CS(B),
 // this function will calculate the checksum CS(AB) of the concatenated value
 // AB given the checksums of the individual parts CS(A) and CS(B).
-static inline uint16_t net_checksum161c_add(uint16_t a, uint16_t b)
+static inline uint16_t net_checksum16_add(uint16_t a, uint16_t b)
 {
     const uint32_t A = a;
     const uint32_t B = b;
-    return ~net_checksum161c_foldcarry((~A & 0xffffu) + (~B & 0xffffu));
+    return ~net_checksum16_foldcarry((~A & 0xffffu) + (~B & 0xffffu));
 }
 
 #endif
