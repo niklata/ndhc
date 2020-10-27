@@ -40,6 +40,12 @@ enum arp_state {
     ARP_FAILED,
 };
 
+enum fprint_state {
+    FPRINT_NONE = 0,
+    FPRINT_INPROGRESS,
+    FPRINT_DONE,
+};
+
 struct client_state_t {
     struct nk_random_state rnd_state;
     long long leaseStartTime, renewTime, rebindTime;
@@ -53,10 +59,10 @@ struct client_state_t {
     uint32_t lease, xid;
     uint8_t routerArp[6], serverArp[6];
     enum arp_state server_arp_state, router_arp_state;
+    enum fprint_state fp_state;
     bool using_dhcp_bpf, arp_is_defense, check_fingerprint, program_init,
          sent_renew_or_rebind;
-    bool sent_gw_query, sent_first_announce, sent_second_announce,
-         init_fingerprint_inprogress;
+    bool sent_gw_query, sent_first_announce, sent_second_announce;
 };
 
 struct client_config_t {

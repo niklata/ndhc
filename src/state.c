@@ -85,12 +85,12 @@ static void reinit_shared_deconfig(struct client_state_t cs[static 1])
     cs->router_arp_sent = 0;
     cs->server_arp_state = ARP_QUERY;
     cs->router_arp_state = ARP_QUERY;
+    cs->fp_state = FPRINT_NONE;
     cs->check_fingerprint = false;
     cs->sent_renew_or_rebind = false;
     cs->sent_gw_query = false;
     cs->sent_first_announce = false;
     cs->sent_second_announce = false;
-    cs->init_fingerprint_inprogress = false;
     memset(&cs->routerArp, 0, sizeof cs->routerArp);
     memset(&cs->serverArp, 0, sizeof cs->serverArp);
     arp_reset_state(cs);
@@ -394,9 +394,9 @@ static int ifup_action(struct client_state_t cs[static 1])
     if (cs->routerAddr && cs->serverAddr) {
         const bool fp_server = cs->server_arp_state == ARP_FOUND;
         const bool fp_router = (cs->routerAddr != cs->serverAddr) ? (cs->router_arp_state == ARP_FOUND) : fp_server;
-        if (!fp_server && !fp_router)
+        if ((!fp_server && !fp_router) || cs->fp_state == FPRINT_NONE)
             goto no_fingerprint;
-        if (cs->init_fingerprint_inprogress) {
+        if (cs->fp_state == FPRINT_INPROGRESS) {
             suicide("%s: Carrier lost during initial fingerprint.  Forcing restart.",
                     client_config.interface);
         }
@@ -636,7 +636,7 @@ skip_to_requesting:
                 if (r == ARPR_OK) {
                 } else if (r == ARPR_FREE) {
                     log_line("%s: Network fingerprinting complete.", client_config.interface);
-                    cs->init_fingerprint_inprogress = false;
+                    cs->fp_state = FPRINT_DONE;
                 } else if (r == ARPR_FAIL) {
                     ret = COR_ERROR;
                     scrReturn(ret);

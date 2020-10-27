@@ -553,7 +553,8 @@ int arp_query_gateway(struct client_state_t cs[static 1])
         return ARPR_FAIL;
     }
     cs->sent_gw_query = true;
-    cs->init_fingerprint_inprogress = true;
+    if (cs->fp_state == FPRINT_NONE)
+        cs->fp_state = FPRINT_INPROGRESS;
     garp.wake_ts[AS_QUERY_GW_SEND] = -1;
     return ARPR_OK;
 }
