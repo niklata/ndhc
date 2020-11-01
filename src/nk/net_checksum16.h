@@ -24,20 +24,23 @@ static uint16_t net_checksum16(const void *buf, size_t size)
 {
     const char *b = (const char *)buf;
     const char *bend = b + size;
-    uint32_t sum = 0, sumo = 0;
-    if (size & 1) {
-        --bend;
-        uint8_t z[2] = { (uint8_t)*bend, 0 };
-        uint16_t t;
-        memcpy(&t, z, 2);
-        sumo = t;
+    uint32_t sum = 0, t = 0;
+    uint8_t z[4] = { 0 };
+    switch (size & 3) {
+    case 3: z[2] = (uint8_t)*--bend;
+    case 2: z[1] = (uint8_t)*--bend;
+    case 1: z[0] = (uint8_t)*--bend;
+    default: break;
     }
-    for (; b != bend; b += 2) {
-        uint16_t t;
-        memcpy(&t, b, 2);
-        sum += t;
+    memcpy(&t, z, 4);
+    sum += t & 0xffffu;
+    sum += (t >> 16);
+    for (; b < bend; b += 4) {
+        memcpy(&t, b, 4);
+        sum += t & 0xffffu;
+        sum += (t >> 16);
     }
-    return ~net_checksum16_foldcarry(sum + sumo);
+    return ~net_checksum16_foldcarry(sum);
 }
 
 // For two sequences of bytes A and B that return checksums CS(A) and CS(B),
