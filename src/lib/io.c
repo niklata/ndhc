@@ -122,10 +122,19 @@ ssize_t safe_recv(int fd, char *buf, size_t len, int flags)
 ssize_t safe_recvmsg(int fd, struct msghdr *msg, int flags)
 {
     ssize_t r;
-  retry:
-    r = recvmsg(fd, msg, flags);
-    if (r < 0 && errno == EINTR)
-        goto retry;
+    for (;;) {
+        r = recvmsg(fd, msg, flags);
+        if (r >= 0 || errno != EINTR) break;
+    }
     return r;
 }
 
+int safe_ftruncate(int fd, off_t length)
+{
+    int r;
+    for (;;) {
+        r = ftruncate(fd, length);
+        if (!r || errno != EINTR) break;
+    }
+    return r;
+}

@@ -181,21 +181,18 @@ static int write_resolve_conf(void)
 
     off = lseek(resolv_conf_fd, 0, SEEK_CUR);
     if (off < 0) {
-        log_line("write_resolve_conf: lseek returned error: %s",
-                strerror(errno));
+        log_line("%s: (%s) lseek returned error: %s", client_config.interface,
+                 __func__, strerror(errno));
         return -1;
     }
-  retry:
-    if (ftruncate(resolv_conf_fd, off) < 0) {
-        if (errno == EINTR)
-            goto retry;
-        log_line("write_resolve_conf: ftruncate returned error: %s",
-                 strerror(errno));
+    if (safe_ftruncate(resolv_conf_fd, off) < 0) {
+        log_line("%s: (%s) ftruncate returned error: %s", client_config.interface,
+                 __func__, strerror(errno));
         return -1;
     }
     if (fsync(resolv_conf_fd) < 0) {
-        log_line("write_resolve_conf: fsync returned error: %s",
-                 strerror(errno));
+        log_line("%s: (%s) fsync returned error: %s", client_config.interface,
+                 __func__, strerror(errno));
         return -1;
     }
     return 0;

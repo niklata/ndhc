@@ -62,15 +62,14 @@ void open_leasefile(void)
     get_leasefile_path(leasefile, sizeof leasefile, client_config.interface);
     leasefilefd = open(leasefile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
     if (leasefilefd < 0)
-        suicide("%s: Failed to create lease file '%s': %s",
-                client_config.interface, leasefile, strerror(errno));
+        suicide("%s: (%s) Failed to create lease file '%s': %s",
+                client_config.interface, __func__, leasefile, strerror(errno));
 }
 
 void write_leasefile(struct in_addr ipnum)
 {
     char ip[INET_ADDRSTRLEN];
     char out[INET_ADDRSTRLEN*2];
-    ssize_t ret;
     if (leasefilefd < 0) {
         log_error("%s: (%s) leasefile fd < 0; no leasefile will be written",
                   client_config.interface, __func__);
@@ -83,23 +82,21 @@ void write_leasefile(struct in_addr ipnum)
                   client_config.interface, __func__, olen);
         return;
     }
-  retry_trunc:
-    ret = ftruncate(leasefilefd, 0);
-    switch (ret) {
-        default: break;
-        case -1:
-            if (errno == EINTR)
-                goto retry_trunc;
-            log_warning("%s: Failed to truncate lease file: %s",
-                        client_config.interface, strerror(errno));
-            return;
+    if (safe_ftruncate(leasefilefd, 0)) {
+        log_warning("%s: (%s) Failed to truncate lease file: %s",
+                    client_config.interface, __func__, strerror(errno));
+        return;
     }
-    lseek(leasefilefd, 0, SEEK_SET);
+    if (lseek(leasefilefd, 0, SEEK_SET) == (off_t)-1) {
+        log_warning("%s: (%s) Failed to seek to start of lease file: %s",
+                    client_config.interface, __func__, strerror(errno));
+        return;
+    }
     size_t outlen = strlen(out);
-    ret = safe_write(leasefilefd, out, outlen);
+    ssize_t ret = safe_write(leasefilefd, out, outlen);
     if (ret < 0 || (size_t)ret != outlen)
-        log_warning("%s: Failed to write ip to lease file.",
-                    client_config.interface);
+        log_warning("%s: (%s) Failed to write ip to lease file.",
+                    client_config.interface, __func__);
     else
         fsync(leasefilefd);
 }
