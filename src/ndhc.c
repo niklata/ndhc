@@ -298,8 +298,7 @@ static void do_ndhc_work(void)
         pfds[5].fd = cs.listenFd;
         had_event = false;
         if (poll(pfds, 6, timeout) < 0) {
-            if (errno != EINTR)
-                suicide("poll failed");
+            if (errno != EINTR) suicide("poll failed");
         }
 
         bool sev_dhcp = false;
@@ -524,8 +523,7 @@ static void wait_for_rfkill()
     for (;;) {
         pfds[0].fd = cs.rfkillFd;
         if (poll(pfds, 1, -1) < 0) {
-            if (errno == EINTR) continue;
-            else suicide("poll failed");
+            if (errno != EINTR) suicide("poll failed");
         }
         if (pfds[0].revents & POLLIN) {
             pfds[0].revents &= ~POLLIN;

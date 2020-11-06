@@ -349,8 +349,7 @@ static void do_ifch_work(void)
 
     for (;;) {
         if (poll(pfds, 2, -1) < 0) {
-            if (errno == EINTR) continue;
-            else suicide("pollt failed");
+            if (errno != EINTR) suicide("poll failed");
         }
         if (pfds[0].revents & POLLIN) {
             pfds[0].revents &= ~POLLIN;
