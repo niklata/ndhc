@@ -1,6 +1,6 @@
 /* log.h - simple logging support
  *
- * Copyright 2003-2015 Nicholas J. Kain <njkain at gmail dot com>
+ * Copyright 2003-2020 Nicholas J. Kain <njkain at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,20 +29,25 @@
 #ifndef NCM_LOG_H_
 #define NCM_LOG_H_
 
-#include <syslog.h>
+#include <stdlib.h>
+#include <stdio.h>
 
-extern int gflags_quiet;
-extern int gflags_detach;
-extern int gflags_debug;
-extern char *gflags_log_name;
+#define log_line(...) do { \
+    dprintf(2, __VA_ARGS__); \
+    dprintf(2, "\n"); } while (0)
 
-#define log_line(...) log_line_l(LOG_INFO, __VA_ARGS__)
-#define log_debug(...) if (gflags_debug) log_line_l(LOG_DEBUG, __VA_ARGS__)
-#define log_warning(...) log_line_l(LOG_WARNING, __VA_ARGS__)
-#define log_error(...) log_line_l(LOG_ERR, __VA_ARGS__)
+#ifndef NDEBUG
+#define log_debug(...) do { \
+    dprintf(2, __VA_ARGS__); \
+    dprintf(2, "\n"); } while (0)
+#else
+#define log_debug(...) do {} while (0)
+#endif
 
-void log_line_l(int level, const char *format, ...);
-void __attribute__((noreturn)) suicide(const char *format, ...);
+#define suicide(...) do { \
+    dprintf(2, __VA_ARGS__); \
+    dprintf(2, "\n"); \
+    exit(EXIT_FAILURE); } while (0)
 
 #endif
 

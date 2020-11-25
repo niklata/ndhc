@@ -115,7 +115,7 @@ static int get_if_index_and_mac(const struct nlmsghdr *nlh,
                                     sizeof client_config.interface)) {
         client_config.ifindex = ifm->ifi_index;
         if (!tb[IFLA_ADDRESS])
-            suicide("FATAL: Adapter %s lacks a hardware address.");
+            suicide("FATAL: Adapter %s lacks a hardware address.", client_config.interface);
         int maclen = tb[IFLA_ADDRESS]->rta_len - 4;
         if (maclen != 6)
             suicide("FATAL: Adapter hardware address length should be 6, but is %u.",

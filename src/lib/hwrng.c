@@ -50,12 +50,12 @@ static bool nk_getrandom(char *seed, size_t len)
         if (r <= 0) {
             if (r == 0) {
                 // Failsafe to guard against infinite loops.
-                log_warning("%s: getrandom() returned no entropy", __func__);
+                log_line("%s: getrandom() returned no entropy", __func__);
                 return false;
             }
             if (errno == EINTR)
                 continue;
-            log_warning("%s: getrandom() failed: %s", __func__, strerror(errno));
+            log_line("%s: getrandom() failed: %s", __func__, strerror(errno));
             return false;
         }
         fetched += (size_t)r;
@@ -76,8 +76,8 @@ static bool nk_get_rnd_clk(char *seed, size_t len)
     for (size_t i = 0; i < len; ++i) {
         int r = clock_gettime(CLOCK_REALTIME, &ts);
         if (r < 0) {
-            log_warning("%s: Could not call clock_gettime(CLOCK_REALTIME): %s",
-                        __func__, strerror(errno));
+            log_line("%s: Could not call clock_gettime(CLOCK_REALTIME): %s",
+                     __func__, strerror(errno));
             return false;
         }
         char *p = (char *)&ts.tv_sec;
@@ -97,16 +97,16 @@ static bool nk_get_urandom(char *seed, size_t len)
 {
     int fd = open("/dev/urandom", O_RDONLY);
     if (fd < 0) {
-        log_warning("%s: Could not open /dev/urandom: %s", __func__,
-                    strerror(errno));
+        log_line("%s: Could not open /dev/urandom: %s", __func__,
+                 strerror(errno));
         return false;
     }
     bool ret = true;
     int r = safe_read(fd, seed, len);
     if (r < 0) {
         ret = false;
-        log_warning("%s: Could not read /dev/urandom: %s",
-                    __func__, strerror(errno));
+        log_line("%s: Could not read /dev/urandom: %s",
+                 __func__, strerror(errno));
     }
     close(fd);
     return ret;
@@ -119,8 +119,8 @@ void nk_get_hwrng(void *seed, size_t len)
         return;
     if (nk_get_urandom(s, len))
         return;
-    log_warning("%s: Seeding PRNG via system clock.  May be predictable.",
-                __func__);
+    log_line("%s: Seeding PRNG via system clock.  May be predictable.",
+             __func__);
     if (nk_get_rnd_clk(s, len))
         return;
     suicide("%s: All methods to seed PRNG failed.  Exiting.", __func__);

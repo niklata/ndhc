@@ -67,7 +67,7 @@ static void writeordie(int fd, const char buf[static 1], size_t len)
 {
     ssize_t r = safe_write(fd, buf, len);
     if (r < 0 || (size_t)r != len)
-        suicide("%s: (%s) write failed: %d", client_config.interface,
+        suicide("%s: (%s) write failed: %zd", client_config.interface,
                 __func__, r);
 }
 
@@ -78,13 +78,13 @@ static int write_append_fd(int to_fd, int from_fd, const char descr[static 1])
 
     const off_t lse = lseek(from_fd, 0, SEEK_END);
     if (lse < 0) {
-        log_warning("%s: (%s) lseek(SEEK_END) failed %s",
-                    client_config.interface, __func__, descr);
+        log_line("%s: (%s) lseek(SEEK_END) failed %s",
+                 client_config.interface, __func__, descr);
         return -2;
     }
     if (lseek(from_fd, 0, SEEK_SET) < 0) {
-        log_warning("%s: (%s) lseek(SEEK_SET) failed %s",
-                    client_config.interface, __func__, descr);
+        log_line("%s: (%s) lseek(SEEK_SET) failed %s",
+                 client_config.interface, __func__, descr);
         return -2;
     }
 
@@ -131,8 +131,8 @@ static int write_resolve_conf(void)
             *q++ = '\0';
         ssize_t sl = snprintf(buf, sizeof buf, "%s", p);
         if (sl < 0 || (size_t)sl >= sizeof buf) {
-            log_warning("%s: (%s) snprintf failed appending nameservers",
-                        client_config.interface, __func__);
+            log_line("%s: (%s) snprintf failed appending nameservers",
+                     client_config.interface, __func__);
         }
 
         writeordie(resolv_conf_fd, ns_str, strlen(ns_str));
@@ -152,8 +152,8 @@ static int write_resolve_conf(void)
             *q++ = '\0';
         ssize_t sl = snprintf(buf, sizeof buf, "%s", p);
         if (sl < 0 || (size_t)sl >= sizeof buf) {
-            log_warning("%s: (%s) snprintf failed appending domains",
-                        client_config.interface, __func__);
+            log_line("%s: (%s) snprintf failed appending domains",
+                     client_config.interface, __func__);
         }
 
         if (numdoms == 0) {
@@ -213,13 +213,13 @@ int perform_dns(const char str[static 1], size_t len)
         return 0;
     int ret = -1;
     if (len > sizeof cl.namesvrs) {
-        log_line("DNS server list is too long: %zu > %zu", len, cl.namesvrs);
+        log_line("DNS server list is too long: %zu > %zu", len, sizeof cl.namesvrs);
         return ret;
     }
     ssize_t sl = snprintf(cl.namesvrs, sizeof cl.namesvrs, "%s", str);
     if (sl < 0 || (size_t)sl >= sizeof cl.namesvrs) {
-        log_warning("%s: (%s) snprintf failed",
-                    client_config.interface, __func__);
+        log_line("%s: (%s) snprintf failed",
+                 client_config.interface, __func__);
     }
     ret = write_resolve_conf();
     if (ret >= 0)
@@ -255,13 +255,13 @@ int perform_domain(const char str[static 1], size_t len)
         return 0;
     int ret = -1;
     if (len > sizeof cl.domains) {
-        log_line("DNS domain list is too long: %zu > %zu", len, cl.namesvrs);
+        log_line("DNS domain list is too long: %zu > %zu", len, sizeof cl.namesvrs);
         return ret;
     }
     ssize_t sl = snprintf(cl.domains, sizeof cl.domains, "%s", str);
     if (sl < 0 || (size_t)sl >= sizeof cl.domains) {
-        log_warning("%s: (%s) snprintf failed",
-                    client_config.interface, __func__);
+        log_line("%s: (%s) snprintf failed",
+                 client_config.interface, __func__);
     }
     ret = write_resolve_conf();
     if (ret <= 0)
@@ -378,13 +378,13 @@ static void setup_resolv_conf(void)
 
         ssize_t sl = snprintf(buf, sizeof buf, "%s.head", resolv_conf_d);
         if (sl < 0 || (size_t)sl >= sizeof buf)
-            log_warning("snprintf failed appending resolv_conf_head; path too long?");
+            log_line("snprintf failed appending resolv_conf_head; path too long?");
         else
             resolv_conf_head_fd = open(buf, O_RDONLY|O_CLOEXEC, 0);
 
         sl = snprintf(buf, sizeof buf, "%s.tail", resolv_conf_d);
         if (sl < 0 || (size_t)sl >= sizeof buf)
-            log_warning("snprintf failed appending resolv_conf_tail; path too long?");
+            log_line("snprintf failed appending resolv_conf_tail; path too long?");
         else
             resolv_conf_tail_fd = open(buf, O_RDONLY|O_CLOEXEC, 0);
 

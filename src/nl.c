@@ -99,16 +99,16 @@ ssize_t nl_recv_buf(int fd, char buf[static 1], size_t blen)
     if (ret < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return 0;
-        log_error("%s: recvmsg failed: %s", __func__, strerror(errno));
+        log_line("%s: recvmsg failed: %s", __func__, strerror(errno));
         return -1;
     }
     if (msg.msg_flags & MSG_TRUNC) {
-        log_error("%s: Buffer not long enough for message.", __func__);
+        log_line("%s: Buffer not long enough for message.", __func__);
         return -1;
     }
     if (msg.msg_namelen != sizeof addr) {
-        log_error("%s: Response was not of the same address family.",
-                  __func__);
+        log_line("%s: Response was not of the same address family.",
+                 __func__);
         return -1;
     }
     return ret;
@@ -172,11 +172,11 @@ static int nl_sendgetlink_do(int fd, uint32_t seq, int ifindex, int by_ifindex)
                             (struct sockaddr *)&addr, sizeof addr);
     if (r < 0 || (size_t)r != nlh->nlmsg_len) {
         if (r < 0)
-            log_error("%s: sendto socket failed: %s", __func__,
-                      strerror(errno));
+            log_line("%s: sendto socket failed: %s", __func__,
+                     strerror(errno));
         else
-            log_error("%s: sendto short write: %z < %zu", __func__, r,
-                      nlh->nlmsg_len);
+            log_line("%s: sendto short write: %zd < %u", __func__, r,
+                     nlh->nlmsg_len);
         return -1;
     }
     return 0;
@@ -218,11 +218,11 @@ static int nl_sendgetaddr_do(int fd, uint32_t seq, uint32_t ifindex, int by_ifin
                             (struct sockaddr *)&addr, sizeof addr);
     if (r < 0 || (size_t)r != nlh->nlmsg_len) {
         if (r < 0)
-            log_error("%s: sendto socket failed: %s", __func__,
-                      strerror(errno));
+            log_line("%s: sendto socket failed: %s", __func__,
+                     strerror(errno));
         else
-            log_error("%s: sendto short write: %z < %zu", __func__, r,
-                      nlh->nlmsg_len);
+            log_line("%s: sendto short write: %zd < %u", __func__, r,
+                     nlh->nlmsg_len);
         return -1;
     }
     return 0;
@@ -263,7 +263,7 @@ int nl_open(int nltype, unsigned nlgroup, uint32_t *nlportid)
     int fd;
     fd = socket(AF_NETLINK, SOCK_RAW | SOCK_NONBLOCK | SOCK_CLOEXEC, nltype);
     if (fd < 0) {
-        log_error("%s: socket failed: %s", __func__, strerror(errno));
+        log_line("%s: socket failed: %s", __func__, strerror(errno));
         return -1;
     }
     socklen_t al;
@@ -272,30 +272,30 @@ int nl_open(int nltype, unsigned nlgroup, uint32_t *nlportid)
         .nl_groups = nlgroup,
     };
     if (bind(fd, (struct sockaddr *)&nlsock, sizeof nlsock) < 0) {
-        log_error("%s: bind to group failed: %s",
-                  __func__, strerror(errno));
+        log_line("%s: bind to group failed: %s",
+                 __func__, strerror(errno));
         goto err_close;
     }
     al = sizeof nlsock;
     if (getsockname(fd, (struct sockaddr *)&nlsock, &al) < 0) {
-        log_error("%s: getsockname failed: %s",
-                  __func__, strerror(errno));
+        log_line("%s: getsockname failed: %s",
+                 __func__, strerror(errno));
         goto err_close;
     }
     if (al != sizeof nlsock) {
-        log_error("%s: Bound socket doesn't have right family size.",
-                  __func__);
+        log_line("%s: Bound socket doesn't have right family size.",
+                 __func__);
         goto err_close;
     }
     if (nlsock.nl_family != AF_NETLINK) {
-        log_error("%s: Bound socket isn't AF_NETLINK.",
-                  __func__);
+        log_line("%s: Bound socket isn't AF_NETLINK.",
+                 __func__);
         goto err_close;
     }
     if (nlportid)
         *nlportid = nlsock.nl_pid;
     return fd;
-  err_close:
+err_close:
     close(fd);
     return -1;
 }

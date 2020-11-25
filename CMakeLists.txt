@@ -200,7 +200,6 @@ add_dependencies(ndhc ndhc_ragel)
 
 target_sources(ndhc PRIVATE
   "src/lib/io.c"
-  "src/lib/log.c"
   "src/lib/hwrng.c"
   "src/lib/random.c"
   "src/lib/privs.c"

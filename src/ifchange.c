@@ -52,26 +52,26 @@ static int ifcmd_raw(char buf[static 1], size_t buflen,
                      char *optdata, size_t optlen)
 {
     if (!optdata) {
-        log_warning("%s: (%s) '%s' option has no data",
-                    client_config.interface, __func__, optname);
+        log_line("%s: (%s) '%s' option has no data",
+                 client_config.interface, __func__, optname);
         return -1;
     }
     if (optlen > INT_MAX) {
-        log_warning("%s: (%s) '%s' option optlen out of bounds",
-                    client_config.interface, __func__, optname);
+        log_line("%s: (%s) '%s' option optlen out of bounds",
+                 client_config.interface, __func__, optname);
         return -1;
     }
     if (buflen < strlen(optname) + optlen + 3) {
-        log_warning("%s: (%s) '%s' option buf too short",
-                    client_config.interface, __func__, optname);
+        log_line("%s: (%s) '%s' option buf too short",
+                 client_config.interface, __func__, optname);
         return -1;
     }
     int ioptlen = (int)optlen;
     ssize_t olen = snprintf(buf, buflen, "%s:%.*s;",
                             optname, ioptlen, optdata);
     if (olen < 0 || (size_t)olen >= buflen) {
-        log_warning("%s: (%s) '%s' option would truncate, so it was dropped.",
-                    client_config.interface, __func__, optname);
+        log_line("%s: (%s) '%s' option would truncate, so it was dropped.",
+                 client_config.interface, __func__, optname);
         memset(buf, 0, buflen);
         return -1;
     }
@@ -187,8 +187,8 @@ static int ifchd_cmd(char b[static 1], size_t bl, uint8_t *od,
     case DCODE_IPTTL: return ifcmd_u8(b, bl, "ipttl", od, ol);
     default: break;
     }
-    log_warning("%s: Invalid option code (%c) for ifchd cmd.",
-                client_config.interface, code);
+    log_line("%s: Invalid option code (%c) for ifchd cmd.",
+             client_config.interface, code);
     return -1;
 }
 
@@ -196,7 +196,7 @@ static int ifchwrite(const char buf[static 1], size_t count)
 {
     ssize_t r = safe_write(ifchSock[0], buf, count);
     if (r < 0 || (size_t)r != count) {
-        log_error("%s: (%s) write failed: %d", client_config.interface, __func__, r);
+        log_line("%s: (%s) write failed: %zd", client_config.interface, __func__, r);
         return -1;
     }
     char data[256], control[256];
@@ -304,8 +304,8 @@ static size_t send_client_ip(char out[static 1], size_t olen,
         snlen = snprintf(out, olen, "ip4:%s,%s;", ip, sn);
     }
     if (snlen < 0 || (size_t)snlen >= olen) {
-        log_warning("%s: (%s) ip4 command would truncate so it was dropped.",
-                    client_config.interface, __func__);
+        log_line("%s: (%s) ip4 command would truncate so it was dropped.",
+                 client_config.interface, __func__);
         memset(out, 0, olen);
         return 0;
     }

@@ -52,7 +52,7 @@ static void get_leasefile_path(char *leasefile, size_t dlen, char *ifname)
         suicide("%s: (%s) snprintf failed; return=%d",
                 client_config.interface, __func__, splen);
     if ((size_t)splen >= dlen)
-        suicide("%s: (%s) snprintf dest buffer too small %d >= %u",
+        suicide("%s: (%s) snprintf dest buffer too small %d >= %zu",
                 client_config.interface, __func__, splen, sizeof dlen);
 }
 
@@ -71,32 +71,32 @@ void write_leasefile(struct in_addr ipnum)
     char ip[INET_ADDRSTRLEN];
     char out[INET_ADDRSTRLEN*2];
     if (leasefilefd < 0) {
-        log_error("%s: (%s) leasefile fd < 0; no leasefile will be written",
-                  client_config.interface, __func__);
+        log_line("%s: (%s) leasefile fd < 0; no leasefile will be written",
+                 client_config.interface, __func__);
         return;
     }
     inet_ntop(AF_INET, &ipnum, ip, sizeof ip);
     ssize_t olen = snprintf(out, sizeof out, "%s\n", ip);
     if (olen < 0 || (size_t)olen >= sizeof ip) {
-        log_error("%s: (%s) snprintf failed; return=%d",
-                  client_config.interface, __func__, olen);
+        log_line("%s: (%s) snprintf failed; return=%zd",
+                 client_config.interface, __func__, olen);
         return;
     }
     if (safe_ftruncate(leasefilefd, 0)) {
-        log_warning("%s: (%s) Failed to truncate lease file: %s",
-                    client_config.interface, __func__, strerror(errno));
+        log_line("%s: (%s) Failed to truncate lease file: %s",
+                 client_config.interface, __func__, strerror(errno));
         return;
     }
     if (lseek(leasefilefd, 0, SEEK_SET) == (off_t)-1) {
-        log_warning("%s: (%s) Failed to seek to start of lease file: %s",
-                    client_config.interface, __func__, strerror(errno));
+        log_line("%s: (%s) Failed to seek to start of lease file: %s",
+                 client_config.interface, __func__, strerror(errno));
         return;
     }
     size_t outlen = strlen(out);
     ssize_t ret = safe_write(leasefilefd, out, outlen);
     if (ret < 0 || (size_t)ret != outlen)
-        log_warning("%s: (%s) Failed to write ip to lease file.",
-                    client_config.interface, __func__);
+        log_line("%s: (%s) Failed to write ip to lease file.",
+                 client_config.interface, __func__);
     else
         fsync(leasefilefd);
 }

@@ -71,8 +71,8 @@ static size_t nk_get_capability_vinfo(uint32_t version[static 1])
     case _LINUX_CAPABILITY_VERSION_2:
          *version = _LINUX_CAPABILITY_VERSION_2;
         return _LINUX_CAPABILITY_U32S_2;
-    default: log_warning("%s: unknown capability version %x, using %x",
-                         __func__, *version, _LINUX_CAPABILITY_VERSION_3);
+    default: log_line("%s: unknown capability version %x, using %x",
+                      __func__, *version, _LINUX_CAPABILITY_VERSION_3);
     case _LINUX_CAPABILITY_VERSION_3:
          *version = _LINUX_CAPABILITY_VERSION_3;
          return _LINUX_CAPABILITY_U32S_3;
@@ -105,8 +105,8 @@ static void nk_set_capability_epilogue(const unsigned char *caps,
     for (size_t i = 0; i < caplen; ++i) {
         size_t j = caps[i] / 32;
         if (j >= csize)
-            suicide("%s: caps[%zu] == %u, which is >= %u and out of range",
-                    __func__, caps[i], csize * 32);
+            suicide("%s: caps[%zu] == %d, which is >= %zu and out of range",
+                    __func__, i, caps[i], csize * 32);
         mask[j] |= (uint32_t)CAP_TO_MASK(caps[i] - 32 * j);
     }
     for (size_t i = 0; i < csize; ++i) {

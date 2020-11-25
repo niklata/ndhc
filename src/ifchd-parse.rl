@@ -198,13 +198,13 @@ int execute_buffer(const char newbuf[static 1])
 
     ssize_t buflen = snprintf(buf, sizeof buf, "%s%s", cl.ibuf, newbuf);
     if (buflen < 0) {
-        log_error("%s: (%s) snprintf1 failed; your system is broken?",
-                  client_config.interface, __func__);
+        log_line("%s: (%s) snprintf1 failed; your system is broken?",
+                 client_config.interface, __func__);
         return -99;
     }
     if ((size_t)buflen >= sizeof buf) {
-        log_error("%s: (%s) input is too long for buffer",
-                  client_config.interface, __func__);
+        log_line("%s: (%s) input is too long for buffer",
+                 client_config.interface, __func__);
         return -99;
     }
 
@@ -224,20 +224,20 @@ int execute_buffer(const char newbuf[static 1])
         size_t taken = init_siz - bytes_left;
         ssize_t ilen = snprintf(cl.ibuf, sizeof cl.ibuf, "%s", buf + taken);
         if (ilen < 0) {
-            log_error("%s: (%s) snprintf2 failed; your system is broken?",
-                      client_config.interface, __func__);
+            log_line("%s: (%s) snprintf2 failed; your system is broken?",
+                     client_config.interface, __func__);
             return -99;
         }
         if ((size_t)ilen >= sizeof buf) {
-            log_error("%s: (%s) unconsumed input too long for buffer",
-                      client_config.interface, __func__);
+            log_line("%s: (%s) unconsumed input too long for buffer",
+                     client_config.interface, __func__);
             return -99;
         }
     }
 
     if (cs < ifchd_parser_first_final) {
-        log_error("%s: ifch received invalid commands",
-                  client_config.interface);
+        log_line("%s: ifch received invalid commands",
+                 client_config.interface);
         return -99;
     }
     return !cmdf ? 0 : -1;

@@ -47,7 +47,7 @@ static void get_duid_path(char duidfile[static 1], size_t dlen)
     if (splen < 0)
         suicide("%s: snprintf failed; return=%d", __func__, splen);
     if ((size_t)splen >= dlen)
-        suicide("%s: snprintf dest buffer too small %d >= %u",
+        suicide("%s: snprintf dest buffer too small %d >= %zu",
                 __func__, splen, sizeof dlen);
 }
 
@@ -55,7 +55,7 @@ static void get_iaid_path(char iaidfile[static 1], size_t ilen,
                           const uint8_t hwaddr[static 6], size_t hwaddrlen)
 {
     if (hwaddrlen != 6)
-        suicide("%s: Hardware address length=%u != 6 bytes",
+        suicide("%s: Hardware address length=%zu != 6 bytes",
                 __func__, hwaddrlen);
     int splen = snprintf
         (iaidfile, ilen,
@@ -65,7 +65,7 @@ static void get_iaid_path(char iaidfile[static 1], size_t ilen,
     if (splen < 0)
         suicide("%s: snprintf failed; return=%d", __func__, splen);
     if ((size_t)splen >= ilen)
-        suicide("%s: snprintf dest buffer too small %d >= %u",
+        suicide("%s: snprintf dest buffer too small %d >= %zu",
                 __func__, splen, sizeof ilen);
 }
 
@@ -126,7 +126,7 @@ static size_t generate_duid(struct nk_random_state s[static 1],
 {
     const size_t tlen = sizeof(uint16_t) + 4 * sizeof(uint32_t);
     if (dlen < tlen)
-        suicide("%s: dlen < %u", __func__, tlen);
+        suicide("%s: dlen < %zu", __func__, tlen);
     size_t off = 0;
 
     uint16_t typefield = htons(4);
@@ -147,7 +147,7 @@ static size_t generate_iaid(struct nk_random_state s[static 1],
                             char dest[static 1], size_t dlen)
 {
     if (dlen < sizeof(uint32_t))
-        suicide("%s: dlen < %u", __func__, sizeof(uint32_t));
+        suicide("%s: dlen < %zu", __func__, sizeof(uint32_t));
     size_t off = 0;
 
     uint32_t r32 = nk_random_u32(s);
@@ -204,7 +204,7 @@ void get_clientid(struct client_state_t cs[static 1],
     const uint8_t cid_type = 255;
     size_t cdl = sizeof cid_type + iaid_len + duid_len;
     if (cdl > sizeof cc->clientid)
-        suicide("%s: (%s) clientid length %u > %u",
+        suicide("%s: (%s) clientid length %zu > %zu",
                 cc->interface, __func__, cdl, sizeof cc->clientid);
 
     uint8_t cid_len = 0;

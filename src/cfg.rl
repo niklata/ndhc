@@ -244,7 +244,7 @@ static void parse_cfgfile(const char fname[static 1])
         if (reached_eof)
             break;
         if (!consumed && lend >= sizeof l - 1)
-            suicide("Line %u in config file '%s' is too long: %u > %u.",
+            suicide("Line %zu in config file '%s' is too long: %zu > %zu.",
                     linenum, fname, lend, sizeof l - 1);
 
         if (consumed + 1 > lc) suicide("lc[%zu] - consumed[%zu] would underflow", lc, lend);

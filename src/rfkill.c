@@ -58,11 +58,11 @@ int rfkill_get(struct client_state_t cs[static 1],
     struct rfkill_event event;
     ssize_t len = safe_read(cs->rfkillFd, (char *)&event, sizeof event);
     if (len < 0) {
-        log_error("rfkill: safe_read failed: %s", strerror(errno));
+        log_line("rfkill: safe_read failed: %s", strerror(errno));
         return RFK_FAIL;
     }
     if (len != RFKILL_EVENT_SIZE_V1) {
-        log_error("rfkill: event has unexpected size: %d", len);
+        log_line("rfkill: event has unexpected size: %zd", len);
         return RFK_FAIL;
     }
     log_line("rfkill: idx[%u] type[%u] op[%u] soft[%u] hard[%u]",

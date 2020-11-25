@@ -115,8 +115,8 @@ static int requesting_timeout(struct client_state_t cs[static 1],
         return REQ_TIMEOUT;
     }
     if (send_selecting(cs) < 0) {
-        log_warning("%s: Failed to send a selecting request packet.",
-                    client_config.interface);
+        log_line("%s: Failed to send a selecting request packet.",
+                 client_config.interface);
         return REQ_FAIL;
     }
     cs->dhcp_wake_ts = nowts + delay_timeout(cs, cs->num_dhcp_requests);
@@ -138,8 +138,8 @@ static int rebinding_timeout(struct client_state_t cs[static 1],
     }
     start_dhcp_listen(cs);
     if (send_rebind(cs) < 0) {
-        log_warning("%s: Failed to send a rebind request packet.",
-                    client_config.interface);
+        log_line("%s: Failed to send a rebind request packet.",
+                 client_config.interface);
         return BTO_HARDFAIL;
     }
     cs->sent_renew_or_rebind = true;
@@ -157,8 +157,8 @@ static int renewing_timeout(struct client_state_t cs[static 1],
         return rebinding_timeout(cs, nowts);
     start_dhcp_listen(cs);
     if (send_renew(cs) < 0) {
-        log_warning("%s: Failed to send a renew request packet.",
-                    client_config.interface);
+        log_line("%s: Failed to send a renew request packet.",
+                 client_config.interface);
         return BTO_HARDFAIL;
     }
     cs->sent_renew_or_rebind = true;
@@ -191,8 +191,8 @@ static void get_leasetime(struct client_state_t cs[static 1],
         cs->lease = 60 * 60;
     } else {
         if (cs->lease < 60) {
-            log_warning("Server sent lease of <1m.  Forcing lease to 1m.",
-                        client_config.interface);
+            log_line("%s: Server sent lease of <1m.  Forcing lease to 1m.",
+                     client_config.interface);
             cs->lease = 60;
         }
     }
@@ -253,8 +253,8 @@ static int extend_packet(struct client_state_t cs[static 1],
             log_line("%s: Lease refreshed to %u seconds.",
                      client_config.interface, cs->lease);
             if (arp_set_defense_mode(cs) < 0)
-                log_warning("%s: Failed to create ARP defense socket.",
-                            client_config.interface);
+                log_line("%s: Failed to create ARP defense socket.",
+                         client_config.interface);
             stop_dhcp_listen(cs);
             return ANP_SUCCESS;
         }
@@ -331,8 +331,8 @@ static int selecting_timeout(struct client_state_t cs[static 1],
             suicide("%s: No lease; failing.", client_config.interface);
     }
     if (send_discover(cs) < 0) {
-        log_warning("%s: Failed to send a discover request packet.",
-                    client_config.interface);
+        log_line("%s: Failed to send a discover request packet.",
+                 client_config.interface);
         return SEL_FAIL;
     }
     cs->dhcp_wake_ts = nowts + delay_timeout(cs, cs->num_dhcp_requests);
@@ -362,8 +362,8 @@ static int xmit_release(struct client_state_t cs[static 1])
     log_line("%s: Unicasting a release of %s to %s.", client_config.interface,
              clibuf, svrbuf);
     if (send_release(cs) < 0) {
-        log_warning("%s: Failed to send a release request packet.",
-                    client_config.interface);
+        log_line("%s: Failed to send a release request packet.",
+                 client_config.interface);
         return -1;
     }
     print_release(cs);
@@ -377,8 +377,8 @@ static int frenew(struct client_state_t cs[static 1], bool is_bound)
         log_line("%s: Forcing a DHCP renew...", client_config.interface);
         start_dhcp_listen(cs);
         if (send_renew(cs) < 0) {
-            log_warning("%s: Failed to send a renew request packet.",
-                        client_config.interface);
+            log_line("%s: Failed to send a renew request packet.",
+                     client_config.interface);
             return -1;
         }
     } else { // RELEASED
@@ -405,8 +405,8 @@ static int ifup_action(struct client_state_t cs[static 1])
                      client_config.interface);
             return IFUP_REVALIDATE;
         } else {
-            log_warning("%s: arp_gw_check could not make arp socket.",
-                        client_config.interface);
+            log_line("%s: arp_gw_check could not make arp socket.",
+                     client_config.interface);
             return IFUP_FAIL;
         }
     }
@@ -519,8 +519,8 @@ skip_to_requesting:
             if (r == ANP_IGNORE) {
             } else if (r == ANP_CHECK_IP) {
                 if (arp_check(cs, dhcp_packet) < 0) {
-                    log_warning("%s: Failed to make arp socket.  Searching for new lease...",
-                                client_config.interface);
+                    log_line("%s: Failed to make arp socket.  Searching for new lease...",
+                             client_config.interface);
                     reinit_selecting(cs, 3000);
                     sev_dhcp = false;
                     goto reinit;
@@ -610,8 +610,8 @@ skip_to_requesting:
                 goto reinit;
             } else if (r == ANP_CHECK_IP) {
                 if (arp_check(cs, dhcp_packet) < 0) {
-                    log_warning("%s: Failed to make arp socket.  Searching for new lease...",
-                                client_config.interface);
+                    log_line("%s: Failed to make arp socket.  Searching for new lease...",
+                             client_config.interface);
                     reinit_selecting(cs, 3000);
                     sev_dhcp = false;
                     goto reinit;

@@ -68,7 +68,7 @@ int request_sockd_fd(char buf[static 1], size_t buflen, char *response)
         return -1;
     ssize_t r = safe_write(sockdSock[0], buf, buflen);
     if (r < 0 || (size_t)r != buflen)
-        suicide("%s: (%s) write failed: %d", client_config.interface,
+        suicide("%s: (%s) write failed: %zd", client_config.interface,
                 __func__, r);
 
     char data[MAX_BUF], control[MAX_BUF];
@@ -112,20 +112,20 @@ static int create_arp_socket(void)
 {
     int fd = socket(AF_PACKET, SOCK_RAW | SOCK_NONBLOCK, htons(ETH_P_ARP));
     if (fd < 0) {
-        log_error("%s: (%s) socket failed: %s", client_config.interface,
-                  __func__, strerror(errno));
+        log_line("%s: (%s) socket failed: %s", client_config.interface,
+                 __func__, strerror(errno));
         goto out;
     }
 
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &opt, sizeof opt) < 0) {
-        log_error("%s: (%s) setsockopt failed: %s", client_config.interface,
-                  __func__, strerror(errno));
+        log_line("%s: (%s) setsockopt failed: %s", client_config.interface,
+                 __func__, strerror(errno));
         goto out_fd;
     }
     if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) < 0) {
-        log_error("%s: (%s) fcntl failed: %s", client_config.interface,
-                  __func__, strerror(errno));
+        log_line("%s: (%s) fcntl failed: %s", client_config.interface,
+                 __func__, strerror(errno));
         goto out_fd;
     }
     struct sockaddr_ll saddr = {
@@ -134,8 +134,8 @@ static int create_arp_socket(void)
         .sll_ifindex = client_config.ifindex,
     };
     if (bind(fd, (struct sockaddr *)&saddr, sizeof(struct sockaddr_ll)) < 0) {
-        log_error("%s: (%s) bind failed: %s", client_config.interface,
-                  __func__, strerror(errno));
+        log_line("%s: (%s) bind failed: %s", client_config.interface,
+                 __func__, strerror(errno));
         goto out_fd;
     }
     return fd;
@@ -150,37 +150,37 @@ static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
 {
     int fd;
     if ((fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, IPPROTO_UDP)) < 0) {
-        log_error("%s: (%s) socket failed: %s",
-                  client_config.interface, __func__, strerror(errno));
+        log_line("%s: (%s) socket failed: %s",
+                 client_config.interface, __func__, strerror(errno));
         goto out;
     }
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt) < 0) {
-        log_error("%s: (%s) Set reuse addr failed: %s",
-                  client_config.interface, __func__, strerror(errno));
+        log_line("%s: (%s) Set reuse addr failed: %s",
+                 client_config.interface, __func__, strerror(errno));
         goto out_fd;
     }
     if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) < 0) {
-        log_error("%s: (%s) Set don't route failed: %s",
-                  client_config.interface, __func__, strerror(errno));
+        log_line("%s: (%s) Set don't route failed: %s",
+                 client_config.interface, __func__, strerror(errno));
         goto out_fd;
     }
     struct ifreq ifr;
     memset(&ifr, 0, sizeof ifr);
     ssize_t sl = snprintf(ifr.ifr_name, sizeof ifr.ifr_name, "%s", iface);
     if (sl < 0 || (size_t)sl >= sizeof ifr.ifr_name) {
-        log_error("%s: (%s) Set interface name failed.",
-                  client_config.interface, __func__);
+        log_line("%s: (%s) Set interface name failed.",
+                 client_config.interface, __func__);
         goto out_fd;
     }
     if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
-        log_error("%s: (%s) Set bind to device failed: %s",
-                  client_config.interface, __func__, strerror(errno));
+        log_line("%s: (%s) Set bind to device failed: %s",
+                 client_config.interface, __func__, strerror(errno));
         goto out_fd;
     }
     if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) < 0) {
-        log_error("%s: (%s) Set non-blocking failed: %s",
-                  client_config.interface, __func__, strerror(errno));
+        log_line("%s: (%s) Set non-blocking failed: %s",
+                 client_config.interface, __func__, strerror(errno));
         goto out_fd;
     }
 
@@ -190,8 +190,8 @@ static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
         .sin_addr.s_addr = ip,
     };
     if (bind(fd, (struct sockaddr *)&sa, sizeof sa) < 0) {
-        log_error("%s: (%s) bind failed: %s",
-                  client_config.interface, __func__, strerror(errno));
+        log_line("%s: (%s) bind failed: %s",
+                 client_config.interface, __func__, strerror(errno));
         goto out_fd;
     }
 
@@ -208,7 +208,7 @@ static int create_raw_socket(struct sockaddr_ll *sa, bool *using_bpf,
     int fd;
     if ((fd = socket(AF_PACKET, SOCK_DGRAM | SOCK_NONBLOCK,
                      htons(ETH_P_IP))) < 0) {
-        log_error("create_raw_socket: socket failed: %s", strerror(errno));
+        log_line("create_raw_socket: socket failed: %s", strerror(errno));
         goto out;
     }
 
@@ -224,26 +224,26 @@ static int create_raw_socket(struct sockaddr_ll *sa, bool *using_bpf,
                 if (using_bpf)
                     *using_bpf = true;
             } else
-                log_warning("%s: Failed to lock BPF for raw socket: %s",
-                            client_config.interface, strerror(errno));
+                log_line("%s: Failed to lock BPF for raw socket: %s",
+                         client_config.interface, strerror(errno));
         } else
-            log_warning("%s: Failed to set BPF for raw socket: %s",
-                        client_config.interface, strerror(errno));
+            log_line("%s: Failed to set BPF for raw socket: %s",
+                     client_config.interface, strerror(errno));
     }
 
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) < 0) {
-        log_error("create_raw_socket: Failed to set don't route: %s",
-                  strerror(errno));
+        log_line("create_raw_socket: Failed to set don't route: %s",
+                 strerror(errno));
         goto out_fd;
     }
     if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) < 0) {
-        log_error("create_raw_socket: Set non-blocking failed: %s",
-                  strerror(errno));
+        log_line("create_raw_socket: Set non-blocking failed: %s",
+                 strerror(errno));
         goto out_fd;
     }
     if (bind(fd, (struct sockaddr *)sa, sizeof *sa) < 0) {
-        log_error("create_raw_socket: bind failed: %s", strerror(errno));
+        log_line("create_raw_socket: bind failed: %s", strerror(errno));
         goto out_fd;
     }
     return fd;
@@ -350,12 +350,12 @@ static bool arp_set_bpf_basic(int fd)
         // checks to run just in case an attacker tries to DETACH the
         // filter.
         if (ret < 0)
-            log_warning("%s: Failed to lock BPF for basic ARP socket: %s",
-                        client_config.interface, strerror(errno));
+            log_line("%s: Failed to lock BPF for basic ARP socket: %s",
+                     client_config.interface, strerror(errno));
         return ret >= 0;
     } else
-        log_warning("%s: Failed to set BPF for basic ARP socket: %s",
-                    client_config.interface, strerror(errno));
+        log_line("%s: Failed to set BPF for basic ARP socket: %s",
+                 client_config.interface, strerror(errno));
     return false;
 }
 
@@ -416,12 +416,12 @@ static bool arp_set_bpf_defense(int fd, uint32_t client_addr,
         // checks to run just in case an attacker tries to DETACH the
         // filter.
         if (ret < 0)
-            log_warning("%s: Failed to lock BPF for defense ARP socket: %s",
-                        client_config.interface, strerror(errno));
+            log_line("%s: Failed to lock BPF for defense ARP socket: %s",
+                     client_config.interface, strerror(errno));
         return ret >= 0;
     } else
-        log_warning("%s: Failed to set BPF for defense ARP socket: %s",
-                    client_config.interface, strerror(errno));
+        log_line("%s: Failed to set BPF for defense ARP socket: %s",
+                 client_config.interface, strerror(errno));
     return false;
 }
 

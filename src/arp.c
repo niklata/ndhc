@@ -156,8 +156,8 @@ static int arp_open_fd(struct client_state_t cs[static 1], bool defense)
     cs->arpFd = defense ? get_arp_defense_socket(cs)
                         : get_arp_basic_socket(cs);
     if (cs->arpFd < 0) {
-        log_error("%s: (%s) Failed to create socket: %s",
-                  client_config.interface, __func__, strerror(errno));
+        log_line("%s: (%s) Failed to create socket: %s",
+                 client_config.interface, __func__, strerror(errno));
         return -1;
     }
     return 0;
@@ -175,26 +175,26 @@ static int arp_send(struct client_state_t cs[static 1],
     memcpy(addr.sll_addr, client_config.arp, 6);
 
     if (cs->arpFd < 0) {
-        log_warning("%s: arp: Send attempted when no ARP fd is open.",
-                    client_config.interface);
+        log_line("%s: arp: Send attempted when no ARP fd is open.",
+                 client_config.interface);
         return ret;
     }
 
     if (!carrier_isup()) {
-        log_error("%s: (%s) carrier down; sendto would fail",
-                  client_config.interface, __func__);
+        log_line("%s: (%s) carrier down; sendto would fail",
+                 client_config.interface, __func__);
         ret = -99;
         goto carrier_down;
     }
     ret = safe_sendto(cs->arpFd, (const char *)arp, sizeof *arp, 0,
-                    (struct sockaddr *)&addr, sizeof addr);
+                      (struct sockaddr *)&addr, sizeof addr);
     if (ret < 0 || (size_t)ret != sizeof *arp) {
         if (ret < 0)
-            log_error("%s: (%s) sendto failed: %s",
-                      client_config.interface, __func__, strerror(errno));
+            log_line("%s: (%s) sendto failed: %s",
+                     client_config.interface, __func__, strerror(errno));
         else
-            log_error("%s: (%s) sendto short write: %d < %zu",
-                      client_config.interface, __func__, ret, sizeof *arp);
+            log_line("%s: (%s) sendto short write: %d < %zu",
+                     client_config.interface, __func__, ret, sizeof *arp);
 carrier_down:
         return ret;
     }
@@ -343,28 +343,28 @@ static int arp_gw_success(struct client_state_t cs[static 1])
 static int arp_validate_bpf(struct arpMsg *am)
 {
     if (am->h_proto != htons(ETH_P_ARP)) {
-        log_warning("%s: arp: IP header does not indicate ARP protocol",
-                    client_config.interface);
+        log_line("%s: arp: IP header does not indicate ARP protocol",
+                 client_config.interface);
         return 0;
     }
     if (am->htype != htons(ARPHRD_ETHER)) {
-        log_warning("%s: arp: ARP hardware type field invalid",
-                    client_config.interface);
+        log_line("%s: arp: ARP hardware type field invalid",
+                 client_config.interface);
         return 0;
     }
     if (am->ptype != htons(ETH_P_IP)) {
-        log_warning("%s: arp: ARP protocol type field invalid",
-                    client_config.interface);
+        log_line("%s: arp: ARP protocol type field invalid",
+                 client_config.interface);
         return 0;
     }
     if (am->hlen != 6) {
-        log_warning("%s: arp: ARP hardware address length invalid",
-                    client_config.interface);
+        log_line("%s: arp: ARP hardware address length invalid",
+                 client_config.interface);
         return 0;
     }
     if (am->plen != 4) {
-        log_warning("%s: arp: ARP protocol address length invalid",
-                    client_config.interface);
+        log_line("%s: arp: ARP protocol address length invalid",
+                 client_config.interface);
         return 0;
     }
     return 1;
@@ -437,8 +437,8 @@ int arp_gw_check_timeout(struct client_state_t cs[static 1], long long nowts)
         log_line("%s: arp: Still waiting for gateway to reply to arp ping...",
                  client_config.interface);
         if (arp_ping(cs, cs->routerAddr) < 0) {
-            log_warning("%s: arp: Failed to send ARP ping in retransmission.",
-                        client_config.interface);
+            log_line("%s: arp: Failed to send ARP ping in retransmission.",
+                     client_config.interface);
             return ARPR_FAIL;
         }
     }
@@ -446,8 +446,8 @@ int arp_gw_check_timeout(struct client_state_t cs[static 1], long long nowts)
         log_line("%s: arp: Still waiting for DHCP agent to reply to arp ping...",
                  client_config.interface);
         if (arp_ping(cs, cs->srcAddr) < 0) {
-            log_warning("%s: arp: Failed to send ARP ping in retransmission.",
-                        client_config.interface);
+            log_line("%s: arp: Failed to send ARP ping in retransmission.",
+                     client_config.interface);
             return ARPR_FAIL;
         }
     }
@@ -474,8 +474,8 @@ int arp_gw_query_timeout(struct client_state_t cs[static 1], long long nowts)
                  client_config.interface);
         ++cs->router_arp_sent;
         if (arp_ping(cs, cs->routerAddr) < 0) {
-            log_warning("%s: arp: Failed to send ARP ping in retransmission.",
-                        client_config.interface);
+            log_line("%s: arp: Failed to send ARP ping in retransmission.",
+                     client_config.interface);
             return ARPR_FAIL;
         }
     }
@@ -490,8 +490,8 @@ int arp_gw_query_timeout(struct client_state_t cs[static 1], long long nowts)
                  client_config.interface);
         ++cs->server_arp_sent;
         if (arp_ping(cs, cs->srcAddr) < 0) {
-            log_warning("%s: arp: Failed to send ARP ping in retransmission.",
-                        client_config.interface);
+            log_line("%s: arp: Failed to send ARP ping in retransmission.",
+                     client_config.interface);
             return ARPR_FAIL;
         }
     }
@@ -508,7 +508,7 @@ int arp_collision_timeout(struct client_state_t cs[static 1], long long nowts)
         char clibuf[INET_ADDRSTRLEN];
         struct in_addr temp_addr = {.s_addr = garp.dhcp_packet.yiaddr};
         inet_ntop(AF_INET, &temp_addr, clibuf, sizeof clibuf);
-        log_line("%s: Lease of %s obtained.  Lease time is %ld seconds.",
+        log_line("%s: Lease of %s obtained.  Lease time is %u seconds.",
                  client_config.interface, clibuf, cs->lease);
         cs->clientAddr = garp.dhcp_packet.yiaddr;
         cs->program_init = false;
@@ -530,8 +530,8 @@ int arp_collision_timeout(struct client_state_t cs[static 1], long long nowts)
         return ARPR_OK;
     }
     if (arp_ip_anon_ping(cs, garp.dhcp_packet.yiaddr) < 0) {
-        log_warning("%s: arp: Failed to send ARP ping in retransmission.",
-                    client_config.interface);
+        log_line("%s: arp: Failed to send ARP ping in retransmission.",
+                 client_config.interface);
         return ARPR_FAIL;
     }
     garp.probe_wait_time = arp_gen_probe_wait(cs);
@@ -547,8 +547,8 @@ int arp_query_gateway(struct client_state_t cs[static 1])
         return ARPR_OK;
     }
     if (arp_get_gw_hwaddr(cs) < 0) {
-        log_warning("%s: (%s) Failed to send request to get gateway and agent hardware addresses: %s",
-                    client_config.interface, __func__, strerror(errno));
+        log_line("%s: (%s) Failed to send request to get gateway and agent hardware addresses: %s",
+                 client_config.interface, __func__, strerror(errno));
         garp.wake_ts[AS_QUERY_GW_SEND] = curms() + ARP_RETRANS_DELAY;
         return ARPR_FAIL;
     }
@@ -575,8 +575,8 @@ int arp_announce(struct client_state_t cs[static 1])
         return ARPR_OK;
     }
     if (arp_announcement(cs) < 0) {
-        log_warning("%s: (%s) Failed to send ARP announcement: %s",
-                    client_config.interface, __func__, strerror(errno));
+        log_line("%s: (%s) Failed to send ARP announcement: %s",
+                 client_config.interface, __func__, strerror(errno));
         garp.wake_ts[AS_ANNOUNCE] = curms() + ARP_RETRANS_DELAY ;
         return ARPR_FAIL;
     }
@@ -608,17 +608,17 @@ int arp_do_defense(struct client_state_t cs[static 1])
     if (!arp_validate_bpf_defense(cs, &garp.reply))
         return ARPR_OK;
 
-    log_warning("%s: arp: Detected a peer attempting to use our IP!", client_config.interface);
+    log_line("%s: arp: Detected a peer attempting to use our IP!", client_config.interface);
     long long nowts = curms();
     garp.wake_ts[AS_DEFENSE] = -1;
     if (!garp.last_conflict_ts ||
         nowts - garp.last_conflict_ts < DEFEND_INTERVAL) {
-        log_warning("%s: arp: Defending our lease IP.", client_config.interface);
+        log_line("%s: arp: Defending our lease IP.", client_config.interface);
         if (arp_announcement(cs) < 0)
             return ARPR_FAIL;
     } else if (!garp.relentless_def) {
-        log_warning("%s: arp: Conflicting peer is persistent.  Requesting new lease.",
-                    client_config.interface);
+        log_line("%s: arp: Conflicting peer is persistent.  Requesting new lease.",
+                 client_config.interface);
         send_release(cs);
         return ARPR_CONFLICT;
     } else {
@@ -686,8 +686,8 @@ int arp_do_collision_check(struct client_state_t cs[static 1])
                  client_config.interface);
         int r = send_decline(cs, garp.dhcp_packet.yiaddr);
         if (r < 0) {
-            log_warning("%s: Failed to send a decline notice packet.",
-                        client_config.interface);
+            log_line("%s: Failed to send a decline notice packet.",
+                     client_config.interface);
             return ARPR_FAIL;
         }
         return ARPR_CONFLICT;
@@ -744,8 +744,8 @@ bool arp_packet_get(struct client_state_t cs[static 1])
         if (r == 0)
             return false;
         if (r < 0) {
-            log_error("%s: (%s) ARP response read failed: %s",
-                      client_config.interface, __func__, strerror(errno));
+            log_line("%s: (%s) ARP response read failed: %s",
+                     client_config.interface, __func__, strerror(errno));
             // Timeouts will trigger anyway without being forced.
             arp_min_close_fd(cs);
             if (arp_open_fd(cs, cs->arp_is_defense) < 0)
