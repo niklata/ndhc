@@ -309,44 +309,35 @@ static void do_ndhc_work(void)
         int sev_rfk = RFK_NONE;
         bool force_fingerprint = false;
         if (pfds[0].revents & POLLIN) {
-            pfds[0].revents &= ~POLLIN;
             had_event = true;
             sev_nl = nl_event_get(&cs);
         }
         if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-            pfds[0].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
             suicide("nlfd closed unexpectedly");
         }
         if (pfds[1].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-            pfds[1].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
             exit(EXIT_FAILURE);
         }
         if (pfds[2].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-            pfds[2].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
             exit(EXIT_FAILURE);
         }
         if (pfds[3].revents & POLLIN) {
-            pfds[3].revents &= ~POLLIN;
             had_event = true;
             sev_rfk = rfkill_get(&cs, 1, client_config.rfkillIdx);
         }
         if (pfds[3].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-            pfds[3].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
             suicide("rfkillfd closed unexpectedly");
         }
         if (pfds[4].revents & POLLIN) {
-            pfds[4].revents &= ~POLLIN;
             had_event = true;
             // Make sure the fd is still the same.
             if (pfds[4].fd == cs.arpFd)
                 sev_arp = arp_packet_get(&cs);
         }
         if (pfds[4].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-            pfds[4].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
             suicide("arpfd closed unexpectedly");
         }
         if (pfds[5].revents & POLLIN) {
-            pfds[5].revents &= ~POLLIN;
             had_event = true;
             // Make sure the fd is still the same.
             if (pfds[5].fd == cs.listenFd)
@@ -354,7 +345,6 @@ static void do_ndhc_work(void)
                                            &dhcp_srcaddr);
         }
         if (pfds[5].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-            pfds[5].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
             suicide("listenfd closed unexpectedly");
         }
 
@@ -526,7 +516,6 @@ static void wait_for_rfkill()
             if (errno != EINTR) suicide("poll failed");
         }
         if (pfds[0].revents & POLLIN) {
-            pfds[0].revents &= ~POLLIN;
             if (rfkill_get(&cs, 0, 0) == RFK_DISABLED) {
                 switch (perform_ifup()) {
                 case 1:
@@ -539,7 +528,6 @@ static void wait_for_rfkill()
             }
         }
         if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-            pfds[0].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
             suicide("rfkillFd closed unexpectedly");
         }
     }

@@ -557,15 +557,12 @@ static void do_sockd_work(void)
             if (errno != EINTR) suicide("poll failed");
         }
         if (pfds[0].revents & POLLIN) {
-            pfds[0].revents &= ~POLLIN;
             process_client_socket();
         }
         if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-            pfds[0].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
             suicide("sockdSock closed unexpectedly");
         }
         if (pfds[1].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-            pfds[1].revents &= ~(POLLHUP|POLLERR|POLLRDHUP);
             exit(EXIT_SUCCESS);
         }
     }
