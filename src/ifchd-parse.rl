@@ -130,6 +130,7 @@ static int perform_ip4set(const char buf[static 1], size_t len)
 
     action Dispatch {
         int pr = 0;
+        cmd_start = p + 1;
         switch (cl.state) {
         case STATE_IP4SET: pr = perform_ip4set(tb, arg_len); break;
         case STATE_TIMEZONE: pr = perform_timezone( tb, arg_len); break;
@@ -197,6 +198,7 @@ int execute_buffer(const char newbuf[static 1])
     int cmdf = 0;
 
     ssize_t buflen = snprintf(buf, sizeof buf, "%s%s", cl.ibuf, newbuf);
+    memset(cl.ibuf, 0, sizeof cl.ibuf);
     if (buflen < 0) {
         log_line("%s: (%s) snprintf1 failed; your system is broken?",
                  client_config.interface, __func__);
@@ -211,14 +213,21 @@ int execute_buffer(const char newbuf[static 1])
     const char *p = buf;
     const char *pe = p + strlen(buf);
     const char *arg_start = p;
+    const char *cmd_start = p;
     size_t arg_len = 0;
     int cs = 0;
 
     %% write init;
     %% write exec;
 
-    if (p != pe) {
-        ssize_t ilen = snprintf(cl.ibuf, sizeof cl.ibuf, "%s", p);
+    if (cs == ifchd_parser_error) {
+        log_line("%s: (%s) ifch received invalid commands",
+                 client_config.interface, __func__);
+        return -99;
+    }
+
+    if (cmd_start != pe) {
+        ssize_t ilen = snprintf(cl.ibuf, sizeof cl.ibuf, "%s", cmd_start);
         if (ilen < 0) {
             log_line("%s: (%s) snprintf2 failed; your system is broken?",
                      client_config.interface, __func__);
@@ -231,11 +240,6 @@ int execute_buffer(const char newbuf[static 1])
         }
     }
 
-    if (cs < ifchd_parser_first_final) {
-        log_line("%s: ifch received invalid commands",
-                 client_config.interface);
-        return -99;
-    }
     return !cmdf ? 0 : -1;
 }
 
