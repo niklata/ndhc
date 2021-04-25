@@ -61,7 +61,7 @@ struct client_state_t {
     enum arp_state server_arp_state, router_arp_state;
     enum fprint_state fp_state;
     bool using_dhcp_bpf, arp_is_defense, check_fingerprint, program_init,
-         sent_renew_or_rebind;
+         sent_renew_or_rebind, carrier_up;
     bool sent_gw_query, sent_first_announce, sent_second_announce;
 };
 
@@ -99,6 +99,7 @@ extern uid_t ndhc_uid;
 extern gid_t ndhc_gid;
 
 int signals_flagged(void);
+bool carrier_isup(void);
 void set_client_addr(const char v[static 1]);
 void show_usage(void);
 void signal_exit(int status);

@@ -224,7 +224,7 @@ static int ifchwrite(const char buf[static 1], size_t count)
     return -1;
 }
 
-bool carrier_isup(void)
+bool ifchange_carrier_isup(void)
 {
     char buf[256];
     snprintf(buf, sizeof buf, "carrier:;");

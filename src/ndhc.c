@@ -110,6 +110,8 @@ int signals_flagged(void)
     return SIGNAL_NONE;
 }
 
+bool carrier_isup(void) { return cs.carrier_up; }
+
 void set_client_addr(const char v[static 1]) { cs.clientAddr = inet_addr(v); }
 
 void print_version(void)
@@ -311,6 +313,7 @@ static void do_ndhc_work(void)
         if (pfds[0].revents & POLLIN) {
             had_event = true;
             sev_nl = nl_event_get(&cs);
+            cs.carrier_up = (sev_nl == IFS_UP);
         }
         if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
             suicide("nlfd closed unexpectedly");
@@ -494,6 +497,7 @@ static void ndhc_main(void) {
     memset(chroot_dir, '\0', sizeof chroot_dir);
     nk_set_uidgid(ndhc_uid, ndhc_gid, (const unsigned char *)0, 0);
 
+    cs.carrier_up = ifchange_carrier_isup();
     if (!carrier_isup()) {
         if (ifchange_deconfig(&cs) < 0)
             suicide("%s: can't deconfigure interface settings", __func__);
