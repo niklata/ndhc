@@ -264,7 +264,7 @@ int perform_domain(const char str[static 1], size_t len)
                  client_config.interface, __func__);
     }
     ret = write_resolve_conf();
-    if (ret <= 0)
+    if (ret == 0)
         log_line("Added DNS domain: '%s'", str);
     return ret;
 }
@@ -323,10 +323,10 @@ static void process_client_socket(void)
 
     int ebr = execute_buffer(buf);
     if (ebr < 0) {
-        inform_execute('-');
         if (ebr == -99)
-            suicide("%s: (%s) received invalid commands: '%s'",
+            suicide("%s: (%s) unrecoverable failure in command sequence: '%s'",
                     client_config.interface, __func__, buf);
+        inform_execute('-');
     } else
         inform_execute('+');
 }
