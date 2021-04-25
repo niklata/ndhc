@@ -208,9 +208,8 @@ int execute_buffer(const char newbuf[static 1])
         return -99;
     }
 
-    size_t init_siz = strlen(buf);
     const char *p = buf;
-    const char *pe = p + init_siz;
+    const char *pe = p + strlen(buf);
     const char *arg_start = p;
     size_t arg_len = 0;
     int cs = 0;
@@ -218,11 +217,8 @@ int execute_buffer(const char newbuf[static 1])
     %% write init;
     %% write exec;
 
-    ptrdiff_t blt = pe - p;
-    size_t bytes_left = blt >= 0 ? (size_t)blt : 0;
-    if (bytes_left > 0) {
-        size_t taken = init_siz - bytes_left;
-        ssize_t ilen = snprintf(cl.ibuf, sizeof cl.ibuf, "%s", buf + taken);
+    if (p != pe) {
+        ssize_t ilen = snprintf(cl.ibuf, sizeof cl.ibuf, "%s", p);
         if (ilen < 0) {
             log_line("%s: (%s) snprintf2 failed; your system is broken?",
                      client_config.interface, __func__);
