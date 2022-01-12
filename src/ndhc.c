@@ -313,7 +313,8 @@ static void do_ndhc_work(void)
         if (pfds[0].revents & POLLIN) {
             had_event = true;
             sev_nl = nl_event_get(&cs);
-            cs.carrier_up = (sev_nl == IFS_UP);
+            if (!cs.carrier_up)
+                cs.carrier_up = (sev_nl == IFS_UP);
         }
         if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
             suicide("nlfd closed unexpectedly");
