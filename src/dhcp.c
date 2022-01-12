@@ -50,7 +50,7 @@
 #include "options.h"
 #include "sockd.h"
 
-static int get_udp_unicast_socket(struct client_state_t cs[static 1])
+static int get_udp_unicast_socket(struct client_state_t *cs)
 {
     char buf[32];
     buf[0] = 'u';
@@ -63,7 +63,7 @@ static int get_raw_broadcast_socket(void)
     return request_sockd_fd("s", 1, (char *)0);
 }
 
-static int get_raw_listen_socket(struct client_state_t cs[static 1])
+static int get_raw_listen_socket(struct client_state_t *cs)
 {
     char resp;
     int fd = request_sockd_fd("L", 1, &resp);
@@ -77,8 +77,8 @@ static int get_raw_listen_socket(struct client_state_t cs[static 1])
 }
 
 // Unicast a DHCP message using a UDP socket.
-static ssize_t send_dhcp_unicast(struct client_state_t cs[static 1],
-                                 struct dhcpmsg payload[static 1])
+static ssize_t send_dhcp_unicast(struct client_state_t *cs,
+                                 struct dhcpmsg *payload)
 {
     ssize_t ret = -1;
     int fd = get_udp_unicast_socket(cs);
@@ -131,13 +131,13 @@ static ssize_t send_dhcp_unicast(struct client_state_t cs[static 1],
 }
 
 // Returns 1 if IP checksum is correct, otherwise 0.
-static int ip_checksum(struct ip_udp_dhcp_packet packet[static 1])
+static int ip_checksum(struct ip_udp_dhcp_packet *packet)
 {
     return net_checksum16(&packet->ip, sizeof packet->ip) == 0;
 }
 
 // Returns 1 if UDP checksum is correct, otherwise 0.
-static int udp_checksum(struct ip_udp_dhcp_packet packet[static 1])
+static int udp_checksum(struct ip_udp_dhcp_packet *packet)
 {
     struct iphdr ph = {
         .saddr = packet->ip.saddr,
@@ -154,7 +154,7 @@ static int udp_checksum(struct ip_udp_dhcp_packet packet[static 1])
     return cs == 0;
 }
 
-static int get_raw_packet_validate_bpf(struct ip_udp_dhcp_packet packet[static 1])
+static int get_raw_packet_validate_bpf(struct ip_udp_dhcp_packet *packet)
 {
     if (packet->ip.version != IPVERSION) {
         log_line("%s: IP version is not IPv4.", client_config.interface);
@@ -186,8 +186,8 @@ static int get_raw_packet_validate_bpf(struct ip_udp_dhcp_packet packet[static 1
 
 // Read a packet from a raw socket.  Returns -1 on fatal error, -2 on
 // transient error.
-static ssize_t get_raw_packet(struct client_state_t cs[static 1],
-                              struct dhcpmsg payload[static 1],
+static ssize_t get_raw_packet(struct client_state_t *cs,
+                              struct dhcpmsg *payload,
                               uint32_t *srcaddr)
 {
     struct ip_udp_dhcp_packet packet;
@@ -235,7 +235,7 @@ static ssize_t get_raw_packet(struct client_state_t cs[static 1],
 }
 
 // Broadcast a DHCP message using a raw socket.
-static ssize_t send_dhcp_raw(struct dhcpmsg payload[static 1])
+static ssize_t send_dhcp_raw(struct dhcpmsg *payload)
 {
     ssize_t ret = -1;
     int fd = get_raw_broadcast_socket();
@@ -320,7 +320,7 @@ carrier_down:
     return ret;
 }
 
-void start_dhcp_listen(struct client_state_t cs[static 1])
+void start_dhcp_listen(struct client_state_t *cs)
 {
     if (cs->listenFd >= 0)
         return;
@@ -330,7 +330,7 @@ void start_dhcp_listen(struct client_state_t cs[static 1])
                 client_config.interface, strerror(errno));
 }
 
-void stop_dhcp_listen(struct client_state_t cs[static 1])
+void stop_dhcp_listen(struct client_state_t *cs)
 {
     if (cs->listenFd < 0)
         return;
@@ -338,9 +338,9 @@ void stop_dhcp_listen(struct client_state_t cs[static 1])
     cs->listenFd = -1;
 }
 
-static int validate_dhcp_packet(struct client_state_t cs[static 1],
-                                size_t len, struct dhcpmsg packet[static 1],
-                                uint8_t msgtype[static 1])
+static int validate_dhcp_packet(struct client_state_t *cs,
+                                size_t len, struct dhcpmsg *packet,
+                                uint8_t *msgtype)
 {
     if (len < offsetof(struct dhcpmsg, options)) {
         log_line("%s: Packet is too short to contain magic cookie.  Ignoring.",
@@ -391,10 +391,8 @@ static int validate_dhcp_packet(struct client_state_t cs[static 1],
     return 1;
 }
 
-bool dhcp_packet_get(struct client_state_t cs[static 1],
-                     struct dhcpmsg packet[static 1],
-                     uint8_t msgtype[static 1],
-                     uint32_t srcaddr[static 1])
+bool dhcp_packet_get(struct client_state_t *cs, struct dhcpmsg *packet,
+                     uint8_t *msgtype, uint32_t *srcaddr)
 {
     if (cs->listenFd < 0)
         return false;
@@ -414,7 +412,7 @@ bool dhcp_packet_get(struct client_state_t cs[static 1],
     return true;
 }
 
-static void add_options_vendor_hostname(struct dhcpmsg packet[static 1])
+static void add_options_vendor_hostname(struct dhcpmsg *packet)
 {
     size_t vlen = strlen(client_config.vendor);
     size_t hlen = strlen(client_config.hostname);
@@ -426,7 +424,7 @@ static void add_options_vendor_hostname(struct dhcpmsg packet[static 1])
 }
 
 // Initialize a DHCP client packet that will be sent to a server
-static void init_packet(struct dhcpmsg packet[static 1], uint8_t type)
+static void init_packet(struct dhcpmsg *packet, uint8_t type)
 {
     packet->op = 1; // BOOTREQUEST (client)
     packet->htype = 1; // ETH_10MB
@@ -439,7 +437,7 @@ static void init_packet(struct dhcpmsg packet[static 1], uint8_t type)
                         client_config.clientid_len);
 }
 
-ssize_t send_discover(struct client_state_t cs[static 1])
+ssize_t send_discover(struct client_state_t *cs)
 {
     struct dhcpmsg packet = {.xid = cs->xid};
     init_packet(&packet, DHCPDISCOVER);
@@ -452,7 +450,7 @@ ssize_t send_discover(struct client_state_t cs[static 1])
     return send_dhcp_raw(&packet);
 }
 
-ssize_t send_selecting(struct client_state_t cs[static 1])
+ssize_t send_selecting(struct client_state_t *cs)
 {
     char clibuf[INET_ADDRSTRLEN];
     struct dhcpmsg packet = {.xid = cs->xid};
@@ -469,7 +467,7 @@ ssize_t send_selecting(struct client_state_t cs[static 1])
     return send_dhcp_raw(&packet);
 }
 
-ssize_t send_renew_or_rebind(struct client_state_t cs[static 1], bool is_renew)
+ssize_t send_renew_or_rebind(struct client_state_t *cs, bool is_renew)
 {
     struct dhcpmsg packet = {.xid = cs->xid};
     init_packet(&packet, DHCPREQUEST);
@@ -482,7 +480,7 @@ ssize_t send_renew_or_rebind(struct client_state_t cs[static 1], bool is_renew)
     return is_renew? send_dhcp_unicast(cs, &packet) : send_dhcp_raw(&packet);
 }
 
-ssize_t send_decline(struct client_state_t cs[static 1], uint32_t server)
+ssize_t send_decline(struct client_state_t *cs, uint32_t server)
 {
     struct dhcpmsg packet = {.xid = cs->xid};
     init_packet(&packet, DHCPDECLINE);
@@ -492,7 +490,7 @@ ssize_t send_decline(struct client_state_t cs[static 1], uint32_t server)
     return send_dhcp_raw(&packet);
 }
 
-ssize_t send_release(struct client_state_t cs[static 1])
+ssize_t send_release(struct client_state_t *cs)
 {
     struct dhcpmsg packet = {.xid = nk_random_u32(&cs->rnd_state)};
     init_packet(&packet, DHCPRELEASE);

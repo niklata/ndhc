@@ -304,7 +304,7 @@ static void link_flags_get_do(const struct nlmsghdr *nlh, void *data)
     }
 }
 
-static int link_flags_get(int fd, uint32_t flags[static 1])
+static int link_flags_get(int fd, uint32_t *flags)
 {
     char nlbuf[8192];
     struct link_flag_data ipx = { .fd = fd, .flags = 0, .got_flags = false };
@@ -519,8 +519,8 @@ int perform_ifup(void)
 }
 
 // str_bcast is optional.
-int perform_ip_subnet_bcast(const char str_ipaddr[static 1],
-                            const char str_subnet[static 1],
+int perform_ip_subnet_bcast(const char *str_ipaddr,
+                            const char *str_subnet,
                             const char *str_bcast)
 {
     struct in_addr ipaddr, subnet, bcast;
@@ -601,7 +601,7 @@ fail:
 }
 
 
-int perform_router(const char str_router[static 1], size_t len)
+int perform_router(const char *str_router, size_t len)
 {
     int ret = -99;
     if (len < 7)
@@ -634,7 +634,7 @@ fail:
     return ret;
 }
 
-int perform_mtu(const char str[static 1], size_t len)
+int perform_mtu(const char *str, size_t len)
 {
     unsigned int mtu;
     int fd, ret = -99;

@@ -100,10 +100,10 @@ extern gid_t ndhc_gid;
 
 int signals_flagged(void);
 bool carrier_isup(void);
-void set_client_addr(const char v[static 1]);
+void set_client_addr(const char *v);
 void show_usage(void);
 void signal_exit(int status);
-int get_clientid_string(const char str[static 1], size_t slen);
+int get_clientid_string(const char *str, size_t slen);
 void print_version(void);
 
 #endif /* NJK_NDHC_NDHC_H_ */

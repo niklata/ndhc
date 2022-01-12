@@ -47,8 +47,7 @@
 
 static struct dhcpmsg cfg_packet; // Copy of the current configuration packet.
 
-static int ifcmd_raw(char buf[static 1], size_t buflen,
-                     const char optname[static 1],
+static int ifcmd_raw(char *buf, size_t buflen, const char *optname,
                      char *optdata, size_t optlen)
 {
     if (!optdata) {
@@ -78,15 +77,13 @@ static int ifcmd_raw(char buf[static 1], size_t buflen,
     return olen;
 }
 
-static int ifcmd_bytes(char buf[static 1], size_t buflen,
-                       const char optname[static 1],
+static int ifcmd_bytes(char *buf, size_t buflen, const char *optname,
                        uint8_t *optdata, size_t optlen)
 {
     return ifcmd_raw(buf, buflen, optname, (char *)optdata, optlen);
 }
 
-static int ifcmd_u8(char buf[static 1], size_t buflen,
-                    const char optname[static 1],
+static int ifcmd_u8(char *buf, size_t buflen, const char *optname,
                     uint8_t *optdata, size_t optlen)
 {
     if (!optdata || optlen < 1)
@@ -99,8 +96,7 @@ static int ifcmd_u8(char buf[static 1], size_t buflen,
     return ifcmd_raw(buf, buflen, optname, numbuf, strlen(numbuf));
 }
 
-static int ifcmd_u16(char buf[static 1], size_t buflen,
-                     const char optname[static 1],
+static int ifcmd_u16(char *buf, size_t buflen, const char *optname,
                      uint8_t *optdata, size_t optlen)
 {
     if (!optdata || optlen < 2)
@@ -115,8 +111,7 @@ static int ifcmd_u16(char buf[static 1], size_t buflen,
     return ifcmd_raw(buf, buflen, optname, numbuf, strlen(numbuf));
 }
 
-static int ifcmd_s32(char buf[static 1], size_t buflen,
-                     const char optname[static 1],
+static int ifcmd_s32(char *buf, size_t buflen, const char *optname,
                      uint8_t *optdata, size_t optlen)
 {
     if (!optdata || optlen < 4)
@@ -131,8 +126,7 @@ static int ifcmd_s32(char buf[static 1], size_t buflen,
     return ifcmd_raw(buf, buflen, optname, numbuf, strlen(numbuf));
 }
 
-static int ifcmd_ip(char buf[static 1], size_t buflen,
-                    const char optname[static 1],
+static int ifcmd_ip(char *buf, size_t buflen, const char *optname,
                     uint8_t *optdata, size_t optlen)
 {
     if (!optdata || optlen < 4)
@@ -142,8 +136,7 @@ static int ifcmd_ip(char buf[static 1], size_t buflen,
     return ifcmd_raw(buf, buflen, optname, ipbuf, strlen(ipbuf));
 }
 
-static int ifcmd_iplist(char out[static 1], size_t outlen,
-                        const char optname[static 1],
+static int ifcmd_iplist(char *out, size_t outlen, const char *optname,
                         uint8_t *optdata, size_t optlen)
 {
     char buf[2048];
@@ -171,7 +164,7 @@ static int ifcmd_iplist(char out[static 1], size_t outlen,
     return ifcmd_raw(out, outlen, optname, buf, strlen(buf));
 }
 
-static int ifchd_cmd(char b[static 1], size_t bl, uint8_t *od,
+static int ifchd_cmd(char *b, size_t bl, uint8_t *od,
                      size_t ol, uint8_t code)
 {
     switch (code) {
@@ -192,7 +185,7 @@ static int ifchd_cmd(char b[static 1], size_t bl, uint8_t *od,
     return -1;
 }
 
-static int ifchwrite(const char buf[static 1], size_t count)
+static int ifchwrite(const char *buf, size_t count)
 {
     ssize_t r = safe_write(ifchSock[0], buf, count);
     if (r < 0 || (size_t)r != count) {
@@ -231,7 +224,7 @@ bool ifchange_carrier_isup(void)
     return ifchwrite(buf, strlen(buf)) == 0;
 }
 
-int ifchange_deconfig(struct client_state_t cs[static 1])
+int ifchange_deconfig(struct client_state_t *cs)
 {
     char buf[256];
     int ret = -1;
@@ -250,8 +243,8 @@ int ifchange_deconfig(struct client_state_t cs[static 1])
     return ret;
 }
 
-static size_t send_client_ip(char out[static 1], size_t olen,
-                             struct dhcpmsg packet[static 1])
+static size_t send_client_ip(char *out, size_t olen,
+                             struct dhcpmsg *packet)
 {
     uint8_t optdata[MAX_DOPT_SIZE], olddata[MAX_DOPT_SIZE];
     char ip[INET_ADDRSTRLEN], sn[INET_ADDRSTRLEN], bc[INET_ADDRSTRLEN];
@@ -312,8 +305,8 @@ static size_t send_client_ip(char out[static 1], size_t olen,
     return (size_t)snlen;
 }
 
-static size_t send_cmd(char out[static 1], size_t olen,
-                       struct dhcpmsg packet[static 1], uint8_t code)
+static size_t send_cmd(char *out, size_t olen,
+                       struct dhcpmsg *packet, uint8_t code)
 {
     uint8_t optdata[MAX_DOPT_SIZE], olddata[MAX_DOPT_SIZE];
     size_t optlen, oldlen;
@@ -328,8 +321,7 @@ static size_t send_cmd(char out[static 1], size_t olen,
     return r > 0 ? (size_t)r : 0;
 }
 
-int ifchange_bind(struct client_state_t cs[static 1],
-                   struct dhcpmsg packet[static 1])
+int ifchange_bind(struct client_state_t *cs, struct dhcpmsg *packet)
 {
     char buf[2048];
     size_t bo;

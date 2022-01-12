@@ -81,24 +81,22 @@ struct udp_dhcp_packet {
     struct dhcpmsg data;
 };
 
-void start_dhcp_listen(struct client_state_t cs[static 1]);
-void stop_dhcp_listen(struct client_state_t cs[static 1]);
-bool dhcp_packet_get(struct client_state_t cs[static 1],
-                     struct dhcpmsg packet[static 1],
-                     uint8_t msgtype[static 1],
-                     uint32_t srcaddr[static 1]);
-ssize_t send_discover(struct client_state_t cs[static 1]);
-ssize_t send_selecting(struct client_state_t cs[static 1]);
-ssize_t send_renew_or_rebind(struct client_state_t cs[static 1], bool is_renew);
-static inline ssize_t send_renew(struct client_state_t cs[static 1])
+void start_dhcp_listen(struct client_state_t *cs);
+void stop_dhcp_listen(struct client_state_t *cs);
+bool dhcp_packet_get(struct client_state_t *cs, struct dhcpmsg *packet,
+                     uint8_t *msgtype, uint32_t *srcaddr);
+ssize_t send_discover(struct client_state_t *cs);
+ssize_t send_selecting(struct client_state_t *cs);
+ssize_t send_renew_or_rebind(struct client_state_t *cs, bool is_renew);
+static inline ssize_t send_renew(struct client_state_t *cs)
 {
     return send_renew_or_rebind(cs, true);
 }
-static inline ssize_t send_rebind(struct client_state_t cs[static 1])
+static inline ssize_t send_rebind(struct client_state_t *cs)
 {
     return send_renew_or_rebind(cs, false);
 }
-ssize_t send_decline(struct client_state_t cs[static 1], uint32_t server);
-ssize_t send_release(struct client_state_t cs[static 1]);
+ssize_t send_decline(struct client_state_t *cs, uint32_t server);
+ssize_t send_release(struct client_state_t *cs);
 
 #endif

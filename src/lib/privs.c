@@ -56,7 +56,7 @@ void nk_set_chroot(const char *chroot_dir)
 }
 
 #ifdef NK_USE_CAPABILITY
-static size_t nk_get_capability_vinfo(uint32_t version[static 1])
+static size_t nk_get_capability_vinfo(uint32_t *version)
 {
     struct __user_cap_header_struct hdr;
     memset(&hdr, 0, sizeof hdr);
@@ -80,7 +80,7 @@ static size_t nk_get_capability_vinfo(uint32_t version[static 1])
 }
 static size_t nk_set_capability_prologue(const unsigned char *caps,
                                          size_t caplen,
-                                         uint32_t cversion[static 1])
+                                         uint32_t *cversion)
 {
     if (!caps || !caplen)
         return 0;
@@ -120,7 +120,7 @@ static void nk_set_capability_epilogue(const unsigned char *caps,
 #else
 static size_t nk_set_capability_prologue(const unsigned char *caps,
                                          size_t caplen,
-                                         uint32_t cversion[static 1])
+                                         uint32_t *cversion)
 { (void)caps; (void)caplen; (void)cversion; return 0; }
 static void nk_set_capability_epilogue(const unsigned char *caps,
                                        size_t caplen, uint32_t cversion,

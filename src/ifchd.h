@@ -37,14 +37,14 @@ extern int allow_hostname;
 extern uid_t ifch_uid;
 extern gid_t ifch_gid;
 
-int perform_timezone(const char str[static 1], size_t len);
-int perform_dns(const char str[static 1], size_t len);
-int perform_lprsvr(const char str[static 1], size_t len);
-int perform_hostname(const char str[static 1], size_t len);
-int perform_domain(const char str[static 1], size_t len);
-int perform_ipttl(const char str[static 1], size_t len);
-int perform_ntpsrv(const char str[static 1], size_t len);
-int perform_wins(const char str[static 1], size_t len);
+int perform_timezone(const char *str, size_t len);
+int perform_dns(const char *str, size_t len);
+int perform_lprsvr(const char *str, size_t len);
+int perform_hostname(const char *str, size_t len);
+int perform_domain(const char *str, size_t len);
+int perform_ipttl(const char *str, size_t len);
+int perform_ntpsrv(const char *str, size_t len);
+int perform_wins(const char *str, size_t len);
 
 void ifch_main(void);
 

@@ -63,7 +63,7 @@ int allow_hostname = 0;
 uid_t ifch_uid = 0;
 gid_t ifch_gid = 0;
 
-static void writeordie(int fd, const char buf[static 1], size_t len)
+static void writeordie(int fd, const char *buf, size_t len)
 {
     ssize_t r = safe_write(fd, buf, len);
     if (r < 0 || (size_t)r != len)
@@ -71,7 +71,7 @@ static void writeordie(int fd, const char buf[static 1], size_t len)
                 __func__, r);
 }
 
-static int write_append_fd(int to_fd, int from_fd, const char descr[static 1])
+static int write_append_fd(int to_fd, int from_fd, const char *descr)
 {
     if (from_fd < 0) return 0;
     if (to_fd < 0) return -1;
@@ -199,7 +199,7 @@ static int write_resolve_conf(void)
 }
 
 /* XXX: addme */
-int perform_timezone(const char str[static 1], size_t len)
+int perform_timezone(const char *str, size_t len)
 {
     (void)len;
     log_line("Timezone setting NYI: '%s'", str);
@@ -207,7 +207,7 @@ int perform_timezone(const char str[static 1], size_t len)
 }
 
 /* Add a dns server to the /etc/resolv.conf -- we already have a fd. */
-int perform_dns(const char str[static 1], size_t len)
+int perform_dns(const char *str, size_t len)
 {
     if (resolv_conf_fd < 0)
         return 0;
@@ -228,7 +228,7 @@ int perform_dns(const char str[static 1], size_t len)
 }
 
 /* Updates for print daemons are too non-standard to be useful. */
-int perform_lprsvr(const char str[static 1], size_t len)
+int perform_lprsvr(const char *str, size_t len)
 {
     (void)len;
     log_line("Line printer server setting NYI: '%s'", str);
@@ -236,7 +236,7 @@ int perform_lprsvr(const char str[static 1], size_t len)
 }
 
 /* Sets machine hostname. */
-int perform_hostname(const char str[static 1], size_t len)
+int perform_hostname(const char *str, size_t len)
 {
     if (!allow_hostname)
         return 0;
@@ -249,7 +249,7 @@ int perform_hostname(const char str[static 1], size_t len)
 }
 
 /* update "domain" and "search" in /etc/resolv.conf */
-int perform_domain(const char str[static 1], size_t len)
+int perform_domain(const char *str, size_t len)
 {
     if (resolv_conf_fd < 0)
         return 0;
@@ -271,7 +271,7 @@ int perform_domain(const char str[static 1], size_t len)
 
 /* I don't think this can be done without a netfilter extension
  * that isn't in the mainline kernels. */
-int perform_ipttl(const char str[static 1], size_t len)
+int perform_ipttl(const char *str, size_t len)
 {
     (void)len;
     log_line("TTL setting NYI: '%s'", str);
@@ -279,7 +279,7 @@ int perform_ipttl(const char str[static 1], size_t len)
 }
 
 /* XXX: addme */
-int perform_ntpsrv(const char str[static 1], size_t len)
+int perform_ntpsrv(const char *str, size_t len)
 {
     (void)len;
     log_line("NTP server setting NYI: '%s'", str);
@@ -287,7 +287,7 @@ int perform_ntpsrv(const char str[static 1], size_t len)
 }
 
 /* Maybe Samba cares about this feature?  I don't know. */
-int perform_wins(const char str[static 1], size_t len)
+int perform_wins(const char *str, size_t len)
 {
     (void)str;
     (void)len;

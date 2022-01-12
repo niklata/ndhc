@@ -76,7 +76,7 @@
 
 %% write data;
 
-static int perform_ip4set(const char buf[static 1], size_t len)
+static int perform_ip4set(const char *buf, size_t len)
 {
     char ip4_addr[INET_ADDRSTRLEN];
     char ip4_subnet[INET_ADDRSTRLEN];
@@ -191,7 +191,7 @@ static int perform_ip4set(const char buf[static 1], size_t len)
  * Returns -1 if one of the commands failed.
  * Returns 0 on success.
  */
-int execute_buffer(const char newbuf[static 1])
+int execute_buffer(const char *newbuf)
 {
     char buf[MAX_BUF * 2];
     char tb[MAX_BUF];

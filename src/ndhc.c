@@ -112,7 +112,7 @@ int signals_flagged(void)
 
 bool carrier_isup(void) { return cs.carrier_up; }
 
-void set_client_addr(const char v[static 1]) { cs.clientAddr = inet_addr(v); }
+void set_client_addr(const char *v) { cs.clientAddr = inet_addr(v); }
 
 void print_version(void)
 {
@@ -223,7 +223,7 @@ static void setup_signals_ndhc(void)
             suicide("sigaction failed");
 }
 
-static int is_string_hwaddr(const char str[static 1], size_t slen)
+static int is_string_hwaddr(const char *str, size_t slen)
 {
     if (slen == 17 && str[2] == ':' && str[5] == ':' && str[8] == ':' &&
         str[11] == ':' && str[14] == ':' &&
@@ -236,7 +236,7 @@ static int is_string_hwaddr(const char str[static 1], size_t slen)
     return 0;
 }
 
-int get_clientid_string(const char str[static 1], size_t slen)
+int get_clientid_string(const char *str, size_t slen)
 {
     if (!slen)
         return -1;

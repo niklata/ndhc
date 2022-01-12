@@ -103,32 +103,32 @@ struct arp_data {
     bool server_replied:1;
 };
 
-void arp_reset_state(struct client_state_t cs[static 1]);
+void arp_reset_state(struct client_state_t *cs);
 
-bool arp_packet_get(struct client_state_t cs[static 1]);
+bool arp_packet_get(struct client_state_t *cs);
 
 void set_arp_relentless_def(bool v);
-int arp_check(struct client_state_t cs[static 1],
-              struct dhcpmsg packet[static 1]);
-int arp_gw_check(struct client_state_t cs[static 1]);
-int arp_set_defense_mode(struct client_state_t cs[static 1]);
-int arp_gw_failed(struct client_state_t cs[static 1]);
+int arp_check(struct client_state_t *cs,
+              struct dhcpmsg *packet);
+int arp_gw_check(struct client_state_t *cs);
+int arp_set_defense_mode(struct client_state_t *cs);
+int arp_gw_failed(struct client_state_t *cs);
 
-int arp_do_collision_check(struct client_state_t cs[static 1]);
-int arp_collision_timeout(struct client_state_t cs[static 1], long long nowts);
+int arp_do_collision_check(struct client_state_t *cs);
+int arp_collision_timeout(struct client_state_t *cs, long long nowts);
 
-int arp_query_gateway(struct client_state_t cs[static 1]);
-int arp_query_gateway_timeout(struct client_state_t cs[static 1], long long nowts);
+int arp_query_gateway(struct client_state_t *cs);
+int arp_query_gateway_timeout(struct client_state_t *cs, long long nowts);
 
-int arp_announce(struct client_state_t cs[static 1]);
-int arp_announce_timeout(struct client_state_t cs[static 1], long long nowts);
+int arp_announce(struct client_state_t *cs);
+int arp_announce_timeout(struct client_state_t *cs, long long nowts);
 
-int arp_do_defense(struct client_state_t cs[static 1]);
-int arp_defense_timeout(struct client_state_t cs[static 1], long long nowts);
-int arp_do_gw_query(struct client_state_t cs[static 1]);
-int arp_gw_query_timeout(struct client_state_t cs[static 1], long long nowts);
-int arp_do_gw_check(struct client_state_t cs[static 1]);
-int arp_gw_check_timeout(struct client_state_t cs[static 1], long long nowts);
+int arp_do_defense(struct client_state_t *cs);
+int arp_defense_timeout(struct client_state_t *cs, long long nowts);
+int arp_do_gw_query(struct client_state_t *cs);
+int arp_gw_query_timeout(struct client_state_t *cs, long long nowts);
+int arp_do_gw_check(struct client_state_t *cs);
+int arp_gw_check_timeout(struct client_state_t *cs, long long nowts);
 
 // No action needs to be taken.
 #define ARPR_OK 0

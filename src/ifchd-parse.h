@@ -29,6 +29,6 @@
 #ifndef _NJK_NDHC_IFCHD_PARSE_H_
 #define _NJK_NDHC_IFCHD_PARSE_H_
 
-int execute_buffer(const char newbuf[static 1]);
+int execute_buffer(const char *newbuf);
 
 #endif /* _NJK_NDHC_IFCHD_PARSE_H_ */

@@ -37,7 +37,7 @@
 #include "ndhc.h"
 #include "rfkill.h"
 
-int rfkill_open(bool enable_rfkill[static 1])
+int rfkill_open(bool *enable_rfkill)
 {
     if (!*enable_rfkill)
         return -1;
@@ -52,8 +52,7 @@ int rfkill_open(bool enable_rfkill[static 1])
 
 // check_idx: Does rfkidx have any meaning?
 // rfkidx: Pay attention only to this radio kill switch number.
-int rfkill_get(struct client_state_t cs[static 1],
-               int check_idx, uint32_t rfkidx)
+int rfkill_get(struct client_state_t *cs, int check_idx, uint32_t rfkidx)
 {
     struct rfkill_event event;
     ssize_t len = safe_read(cs->rfkillFd, (char *)&event, sizeof event);

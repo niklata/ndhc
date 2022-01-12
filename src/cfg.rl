@@ -200,7 +200,7 @@ struct cfgparse {
 
 %% write data;
 
-static void parse_cfgfile(const char fname[static 1])
+static void parse_cfgfile(const char *fname)
 {
     bool reached_eof = false;
     struct cfgparse ccfg;

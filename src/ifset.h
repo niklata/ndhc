@@ -30,10 +30,10 @@
 #define NJK_IFSET_H_
 int perform_carrier(void);
 int perform_ifup(void);
-int perform_ip_subnet_bcast(const char str_ipaddr[static 1],
-                            const char str_subnet[static 1],
+int perform_ip_subnet_bcast(const char *str_ipaddr,
+                            const char *str_subnet,
                             const char *str_bcast);
-int perform_router(const char str[static 1], size_t len);
+int perform_router(const char *str, size_t len);
 int perform_mtu(const char *str, size_t len);
 #endif
 

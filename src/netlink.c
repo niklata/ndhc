@@ -89,7 +89,7 @@ static void nl_process_msgs(const struct nlmsghdr *nlh, void *data)
         nl_process_msgs_return = IFS_REMOVED;
 }
 
-int nl_event_get(struct client_state_t cs[static 1])
+int nl_event_get(struct client_state_t *cs)
 {
     char nlbuf[8192];
     ssize_t ret;

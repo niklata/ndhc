@@ -35,9 +35,8 @@ enum {
     RFK_DISABLED,
 };
 
-int rfkill_open(bool enable_rfkill[static 1]);
-int rfkill_get(struct client_state_t cs[static 1],
-               int check_idx, uint32_t rfkidx);
+int rfkill_open(bool *enable_rfkill);
+int rfkill_get(struct client_state_t *cs, int check_idx, uint32_t rfkidx);
 
 #endif
 

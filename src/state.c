@@ -65,7 +65,7 @@
 #define IFUP_NEWLEASE 1
 #define IFUP_FAIL -1
 
-static int delay_timeout(struct client_state_t cs[static 1], size_t numpackets)
+static int delay_timeout(struct client_state_t *cs, size_t numpackets)
 {
     int to = 64;
     char tot[] = { 4, 8, 16, 32, 64 };
@@ -75,7 +75,7 @@ static int delay_timeout(struct client_state_t cs[static 1], size_t numpackets)
     return to * 1000 + (int)(nk_random_u32(&cs->rnd_state) % 1000);
 }
 
-static void reinit_shared_deconfig(struct client_state_t cs[static 1])
+static void reinit_shared_deconfig(struct client_state_t *cs)
 {
     cs->xid = nk_random_u32(&cs->rnd_state);
     cs->clientAddr = 0;
@@ -96,7 +96,7 @@ static void reinit_shared_deconfig(struct client_state_t cs[static 1])
     arp_reset_state(cs);
 }
 
-static void reinit_selecting(struct client_state_t cs[static 1], int timeout)
+static void reinit_selecting(struct client_state_t *cs, int timeout)
 {
     reinit_shared_deconfig(cs);
     cs->dhcp_wake_ts = curms() + timeout;
@@ -107,7 +107,7 @@ static void reinit_selecting(struct client_state_t cs[static 1], int timeout)
 // been received within the response wait time.  If we've not exceeded the
 // maximum number of request retransmits, then send another packet and wait
 // again.  Otherwise, return to the DHCP initialization state.
-static int requesting_timeout(struct client_state_t cs[static 1],
+static int requesting_timeout(struct client_state_t *cs,
                                long long nowts)
 {
     if (cs->num_dhcp_requests >= 5) {
@@ -126,7 +126,7 @@ static int requesting_timeout(struct client_state_t cs[static 1],
 
 // Called by renewing_timeout() to try to renew the lease.  If all
 // timeouts expire, then expire the lease and notify the caller.
-static int rebinding_timeout(struct client_state_t cs[static 1],
+static int rebinding_timeout(struct client_state_t *cs,
                              long long nowts)
 {
     long long elt = cs->leaseStartTime + cs->lease * 1000;
@@ -149,7 +149,7 @@ static int rebinding_timeout(struct client_state_t cs[static 1],
 }
 
 // Called by bound_timeout() to try to renew the lease.
-static int renewing_timeout(struct client_state_t cs[static 1],
+static int renewing_timeout(struct client_state_t *cs,
                             long long nowts)
 {
     long long rbt = cs->leaseStartTime + cs->rebindTime * 1000;
@@ -170,7 +170,7 @@ static int renewing_timeout(struct client_state_t cs[static 1],
 
 // Called to handle dhcp state timeouts, such as when RENEW or REBIND
 // DHCPREQUESTs must be sent.  Can return BTO_(WAIT|EXPIRED|HARDFAIL).
-static int bound_timeout(struct client_state_t cs[static 1], long long nowts)
+static int bound_timeout(struct client_state_t *cs, long long nowts)
 {
     long long rnt = cs->leaseStartTime + cs->renewTime * 1000;
     if (nowts < rnt) {
@@ -180,8 +180,8 @@ static int bound_timeout(struct client_state_t cs[static 1], long long nowts)
     return renewing_timeout(cs, nowts);
 }
 
-static void get_leasetime(struct client_state_t cs[static 1],
-                          struct dhcpmsg packet[static 1])
+static void get_leasetime(struct client_state_t *cs,
+                          struct dhcpmsg *packet)
 {
     cs->lease = get_option_leasetime(packet);
     cs->leaseStartTime = curms();
@@ -203,9 +203,9 @@ static void get_leasetime(struct client_state_t cs[static 1],
     cs->dhcp_wake_ts = cs->leaseStartTime + cs->renewTime * 1000;
 }
 
-static bool validate_acknak(struct client_state_t cs[static 1],
-                            struct dhcpmsg packet[static 1],
-                            const char typemsg[static 1],
+static bool validate_acknak(struct client_state_t *cs,
+                            struct dhcpmsg *packet,
+                            const char *typemsg,
                             uint32_t srcaddr)
 {
     // Don't validate the server id.  Instead validate that the
@@ -229,8 +229,8 @@ static bool validate_acknak(struct client_state_t cs[static 1],
     return true;
 }
 
-static int extend_packet(struct client_state_t cs[static 1],
-                         struct dhcpmsg packet[static 1], uint8_t msgtype,
+static int extend_packet(struct client_state_t *cs,
+                         struct dhcpmsg *packet, uint8_t msgtype,
                          uint32_t srcaddr)
 {
     (void)srcaddr;
@@ -271,8 +271,8 @@ static int extend_packet(struct client_state_t cs[static 1],
     return ANP_IGNORE;
 }
 
-static int selecting_packet(struct client_state_t cs[static 1],
-                            struct dhcpmsg packet[static 1], uint8_t msgtype,
+static int selecting_packet(struct client_state_t *cs,
+                            struct dhcpmsg *packet, uint8_t msgtype,
                             uint32_t srcaddr, bool is_requesting)
 {
     char clibuf[INET_ADDRSTRLEN];
@@ -323,7 +323,7 @@ static int selecting_packet(struct client_state_t cs[static 1],
 // been received within the response wait time.  If we've not exceeded the
 // maximum number of discover retransmits, then send another packet and wait
 // again.  Otherwise fail.
-static int selecting_timeout(struct client_state_t cs[static 1],
+static int selecting_timeout(struct client_state_t *cs,
                               long long nowts)
 {
     if (cs->program_init && cs->num_dhcp_requests >= 2) {
@@ -341,7 +341,7 @@ static int selecting_timeout(struct client_state_t cs[static 1],
 }
 
 // Called for a release signal during SELECTING or REQUESTING.
-static void print_release(struct client_state_t cs[static 1])
+static void print_release(struct client_state_t *cs)
 {
     log_line("%s: ndhc going to sleep.  Wake it by sending a SIGUSR1.",
              client_config.interface);
@@ -351,7 +351,7 @@ static void print_release(struct client_state_t cs[static 1])
 }
 
 // Called for a release signal during BOUND, RENEWING, or REBINDING.
-static int xmit_release(struct client_state_t cs[static 1])
+static int xmit_release(struct client_state_t *cs)
 {
     char clibuf[INET_ADDRSTRLEN];
     char svrbuf[INET_ADDRSTRLEN];
@@ -371,7 +371,7 @@ static int xmit_release(struct client_state_t cs[static 1])
 }
 
 // Called for a renewing signal during BOUND or RELEASED
-static int frenew(struct client_state_t cs[static 1], bool is_bound)
+static int frenew(struct client_state_t *cs, bool is_bound)
 {
     if (is_bound) {
         log_line("%s: Forcing a DHCP renew...", client_config.interface);
@@ -389,7 +389,7 @@ static int frenew(struct client_state_t cs[static 1], bool is_bound)
 
 // If we have a lease, check to see if our gateway is still valid via ARP.
 // If it fails, state -> SELECTING.
-static int ifup_action(struct client_state_t cs[static 1])
+static int ifup_action(struct client_state_t *cs)
 {
     if (cs->routerAddr && cs->serverAddr) {
         const bool fp_server = cs->server_arp_state == ARP_FOUND;
@@ -420,7 +420,7 @@ no_fingerprint:
 //    ret == 1: ret = COR_ERROR; scrReturn(ret); continue
 //    ret == 2: goto skip_to_released
 //    ret == 3: break
-static int signal_check_nolease(struct client_state_t cs[static 1])
+static int signal_check_nolease(struct client_state_t *cs)
 {
     for (;;) {
         int s = signals_flagged();
@@ -433,7 +433,7 @@ static int signal_check_nolease(struct client_state_t cs[static 1])
     }
     return 0;
 }
-static int signal_check_havelease(struct client_state_t cs[static 1])
+static int signal_check_havelease(struct client_state_t *cs)
 {
     for (;;) {
         int s = signals_flagged();
@@ -451,7 +451,7 @@ static int signal_check_havelease(struct client_state_t cs[static 1])
     }
     return 0;
 }
-static int signal_check_released(struct client_state_t cs[static 1])
+static int signal_check_released(struct client_state_t *cs)
 {
     (void)cs;
     for (;;) {
@@ -477,8 +477,8 @@ static int signal_check_released(struct client_state_t cs[static 1])
 #define BAD_STATE() suicide("%s(%d): bad state", __func__, __LINE__)
 
 // XXX: Should be re-entrant so as to handle multiple servers.
-int dhcp_handle(struct client_state_t cs[static 1], long long nowts,
-                bool sev_dhcp, struct dhcpmsg dhcp_packet[static 1],
+int dhcp_handle(struct client_state_t *cs, long long nowts,
+                bool sev_dhcp, struct dhcpmsg *dhcp_packet,
                 uint8_t dhcp_msgtype, uint32_t dhcp_srcaddr, bool sev_arp,
                 bool force_fingerprint, bool dhcp_timeout, bool arp_timeout)
 {
