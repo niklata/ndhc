@@ -1,1 +1,3 @@
-build/
+*.o
+nk/*.o
+ndhc

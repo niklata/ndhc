@@ -1,5 +1,5 @@
 # ndhc
-Copyright 2004-2020 Nicholas J. Kain.
+Copyright 2004-2022 Nicholas J. Kain.
 
 See LICENSE for licensing information.  In short: Two-clause / New BSD.
 
@@ -86,16 +86,14 @@ new one.
 ## Requirements
 
 * Linux kernel
-* GNU Make or CMake
-* [Ragel 6](https://www.colm.net/open-source/ragel)
+* GNU Make
+* For developers: [Ragel](https://www.colm.net/open-source/ragel)
 
 ## Installation
 
 Compile and install ndhc.
-* Create a build directory: `mkdir build && cd build`
-* Create the makefiles: `cmake ..`
 * Build ndhc: `make`
-* Install the `ndhc/ndhc` executable in a normal place.  I would
+* Install the `ndhc` executable in a normal place.  I would
   suggest `/usr/sbin` or `/usr/local/sbin`.
 
 Time to create the jail in which ndhc will run. Become root and create new group `ndhc`.
