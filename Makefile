@@ -12,7 +12,7 @@ OBJ_DIR = $(BUILD_DIR)/objs
 
 CC = gcc
 AR = ar
-CFLAGS = -O2 -s -std=gnu99 -pedantic -Wall -D_GNU_SOURCE
+CFLAGS = -O2 -s -std=gnu99 -pedantic -Wall -Wextra -Wimplicit-fallthrough=0 -Wformat=2 -Wformat-nonliteral -Wformat-security -Wshadow -Wpointer-arith -Wmissing-prototypes -Wunused-const-variable=0 -Wcast-qual -Wsign-conversion -D_GNU_SOURCE -DNK_USE_CAPABILITY -Wno-discarded-qualifiers
 # Not required for glibc >= 2.17.
 # The CMake build script will perform detection, but this Makefile is simple.
 #LINK_LIBS = -lrt
