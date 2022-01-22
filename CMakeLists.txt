@@ -3,6 +3,7 @@ if(${CMAKE_VERSION} VERSION_LESS 3.12)
   cmake_policy(VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION})
 else()
   cmake_policy(VERSION 3.12)
+  cmake_policy(SET CMP0118 NEW)
 endif()
 
 project (ndhc DESCRIPTION "dhcp4 client" LANGUAGES C)
@@ -84,6 +85,8 @@ ENDMACRO(COMPARE_VERSION_STRINGS)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -pedantic -Wall -Wextra -Wimplicit-fallthrough=0 -Wformat=2 -Wformat-nonliteral -Wformat-security -Wshadow -Wpointer-arith -Wmissing-prototypes -Wunused-const-variable=0 -Wcast-qual -Wsign-conversion -D_GNU_SOURCE -DNK_USE_CAPABILITY -Wno-discarded-qualifiers")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++17 -fno-rtti -pedantic -Wall -Wextra -Wimplicit-fallthrough=0 -Wformat-security -Wshadow -Wpointer-arith -Wmissing-prototypes -Wunused-const-variable=0 -Wcast-qual -Wsign-conversion -D_GNU_SOURCE -DNK_USE_CAPABILITY")
+
+set(CMAKE_BUILD_TYPE Release)
 
 if (WIN32)
   set(OSNAME "Win32")
@@ -188,11 +191,9 @@ foreach(RAGEL_FILE ${RAGEL_FILES})
     COMMENT ${RAGEL_COMMENT}
     VERBATIM
     )
-  set_property(SOURCE ${RAGEL_FILE_C_OUT} APPEND PROPERTY GENERATED TRUE)
   if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     set_property(SOURCE ${RAGEL_FILE_C_OUT} APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-unused-const-variable")
   endif()
-  set_source_files_properties(${RAGEL_FILE_C_OUT} PROPERTIES GENERATED true)
   target_sources(ndhc PRIVATE ${RAGEL_FILE_C_OUT})
 endforeach(RAGEL_FILE)
 add_custom_target(ndhc_ragel DEPENDS ${RAGEL_C_FILES})
