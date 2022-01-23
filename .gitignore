@@ -1,3 +1,5 @@
 *.o
 nk/*.o
+*.d
+nk/*.d
 ndhc
