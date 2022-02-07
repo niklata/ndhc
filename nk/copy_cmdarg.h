@@ -1,3 +1,5 @@
+// Copyright 2015 Nicholas J. Kain <njkain at gmail dot com>
+// SPDX-License-Identifier: MIT
 #ifndef NCMLIB_COPY_CMDARG_H_
 #define NCMLIB_COPY_CMDARG_H_
 
@@ -15,4 +17,5 @@ static inline void copy_cmdarg(char *dest, const char *src,
         suicide("snprintf would truncate %s arg; it's too long", argname);
 }
 
-#endif /* NCMLIB_COPY_CMDARG_H_ */
+#endif
+

@@ -1,32 +1,6 @@
 #line 1 "ifchd-parse.rl"
-/* ifchd-parse.rl - interface change daemon parser
-*
-* Copyright 2004-2018 Nicholas J. Kain <njkain at gmail dot com>
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*
-* - Redistributions of source code must retain the above copyright notice,
-*   this list of conditions and the following disclaimer.
-*
-* - Redistributions in binary form must reproduce the above copyright notice,
-*   this list of conditions and the following disclaimer in the documentation
-*   and/or other materials provided with the distribution.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-* AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-* IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-* ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-* LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-* CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-* SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-* INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-* CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-* ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-* POSSIBILITY OF SUCH DAMAGE.
-*/
-
+// Copyright 2004-2018 Nicholas J. Kain <njkain at gmail dot com>
+// SPDX-License-Identifier: MIT
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -40,11 +14,11 @@
 #include "ndhc.h"
 
 
-#line 75 "ifchd-parse.rl"
+#line 49 "ifchd-parse.rl"
 
 
 
-#line 48 "ifchd-parse.c"
+#line 22 "ifchd-parse.c"
 static const int ipv4set_parser_start = 1;
 static const int ipv4set_parser_first_final = 43;
 static const int ipv4set_parser_error = 0;
@@ -52,7 +26,7 @@ static const int ipv4set_parser_error = 0;
 static const int ipv4set_parser_en_main = 1;
 
 
-#line 77 "ifchd-parse.rl"
+#line 51 "ifchd-parse.rl"
 
 
 static int perform_ip4set(const char *buf, size_t len)
@@ -70,15 +44,15 @@ static int perform_ip4set(const char *buf, size_t len)
 	bool have_bcast = false;
 	
 	
-#line 74 "ifchd-parse.c"
+#line 48 "ifchd-parse.c"
 	{
 		cs = (int)ipv4set_parser_start;
 	}
 	
-#line 93 "ifchd-parse.rl"
+#line 67 "ifchd-parse.rl"
 	
 	
-#line 82 "ifchd-parse.c"
+#line 56 "ifchd-parse.c"
 	{
 		switch ( cs ) {
 			case 1:
@@ -202,10 +176,10 @@ static int perform_ip4set(const char *buf, size_t len)
 		goto _out0;
 		_ctr2:
 		{
-#line 44 "ifchd-parse.rl"
+#line 18 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 209 "ifchd-parse.c"
+#line 183 "ifchd-parse.c"
 		
 		goto _st2;
 		_st2:
@@ -327,7 +301,7 @@ static int perform_ip4set(const char *buf, size_t len)
 		}
 		_ctr13:
 		{
-#line 45 "ifchd-parse.rl"
+#line 19 "ifchd-parse.rl"
 			
 			ptrdiff_t arg_len = p - arg_start;
 			if (arg_len > 0 && (size_t)arg_len < sizeof ip4_addr) {
@@ -337,7 +311,7 @@ static int perform_ip4set(const char *buf, size_t len)
 			ip4_addr[arg_len] = 0;
 		}
 		
-#line 341 "ifchd-parse.c"
+#line 315 "ifchd-parse.c"
 		
 		goto _st9;
 		_st9:
@@ -357,10 +331,10 @@ static int perform_ip4set(const char *buf, size_t len)
 		}
 		_ctr16:
 		{
-#line 44 "ifchd-parse.rl"
+#line 18 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 364 "ifchd-parse.c"
+#line 338 "ifchd-parse.c"
 		
 		goto _st10;
 		_st10:
@@ -464,7 +438,7 @@ static int perform_ip4set(const char *buf, size_t len)
 		}
 		_ctr49:
 		{
-#line 53 "ifchd-parse.rl"
+#line 27 "ifchd-parse.rl"
 			
 			ptrdiff_t arg_len = p - arg_start;
 			if (arg_len > 0 && (size_t)arg_len < sizeof ip4_subnet) {
@@ -474,7 +448,7 @@ static int perform_ip4set(const char *buf, size_t len)
 			ip4_subnet[arg_len] = 0;
 		}
 		
-#line 478 "ifchd-parse.c"
+#line 452 "ifchd-parse.c"
 		
 		goto _st43;
 		_st43:
@@ -497,7 +471,7 @@ static int perform_ip4set(const char *buf, size_t len)
 		}
 		_ctr50:
 		{
-#line 53 "ifchd-parse.rl"
+#line 27 "ifchd-parse.rl"
 			
 			ptrdiff_t arg_len = p - arg_start;
 			if (arg_len > 0 && (size_t)arg_len < sizeof ip4_subnet) {
@@ -507,7 +481,7 @@ static int perform_ip4set(const char *buf, size_t len)
 			ip4_subnet[arg_len] = 0;
 		}
 		
-#line 511 "ifchd-parse.c"
+#line 485 "ifchd-parse.c"
 		
 		goto _st16;
 		_st16:
@@ -527,10 +501,10 @@ static int perform_ip4set(const char *buf, size_t len)
 		}
 		_ctr28:
 		{
-#line 44 "ifchd-parse.rl"
+#line 18 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 534 "ifchd-parse.c"
+#line 508 "ifchd-parse.c"
 		
 		goto _st17;
 		_st17:
@@ -634,7 +608,7 @@ static int perform_ip4set(const char *buf, size_t len)
 		}
 		_ctr52:
 		{
-#line 61 "ifchd-parse.rl"
+#line 35 "ifchd-parse.rl"
 			
 			ptrdiff_t arg_len = p - arg_start;
 			if (arg_len > 0 && (size_t)arg_len < sizeof ip4_bcast) {
@@ -644,7 +618,7 @@ static int perform_ip4set(const char *buf, size_t len)
 			ip4_bcast[arg_len] = 0;
 		}
 		
-#line 648 "ifchd-parse.c"
+#line 622 "ifchd-parse.c"
 		
 		goto _st44;
 		_st44:
@@ -664,7 +638,7 @@ static int perform_ip4set(const char *buf, size_t len)
 		}
 		_ctr54:
 		{
-#line 61 "ifchd-parse.rl"
+#line 35 "ifchd-parse.rl"
 			
 			ptrdiff_t arg_len = p - arg_start;
 			if (arg_len > 0 && (size_t)arg_len < sizeof ip4_bcast) {
@@ -674,7 +648,7 @@ static int perform_ip4set(const char *buf, size_t len)
 			ip4_bcast[arg_len] = 0;
 		}
 		
-#line 678 "ifchd-parse.c"
+#line 652 "ifchd-parse.c"
 		
 		goto _st45;
 		_st45:
@@ -694,7 +668,7 @@ static int perform_ip4set(const char *buf, size_t len)
 		}
 		_ctr56:
 		{
-#line 61 "ifchd-parse.rl"
+#line 35 "ifchd-parse.rl"
 			
 			ptrdiff_t arg_len = p - arg_start;
 			if (arg_len > 0 && (size_t)arg_len < sizeof ip4_bcast) {
@@ -704,7 +678,7 @@ static int perform_ip4set(const char *buf, size_t len)
 			ip4_bcast[arg_len] = 0;
 		}
 		
-#line 708 "ifchd-parse.c"
+#line 682 "ifchd-parse.c"
 		
 		goto _st46;
 		_st46:
@@ -820,7 +794,7 @@ static int perform_ip4set(const char *buf, size_t len)
 		}
 		_ctr57:
 		{
-#line 53 "ifchd-parse.rl"
+#line 27 "ifchd-parse.rl"
 			
 			ptrdiff_t arg_len = p - arg_start;
 			if (arg_len > 0 && (size_t)arg_len < sizeof ip4_subnet) {
@@ -830,7 +804,7 @@ static int perform_ip4set(const char *buf, size_t len)
 			ip4_subnet[arg_len] = 0;
 		}
 		
-#line 834 "ifchd-parse.c"
+#line 808 "ifchd-parse.c"
 		
 		goto _st47;
 		_st47:
@@ -853,7 +827,7 @@ static int perform_ip4set(const char *buf, size_t len)
 		}
 		_ctr59:
 		{
-#line 53 "ifchd-parse.rl"
+#line 27 "ifchd-parse.rl"
 			
 			ptrdiff_t arg_len = p - arg_start;
 			if (arg_len > 0 && (size_t)arg_len < sizeof ip4_subnet) {
@@ -863,7 +837,7 @@ static int perform_ip4set(const char *buf, size_t len)
 			ip4_subnet[arg_len] = 0;
 		}
 		
-#line 867 "ifchd-parse.c"
+#line 841 "ifchd-parse.c"
 		
 		goto _st48;
 		_st48:
@@ -1164,7 +1138,7 @@ static int perform_ip4set(const char *buf, size_t len)
 		_out: {}
 	}
 	
-#line 94 "ifchd-parse.rl"
+#line 68 "ifchd-parse.rl"
 	
 	
 	if (cs < ipv4set_parser_first_final) {
@@ -1187,11 +1161,11 @@ static int perform_ip4set(const char *buf, size_t len)
 }
 
 
-#line 185 "ifchd-parse.rl"
+#line 159 "ifchd-parse.rl"
 
 
 
-#line 1195 "ifchd-parse.c"
+#line 1169 "ifchd-parse.c"
 static const int ifchd_parser_start = 1;
 static const int ifchd_parser_first_final = 126;
 static const int ifchd_parser_error = 0;
@@ -1199,7 +1173,7 @@ static const int ifchd_parser_error = 0;
 static const int ifchd_parser_en_main = 1;
 
 
-#line 187 "ifchd-parse.rl"
+#line 161 "ifchd-parse.rl"
 
 
 /*
@@ -1234,15 +1208,15 @@ int execute_buffer(const char *newbuf)
 	int cs = 0;
 	
 	
-#line 1238 "ifchd-parse.c"
+#line 1212 "ifchd-parse.c"
 	{
 		cs = (int)ifchd_parser_start;
 	}
 	
-#line 220 "ifchd-parse.rl"
+#line 194 "ifchd-parse.rl"
 	
 	
-#line 1246 "ifchd-parse.c"
+#line 1220 "ifchd-parse.c"
 	{
 		switch ( cs ) {
 			case 1:
@@ -1542,10 +1516,10 @@ int execute_buffer(const char *newbuf)
 		goto _out0;
 		_ctr2:
 		{
-#line 118 "ifchd-parse.rl"
+#line 92 "ifchd-parse.rl"
 			cl.state = STATE_NOTHING; }
 		
-#line 1549 "ifchd-parse.c"
+#line 1523 "ifchd-parse.c"
 		
 		goto _st2;
 		_st2:
@@ -1622,13 +1596,13 @@ int execute_buffer(const char *newbuf)
 		goto _st0;
 		_ctr20:
 		{
-#line 181 "ifchd-parse.rl"
+#line 155 "ifchd-parse.rl"
 			cl.state = STATE_CARRIER; }
 		
-#line 1629 "ifchd-parse.c"
+#line 1603 "ifchd-parse.c"
 		
 		{
-#line 131 "ifchd-parse.rl"
+#line 105 "ifchd-parse.rl"
 			
 			int pr = 0;
 			cmd_start = p + 1;
@@ -1656,12 +1630,12 @@ int execute_buffer(const char *newbuf)
 			cmdf |= pr;
 		}
 		
-#line 1660 "ifchd-parse.c"
+#line 1634 "ifchd-parse.c"
 		
 		goto _st126;
 		_ctr39:
 		{
-#line 120 "ifchd-parse.rl"
+#line 94 "ifchd-parse.rl"
 			
 			ptrdiff_t al = p - arg_start;
 			if (al < 0 || (size_t)al > sizeof tb - 1) {
@@ -1673,10 +1647,10 @@ int execute_buffer(const char *newbuf)
 			tb[arg_len] = 0;
 		}
 		
-#line 1677 "ifchd-parse.c"
+#line 1651 "ifchd-parse.c"
 		
 		{
-#line 131 "ifchd-parse.rl"
+#line 105 "ifchd-parse.rl"
 			
 			int pr = 0;
 			cmd_start = p + 1;
@@ -1704,7 +1678,7 @@ int execute_buffer(const char *newbuf)
 			cmdf |= pr;
 		}
 		
-#line 1708 "ifchd-parse.c"
+#line 1682 "ifchd-parse.c"
 		
 		goto _st126;
 		_st126:
@@ -1747,10 +1721,10 @@ int execute_buffer(const char *newbuf)
 		goto _st0;
 		_ctr3:
 		{
-#line 118 "ifchd-parse.rl"
+#line 92 "ifchd-parse.rl"
 			cl.state = STATE_NOTHING; }
 		
-#line 1754 "ifchd-parse.c"
+#line 1728 "ifchd-parse.c"
 		
 		goto _st10;
 		_st10:
@@ -1796,58 +1770,58 @@ int execute_buffer(const char *newbuf)
 		goto _st0;
 		_ctr26:
 		{
-#line 170 "ifchd-parse.rl"
+#line 144 "ifchd-parse.rl"
 			cl.state = STATE_DNS; }
 		
-#line 1803 "ifchd-parse.c"
+#line 1777 "ifchd-parse.c"
 		
 		{
-#line 119 "ifchd-parse.rl"
+#line 93 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 1809 "ifchd-parse.c"
+#line 1783 "ifchd-parse.c"
 		
 		goto _st14;
 		_ctr115:
 		{
-#line 171 "ifchd-parse.rl"
+#line 145 "ifchd-parse.rl"
 			cl.state = STATE_LPRSVR; }
 		
-#line 1817 "ifchd-parse.c"
+#line 1791 "ifchd-parse.c"
 		
 		{
-#line 119 "ifchd-parse.rl"
+#line 93 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 1823 "ifchd-parse.c"
+#line 1797 "ifchd-parse.c"
 		
 		goto _st14;
 		_ctr126:
 		{
-#line 172 "ifchd-parse.rl"
+#line 146 "ifchd-parse.rl"
 			cl.state = STATE_NTPSVR; }
 		
-#line 1831 "ifchd-parse.c"
+#line 1805 "ifchd-parse.c"
 		
 		{
-#line 119 "ifchd-parse.rl"
+#line 93 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 1837 "ifchd-parse.c"
+#line 1811 "ifchd-parse.c"
 		
 		goto _st14;
 		_ctr148:
 		{
-#line 173 "ifchd-parse.rl"
+#line 147 "ifchd-parse.rl"
 			cl.state = STATE_WINS; }
 		
-#line 1845 "ifchd-parse.c"
+#line 1819 "ifchd-parse.c"
 		
 		{
-#line 119 "ifchd-parse.rl"
+#line 93 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 1851 "ifchd-parse.c"
+#line 1825 "ifchd-parse.c"
 		
 		goto _st14;
 		_st14:
@@ -2067,30 +2041,30 @@ int execute_buffer(const char *newbuf)
 		goto _ctr46;
 		_ctr46:
 		{
-#line 176 "ifchd-parse.rl"
+#line 150 "ifchd-parse.rl"
 			cl.state = STATE_DOMAIN; }
 		
-#line 2074 "ifchd-parse.c"
+#line 2048 "ifchd-parse.c"
 		
 		{
-#line 119 "ifchd-parse.rl"
+#line 93 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 2080 "ifchd-parse.c"
+#line 2054 "ifchd-parse.c"
 		
 		goto _st33;
 		_ctr53:
 		{
-#line 175 "ifchd-parse.rl"
+#line 149 "ifchd-parse.rl"
 			cl.state = STATE_HOSTNAME; }
 		
-#line 2088 "ifchd-parse.c"
+#line 2062 "ifchd-parse.c"
 		
 		{
-#line 119 "ifchd-parse.rl"
+#line 93 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 2094 "ifchd-parse.c"
+#line 2068 "ifchd-parse.c"
 		
 		goto _st33;
 		_st33:
@@ -2109,10 +2083,10 @@ int execute_buffer(const char *newbuf)
 		goto _st33;
 		_ctr4:
 		{
-#line 118 "ifchd-parse.rl"
+#line 92 "ifchd-parse.rl"
 			cl.state = STATE_NOTHING; }
 		
-#line 2116 "ifchd-parse.c"
+#line 2090 "ifchd-parse.c"
 		
 		goto _st34;
 		_st34:
@@ -2167,10 +2141,10 @@ int execute_buffer(const char *newbuf)
 		goto _ctr53;
 		_ctr5:
 		{
-#line 118 "ifchd-parse.rl"
+#line 92 "ifchd-parse.rl"
 			cl.state = STATE_NOTHING; }
 		
-#line 2174 "ifchd-parse.c"
+#line 2148 "ifchd-parse.c"
 		
 		goto _st39;
 		_st39:
@@ -2216,16 +2190,16 @@ int execute_buffer(const char *newbuf)
 		goto _st0;
 		_ctr59:
 		{
-#line 169 "ifchd-parse.rl"
+#line 143 "ifchd-parse.rl"
 			cl.state = STATE_IP4SET; }
 		
-#line 2223 "ifchd-parse.c"
+#line 2197 "ifchd-parse.c"
 		
 		{
-#line 119 "ifchd-parse.rl"
+#line 93 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 2229 "ifchd-parse.c"
+#line 2203 "ifchd-parse.c"
 		
 		goto _st43;
 		_st43:
@@ -2403,16 +2377,16 @@ int execute_buffer(const char *newbuf)
 		goto _st0;
 		_ctr133:
 		{
-#line 168 "ifchd-parse.rl"
+#line 142 "ifchd-parse.rl"
 			cl.state = STATE_ROUTER; }
 		
-#line 2410 "ifchd-parse.c"
+#line 2384 "ifchd-parse.c"
 		
 		{
-#line 119 "ifchd-parse.rl"
+#line 93 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 2416 "ifchd-parse.c"
+#line 2390 "ifchd-parse.c"
 		
 		goto _st59;
 		_st59:
@@ -2504,16 +2478,16 @@ int execute_buffer(const char *newbuf)
 		goto _st0;
 		_ctr110:
 		{
-#line 180 "ifchd-parse.rl"
+#line 154 "ifchd-parse.rl"
 			cl.state = STATE_IPTTL; }
 		
-#line 2511 "ifchd-parse.c"
+#line 2485 "ifchd-parse.c"
 		
 		{
-#line 119 "ifchd-parse.rl"
+#line 93 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 2517 "ifchd-parse.c"
+#line 2491 "ifchd-parse.c"
 		
 		goto _st67;
 		_st67:
@@ -2801,10 +2775,10 @@ int execute_buffer(const char *newbuf)
 		goto _ctr110;
 		_ctr6:
 		{
-#line 118 "ifchd-parse.rl"
+#line 92 "ifchd-parse.rl"
 			cl.state = STATE_NOTHING; }
 		
-#line 2808 "ifchd-parse.c"
+#line 2782 "ifchd-parse.c"
 		
 		goto _st94;
 		_st94:
@@ -2845,10 +2819,10 @@ int execute_buffer(const char *newbuf)
 		goto _st0;
 		_ctr7:
 		{
-#line 118 "ifchd-parse.rl"
+#line 92 "ifchd-parse.rl"
 			cl.state = STATE_NOTHING; }
 		
-#line 2852 "ifchd-parse.c"
+#line 2826 "ifchd-parse.c"
 		
 		goto _st98;
 		_st98:
@@ -2886,16 +2860,16 @@ int execute_buffer(const char *newbuf)
 		goto _ctr120;
 		_ctr120:
 		{
-#line 179 "ifchd-parse.rl"
+#line 153 "ifchd-parse.rl"
 			cl.state = STATE_MTU; }
 		
-#line 2893 "ifchd-parse.c"
+#line 2867 "ifchd-parse.c"
 		
 		{
-#line 119 "ifchd-parse.rl"
+#line 93 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 2899 "ifchd-parse.c"
+#line 2873 "ifchd-parse.c"
 		
 		goto _st102;
 		_st102:
@@ -2906,10 +2880,10 @@ int execute_buffer(const char *newbuf)
 		goto _st67;
 		_ctr8:
 		{
-#line 118 "ifchd-parse.rl"
+#line 92 "ifchd-parse.rl"
 			cl.state = STATE_NOTHING; }
 		
-#line 2913 "ifchd-parse.c"
+#line 2887 "ifchd-parse.c"
 		
 		goto _st103;
 		_st103:
@@ -2950,10 +2924,10 @@ int execute_buffer(const char *newbuf)
 		goto _st0;
 		_ctr9:
 		{
-#line 118 "ifchd-parse.rl"
+#line 92 "ifchd-parse.rl"
 			cl.state = STATE_NOTHING; }
 		
-#line 2957 "ifchd-parse.c"
+#line 2931 "ifchd-parse.c"
 		
 		goto _st107;
 		_st107:
@@ -3012,10 +2986,10 @@ int execute_buffer(const char *newbuf)
 		goto _st0;
 		_ctr10:
 		{
-#line 118 "ifchd-parse.rl"
+#line 92 "ifchd-parse.rl"
 			cl.state = STATE_NOTHING; }
 		
-#line 3019 "ifchd-parse.c"
+#line 2993 "ifchd-parse.c"
 		
 		goto _st113;
 		_st113:
@@ -3071,16 +3045,16 @@ int execute_buffer(const char *newbuf)
 		goto _ctr140;
 		_ctr140:
 		{
-#line 178 "ifchd-parse.rl"
+#line 152 "ifchd-parse.rl"
 			cl.state = STATE_TIMEZONE; }
 		
-#line 3078 "ifchd-parse.c"
+#line 3052 "ifchd-parse.c"
 		
 		{
-#line 119 "ifchd-parse.rl"
+#line 93 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 3084 "ifchd-parse.c"
+#line 3058 "ifchd-parse.c"
 		
 		goto _st119;
 		_st119:
@@ -3097,10 +3071,10 @@ int execute_buffer(const char *newbuf)
 		goto _st102;
 		_ctr11:
 		{
-#line 118 "ifchd-parse.rl"
+#line 92 "ifchd-parse.rl"
 			cl.state = STATE_NOTHING; }
 		
-#line 3104 "ifchd-parse.c"
+#line 3078 "ifchd-parse.c"
 		
 		goto _st121;
 		_st121:
@@ -3278,7 +3252,7 @@ int execute_buffer(const char *newbuf)
 		_out: {}
 	}
 	
-#line 221 "ifchd-parse.rl"
+#line 195 "ifchd-parse.rl"
 	
 	
 	if (cs == ifchd_parser_error) {

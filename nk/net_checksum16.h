@@ -1,3 +1,5 @@
+// Copyright 2020 Nicholas J. Kain <njkain at gmail dot com>
+// SPDX-License-Identifier: MIT
 #ifndef NCMLIB_NET_CHECKSUM16_H
 #define NCMLIB_NET_CHECKSUM16_H
 

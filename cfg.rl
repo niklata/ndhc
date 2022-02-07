@@ -1,3 +1,5 @@
+// Copyright 2018 Nicholas J. Kain <njkain at gmail dot com>
+// SPDX-License-Identifier: MIT
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>

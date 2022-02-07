@@ -1,4 +1,6 @@
 #line 1 "cfg.rl"
+// Copyright 2018 Nicholas J. Kain <njkain at gmail dot com>
+// SPDX-License-Identifier: MIT
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -25,15 +27,15 @@ struct cfgparse {
 };
 
 
-#line 152 "cfg.rl"
+#line 154 "cfg.rl"
 
 
 
-#line 199 "cfg.rl"
+#line 201 "cfg.rl"
 
 
 
-#line 37 "cfg.c"
+#line 39 "cfg.c"
 static const int file_cfg_start = 1;
 static const int file_cfg_first_final = 267;
 static const int file_cfg_error = 0;
@@ -41,7 +43,7 @@ static const int file_cfg_error = 0;
 static const int file_cfg_en_main = 1;
 
 
-#line 201 "cfg.rl"
+#line 203 "cfg.rl"
 
 
 static void parse_cfgfile(const char *fname)
@@ -76,15 +78,15 @@ static void parse_cfgfile(const char *fname)
 				const char *p = l + lstart;
 				const char *pe = l + lstart + llen + 1;
 				
-#line 80 "cfg.c"
+#line 82 "cfg.c"
 				{
 					ccfg.cs = (int)file_cfg_start;
 				}
 				
-#line 234 "cfg.rl"
+#line 236 "cfg.rl"
 				
 				
-#line 88 "cfg.c"
+#line 90 "cfg.c"
 				{
 					switch ( ccfg.cs ) {
 						case 1:
@@ -672,16 +674,16 @@ static void parse_cfgfile(const char *fname)
 					goto _out0;
 					_ctr34:
 					{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf)
 						ccfg.buf[ccfg.buflen] = 0;
 					}
 					
-#line 682 "cfg.c"
+#line 684 "cfg.c"
 					
 					{
-#line 115 "cfg.rl"
+#line 117 "cfg.rl"
 						
 						int t = atoi(ccfg.buf);
 						arp_probe_max = t;
@@ -692,21 +694,21 @@ static void parse_cfgfile(const char *fname)
 						}
 					}
 					
-#line 696 "cfg.c"
+#line 698 "cfg.c"
 					
 					goto _st267;
 					_ctr42:
 					{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf)
 						ccfg.buf[ccfg.buflen] = 0;
 					}
 					
-#line 707 "cfg.c"
+#line 709 "cfg.c"
 					
 					{
-#line 106 "cfg.rl"
+#line 108 "cfg.rl"
 						
 						int t = atoi(ccfg.buf);
 						arp_probe_min = t;
@@ -717,96 +719,96 @@ static void parse_cfgfile(const char *fname)
 						}
 					}
 					
-#line 721 "cfg.c"
+#line 723 "cfg.c"
 					
 					goto _st267;
 					_ctr51:
 					{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf)
 						ccfg.buf[ccfg.buflen] = 0;
 					}
 					
-#line 732 "cfg.c"
+#line 734 "cfg.c"
 					
 					{
-#line 101 "cfg.rl"
+#line 103 "cfg.rl"
 						
 						int t = atoi(ccfg.buf);
 						if (t >= 0)
 						arp_probe_num = t;
 					}
 					
-#line 742 "cfg.c"
+#line 744 "cfg.c"
 					
 					goto _st267;
 					_ctr61:
 					{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf)
 						ccfg.buf[ccfg.buflen] = 0;
 					}
 					
-#line 753 "cfg.c"
+#line 755 "cfg.c"
 					
 					{
-#line 96 "cfg.rl"
+#line 98 "cfg.rl"
 						
 						int t = atoi(ccfg.buf);
 						if (t >= 0)
 						arp_probe_wait = t;
 					}
 					
-#line 763 "cfg.c"
+#line 765 "cfg.c"
 					
 					goto _st267;
 					_ctr74:
 					{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf)
 						ccfg.buf[ccfg.buflen] = 0;
 					}
 					
-#line 774 "cfg.c"
+#line 776 "cfg.c"
 					
 					{
-#line 80 "cfg.rl"
+#line 82 "cfg.rl"
 						
 						copy_cmdarg(chroot_dir, ccfg.buf, sizeof chroot_dir, "chroot");
 					}
 					
-#line 782 "cfg.c"
+#line 784 "cfg.c"
 					
 					goto _st267;
 					_ctr87:
 					{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf)
 						ccfg.buf[ccfg.buflen] = 0;
 					}
 					
-#line 793 "cfg.c"
+#line 795 "cfg.c"
 					
 					{
-#line 48 "cfg.rl"
+#line 50 "cfg.rl"
 						get_clientid_string(ccfg.buf, ccfg.buflen); }
 					
-#line 799 "cfg.c"
+#line 801 "cfg.c"
 					
 					goto _st267;
 					_ctr110:
 					{
-#line 46 "cfg.rl"
+#line 48 "cfg.rl"
 						ccfg.ternary = -1; }
 					
-#line 807 "cfg.c"
+#line 809 "cfg.c"
 					
 					{
-#line 139 "cfg.rl"
+#line 141 "cfg.rl"
 						
 						switch (ccfg.ternary) {
 							case 1: allow_hostname = 1; break;
@@ -814,18 +816,18 @@ static void parse_cfgfile(const char *fname)
 						}
 					}
 					
-#line 818 "cfg.c"
+#line 820 "cfg.c"
 					
 					goto _st267;
 					_ctr111:
 					{
-#line 45 "cfg.rl"
+#line 47 "cfg.rl"
 						ccfg.ternary = 1; }
 					
-#line 826 "cfg.c"
+#line 828 "cfg.c"
 					
 					{
-#line 139 "cfg.rl"
+#line 141 "cfg.rl"
 						
 						switch (ccfg.ternary) {
 							case 1: allow_hostname = 1; break;
@@ -833,21 +835,21 @@ static void parse_cfgfile(const char *fname)
 						}
 					}
 					
-#line 837 "cfg.c"
+#line 839 "cfg.c"
 					
 					goto _st267;
 					_ctr130:
 					{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf)
 						ccfg.buf[ccfg.buflen] = 0;
 					}
 					
-#line 848 "cfg.c"
+#line 850 "cfg.c"
 					
 					{
-#line 124 "cfg.rl"
+#line 126 "cfg.rl"
 						
 						char *q;
 						long mt = strtol(ccfg.buf, &q, 10);
@@ -860,78 +862,78 @@ static void parse_cfgfile(const char *fname)
 						client_config.metric = (int)mt;
 					}
 					
-#line 864 "cfg.c"
+#line 866 "cfg.c"
 					
 					goto _st267;
 					_ctr144:
 					{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf)
 						ccfg.buf[ccfg.buflen] = 0;
 					}
 					
-#line 875 "cfg.c"
+#line 877 "cfg.c"
 					
 					{
-#line 49 "cfg.rl"
+#line 51 "cfg.rl"
 						
 						copy_cmdarg(client_config.hostname, ccfg.buf,
 						sizeof client_config.hostname, "hostname");
 					}
 					
-#line 884 "cfg.c"
+#line 886 "cfg.c"
 					
 					goto _st267;
 					_ctr160:
 					{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf)
 						ccfg.buf[ccfg.buflen] = 0;
 					}
 					
-#line 895 "cfg.c"
+#line 897 "cfg.c"
 					
 					{
-#line 72 "cfg.rl"
+#line 74 "cfg.rl"
 						
 						if (nk_uidgidbyname(ccfg.buf, &ifch_uid, &ifch_gid))
 						suicide("invalid ifch user '%s' specified", ccfg.buf);
 					}
 					
-#line 904 "cfg.c"
+#line 906 "cfg.c"
 					
 					goto _st267;
 					_ctr174:
 					{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf)
 						ccfg.buf[ccfg.buflen] = 0;
 					}
 					
-#line 915 "cfg.c"
+#line 917 "cfg.c"
 					
 					{
-#line 53 "cfg.rl"
+#line 55 "cfg.rl"
 						
 						copy_cmdarg(client_config.interface, ccfg.buf,
 						sizeof client_config.interface, "interface");
 					}
 					
-#line 924 "cfg.c"
+#line 926 "cfg.c"
 					
 					goto _st267;
 					_ctr183:
 					{
-#line 46 "cfg.rl"
+#line 48 "cfg.rl"
 						ccfg.ternary = -1; }
 					
-#line 932 "cfg.c"
+#line 934 "cfg.c"
 					
 					{
-#line 57 "cfg.rl"
+#line 59 "cfg.rl"
 						
 						switch (ccfg.ternary) {
 							case 1: client_config.abort_if_no_lease = true; break;
@@ -939,18 +941,18 @@ static void parse_cfgfile(const char *fname)
 						}
 					}
 					
-#line 943 "cfg.c"
+#line 945 "cfg.c"
 					
 					goto _st267;
 					_ctr184:
 					{
-#line 45 "cfg.rl"
+#line 47 "cfg.rl"
 						ccfg.ternary = 1; }
 					
-#line 951 "cfg.c"
+#line 953 "cfg.c"
 					
 					{
-#line 57 "cfg.rl"
+#line 59 "cfg.rl"
 						
 						switch (ccfg.ternary) {
 							case 1: client_config.abort_if_no_lease = true; break;
@@ -958,18 +960,18 @@ static void parse_cfgfile(const char *fname)
 						}
 					}
 					
-#line 962 "cfg.c"
+#line 964 "cfg.c"
 					
 					goto _st267;
 					_ctr215:
 					{
-#line 46 "cfg.rl"
+#line 48 "cfg.rl"
 						ccfg.ternary = -1; }
 					
-#line 970 "cfg.c"
+#line 972 "cfg.c"
 					
 					{
-#line 90 "cfg.rl"
+#line 92 "cfg.rl"
 						
 						switch (ccfg.ternary) {
 							case 1: set_arp_relentless_def(true); break;
@@ -977,18 +979,18 @@ static void parse_cfgfile(const char *fname)
 						}
 					}
 					
-#line 981 "cfg.c"
+#line 983 "cfg.c"
 					
 					goto _st267;
 					_ctr216:
 					{
-#line 45 "cfg.rl"
+#line 47 "cfg.rl"
 						ccfg.ternary = 1; }
 					
-#line 989 "cfg.c"
+#line 991 "cfg.c"
 					
 					{
-#line 90 "cfg.rl"
+#line 92 "cfg.rl"
 						
 						switch (ccfg.ternary) {
 							case 1: set_arp_relentless_def(true); break;
@@ -996,178 +998,178 @@ static void parse_cfgfile(const char *fname)
 						}
 					}
 					
-#line 1000 "cfg.c"
+#line 1002 "cfg.c"
 					
 					goto _st267;
 					_ctr231:
 					{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf)
 						ccfg.buf[ccfg.buflen] = 0;
 					}
 					
-#line 1011 "cfg.c"
+#line 1013 "cfg.c"
 					
 					{
-#line 63 "cfg.rl"
+#line 65 "cfg.rl"
 						set_client_addr(ccfg.buf); }
 					
-#line 1017 "cfg.c"
+#line 1019 "cfg.c"
 					
 					goto _st267;
 					_ctr246:
 					{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf)
 						ccfg.buf[ccfg.buflen] = 0;
 					}
 					
-#line 1028 "cfg.c"
+#line 1030 "cfg.c"
 					
 					{
-#line 135 "cfg.rl"
+#line 137 "cfg.rl"
 						
 						copy_cmdarg(resolv_conf_d, ccfg.buf, sizeof resolv_conf_d,
 						"resolv-conf");
 					}
 					
-#line 1037 "cfg.c"
+#line 1039 "cfg.c"
 					
 					goto _st267;
 					_ctr261:
 					{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf)
 						ccfg.buf[ccfg.buflen] = 0;
 					}
 					
-#line 1048 "cfg.c"
+#line 1050 "cfg.c"
 					
 					{
-#line 145 "cfg.rl"
+#line 147 "cfg.rl"
 						
 						uint32_t t = (uint32_t)atoi(ccfg.buf);
 						client_config.rfkillIdx = t;
 						client_config.enable_rfkill = true;
 					}
 					
-#line 1058 "cfg.c"
+#line 1060 "cfg.c"
 					
 					goto _st267;
 					_ctr284:
 					{
-#line 46 "cfg.rl"
+#line 48 "cfg.rl"
 						ccfg.ternary = -1; }
 					
-#line 1066 "cfg.c"
+#line 1068 "cfg.c"
 					
 					{
-#line 86 "cfg.rl"
+#line 88 "cfg.rl"
 						
 						log_line("seccomp_enforce option is deprecated; please remove it");
 						log_line("In the meanwhile, it is ignored and seccomp is disabled.");
 					}
 					
-#line 1075 "cfg.c"
+#line 1077 "cfg.c"
 					
 					goto _st267;
 					_ctr285:
 					{
-#line 45 "cfg.rl"
+#line 47 "cfg.rl"
 						ccfg.ternary = 1; }
 					
-#line 1083 "cfg.c"
+#line 1085 "cfg.c"
 					
 					{
-#line 86 "cfg.rl"
+#line 88 "cfg.rl"
 						
 						log_line("seccomp_enforce option is deprecated; please remove it");
 						log_line("In the meanwhile, it is ignored and seccomp is disabled.");
 					}
 					
-#line 1092 "cfg.c"
+#line 1094 "cfg.c"
 					
 					goto _st267;
 					_ctr304:
 					{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf)
 						ccfg.buf[ccfg.buflen] = 0;
 					}
 					
-#line 1103 "cfg.c"
+#line 1105 "cfg.c"
 					
 					{
-#line 76 "cfg.rl"
+#line 78 "cfg.rl"
 						
 						if (nk_uidgidbyname(ccfg.buf, &sockd_uid, &sockd_gid))
 						suicide("invalid sockd user '%s' specified", ccfg.buf);
 					}
 					
-#line 1112 "cfg.c"
+#line 1114 "cfg.c"
 					
 					goto _st267;
 					_ctr318:
 					{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf)
 						ccfg.buf[ccfg.buflen] = 0;
 					}
 					
-#line 1123 "cfg.c"
+#line 1125 "cfg.c"
 					
 					{
-#line 83 "cfg.rl"
+#line 85 "cfg.rl"
 						
 						copy_cmdarg(state_dir, ccfg.buf, sizeof state_dir, "state-dir");
 					}
 					
-#line 1131 "cfg.c"
+#line 1133 "cfg.c"
 					
 					goto _st267;
 					_ctr328:
 					{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf)
 						ccfg.buf[ccfg.buflen] = 0;
 					}
 					
-#line 1142 "cfg.c"
+#line 1144 "cfg.c"
 					
 					{
-#line 68 "cfg.rl"
+#line 70 "cfg.rl"
 						
 						if (nk_uidgidbyname(ccfg.buf, &ndhc_uid, &ndhc_gid))
 						suicide("invalid ndhc user '%s' specified", ccfg.buf);
 					}
 					
-#line 1151 "cfg.c"
+#line 1153 "cfg.c"
 					
 					goto _st267;
 					_ctr342:
 					{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf)
 						ccfg.buf[ccfg.buflen] = 0;
 					}
 					
-#line 1162 "cfg.c"
+#line 1164 "cfg.c"
 					
 					{
-#line 64 "cfg.rl"
+#line 66 "cfg.rl"
 						
 						copy_cmdarg(client_config.vendor, ccfg.buf,
 						sizeof client_config.vendor, "vendorid");
 					}
 					
-#line 1171 "cfg.c"
+#line 1173 "cfg.c"
 					
 					goto _st267;
 					_st267:
@@ -1333,17 +1335,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr30;
 					_ctr30:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 1344 "cfg.c"
+#line 1346 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -1351,12 +1353,12 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 1355 "cfg.c"
+#line 1357 "cfg.c"
 					
 					goto _st16;
 					_ctr33:
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -1364,7 +1366,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 1368 "cfg.c"
+#line 1370 "cfg.c"
 					
 					goto _st16;
 					_st16:
@@ -1378,17 +1380,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr33;
 					_ctr31:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 1389 "cfg.c"
+#line 1391 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -1396,7 +1398,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 1400 "cfg.c"
+#line 1402 "cfg.c"
 					
 					goto _st17;
 					_st17:
@@ -1461,17 +1463,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr38;
 					_ctr38:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 1472 "cfg.c"
+#line 1474 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -1479,12 +1481,12 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 1483 "cfg.c"
+#line 1485 "cfg.c"
 					
 					goto _st21;
 					_ctr41:
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -1492,7 +1494,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 1496 "cfg.c"
+#line 1498 "cfg.c"
 					
 					goto _st21;
 					_st21:
@@ -1506,17 +1508,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr41;
 					_ctr39:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 1517 "cfg.c"
+#line 1519 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -1524,7 +1526,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 1528 "cfg.c"
+#line 1530 "cfg.c"
 					
 					goto _st22;
 					_st22:
@@ -1598,17 +1600,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr47;
 					_ctr47:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 1609 "cfg.c"
+#line 1611 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -1616,12 +1618,12 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 1620 "cfg.c"
+#line 1622 "cfg.c"
 					
 					goto _st27;
 					_ctr50:
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -1629,7 +1631,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 1633 "cfg.c"
+#line 1635 "cfg.c"
 					
 					goto _st27;
 					_st27:
@@ -1643,17 +1645,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr50;
 					_ctr48:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 1654 "cfg.c"
+#line 1656 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -1661,7 +1663,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 1665 "cfg.c"
+#line 1667 "cfg.c"
 					
 					goto _st28;
 					_st28:
@@ -1744,17 +1746,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr57;
 					_ctr57:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 1755 "cfg.c"
+#line 1757 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -1762,12 +1764,12 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 1766 "cfg.c"
+#line 1768 "cfg.c"
 					
 					goto _st34;
 					_ctr60:
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -1775,7 +1777,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 1779 "cfg.c"
+#line 1781 "cfg.c"
 					
 					goto _st34;
 					_st34:
@@ -1789,17 +1791,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr60;
 					_ctr58:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 1800 "cfg.c"
+#line 1802 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -1807,7 +1809,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 1811 "cfg.c"
+#line 1813 "cfg.c"
 					
 					goto _st35;
 					_st35:
@@ -1913,17 +1915,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr70;
 					_ctr70:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 1924 "cfg.c"
+#line 1926 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -1931,12 +1933,12 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 1935 "cfg.c"
+#line 1937 "cfg.c"
 					
 					goto _st43;
 					_ctr73:
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -1944,7 +1946,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 1948 "cfg.c"
+#line 1950 "cfg.c"
 					
 					goto _st43;
 					_st43:
@@ -1958,17 +1960,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr73;
 					_ctr71:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 1969 "cfg.c"
+#line 1971 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -1976,7 +1978,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 1980 "cfg.c"
+#line 1982 "cfg.c"
 					
 					goto _st44;
 					_st44:
@@ -2086,17 +2088,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr83;
 					_ctr83:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 2097 "cfg.c"
+#line 2099 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -2104,12 +2106,12 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 2108 "cfg.c"
+#line 2110 "cfg.c"
 					
 					goto _st53;
 					_ctr86:
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -2117,7 +2119,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 2121 "cfg.c"
+#line 2123 "cfg.c"
 					
 					goto _st53;
 					_st53:
@@ -2131,17 +2133,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr86;
 					_ctr84:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 2142 "cfg.c"
+#line 2144 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -2149,7 +2151,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 2153 "cfg.c"
+#line 2155 "cfg.c"
 					
 					goto _st54;
 					_st54:
@@ -2545,17 +2547,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr126;
 					_ctr126:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 2556 "cfg.c"
+#line 2558 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -2563,12 +2565,12 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 2567 "cfg.c"
+#line 2569 "cfg.c"
 					
 					goto _st92;
 					_ctr129:
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -2576,7 +2578,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 2580 "cfg.c"
+#line 2582 "cfg.c"
 					
 					goto _st92;
 					_st92:
@@ -2590,17 +2592,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr129;
 					_ctr127:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 2601 "cfg.c"
+#line 2603 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -2608,7 +2610,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 2612 "cfg.c"
+#line 2614 "cfg.c"
 					
 					goto _st93;
 					_st93:
@@ -2727,17 +2729,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr140;
 					_ctr140:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 2738 "cfg.c"
+#line 2740 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -2745,12 +2747,12 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 2749 "cfg.c"
+#line 2751 "cfg.c"
 					
 					goto _st103;
 					_ctr143:
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -2758,7 +2760,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 2762 "cfg.c"
+#line 2764 "cfg.c"
 					
 					goto _st103;
 					_st103:
@@ -2772,17 +2774,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr143;
 					_ctr141:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 2783 "cfg.c"
+#line 2785 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -2790,7 +2792,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 2794 "cfg.c"
+#line 2796 "cfg.c"
 					
 					goto _st104;
 					_st104:
@@ -2923,17 +2925,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr156;
 					_ctr156:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 2934 "cfg.c"
+#line 2936 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -2941,12 +2943,12 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 2945 "cfg.c"
+#line 2947 "cfg.c"
 					
 					goto _st115;
 					_ctr159:
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -2954,7 +2956,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 2958 "cfg.c"
+#line 2960 "cfg.c"
 					
 					goto _st115;
 					_st115:
@@ -2968,17 +2970,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr159;
 					_ctr157:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 2979 "cfg.c"
+#line 2981 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -2986,7 +2988,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 2990 "cfg.c"
+#line 2992 "cfg.c"
 					
 					goto _st116;
 					_st116:
@@ -3105,17 +3107,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr170;
 					_ctr170:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 3116 "cfg.c"
+#line 3118 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -3123,12 +3125,12 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 3127 "cfg.c"
+#line 3129 "cfg.c"
 					
 					goto _st126;
 					_ctr173:
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -3136,7 +3138,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 3140 "cfg.c"
+#line 3142 "cfg.c"
 					
 					goto _st126;
 					_st126:
@@ -3150,17 +3152,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr173;
 					_ctr171:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 3161 "cfg.c"
+#line 3163 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -3168,7 +3170,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 3172 "cfg.c"
+#line 3174 "cfg.c"
 					
 					goto _st127;
 					_st127:
@@ -3692,17 +3694,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr227;
 					_ctr227:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 3703 "cfg.c"
+#line 3705 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -3710,12 +3712,12 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 3714 "cfg.c"
+#line 3716 "cfg.c"
 					
 					goto _st175;
 					_ctr230:
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -3723,7 +3725,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 3727 "cfg.c"
+#line 3729 "cfg.c"
 					
 					goto _st175;
 					_st175:
@@ -3737,17 +3739,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr230;
 					_ctr228:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 3748 "cfg.c"
+#line 3750 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -3755,7 +3757,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 3759 "cfg.c"
+#line 3761 "cfg.c"
 					
 					goto _st176;
 					_st176:
@@ -3883,17 +3885,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr242;
 					_ctr242:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 3894 "cfg.c"
+#line 3896 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -3901,12 +3903,12 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 3905 "cfg.c"
+#line 3907 "cfg.c"
 					
 					goto _st187;
 					_ctr245:
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -3914,7 +3916,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 3918 "cfg.c"
+#line 3920 "cfg.c"
 					
 					goto _st187;
 					_st187:
@@ -3928,17 +3930,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr245;
 					_ctr243:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 3939 "cfg.c"
+#line 3941 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -3946,7 +3948,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 3950 "cfg.c"
+#line 3952 "cfg.c"
 					
 					goto _st188;
 					_st188:
@@ -4074,17 +4076,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr257;
 					_ctr257:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 4085 "cfg.c"
+#line 4087 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -4092,12 +4094,12 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 4096 "cfg.c"
+#line 4098 "cfg.c"
 					
 					goto _st199;
 					_ctr260:
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -4105,7 +4107,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 4109 "cfg.c"
+#line 4111 "cfg.c"
 					
 					goto _st199;
 					_st199:
@@ -4119,17 +4121,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr260;
 					_ctr258:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 4130 "cfg.c"
+#line 4132 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -4137,7 +4139,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 4141 "cfg.c"
+#line 4143 "cfg.c"
 					
 					goto _st200;
 					_st200:
@@ -4523,17 +4525,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr300;
 					_ctr300:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 4534 "cfg.c"
+#line 4536 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -4541,12 +4543,12 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 4545 "cfg.c"
+#line 4547 "cfg.c"
 					
 					goto _st236;
 					_ctr303:
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -4554,7 +4556,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 4558 "cfg.c"
+#line 4560 "cfg.c"
 					
 					goto _st236;
 					_st236:
@@ -4568,17 +4570,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr303;
 					_ctr301:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 4579 "cfg.c"
+#line 4581 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -4586,7 +4588,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 4590 "cfg.c"
+#line 4592 "cfg.c"
 					
 					goto _st237;
 					_st237:
@@ -4705,17 +4707,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr314;
 					_ctr314:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 4716 "cfg.c"
+#line 4718 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -4723,12 +4725,12 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 4727 "cfg.c"
+#line 4729 "cfg.c"
 					
 					goto _st247;
 					_ctr317:
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -4736,7 +4738,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 4740 "cfg.c"
+#line 4742 "cfg.c"
 					
 					goto _st247;
 					_st247:
@@ -4750,17 +4752,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr317;
 					_ctr315:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 4761 "cfg.c"
+#line 4763 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -4768,7 +4770,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 4772 "cfg.c"
+#line 4774 "cfg.c"
 					
 					goto _st248;
 					_st248:
@@ -4851,17 +4853,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr324;
 					_ctr324:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 4862 "cfg.c"
+#line 4864 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -4869,12 +4871,12 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 4873 "cfg.c"
+#line 4875 "cfg.c"
 					
 					goto _st254;
 					_ctr327:
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -4882,7 +4884,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 4886 "cfg.c"
+#line 4888 "cfg.c"
 					
 					goto _st254;
 					_st254:
@@ -4896,17 +4898,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr327;
 					_ctr325:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 4907 "cfg.c"
+#line 4909 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -4914,7 +4916,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 4918 "cfg.c"
+#line 4920 "cfg.c"
 					
 					goto _st255;
 					_st255:
@@ -5033,17 +5035,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr338;
 					_ctr338:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 5044 "cfg.c"
+#line 5046 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -5051,12 +5053,12 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 5055 "cfg.c"
+#line 5057 "cfg.c"
 					
 					goto _st265;
 					_ctr341:
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -5064,7 +5066,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 5068 "cfg.c"
+#line 5070 "cfg.c"
 					
 					goto _st265;
 					_st265:
@@ -5078,17 +5080,17 @@ static void parse_cfgfile(const char *fname)
 					goto _ctr341;
 					_ctr339:
 					{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 						
 						memset(&ccfg.buf, 0, sizeof ccfg.buf);
 						ccfg.buflen = 0;
 						ccfg.ternary = 0;
 					}
 					
-#line 5089 "cfg.c"
+#line 5091 "cfg.c"
 					
 					{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 						
 						if (ccfg.buflen < sizeof ccfg.buf - 1)
 						ccfg.buf[ccfg.buflen++] = *p;
@@ -5096,7 +5098,7 @@ static void parse_cfgfile(const char *fname)
 						suicide("line or option is too long");
 					}
 					
-#line 5100 "cfg.c"
+#line 5102 "cfg.c"
 					
 					goto _st266;
 					_st266:
@@ -5387,7 +5389,7 @@ static void parse_cfgfile(const char *fname)
 					_out: {}
 				}
 				
-#line 235 "cfg.rl"
+#line 237 "cfg.rl"
 				
 				
 				if (ccfg.cs == file_cfg_error)
@@ -5413,11 +5415,11 @@ static void parse_cfgfile(const char *fname)
 }
 
 
-#line 304 "cfg.rl"
+#line 306 "cfg.rl"
 
 
 
-#line 5421 "cfg.c"
+#line 5423 "cfg.c"
 static const int cmd_cfg_start = 226;
 static const int cmd_cfg_first_final = 226;
 static const int cmd_cfg_error = 0;
@@ -5425,7 +5427,7 @@ static const int cmd_cfg_error = 0;
 static const int cmd_cfg_en_main = 226;
 
 
-#line 306 "cfg.rl"
+#line 308 "cfg.rl"
 
 
 void parse_cmdline(int argc, char *argv[])
@@ -5452,15 +5454,15 @@ void parse_cmdline(int argc, char *argv[])
 	const char *eof = pe;
 	
 	
-#line 5456 "cfg.c"
+#line 5458 "cfg.c"
 	{
 		ccfg.cs = (int)cmd_cfg_start;
 	}
 	
-#line 331 "cfg.rl"
+#line 333 "cfg.rl"
 	
 	
-#line 5464 "cfg.c"
+#line 5466 "cfg.c"
 	{
 		switch ( ccfg.cs ) {
 			case 226:
@@ -5922,16 +5924,16 @@ void parse_cmdline(int argc, char *argv[])
 		}
 		_ctr56:
 		{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf)
 			ccfg.buf[ccfg.buflen] = 0;
 		}
 		
-#line 5932 "cfg.c"
+#line 5934 "cfg.c"
 		
 		{
-#line 115 "cfg.rl"
+#line 117 "cfg.rl"
 			
 			int t = atoi(ccfg.buf);
 			arp_probe_max = t;
@@ -5942,21 +5944,21 @@ void parse_cmdline(int argc, char *argv[])
 			}
 		}
 		
-#line 5946 "cfg.c"
+#line 5948 "cfg.c"
 		
 		goto _st226;
 		_ctr61:
 		{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf)
 			ccfg.buf[ccfg.buflen] = 0;
 		}
 		
-#line 5957 "cfg.c"
+#line 5959 "cfg.c"
 		
 		{
-#line 106 "cfg.rl"
+#line 108 "cfg.rl"
 			
 			int t = atoi(ccfg.buf);
 			arp_probe_min = t;
@@ -5967,116 +5969,116 @@ void parse_cmdline(int argc, char *argv[])
 			}
 		}
 		
-#line 5971 "cfg.c"
+#line 5973 "cfg.c"
 		
 		goto _st226;
 		_ctr67:
 		{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf)
 			ccfg.buf[ccfg.buflen] = 0;
 		}
 		
-#line 5982 "cfg.c"
+#line 5984 "cfg.c"
 		
 		{
-#line 101 "cfg.rl"
+#line 103 "cfg.rl"
 			
 			int t = atoi(ccfg.buf);
 			if (t >= 0)
 			arp_probe_num = t;
 		}
 		
-#line 5992 "cfg.c"
+#line 5994 "cfg.c"
 		
 		goto _st226;
 		_ctr74:
 		{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf)
 			ccfg.buf[ccfg.buflen] = 0;
 		}
 		
-#line 6003 "cfg.c"
+#line 6005 "cfg.c"
 		
 		{
-#line 96 "cfg.rl"
+#line 98 "cfg.rl"
 			
 			int t = atoi(ccfg.buf);
 			if (t >= 0)
 			arp_probe_wait = t;
 		}
 		
-#line 6013 "cfg.c"
+#line 6015 "cfg.c"
 		
 		goto _st226;
 		_ctr85:
 		{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf)
 			ccfg.buf[ccfg.buflen] = 0;
 		}
 		
-#line 6024 "cfg.c"
+#line 6026 "cfg.c"
 		
 		{
-#line 80 "cfg.rl"
+#line 82 "cfg.rl"
 			
 			copy_cmdarg(chroot_dir, ccfg.buf, sizeof chroot_dir, "chroot");
 		}
 		
-#line 6032 "cfg.c"
+#line 6034 "cfg.c"
 		
 		goto _st226;
 		_ctr95:
 		{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf)
 			ccfg.buf[ccfg.buflen] = 0;
 		}
 		
-#line 6043 "cfg.c"
+#line 6045 "cfg.c"
 		
 		{
-#line 48 "cfg.rl"
+#line 50 "cfg.rl"
 			get_clientid_string(ccfg.buf, ccfg.buflen); }
 		
-#line 6049 "cfg.c"
+#line 6051 "cfg.c"
 		
 		goto _st226;
 		_ctr103:
 		{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf)
 			ccfg.buf[ccfg.buflen] = 0;
 		}
 		
-#line 6060 "cfg.c"
+#line 6062 "cfg.c"
 		
 		{
-#line 264 "cfg.rl"
+#line 266 "cfg.rl"
 			parse_cfgfile(ccfg.buf); }
 		
-#line 6066 "cfg.c"
+#line 6068 "cfg.c"
 		
 		goto _st226;
 		_ctr131:
 		{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf)
 			ccfg.buf[ccfg.buflen] = 0;
 		}
 		
-#line 6077 "cfg.c"
+#line 6079 "cfg.c"
 		
 		{
-#line 124 "cfg.rl"
+#line 126 "cfg.rl"
 			
 			char *q;
 			long mt = strtol(ccfg.buf, &q, 10);
@@ -6089,220 +6091,220 @@ void parse_cmdline(int argc, char *argv[])
 			client_config.metric = (int)mt;
 		}
 		
-#line 6093 "cfg.c"
+#line 6095 "cfg.c"
 		
 		goto _st226;
 		_ctr135:
 		{
-#line 151 "cfg.rl"
+#line 153 "cfg.rl"
 			show_usage(); exit(EXIT_SUCCESS); }
 		
-#line 6101 "cfg.c"
+#line 6103 "cfg.c"
 		
 		goto _st226;
 		_ctr145:
 		{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf)
 			ccfg.buf[ccfg.buflen] = 0;
 		}
 		
-#line 6112 "cfg.c"
+#line 6114 "cfg.c"
 		
 		{
-#line 49 "cfg.rl"
+#line 51 "cfg.rl"
 			
 			copy_cmdarg(client_config.hostname, ccfg.buf,
 			sizeof client_config.hostname, "hostname");
 		}
 		
-#line 6121 "cfg.c"
+#line 6123 "cfg.c"
 		
 		goto _st226;
 		_ctr158:
 		{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf)
 			ccfg.buf[ccfg.buflen] = 0;
 		}
 		
-#line 6132 "cfg.c"
+#line 6134 "cfg.c"
 		
 		{
-#line 72 "cfg.rl"
+#line 74 "cfg.rl"
 			
 			if (nk_uidgidbyname(ccfg.buf, &ifch_uid, &ifch_gid))
 			suicide("invalid ifch user '%s' specified", ccfg.buf);
 		}
 		
-#line 6141 "cfg.c"
+#line 6143 "cfg.c"
 		
 		goto _st226;
 		_ctr169:
 		{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf)
 			ccfg.buf[ccfg.buflen] = 0;
 		}
 		
-#line 6152 "cfg.c"
+#line 6154 "cfg.c"
 		
 		{
-#line 53 "cfg.rl"
+#line 55 "cfg.rl"
 			
 			copy_cmdarg(client_config.interface, ccfg.buf,
 			sizeof client_config.interface, "interface");
 		}
 		
-#line 6161 "cfg.c"
+#line 6163 "cfg.c"
 		
 		goto _st226;
 		_ctr199:
 		{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf)
 			ccfg.buf[ccfg.buflen] = 0;
 		}
 		
-#line 6172 "cfg.c"
+#line 6174 "cfg.c"
 		
 		{
-#line 63 "cfg.rl"
+#line 65 "cfg.rl"
 			set_client_addr(ccfg.buf); }
 		
-#line 6178 "cfg.c"
+#line 6180 "cfg.c"
 		
 		goto _st226;
 		_ctr211:
 		{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf)
 			ccfg.buf[ccfg.buflen] = 0;
 		}
 		
-#line 6189 "cfg.c"
+#line 6191 "cfg.c"
 		
 		{
-#line 135 "cfg.rl"
+#line 137 "cfg.rl"
 			
 			copy_cmdarg(resolv_conf_d, ccfg.buf, sizeof resolv_conf_d,
 			"resolv-conf");
 		}
 		
-#line 6198 "cfg.c"
+#line 6200 "cfg.c"
 		
 		goto _st226;
 		_ctr223:
 		{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf)
 			ccfg.buf[ccfg.buflen] = 0;
 		}
 		
-#line 6209 "cfg.c"
+#line 6211 "cfg.c"
 		
 		{
-#line 145 "cfg.rl"
+#line 147 "cfg.rl"
 			
 			uint32_t t = (uint32_t)atoi(ccfg.buf);
 			client_config.rfkillIdx = t;
 			client_config.enable_rfkill = true;
 		}
 		
-#line 6219 "cfg.c"
+#line 6221 "cfg.c"
 		
 		goto _st226;
 		_ctr251:
 		{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf)
 			ccfg.buf[ccfg.buflen] = 0;
 		}
 		
-#line 6230 "cfg.c"
+#line 6232 "cfg.c"
 		
 		{
-#line 76 "cfg.rl"
+#line 78 "cfg.rl"
 			
 			if (nk_uidgidbyname(ccfg.buf, &sockd_uid, &sockd_gid))
 			suicide("invalid sockd user '%s' specified", ccfg.buf);
 		}
 		
-#line 6239 "cfg.c"
+#line 6241 "cfg.c"
 		
 		goto _st226;
 		_ctr262:
 		{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf)
 			ccfg.buf[ccfg.buflen] = 0;
 		}
 		
-#line 6250 "cfg.c"
+#line 6252 "cfg.c"
 		
 		{
-#line 83 "cfg.rl"
+#line 85 "cfg.rl"
 			
 			copy_cmdarg(state_dir, ccfg.buf, sizeof state_dir, "state-dir");
 		}
 		
-#line 6258 "cfg.c"
+#line 6260 "cfg.c"
 		
 		goto _st226;
 		_ctr269:
 		{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf)
 			ccfg.buf[ccfg.buflen] = 0;
 		}
 		
-#line 6269 "cfg.c"
+#line 6271 "cfg.c"
 		
 		{
-#line 68 "cfg.rl"
+#line 70 "cfg.rl"
 			
 			if (nk_uidgidbyname(ccfg.buf, &ndhc_uid, &ndhc_gid))
 			suicide("invalid ndhc user '%s' specified", ccfg.buf);
 		}
 		
-#line 6278 "cfg.c"
+#line 6280 "cfg.c"
 		
 		goto _st226;
 		_ctr281:
 		{
-#line 41 "cfg.rl"
+#line 43 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf)
 			ccfg.buf[ccfg.buflen] = 0;
 		}
 		
-#line 6289 "cfg.c"
+#line 6291 "cfg.c"
 		
 		{
-#line 64 "cfg.rl"
+#line 66 "cfg.rl"
 			
 			copy_cmdarg(client_config.vendor, ccfg.buf,
 			sizeof client_config.vendor, "vendorid");
 		}
 		
-#line 6298 "cfg.c"
+#line 6300 "cfg.c"
 		
 		goto _st226;
 		_ctr285:
 		{
-#line 150 "cfg.rl"
+#line 152 "cfg.rl"
 			print_version(); exit(EXIT_SUCCESS); }
 		
-#line 6306 "cfg.c"
+#line 6308 "cfg.c"
 		
 		goto _st226;
 		_st226:
@@ -6327,10 +6329,10 @@ void parse_cmdline(int argc, char *argv[])
 		goto _out0;
 		_ctr288:
 		{
-#line 265 "cfg.rl"
+#line 267 "cfg.rl"
 			ccfg.ternary = 1; }
 		
-#line 6334 "cfg.c"
+#line 6336 "cfg.c"
 		
 		goto _st1;
 		_st1:
@@ -6694,17 +6696,17 @@ void parse_cmdline(int argc, char *argv[])
 		}
 		_ctr53:
 		{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 			
 			memset(&ccfg.buf, 0, sizeof ccfg.buf);
 			ccfg.buflen = 0;
 			ccfg.ternary = 0;
 		}
 		
-#line 6705 "cfg.c"
+#line 6707 "cfg.c"
 		
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -6712,12 +6714,12 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 6716 "cfg.c"
+#line 6718 "cfg.c"
 		
 		goto _st17;
 		_ctr55:
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -6725,7 +6727,7 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 6729 "cfg.c"
+#line 6731 "cfg.c"
 		
 		goto _st17;
 		_st17:
@@ -6790,17 +6792,17 @@ void parse_cmdline(int argc, char *argv[])
 		}
 		_ctr58:
 		{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 			
 			memset(&ccfg.buf, 0, sizeof ccfg.buf);
 			ccfg.buflen = 0;
 			ccfg.ternary = 0;
 		}
 		
-#line 6801 "cfg.c"
+#line 6803 "cfg.c"
 		
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -6808,12 +6810,12 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 6812 "cfg.c"
+#line 6814 "cfg.c"
 		
 		goto _st21;
 		_ctr60:
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -6821,7 +6823,7 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 6825 "cfg.c"
+#line 6827 "cfg.c"
 		
 		goto _st21;
 		_st21:
@@ -6901,17 +6903,17 @@ void parse_cmdline(int argc, char *argv[])
 		}
 		_ctr64:
 		{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 			
 			memset(&ccfg.buf, 0, sizeof ccfg.buf);
 			ccfg.buflen = 0;
 			ccfg.ternary = 0;
 		}
 		
-#line 6912 "cfg.c"
+#line 6914 "cfg.c"
 		
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -6919,12 +6921,12 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 6923 "cfg.c"
+#line 6925 "cfg.c"
 		
 		goto _st26;
 		_ctr66:
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -6932,7 +6934,7 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 6936 "cfg.c"
+#line 6938 "cfg.c"
 		
 		goto _st26;
 		_st26:
@@ -7027,17 +7029,17 @@ void parse_cmdline(int argc, char *argv[])
 		}
 		_ctr71:
 		{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 			
 			memset(&ccfg.buf, 0, sizeof ccfg.buf);
 			ccfg.buflen = 0;
 			ccfg.ternary = 0;
 		}
 		
-#line 7038 "cfg.c"
+#line 7040 "cfg.c"
 		
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -7045,12 +7047,12 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 7049 "cfg.c"
+#line 7051 "cfg.c"
 		
 		goto _st32;
 		_ctr73:
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -7058,7 +7060,7 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 7062 "cfg.c"
+#line 7064 "cfg.c"
 		
 		goto _st32;
 		_st32:
@@ -7191,17 +7193,17 @@ void parse_cmdline(int argc, char *argv[])
 		}
 		_ctr82:
 		{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 			
 			memset(&ccfg.buf, 0, sizeof ccfg.buf);
 			ccfg.buflen = 0;
 			ccfg.ternary = 0;
 		}
 		
-#line 7202 "cfg.c"
+#line 7204 "cfg.c"
 		
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -7209,12 +7211,12 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 7213 "cfg.c"
+#line 7215 "cfg.c"
 		
 		goto _st40;
 		_ctr84:
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -7222,7 +7224,7 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 7226 "cfg.c"
+#line 7228 "cfg.c"
 		
 		goto _st40;
 		_st40:
@@ -7362,17 +7364,17 @@ void parse_cmdline(int argc, char *argv[])
 		}
 		_ctr92:
 		{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 			
 			memset(&ccfg.buf, 0, sizeof ccfg.buf);
 			ccfg.buflen = 0;
 			ccfg.ternary = 0;
 		}
 		
-#line 7373 "cfg.c"
+#line 7375 "cfg.c"
 		
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -7380,12 +7382,12 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 7384 "cfg.c"
+#line 7386 "cfg.c"
 		
 		goto _st49;
 		_ctr94:
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -7393,7 +7395,7 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 7397 "cfg.c"
+#line 7399 "cfg.c"
 		
 		goto _st49;
 		_st49:
@@ -7503,17 +7505,17 @@ void parse_cmdline(int argc, char *argv[])
 		}
 		_ctr100:
 		{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 			
 			memset(&ccfg.buf, 0, sizeof ccfg.buf);
 			ccfg.buflen = 0;
 			ccfg.ternary = 0;
 		}
 		
-#line 7514 "cfg.c"
+#line 7516 "cfg.c"
 		
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -7521,12 +7523,12 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 7525 "cfg.c"
+#line 7527 "cfg.c"
 		
 		goto _st56;
 		_ctr102:
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -7534,7 +7536,7 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 7538 "cfg.c"
+#line 7540 "cfg.c"
 		
 		goto _st56;
 		_st56:
@@ -7809,7 +7811,7 @@ void parse_cmdline(int argc, char *argv[])
 		}
 		_ctr119:
 		{
-#line 139 "cfg.rl"
+#line 141 "cfg.rl"
 			
 			switch (ccfg.ternary) {
 				case 1: allow_hostname = 1; break;
@@ -7817,12 +7819,12 @@ void parse_cmdline(int argc, char *argv[])
 			}
 		}
 		
-#line 7821 "cfg.c"
+#line 7823 "cfg.c"
 		
 		goto _st227;
 		_ctr171:
 		{
-#line 57 "cfg.rl"
+#line 59 "cfg.rl"
 			
 			switch (ccfg.ternary) {
 				case 1: client_config.abort_if_no_lease = true; break;
@@ -7830,12 +7832,12 @@ void parse_cmdline(int argc, char *argv[])
 			}
 		}
 		
-#line 7834 "cfg.c"
+#line 7836 "cfg.c"
 		
 		goto _st227;
 		_ctr191:
 		{
-#line 90 "cfg.rl"
+#line 92 "cfg.rl"
 			
 			switch (ccfg.ternary) {
 				case 1: set_arp_relentless_def(true); break;
@@ -7843,26 +7845,26 @@ void parse_cmdline(int argc, char *argv[])
 			}
 		}
 		
-#line 7847 "cfg.c"
+#line 7849 "cfg.c"
 		
 		goto _st227;
 		_ctr239:
 		{
-#line 86 "cfg.rl"
+#line 88 "cfg.rl"
 			
 			log_line("seccomp_enforce option is deprecated; please remove it");
 			log_line("In the meanwhile, it is ignored and seccomp is disabled.");
 		}
 		
-#line 7858 "cfg.c"
+#line 7860 "cfg.c"
 		
 		goto _st227;
 		_ctr287:
 		{
-#line 265 "cfg.rl"
+#line 267 "cfg.rl"
 			ccfg.ternary = 1; }
 		
-#line 7866 "cfg.c"
+#line 7868 "cfg.c"
 		
 		goto _st227;
 		_st227:
@@ -8032,17 +8034,17 @@ void parse_cmdline(int argc, char *argv[])
 		}
 		_ctr128:
 		{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 			
 			memset(&ccfg.buf, 0, sizeof ccfg.buf);
 			ccfg.buflen = 0;
 			ccfg.ternary = 0;
 		}
 		
-#line 8043 "cfg.c"
+#line 8045 "cfg.c"
 		
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -8050,12 +8052,12 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 8054 "cfg.c"
+#line 8056 "cfg.c"
 		
 		goto _st84;
 		_ctr130:
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -8063,7 +8065,7 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 8067 "cfg.c"
+#line 8069 "cfg.c"
 		
 		goto _st84;
 		_st84:
@@ -8268,17 +8270,17 @@ void parse_cmdline(int argc, char *argv[])
 		}
 		_ctr142:
 		{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 			
 			memset(&ccfg.buf, 0, sizeof ccfg.buf);
 			ccfg.buflen = 0;
 			ccfg.ternary = 0;
 		}
 		
-#line 8279 "cfg.c"
+#line 8281 "cfg.c"
 		
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -8286,12 +8288,12 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 8290 "cfg.c"
+#line 8292 "cfg.c"
 		
 		goto _st97;
 		_ctr144:
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -8299,7 +8301,7 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 8303 "cfg.c"
+#line 8305 "cfg.c"
 		
 		goto _st97;
 		_st97:
@@ -8474,17 +8476,17 @@ void parse_cmdline(int argc, char *argv[])
 		}
 		_ctr155:
 		{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 			
 			memset(&ccfg.buf, 0, sizeof ccfg.buf);
 			ccfg.buflen = 0;
 			ccfg.ternary = 0;
 		}
 		
-#line 8485 "cfg.c"
+#line 8487 "cfg.c"
 		
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -8492,12 +8494,12 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 8496 "cfg.c"
+#line 8498 "cfg.c"
 		
 		goto _st108;
 		_ctr157:
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -8505,7 +8507,7 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 8509 "cfg.c"
+#line 8511 "cfg.c"
 		
 		goto _st108;
 		_st108:
@@ -8660,17 +8662,17 @@ void parse_cmdline(int argc, char *argv[])
 		}
 		_ctr166:
 		{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 			
 			memset(&ccfg.buf, 0, sizeof ccfg.buf);
 			ccfg.buflen = 0;
 			ccfg.ternary = 0;
 		}
 		
-#line 8671 "cfg.c"
+#line 8673 "cfg.c"
 		
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -8678,12 +8680,12 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 8682 "cfg.c"
+#line 8684 "cfg.c"
 		
 		goto _st118;
 		_ctr168:
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -8691,7 +8693,7 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 8695 "cfg.c"
+#line 8697 "cfg.c"
 		
 		goto _st118;
 		_st118:
@@ -9129,17 +9131,17 @@ void parse_cmdline(int argc, char *argv[])
 		}
 		_ctr196:
 		{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 			
 			memset(&ccfg.buf, 0, sizeof ccfg.buf);
 			ccfg.buflen = 0;
 			ccfg.ternary = 0;
 		}
 		
-#line 9140 "cfg.c"
+#line 9142 "cfg.c"
 		
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -9147,12 +9149,12 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 9151 "cfg.c"
+#line 9153 "cfg.c"
 		
 		goto _st146;
 		_ctr198:
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -9160,7 +9162,7 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 9164 "cfg.c"
+#line 9166 "cfg.c"
 		
 		goto _st146;
 		_st146:
@@ -9330,17 +9332,17 @@ void parse_cmdline(int argc, char *argv[])
 		}
 		_ctr208:
 		{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 			
 			memset(&ccfg.buf, 0, sizeof ccfg.buf);
 			ccfg.buflen = 0;
 			ccfg.ternary = 0;
 		}
 		
-#line 9341 "cfg.c"
+#line 9343 "cfg.c"
 		
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -9348,12 +9350,12 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 9352 "cfg.c"
+#line 9354 "cfg.c"
 		
 		goto _st157;
 		_ctr210:
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -9361,7 +9363,7 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 9365 "cfg.c"
+#line 9367 "cfg.c"
 		
 		goto _st157;
 		_st157:
@@ -9531,17 +9533,17 @@ void parse_cmdline(int argc, char *argv[])
 		}
 		_ctr220:
 		{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 			
 			memset(&ccfg.buf, 0, sizeof ccfg.buf);
 			ccfg.buflen = 0;
 			ccfg.ternary = 0;
 		}
 		
-#line 9542 "cfg.c"
+#line 9544 "cfg.c"
 		
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -9549,12 +9551,12 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 9553 "cfg.c"
+#line 9555 "cfg.c"
 		
 		goto _st168;
 		_ctr222:
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -9562,7 +9564,7 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 9566 "cfg.c"
+#line 9568 "cfg.c"
 		
 		goto _st168;
 		_st168:
@@ -9965,17 +9967,17 @@ void parse_cmdline(int argc, char *argv[])
 		}
 		_ctr248:
 		{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 			
 			memset(&ccfg.buf, 0, sizeof ccfg.buf);
 			ccfg.buflen = 0;
 			ccfg.ternary = 0;
 		}
 		
-#line 9976 "cfg.c"
+#line 9978 "cfg.c"
 		
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -9983,12 +9985,12 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 9987 "cfg.c"
+#line 9989 "cfg.c"
 		
 		goto _st194;
 		_ctr250:
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -9996,7 +9998,7 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 10000 "cfg.c"
+#line 10002 "cfg.c"
 		
 		goto _st194;
 		_st194:
@@ -10151,17 +10153,17 @@ void parse_cmdline(int argc, char *argv[])
 		}
 		_ctr259:
 		{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 			
 			memset(&ccfg.buf, 0, sizeof ccfg.buf);
 			ccfg.buflen = 0;
 			ccfg.ternary = 0;
 		}
 		
-#line 10162 "cfg.c"
+#line 10164 "cfg.c"
 		
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -10169,12 +10171,12 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 10173 "cfg.c"
+#line 10175 "cfg.c"
 		
 		goto _st204;
 		_ctr261:
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -10182,7 +10184,7 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 10186 "cfg.c"
+#line 10188 "cfg.c"
 		
 		goto _st204;
 		_st204:
@@ -10277,17 +10279,17 @@ void parse_cmdline(int argc, char *argv[])
 		}
 		_ctr266:
 		{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 			
 			memset(&ccfg.buf, 0, sizeof ccfg.buf);
 			ccfg.buflen = 0;
 			ccfg.ternary = 0;
 		}
 		
-#line 10288 "cfg.c"
+#line 10290 "cfg.c"
 		
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -10295,12 +10297,12 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 10299 "cfg.c"
+#line 10301 "cfg.c"
 		
 		goto _st210;
 		_ctr268:
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -10308,7 +10310,7 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 10312 "cfg.c"
+#line 10314 "cfg.c"
 		
 		goto _st210;
 		_st210:
@@ -10468,17 +10470,17 @@ void parse_cmdline(int argc, char *argv[])
 		}
 		_ctr278:
 		{
-#line 30 "cfg.rl"
+#line 32 "cfg.rl"
 			
 			memset(&ccfg.buf, 0, sizeof ccfg.buf);
 			ccfg.buflen = 0;
 			ccfg.ternary = 0;
 		}
 		
-#line 10479 "cfg.c"
+#line 10481 "cfg.c"
 		
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -10486,12 +10488,12 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 10490 "cfg.c"
+#line 10492 "cfg.c"
 		
 		goto _st220;
 		_ctr280:
 		{
-#line 35 "cfg.rl"
+#line 37 "cfg.rl"
 			
 			if (ccfg.buflen < sizeof ccfg.buf - 1)
 			ccfg.buf[ccfg.buflen++] = *p;
@@ -10499,7 +10501,7 @@ void parse_cmdline(int argc, char *argv[])
 			suicide("line or option is too long");
 		}
 		
-#line 10503 "cfg.c"
+#line 10505 "cfg.c"
 		
 		goto _st220;
 		_st220:
@@ -10823,7 +10825,7 @@ void parse_cmdline(int argc, char *argv[])
 		_out: {}
 	}
 	
-#line 332 "cfg.rl"
+#line 334 "cfg.rl"
 	
 	
 	if (ccfg.cs == cmd_cfg_error)

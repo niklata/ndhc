@@ -1,3 +1,5 @@
+// Copyright 2018 Nicholas J. Kain <njkain at gmail dot com>
+// SPDX-License-Identifier: MIT
 #ifndef NJK_IFCHD_H_
 #define NJK_IFCHD_H_
 
@@ -48,5 +50,5 @@ int perform_wins(const char *str, size_t len);
 
 void ifch_main(void);
 
-#endif /* NJK_IFCHD_H_ */
+#endif
 

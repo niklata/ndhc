@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 /* coroutine.h
  * 
  * Coroutine mechanics, implemented on top of standard ANSI C. See
@@ -178,4 +179,5 @@
 #define ccrContext       void *
 #define ccrAbort(ctx)    do { free (ctx); ctx = 0; } while (0)
 
-#endif /* COROUTINE_H */
+#endif
+
