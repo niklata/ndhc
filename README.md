@@ -1,7 +1,6 @@
 # ndhc
 Copyright 2004-2022 Nicholas J. Kain.
-
-See LICENSE for licensing information.  In short: Two-clause / New BSD.
+See LICENSE for licensing information.
 
 ## Introduction
 
