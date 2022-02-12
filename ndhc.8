@@ -1,15 +1,14 @@
-.TH NDHC 8 2012-07-20 Linux "Linux Administrator's Manual"
+.TH NDHC 8 2022-02-12 Linux "Linux Administrator's Manual"
 .SH NAME
-ndhc \- secure DHCP client
+ndhc \- secure DHCPv4 client
 .SH SYNOPSIS
 .B ndhc
 .RI [ OPTION ]...
 .SH DESCRIPTION
-The ndhc client negotiates a lease with the DHCP server and informs ifchd of
-the change when it is obtained or lost.  It also defends the assigned IP
-address against hostile imposters and requests a new lease if it detects that
-the interface has been connected to a new network.  It requires a cooperating
-ifchd server to properly perform its duties.
+The ndhc client negotiates a lease with the DHCPv4 server.  Once a lease is
+obtained, it then defends the assigned IP address against hostile imposters and
+requests a new lease if it detects that the interface has been connected to a
+new network.
 .SH OPTIONS
 .TP
 .BI \-c\  CONFIGFILE ,\ \-\-config= CONFIGFILE
@@ -42,7 +41,8 @@ Specifies the directory where the DHCP state associated with the given
 interface will be stored.  Such state will include the leased IP, the
 IAID, and the DUID.  The file representing the leased IP can be quite
 useful for reacting to changes in IP address -- one can listen for changes
-to it using fanotify() or inotify() on Linux.
+to it using fanotify() or inotify() on Linux.  The 'fcactus' program
+written by the ndhc author is designed to perform this task.
 .TP
 .BI \-i\  INTERFACE ,\ \-\-interface= INTERFACE
 Act as a DHCP client for the specified interface.  A single ndhc daemon can
