@@ -149,6 +149,10 @@ struct cfgparse {
         client_config.rfkillIdx = t;
         client_config.enable_rfkill = true;
     }
+    action s6_notify {
+        client_config.s6_notify_fd = atoi(ccfg.buf);
+        client_config.enable_s6_notify = true;
+    }
     action version { print_version(); exit(EXIT_SUCCESS); }
     action help { show_usage(); exit(EXIT_SUCCESS); }
 }%%
@@ -190,13 +194,14 @@ struct cfgparse {
     resolv_conf = 'resolv-conf' value @resolv_conf;
     dhcp_set_hostname = 'dhcp-set-hostname' boolval @dhcp_set_hostname;
     rfkill_idx = 'rfkill-idx' value @rfkill_idx;
+    s6_notify = 's6-notify' value @s6_notify;
 
     main := blankline |
         clientid | hostname | interface | now |
         request | vendorid | user | ifch_user | sockd_user | chroot |
         state_dir | seccomp_enforce | relentless_defense | arp_probe_wait |
         arp_probe_num | arp_probe_min | arp_probe_max | gw_metric |
-        resolv_conf | dhcp_set_hostname | rfkill_idx
+        resolv_conf | dhcp_set_hostname | rfkill_idx | s6_notify
     ;
 }%%
 
@@ -292,6 +297,7 @@ static void parse_cfgfile(const char *fname)
     resolv_conf = ('-R'|'--resolv-conf') argval @resolv_conf;
     dhcp_set_hostname = ('-H'|'--dhcp-set-hostname') tbv @dhcp_set_hostname;
     rfkill_idx = ('-K'|'--rfkill-idx') argval @rfkill_idx;
+    s6_notify = ('-N'|'--s6-notify') argval @s6_notify;
     version = ('-v'|'--version') 0 @version;
     help = ('-?'|'--help') 0 @help;
 
@@ -300,7 +306,7 @@ static void parse_cfgfile(const char *fname)
         now | request | vendorid | user | ifch_user | sockd_user |
         chroot | state_dir | seccomp_enforce | relentless_defense |
         arp_probe_wait | arp_probe_num | arp_probe_min | arp_probe_max |
-        gw_metric | resolv_conf | dhcp_set_hostname | rfkill_idx |
+        gw_metric | resolv_conf | dhcp_set_hostname | rfkill_idx | s6_notify |
         version | help
     )*;
 }%%

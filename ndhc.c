@@ -59,6 +59,7 @@ struct client_state_t cs = {
 struct client_config_t client_config = {
     .interface = "eth0",
     .arp = "\0\0\0\0\0\0",
+    .s6_notify_fd = 3,
     .clientid_len = 0,
     .metric = 0,
 };

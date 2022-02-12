@@ -49,9 +49,11 @@ struct client_config_t {
     uint32_t rfkillIdx;          // Index of the corresponding rfkill device
     int metric;                  // Metric for the default route
     int ifindex;                 // Index number of the interface to use
+    int s6_notify_fd;            // File descriptor for s6 notify mechanism
     uint8_t clientid_len;        // Length of the clientid
     bool abort_if_no_lease;      // Abort if no lease
     bool enable_rfkill;          // Listen for rfkill events
+    bool enable_s6_notify;       // Perform s6 startup notification
 };
 
 enum {

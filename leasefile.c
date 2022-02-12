@@ -42,6 +42,13 @@ void open_leasefile(void)
 
 void write_leasefile(struct in_addr ipnum)
 {
+    if (client_config.enable_s6_notify) {
+        static char buf[] = "\n";
+        safe_write(client_config.s6_notify_fd, buf, 1);
+        close(client_config.s6_notify_fd);
+        client_config.enable_s6_notify = false;
+    }
+
     char ip[INET_ADDRSTRLEN];
     char out[INET_ADDRSTRLEN*2];
     if (leasefilefd < 0) {

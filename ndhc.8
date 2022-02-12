@@ -125,6 +125,12 @@ an rfkill-idx parameter is specified, ndhc will print messages for any
 rfkill events that it sees, so it should not be too difficult to locate
 the proper rfkill device by checking the logs after hitting the switch.
 .TP
+.BI \-N\  NOTIFY_FDNUM ,\  \-\-s6\-notify= NOTIFY_FDNUM
+If set, specifies the file descriptor number that will have a '\n' written to
+and closed when the first DHCP lease is bound.  This option should be used when
+ndhc is run under a s6 supervisor that implements service startup
+notifications.
+.TP
 .BI \-v ,\  \-\-version
 Display the ndhc version number.
 .SH SIGNALS
