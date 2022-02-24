@@ -69,9 +69,12 @@ extern int ifchSock[2];
 extern int ifchStream[2];
 extern int sockdSock[2];
 extern int sockdStream[2];
+extern int scriptdSock[2];
+extern int scriptdStream[2];
 extern char state_dir[PATH_MAX];
 extern char chroot_dir[PATH_MAX];
 extern char resolv_conf_d[PATH_MAX];
+extern char script_file[PATH_MAX];
 extern uid_t ndhc_uid;
 extern gid_t ndhc_gid;
 

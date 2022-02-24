@@ -41,8 +41,7 @@ Specifies the directory where the DHCP state associated with the given
 interface will be stored.  Such state will include the leased IP, the
 IAID, and the DUID.  The file representing the leased IP can be quite
 useful for reacting to changes in IP address -- one can listen for changes
-to it using fanotify() or inotify() on Linux.  The 'fcactus' program
-written by the ndhc author is designed to perform this task.
+to it using fanotify() or inotify() on Linux.
 .TP
 .BI \-i\  INTERFACE ,\ \-\-interface= INTERFACE
 Act as a DHCP client for the specified interface.  A single ndhc daemon can
@@ -130,6 +129,15 @@ If set, specifies the file descriptor number that will have a '\n' written to
 and closed when the first DHCP lease is bound.  This option should be used when
 ndhc is run under a s6 supervisor that implements service startup
 notifications.
+.TP
+.BI \-X\  SCRIPTFILE ,\  \-\-script\-file= SCRIPTFILE
+If set, ndhc will spawn a subprocess that has the exclusive job of executing
+the specified executable file immediately after a new lease is acquired.  This
+script file will run as root and will not be chrooted.  It will be provided a
+sanitized environment that has no inputs from the dhcp state.  If this
+parameter is not provided, then the ndhc-scriptd subprocess will not exist.
+This facility is intended to be used for updating firewall/nat rules or similar
+tasks.
 .TP
 .BI \-v ,\  \-\-version
 Display the ndhc version number.

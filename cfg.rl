@@ -85,6 +85,9 @@ struct cfgparse {
     action state_dir {
         copy_cmdarg(state_dir, ccfg.buf, sizeof state_dir, "state-dir");
     }
+    action script_file {
+        copy_cmdarg(script_file, ccfg.buf, sizeof script_file, "script-file");
+    }
     action seccomp_enforce {
         log_line("seccomp_enforce option is deprecated; please remove it");
         log_line("In the meanwhile, it is ignored and seccomp is disabled.");
@@ -184,6 +187,7 @@ struct cfgparse {
     sockd_user = 'sockd-user' value @sockd_user;
     chroot = 'chroot' value @chroot;
     state_dir = 'state-dir' value @state_dir;
+    script_file = 'script-file' value @script_file;
     seccomp_enforce = 'seccomp-enforce' boolval @seccomp_enforce;
     relentless_defense = 'relentless-defense' boolval @relentless_defense;
     arp_probe_wait = 'arp-probe-wait' value @arp_probe_wait;
@@ -199,9 +203,9 @@ struct cfgparse {
     main := blankline |
         clientid | hostname | interface | now |
         request | vendorid | user | ifch_user | sockd_user | chroot |
-        state_dir | seccomp_enforce | relentless_defense | arp_probe_wait |
-        arp_probe_num | arp_probe_min | arp_probe_max | gw_metric |
-        resolv_conf | dhcp_set_hostname | rfkill_idx | s6_notify
+        state_dir | script_file | seccomp_enforce | relentless_defense |
+        arp_probe_wait | arp_probe_num | arp_probe_min | arp_probe_max |
+        gw_metric | resolv_conf | dhcp_set_hostname | rfkill_idx | s6_notify
     ;
 }%%
 
@@ -287,6 +291,7 @@ static void parse_cfgfile(const char *fname)
     sockd_user = ('-D'|'--sockd-user') argval @sockd_user;
     chroot = ('-C'|'--chroot') argval @chroot;
     state_dir = ('-s'|'--state-dir') argval @state_dir;
+    script_file = ('-X'|'--script-file') argval @script_file;
     seccomp_enforce = ('-S'|'--seccomp-enforce') tbv @seccomp_enforce;
     relentless_defense = ('-d'|'--relentless-defense') tbv @relentless_defense;
     arp_probe_wait = ('-w'|'--arp-probe-wait') argval @arp_probe_wait;
@@ -302,12 +307,11 @@ static void parse_cfgfile(const char *fname)
     help = ('-?'|'--help') 0 @help;
 
     main := (
-        cfgfile | clientid | hostname | interface |
-        now | request | vendorid | user | ifch_user | sockd_user |
-        chroot | state_dir | seccomp_enforce | relentless_defense |
-        arp_probe_wait | arp_probe_num | arp_probe_min | arp_probe_max |
-        gw_metric | resolv_conf | dhcp_set_hostname | rfkill_idx | s6_notify |
-        version | help
+        cfgfile | clientid | hostname | interface | now | request | vendorid |
+        user | ifch_user | sockd_user | chroot | state_dir | script_file |
+        seccomp_enforce | relentless_defense | arp_probe_wait | arp_probe_num |
+        arp_probe_min | arp_probe_max | gw_metric | resolv_conf |
+        dhcp_set_hostname | rfkill_idx | s6_notify | version | help
     )*;
 }%%
 

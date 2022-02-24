@@ -15,6 +15,7 @@
 #include "nk/io.h"
 #include "leasefile.h"
 #include "ndhc.h"
+#include "scriptd.h"
 
 static int leasefilefd = -1;
 
@@ -40,15 +41,8 @@ void open_leasefile(void)
                 client_config.interface, __func__, leasefile, strerror(errno));
 }
 
-void write_leasefile(struct in_addr ipnum)
+static void do_write_leasefile(struct in_addr ipnum)
 {
-    if (client_config.enable_s6_notify) {
-        static char buf[] = "\n";
-        safe_write(client_config.s6_notify_fd, buf, 1);
-        close(client_config.s6_notify_fd);
-        client_config.enable_s6_notify = false;
-    }
-
     char ip[INET_ADDRSTRLEN];
     char out[INET_ADDRSTRLEN*2];
     if (leasefilefd < 0) {
@@ -80,5 +74,18 @@ void write_leasefile(struct in_addr ipnum)
                  client_config.interface, __func__);
     else
         fsync(leasefilefd);
+}
+
+void write_leasefile(struct in_addr ipnum)
+{
+    do_write_leasefile(ipnum);
+    request_scriptd_run();
+
+    if (client_config.enable_s6_notify) {
+        static char buf[] = "\n";
+        safe_write(client_config.s6_notify_fd, buf, 1);
+        close(client_config.s6_notify_fd);
+        client_config.enable_s6_notify = false;
+    }
 }
 

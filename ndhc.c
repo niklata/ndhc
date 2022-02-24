@@ -43,6 +43,7 @@
 #include "duiaid.h"
 #include "sockd.h"
 #include "rfkill.h"
+#include "scriptd.h"
 
 struct client_state_t cs = {
     .program_init = true,
@@ -400,12 +401,15 @@ static void do_ndhc_work(void)
 char state_dir[PATH_MAX] = "/etc/ndhc";
 char chroot_dir[PATH_MAX] = "";
 char resolv_conf_d[PATH_MAX] = "";
+char script_file[PATH_MAX] = "";
 uid_t ndhc_uid = 0;
 gid_t ndhc_gid = 0;
 int ifchSock[2];
-int sockdSock[2];
 int ifchStream[2];
+int sockdSock[2];
 int sockdStream[2];
+int scriptdSock[2];
+int scriptdStream[2];
 
 static void create_ifch_ipc_sockets(void) {
     if (socketpair(AF_UNIX, SOCK_DGRAM, 0, ifchSock) < 0)
@@ -418,7 +422,14 @@ static void create_sockd_ipc_sockets(void) {
     if (socketpair(AF_UNIX, SOCK_DGRAM, 0, sockdSock) < 0)
         suicide("FATAL - can't create ndhc/sockd socket: %s", strerror(errno));
     if (socketpair(AF_UNIX, SOCK_STREAM, 0, sockdStream) < 0)
-        suicide("FATAL - can't create ndhc/ifch socket: %s", strerror(errno));
+        suicide("FATAL - can't create ndhc/sockd socket: %s", strerror(errno));
+}
+
+static void create_scriptd_ipc_sockets(void) {
+    if (socketpair(AF_UNIX, SOCK_DGRAM, 0, scriptdSock) < 0)
+        suicide("FATAL - can't create ndhc/scriptd socket: %s", strerror(errno));
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, scriptdStream) < 0)
+        suicide("FATAL - can't create ndhc/scriptd socket: %s", strerror(errno));
 }
 
 static void spawn_ifch(void)
@@ -453,6 +464,28 @@ static void spawn_sockd(void)
         close(sockdStream[1]);
     } else
         suicide("failed to fork ndhc-sockd: %s", strerror(errno));
+}
+
+static void spawn_scriptd(void)
+{
+    valid_script_file = access(script_file, R_OK | X_OK) == 0;
+    if (!valid_script_file) return;
+
+    log_line("Found script file: '%s'", script_file);
+
+    create_scriptd_ipc_sockets();
+    pid_t scriptd_pid = fork();
+    if (scriptd_pid == 0) {
+        close(scriptdSock[0]);
+        close(scriptdStream[0]);
+        // Don't share the RNG state with the master process.
+        nk_random_init(&cs.rnd_state);
+        scriptd_main();
+    } else if (scriptd_pid > 0) {
+        close(scriptdSock[1]);
+        close(scriptdStream[1]);
+    } else
+        suicide("failed to fork ndhc-scriptd: %s", strerror(errno));
 }
 
 static void ndhc_main(void) {
@@ -548,6 +581,7 @@ int main(int argc, char *argv[])
 
     spawn_ifch();
     spawn_sockd();
+    spawn_scriptd();
     ndhc_main();
     exit(EXIT_SUCCESS);
 }
