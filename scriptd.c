@@ -123,14 +123,13 @@ static void do_scriptd_work(void)
 
 static void signal_handler(int signo)
 {
-    switch (signo) {
-    case SIGCHLD:
+    int serrno = errno;
+    if (signo == SIGCHLD) {
         while (waitpid(-1, NULL, WNOHANG) > 0);
-        break;
-    case SIGINT:
-    case SIGTERM: _exit(EXIT_FAILURE); break;
-    default: break;
+    } else if (signo == SIGINT || signo == SIGTERM) {
+        _exit(EXIT_FAILURE);
     }
+    errno = serrno;
 }
 
 static void setup_signals_scriptd(void)

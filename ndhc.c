@@ -149,6 +149,7 @@ void show_usage(void)
 
 static void signal_handler(int signo)
 {
+    int serrno = errno;
     switch (signo) {
     case SIGCHLD: {
         static const char errstr[] = "ndhc-master: Subprocess terminated unexpectedly. Exiting.\n";
@@ -161,6 +162,7 @@ static void signal_handler(int signo)
     case SIGUSR2: l_signal_release = 1; break;
     default: break;
     }
+    errno = serrno;
 }
 
 void signal_exit(int status)
