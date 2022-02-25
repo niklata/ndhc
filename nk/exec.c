@@ -10,6 +10,7 @@
 #include <limits.h>
 #include <pwd.h>
 #include "nk/exec.h"
+#include "nk/io.h"
 
 #define DEFAULT_ROOT_PATH "/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
 #define DEFAULT_PATH "/bin:/usr/bin:/usr/local/bin"
@@ -110,7 +111,7 @@ out:
         ssize_t snlen = snprintf(argbuf, argbuflen, GEN_STR "0", __VA_ARGS__); \
         if (snlen < 0 || (size_t)snlen >= argbuflen) { \
             static const char errstr[] = "nk_execute: constructing argument list failed\n"; \
-            write(STDERR_FILENO, errstr, sizeof errstr); \
+            safe_write(STDERR_FILENO, errstr, sizeof errstr); \
             _Exit(EXIT_FAILURE); \
         } \
         if (snlen > 0) argbuf[snlen-1] = 0; \
@@ -118,10 +119,6 @@ out:
         argbuf += snlen; argbuflen -= (size_t)snlen; \
     } while (0)
 
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-result"
-#endif
 void __attribute__((noreturn))
 nk_execute(const char *command, const char *args, char * const envp[])
 {
@@ -167,7 +164,7 @@ endarg:
                 // Push an argument.
                 if (q > p) {
                     static const char errstr[] = "nk_execute: argument length too long\n";
-                    write(STDERR_FILENO, errstr, sizeof errstr);
+                    safe_write(STDERR_FILENO, errstr, sizeof errstr);
                     _Exit(EXIT_FAILURE);
                 }
                 const size_t len = (size_t)(p - q);
@@ -181,11 +178,8 @@ endarg:
     execve(command, argv, envp);
     {
         static const char errstr[] = "nk_execute: execve failed\n";
-        write(STDERR_FILENO, errstr, sizeof errstr);
+        safe_write(STDERR_FILENO, errstr, sizeof errstr);
         _Exit(EXIT_FAILURE);
     }
 }
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
 
