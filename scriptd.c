@@ -17,9 +17,6 @@
 #include "ndhc.h"
 #include "sys.h"
 
-#define MAX_ENVBUF 2048
-#define MAX_CENV 50
-
 bool valid_script_file = false;
 
 // Runs the 'script_file'-specified script.  Called from ndhc process.
@@ -36,30 +33,15 @@ void request_scriptd_run(void)
 
 static void run_script(void)
 {
-    char *env[MAX_CENV];
-    char envbuf[MAX_ENVBUF];
+    struct nk_exec_env xe;
     switch ((int)fork()) {
         case 0: {
-            int r = nk_generate_env(0, NULL, NULL, env, MAX_CENV, envbuf, sizeof envbuf);
+            int r = nk_generate_env(&xe, 0, NULL, NULL);
             if (r < 0) {
-                static const char errstr[] = "exec: failed to generate environment - ";
-                safe_write(STDERR_FILENO, errstr, sizeof errstr);
-                static const char errstr0[] = "(?) unknown error";
-                static const char errstr1[] = "(-1) account for uid does not exist";
-                static const char errstr2[] = "(-2) not enough space in envbuf";
-                static const char errstr3[] = "(-3) not enough space in env";
-                static const char errstr4[] = "(-4) chdir to homedir or rootdir failed";
-                switch (r) {
-                default: safe_write(STDERR_FILENO, errstr0, sizeof errstr0); break;
-                case -1: safe_write(STDERR_FILENO, errstr1, sizeof errstr1); break;
-                case -2: safe_write(STDERR_FILENO, errstr2, sizeof errstr2); break;
-                case -3: safe_write(STDERR_FILENO, errstr3, sizeof errstr3); break;
-                case -4: safe_write(STDERR_FILENO, errstr4, sizeof errstr4); break;
-                }
-                safe_write(STDERR_FILENO, "\n", 1);
+                nk_generate_env_print_error(r);
                 exit(EXIT_FAILURE);
             }
-            nk_execute(script_file, NULL, env);
+            nk_execute(script_file, NULL, xe.env);
         }
         case -1: {
             static const char errstr[] = "exec: fork failed\n";

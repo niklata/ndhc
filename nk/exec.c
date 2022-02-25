@@ -1,4 +1,4 @@
-// Copyright 2003-2018 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2003-2022 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <sys/types.h>
 #include <stdbool.h>
@@ -26,13 +26,14 @@
 #define DEFAULT_ROOT_PATH "/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
 #define DEFAULT_PATH "/bin:/usr/bin:/usr/local/bin"
 #define MAX_ARGS 256
-#define MAX_ARGBUF 4096
+#define MAX_ARGBUF 16384
+#define MAX_PWBUF 16384
 
 #define NK_GEN_ENV(GEN_STR, ...) do { \
         if (env_offset >= envlen) return -3; \
         ssize_t snlen = snprintf(envbuf, envbuflen, GEN_STR, __VA_ARGS__); \
-        if (snlen < 0 || (size_t)snlen >= envbuflen) return -2; \
-        env[env_offset++] = envbuf; envbuf += snlen; envbuflen -= (size_t)snlen; \
+        if (snlen < 0 || (size_t)snlen > envbuflen) return -2; \
+        xe->env[env_offset++] = envbuf; envbuf += snlen; envbuflen -= (size_t)snlen; \
     } while (0)
 
 /*
@@ -51,54 +52,30 @@
  * -3 if there is not enough space in env for the generated environment
  * -4 if chdir to homedir or rootdir failed
  * -5 if oom or i/o failed
+ * -6 if MAX_PWBUF is too small
  */
-int nk_generate_env(uid_t uid, const char *chroot_path, const char *path_var,
-                    char *env[], size_t envlen, char *envbuf, size_t envbuflen)
+int nk_generate_env(struct nk_exec_env *xe, uid_t uid, const char *chroot_path, const char *path_var)
 {
-    char pw_strs[4096];
-    struct passwd pw_s;
-    struct passwd *pw;
-    char *pw_buf = NULL;
-    int ret = 0, pwr;
+    char pwbuf[MAX_PWBUF];
+    struct passwd pw_s, *pw;
 
-getpwagain0:
-    pwr = getpwuid_r(uid, &pw_s, pw_strs, sizeof pw_strs, &pw);
-    if (pw == NULL) {
-        if (pwr == 0) { ret = -1; goto out; }
-        if (pwr == EINTR) goto getpwagain0;
-        if (pwr == ERANGE) {
-            size_t pwlen = (sizeof pw_strs >> 1) * 3;
-            for (;;) {
-                if (pw_buf) free(pw_buf);
-                pw_buf = malloc(pwlen);
-                if (!pw_buf) { ret = -5; goto out; }
-getpwagain:
-                pwr = getpwuid_r(uid, &pw_s, pw_buf, pwlen, &pw);
-                if (pw == NULL) {
-                    if (pwr == 0) { ret = -1; goto out; }
-                    if (pwr == EINTR) goto getpwagain;
-                    if (pwr == ERANGE) {
-                        size_t oldpwlen = pwlen;
-                        pwlen = (pwlen >> 1) * 3;
-                        if (pwlen > oldpwlen) continue;
-                        else { // overflowed
-                            ret = -5; goto out;
-                        }
-                    }
-                    ret = -5; goto out;
-                }
-                break; // the pwr != 0 check below applies here
-            }
+    for (;;) {
+        int r = getpwuid_r(uid, &pw_s, pwbuf, sizeof pwbuf, &pw);
+        if (!r) {
+            if (pw == NULL) return -1;
+            break;
+        } else {
+            if (r == EINTR) continue;
+            if (r == ERANGE) return -6;
+            return -5;
         }
-        ret = -5; goto out;
     }
-    if (pwr != 0) { ret = -5; goto out; }
 
     size_t env_offset = 0;
-    if (envlen-- < 1) { // So we don't have to account for the terminal NULL
-        ret = -3;
-        goto out;
-    }
+    size_t envlen = sizeof xe->env / sizeof xe->env[0];
+    char *envbuf = xe->envbuf;
+    size_t envbuflen = sizeof xe->envbuf;
+    if (envlen-- < 1) return -3; // So we don't have to account for the terminal NULL
 
     NK_GEN_ENV("UID=%i", uid);
     NK_GEN_ENV("USER=%s", pw->pw_name);
@@ -108,18 +85,43 @@ getpwagain:
     NK_GEN_ENV("SHELL=%s", pw->pw_shell);
     NK_GEN_ENV("PATH=%s", path_var ? path_var : (uid > 0 ? DEFAULT_PATH : DEFAULT_ROOT_PATH));
     NK_GEN_ENV("PWD=%s", !chroot_path ? pw->pw_dir : "/");
-    if (chroot_path && chroot(chroot_path)) { ret = -4; goto out; }
-    if (chdir(chroot_path ? chroot_path : "/")) { ret = -4; goto out; }
+    if (chroot_path && chroot(chroot_path)) return -4;
+    if (chdir(chroot_path ? chroot_path : "/")) return -4;
 
-    env[env_offset] = 0;
-out:
-    free(pw_buf);
-    return ret;
+    xe->env[env_offset] = 0;
+    return 0;
 }
+
+#define ERRSTR0 "exec: failed to generate environment - (?) unknown error\n"
+#define ERRSTR1 "exec: failed to generate environment - (-1) account for uid does not exist\n"
+#define ERRSTR2 "exec: failed to generate environment - (-2) not enough space in envbuf\n"
+#define ERRSTR3 "exec: failed to generate environment - (-3) not enough space in env\n"
+#define ERRSTR4 "exec: failed to generate environment - (-4) chdir to homedir or rootdir failed\n"
+#define ERRSTR5 "exec: failed to generate environment - (-5) oom or i/o error\n"
+#define ERRSTR6 "exec: failed to generate environment - (-6) MAX_PWBUF is too small\n"
+void nk_generate_env_print_error(int err)
+{
+    switch (err) {
+    default: safe_write(STDERR_FILENO, ERRSTR0, sizeof ERRSTR0); break;
+    case -1: safe_write(STDERR_FILENO, ERRSTR1, sizeof ERRSTR1); break;
+    case -2: safe_write(STDERR_FILENO, ERRSTR2, sizeof ERRSTR2); break;
+    case -3: safe_write(STDERR_FILENO, ERRSTR3, sizeof ERRSTR3); break;
+    case -4: safe_write(STDERR_FILENO, ERRSTR4, sizeof ERRSTR4); break;
+    case -5: safe_write(STDERR_FILENO, ERRSTR5, sizeof ERRSTR5); break;
+    case -6: safe_write(STDERR_FILENO, ERRSTR6, sizeof ERRSTR6); break;
+    }
+}
+#undef ERRSTR0
+#undef ERRSTR1
+#undef ERRSTR2
+#undef ERRSTR3
+#undef ERRSTR4
+#undef ERRSTR5
+#undef ERRSTR6
 
 #define NK_GEN_ARG(GEN_STR, ...) do { \
         ssize_t snlen = snprintf(argbuf, argbuflen, GEN_STR, __VA_ARGS__); \
-        if (snlen < 0 || (size_t)snlen >= argbuflen) { \
+        if (snlen < 0 || (size_t)snlen > argbuflen) { \
             static const char errstr[] = "nk_execute: constructing argument list failed\n"; \
             safe_write(STDERR_FILENO, errstr, sizeof errstr); \
             _Exit(EXIT_FAILURE); \
