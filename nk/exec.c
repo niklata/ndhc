@@ -37,13 +37,10 @@
     } while (0)
 
 /*
+ * xe: contains generated env and backing buffer
  * uid: userid of the user account that the environment will constructed for
  * chroot_path: path where the environment will be chrooted or NULL if no chroot
  * path_var: value of the PATH variable in the environment or defaults if NULL
- * env: array of character pointers that will be filled in with the new environment
- * envlen: number of character pointers available in env; a terminal '0' ptr must be available
- * envbuf: character buffer that will be used for storing state associated with env
- * envbuflen: number of available characters in envbuf for use
  *
  * returns:
  * 0 on success
