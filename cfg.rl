@@ -15,8 +15,15 @@
 #include "sockd.h"
 #include "nk/log.h"
 #include "nk/privs.h"
-#include "nk/copy_cmdarg.h"
 #include "nk/io.h"
+
+static void copy_cmdarg(char *dest, const char *src,
+                        size_t destlen, const char *argname)
+{
+    ssize_t olen = snprintf(dest, destlen, "%s", src);
+    if (olen < 0 || (size_t)olen > destlen)
+        suicide("snprintf failed on %s", argname);
+}
 
 struct cfgparse {
    char buf[MAX_BUF];

@@ -24,7 +24,6 @@
 #include "nk/log.h"
 #include "nk/privs.h"
 #include "nk/io.h"
-#include "nk/copy_cmdarg.h"
 
 #include "ndhc.h"
 #include "ndhc-defines.h"
