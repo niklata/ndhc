@@ -19,11 +19,8 @@
 static void get_duid_path(char *duidfile, size_t dlen)
 {
     int splen = snprintf(duidfile, dlen, "%s/DUID", state_dir);
-    if (splen < 0)
+    if (splen < 0 || (size_t)splen > dlen)
         suicide("%s: snprintf failed; return=%d", __func__, splen);
-    if ((size_t)splen >= dlen)
-        suicide("%s: snprintf dest buffer too small %d >= %zu",
-                __func__, splen, sizeof dlen);
 }
 
 static void get_iaid_path(char *iaidfile, size_t ilen,
@@ -37,11 +34,8 @@ static void get_iaid_path(char *iaidfile, size_t ilen,
          "%s/IAID-%2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x",
          state_dir, hwaddr[0], hwaddr[1], hwaddr[2],
          hwaddr[3], hwaddr[4], hwaddr[5]);
-    if (splen < 0)
+    if (splen < 0 || (size_t)splen > ilen)
         suicide("%s: snprintf failed; return=%d", __func__, splen);
-    if ((size_t)splen >= ilen)
-        suicide("%s: snprintf dest buffer too small %d >= %zu",
-                __func__, splen, sizeof ilen);
 }
 
 static int open_duidfile_read(void)

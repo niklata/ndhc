@@ -5940,7 +5940,7 @@ void parse_cmdline(int argc, char *argv[])
 		0, argv[i]);
 		else
 			snl = snprintf(argb + argbl, sizeof argb - argbl, "%s", argv[i]);
-		if (snl < 0 || (size_t)snl >= sizeof argb)
+		if (snl < 0 || (size_t)snl > sizeof argb)
 			suicide("error parsing command line option: option too long");
 		argbl += (size_t)snl;
 	}

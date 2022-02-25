@@ -23,12 +23,9 @@ static void get_leasefile_path(char *leasefile, size_t dlen, char *ifname)
 {
     int splen = snprintf(leasefile, dlen, "%s/LEASE-%s",
                          state_dir, ifname);
-    if (splen < 0)
+    if (splen < 0 || (size_t)splen > dlen)
         suicide("%s: (%s) snprintf failed; return=%d",
                 client_config.interface, __func__, splen);
-    if ((size_t)splen >= dlen)
-        suicide("%s: (%s) snprintf dest buffer too small %d >= %zu",
-                client_config.interface, __func__, splen, sizeof dlen);
 }
 
 void open_leasefile(void)
@@ -52,7 +49,7 @@ static void do_write_leasefile(struct in_addr ipnum)
     }
     inet_ntop(AF_INET, &ipnum, ip, sizeof ip);
     ssize_t olen = snprintf(out, sizeof out, "%s\n", ip);
-    if (olen < 0 || (size_t)olen >= sizeof ip) {
+    if (olen < 0 || (size_t)olen > sizeof ip) {
         log_line("%s: (%s) snprintf failed; return=%zd",
                  client_config.interface, __func__, olen);
         return;

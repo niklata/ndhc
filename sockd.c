@@ -143,7 +143,7 @@ static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
     struct ifreq ifr;
     memset(&ifr, 0, sizeof ifr);
     ssize_t sl = snprintf(ifr.ifr_name, sizeof ifr.ifr_name, "%s", iface);
-    if (sl < 0 || (size_t)sl >= sizeof ifr.ifr_name) {
+    if (sl < 0 || (size_t)sl > sizeof ifr.ifr_name) {
         log_line("%s: (%s) Set interface name failed.",
                  client_config.interface, __func__);
         goto out_fd;

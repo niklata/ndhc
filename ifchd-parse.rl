@@ -173,14 +173,8 @@ int execute_buffer(const char *newbuf)
 
     ssize_t buflen = snprintf(buf, sizeof buf, "%s%s", cl.ibuf, newbuf);
     memset(cl.ibuf, 0, sizeof cl.ibuf);
-    if (buflen < 0) {
-        log_line("%s: (%s) snprintf1 failed; your system is broken?",
-                 client_config.interface, __func__);
-        return -99;
-    }
-    if ((size_t)buflen >= sizeof buf) {
-        log_line("%s: (%s) input is too long for buffer",
-                 client_config.interface, __func__);
+    if (buflen < 0 || (size_t)buflen > sizeof buf) {
+        log_line("%s: (%s) snprintf1 failed", client_config.interface, __func__);
         return -99;
     }
 
@@ -202,14 +196,8 @@ int execute_buffer(const char *newbuf)
 
     if (cmd_start != pe) {
         ssize_t ilen = snprintf(cl.ibuf, sizeof cl.ibuf, "%s", cmd_start);
-        if (ilen < 0) {
-            log_line("%s: (%s) snprintf2 failed; your system is broken?",
-                     client_config.interface, __func__);
-            return -99;
-        }
-        if ((size_t)ilen >= sizeof buf) {
-            log_line("%s: (%s) unconsumed input too long for buffer",
-                     client_config.interface, __func__);
+        if (ilen < 0 || (size_t)ilen > sizeof buf) {
+            log_line("%s: (%s) snprintf2 failed", client_config.interface, __func__);
             return -99;
         }
     }

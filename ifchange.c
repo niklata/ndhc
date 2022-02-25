@@ -42,7 +42,7 @@ static int ifcmd_raw(char *buf, size_t buflen, const char *optname,
     int ioptlen = (int)optlen;
     ssize_t olen = snprintf(buf, buflen, "%s:%.*s;",
                             optname, ioptlen, optdata);
-    if (olen < 0 || (size_t)olen >= buflen) {
+    if (olen < 0 || (size_t)olen > buflen) {
         log_line("%s: (%s) '%s' option would truncate, so it was dropped.",
                  client_config.interface, __func__, optname);
         memset(buf, 0, buflen);
@@ -65,7 +65,7 @@ static int ifcmd_u8(char *buf, size_t buflen, const char *optname,
     char numbuf[16];
     uint8_t c = optdata[0];
     ssize_t olen = snprintf(numbuf, sizeof numbuf, "%c", c);
-    if (olen < 0 || (size_t)olen >= sizeof numbuf)
+    if (olen < 0 || (size_t)olen > sizeof numbuf)
         return -1;
     return ifcmd_raw(buf, buflen, optname, numbuf, strlen(numbuf));
 }
@@ -80,7 +80,7 @@ static int ifcmd_u16(char *buf, size_t buflen, const char *optname,
     memcpy(&v, optdata, 2);
     v = ntohs(v);
     ssize_t olen = snprintf(numbuf, sizeof numbuf, "%hu", v);
-    if (olen < 0 || (size_t)olen >= sizeof numbuf)
+    if (olen < 0 || (size_t)olen > sizeof numbuf)
         return -1;
     return ifcmd_raw(buf, buflen, optname, numbuf, strlen(numbuf));
 }
@@ -95,7 +95,7 @@ static int ifcmd_s32(char *buf, size_t buflen, const char *optname,
     memcpy(&v, optdata, 4);
     v = ntohl(v);
     ssize_t olen = snprintf(numbuf, sizeof numbuf, "%d", v);
-    if (olen < 0 || (size_t)olen >= sizeof numbuf)
+    if (olen < 0 || (size_t)olen > sizeof numbuf)
         return -1;
     return ifcmd_raw(buf, buflen, optname, numbuf, strlen(numbuf));
 }
@@ -123,14 +123,14 @@ static int ifcmd_iplist(char *out, size_t outlen, const char *optname,
 
     inet_ntop(AF_INET, optdata + optoff, ipbuf, sizeof ipbuf);
     ssize_t wc = snprintf(buf + bufoff, sizeof buf, "%s", ipbuf);
-    if (wc < 0 || (size_t)wc >= sizeof buf)
+    if (wc < 0 || (size_t)wc > sizeof buf)
         return -1;
     optoff += 4;
     bufoff += (size_t)wc;
     while (optlen >= 4 + optoff) {
         inet_ntop(AF_INET, optdata + optoff, ipbuf, sizeof ipbuf);
         wc = snprintf(buf + bufoff, sizeof buf, ",%s", ipbuf);
-        if (wc < 0 || (size_t)wc >= sizeof buf)
+        if (wc < 0 || (size_t)wc > sizeof buf)
             return -1;
         optoff += 4;
         bufoff += (size_t)wc;
@@ -270,7 +270,7 @@ static size_t send_client_ip(char *out, size_t olen,
     } else {
         snlen = snprintf(out, olen, "ip4:%s,%s;", ip, sn);
     }
-    if (snlen < 0 || (size_t)snlen >= olen) {
+    if (snlen < 0 || (size_t)snlen > olen) {
         log_line("%s: (%s) ip4 command would truncate so it was dropped.",
                  client_config.interface, __func__);
         memset(out, 0, olen);
