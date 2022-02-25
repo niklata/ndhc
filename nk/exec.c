@@ -12,6 +12,17 @@
 #include "nk/exec.h"
 #include "nk/io.h"
 
+/*
+ * Note that neither nk_generate_env or nk_execute are async signal safe, so
+ * these functions should only be called after fork() in a non-multithreaded
+ * process.
+ *
+ * I don't consider this to be a problem in general, since in a multithreaded process
+ * it would be far better to fork off a subprocess early on before threads are
+ * created and use a socketpair() to request subprocess creation from the
+ * single-threaded subprocess from the multithreaded main program.
+ */
+
 #define DEFAULT_ROOT_PATH "/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
 #define DEFAULT_PATH "/bin:/usr/bin:/usr/local/bin"
 #define MAX_ARGS 256
@@ -19,9 +30,8 @@
 
 #define NK_GEN_ENV(GEN_STR, ...) do { \
         if (env_offset >= envlen) return -3; \
-        ssize_t snlen = snprintf(envbuf, envbuflen, GEN_STR "0", __VA_ARGS__); \
+        ssize_t snlen = snprintf(envbuf, envbuflen, GEN_STR, __VA_ARGS__); \
         if (snlen < 0 || (size_t)snlen >= envbuflen) return -2; \
-        if (snlen > 0) envbuf[snlen-1] = 0; \
         env[env_offset++] = envbuf; envbuf += snlen; envbuflen -= (size_t)snlen; \
     } while (0)
 
@@ -108,14 +118,13 @@ out:
 }
 
 #define NK_GEN_ARG(GEN_STR, ...) do { \
-        ssize_t snlen = snprintf(argbuf, argbuflen, GEN_STR "0", __VA_ARGS__); \
+        ssize_t snlen = snprintf(argbuf, argbuflen, GEN_STR, __VA_ARGS__); \
         if (snlen < 0 || (size_t)snlen >= argbuflen) { \
             static const char errstr[] = "nk_execute: constructing argument list failed\n"; \
             safe_write(STDERR_FILENO, errstr, sizeof errstr); \
             _Exit(EXIT_FAILURE); \
         } \
-        if (snlen > 0) argbuf[snlen-1] = 0; \
-        argv[curv] = argbuf; argv[++curv] = (char *)0; \
+        argv[curv] = argbuf; argv[++curv] = NULL; \
         argbuf += snlen; argbuflen -= (size_t)snlen; \
     } while (0)
 
@@ -167,8 +176,7 @@ endarg:
                     safe_write(STDERR_FILENO, errstr, sizeof errstr);
                     _Exit(EXIT_FAILURE);
                 }
-                const size_t len = (size_t)(p - q);
-                NK_GEN_ARG("%.*s", (int)len, q);
+                NK_GEN_ARG("%.*s", (int)(p - q), q);
                 q = p + 1;
                 if (atend || curv >= (MAX_ARGS - 1))
                     break;
