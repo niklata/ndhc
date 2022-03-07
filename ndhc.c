@@ -334,6 +334,7 @@ static void do_ndhc_work(void)
         } else if (sev_rfk == RFK_DISABLED) {
             rfkill_set = 0;
             log_line("rfkill: radio now unblocked");
+            cs.carrier_up = ifchange_carrier_isup();
             if (rfkill_nl_carrier_wentup && carrier_isup()) {
                 // We might have changed networks while the radio was down.
                 force_fingerprint = true;
