@@ -1,0 +1,6 @@
+#!/bin/execlineb -P
+fdmove -c 2 1
+backtick OLDEXTIP { cat /etc/firewall/tmp/OLDEXTIP }
+importas OLDEXTIP OLDEXTIP
+/sbin/ndhc -c /etc/ndhc/wan0.conf -r $OLDEXTIP
+
