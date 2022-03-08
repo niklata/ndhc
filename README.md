@@ -9,11 +9,10 @@ runs with the minimal necessary privileges in order to perform its task.
 Currently, ndhc consists of three subprocesses: the ndhc-master,
 ndhc-ifch, and ndhc-sockd.
 
-ndhc-master communicates with DHCP servers and handles the vagaries of
-the DHCP client protocol.  It runs as a non-root user inside a chroot.
-ndhc runs as a normal user with no special privileges and is restricted
-to a chroot that contains nothing more than a domain socket filesystem
-object (if using syslog), a urandom device node, and a null device node.
+ndhc-master communicates with DHCP servers and handles the vagaries of the DHCP
+client protocol.  It runs as a non-root user inside a chroot.  ndhc runs as a
+normal user with no special privileges and is restricted to a chroot that
+contains nothing more than a urandom device node and a null device node.
 
 ndhc-ifch handles interface change requests.  It listens on a unix
 socket for such requests.  ndhc-ifch runs as a non-root user inside
@@ -137,28 +136,65 @@ Create a urandom device for ndhc to use within the jail.
 # chmod a+r dev/urandom
 # chmod a+rw dev/null
 ```
-(_optional_) If you wish for logging to properly work, you will need
-to properly configure your logging daemon so that it opens a domain
-socket in the proper location within the jail. Since this varies
-per-daemon, I cannot provide a general configuration.
-
 At this point the jail is usable; ndhc is ready to be used.  It should
 be invoked as the root user so that it can spawn its processes with the
 proper permissions.  An example of invoking ndhc: `ndhc -i wan0 -u dhcp -U dhcpifch -D dhcpsockd -C /var/lib/ndhc`
 
-If you encounter problems, I suggest running ndhc in the foreground
-and examining the printed output.
+If a configuration file is preferred instead of command arguments, I provide an
+example configuation file `examples/wan0.conf`.  The associated example of
+invoking ndhc with such a configuration would be `ndhc -c /etc/ndhc/wan0.conf`.
 
-I suggest running ndhc under some sort of process
-supervision such as [runit](http://smarden.org/runit) or
+If you encounter problems, I suggest running ndhc in the foreground
+and examining the printed output.  ndhc logs all output to standard out
+or standard error.
+
+ndhc should be run under some sort of process supervision such as
 [s6](http://www.skarnet.org/software/s6).  This will allow for reliable
-functioning in the case of unforseen or unrecoverable errors.
+functioning in the case of unforseen or unrecoverable errors.  I provide
+an example s6 run file `examples/s6.run`.
 
 ## Behavior Notes
 
 ndhc does not enable updates of the local `hostname` and `resolv.conf` by
 default.  If you wish to enable these functions, use the `--resolve`
 (`-R`) and `--hostname` (`-H`) flags.  See `ndhc --help`.
+
+If the network interface must be up for dependent daemons to run, the `now`
+configuration or `--now` command flag should be used so that ndhc will
+be respawned by the process supervisor if no lease is acquired.
+
+## Running a script when a new lease is acquired
+
+It is common for there to be some system state that must be changed
+if a network interface configuration changes; for example, on a system
+providing NAT or firewalling, the NAT or firewall might need to be updated
+if the associated upbound interface has a new IP address.
+
+ndhc has the ability to run a script each time a new lease state is acquired.
+The script to be run is specified either in the configuration file with
+`script-file = SCRIPTFILE` or as a command argument with `--script-file
+SCRIPTFILE` where SCRIPTFILE is a path to an executable file.  The script will
+not be run if an existing lease (acquired since the ndhc process was started)
+is simply updated.
+
+If a scriptfile is specified, ndhc will spawn a subprocess that runs as root
+that has the sole job of forking off a subprocess that exec's the specified
+script in a sanitized and fixed-state environment whenever a new DHCPv4 lease
+is acquired.
+
+Note that this script is provided no information about ndhc or the
+DHCP state in the environment or in any argument fields; it is the
+responsibility of this script to gather whatever information it needs
+from either the filesystem or syscalls.  This design is intended to
+avoid the historical problems that are associated with dhcp clients
+invoking scripts.
+
+The path of the scriptfile cannot be changed after ndhc is initially
+run; ndhc forks off the privsep script subprocess that executes scripts
+after it has read the configuration file and command arguments, but
+before it begins processing network data; thus, it is impossible for the
+network-handling process to modify or influence the script assuming
+proper OS memory protection.
 
 ## State Storage Notes
 
