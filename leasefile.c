@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <limits.h>
+#include "nk/stb_sprintf.h"
 #include "nk/log.h"
 #include "nk/io.h"
 #include "leasefile.h"
@@ -21,8 +22,8 @@ static int leasefilefd = -1;
 
 static void get_leasefile_path(char *leasefile, size_t dlen, char *ifname)
 {
-    int splen = snprintf(leasefile, dlen, "%s/LEASE-%s",
-                         state_dir, ifname);
+    int splen = stbsp_snprintf(leasefile, dlen, "%s/LEASE-%s",
+                               state_dir, ifname);
     if (splen < 0 || (size_t)splen > dlen)
         suicide("%s: (%s) snprintf failed; return=%d",
                 client_config.interface, __func__, splen);
@@ -48,7 +49,7 @@ static void do_write_leasefile(struct in_addr ipnum)
         return;
     }
     inet_ntop(AF_INET, &ipnum, ip, sizeof ip);
-    ssize_t olen = snprintf(out, sizeof out, "%s\n", ip);
+    ssize_t olen = stbsp_snprintf(out, sizeof out, "%s\n", ip);
     if (olen < 0 || (size_t)olen > sizeof ip) {
         log_line("%s: (%s) snprintf failed; return=%zd",
                  client_config.interface, __func__, olen);

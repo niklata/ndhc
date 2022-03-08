@@ -5,8 +5,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include "nk/stb_sprintf.h"
 #include "nk/log.h"
-
 #include "ifchd-parse.h"
 #include "ifchd.h"
 #include "ifset.h"
@@ -171,7 +171,7 @@ int execute_buffer(const char *newbuf)
     char tb[MAX_BUF];
     int cmdf = 0;
 
-    ssize_t buflen = snprintf(buf, sizeof buf, "%s%s", cl.ibuf, newbuf);
+    ssize_t buflen = stbsp_snprintf(buf, sizeof buf, "%s%s", cl.ibuf, newbuf);
     memset(cl.ibuf, 0, sizeof cl.ibuf);
     if (buflen < 0 || (size_t)buflen > sizeof buf) {
         log_line("%s: (%s) snprintf1 failed", client_config.interface, __func__);
@@ -195,7 +195,7 @@ int execute_buffer(const char *newbuf)
     }
 
     if (cmd_start != pe) {
-        ssize_t ilen = snprintf(cl.ibuf, sizeof cl.ibuf, "%s", cmd_start);
+        ssize_t ilen = stbsp_snprintf(cl.ibuf, sizeof cl.ibuf, "%s", cmd_start);
         if (ilen < 0 || (size_t)ilen > sizeof buf) {
             log_line("%s: (%s) snprintf2 failed", client_config.interface, __func__);
             return -99;

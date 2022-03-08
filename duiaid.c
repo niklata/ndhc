@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <errno.h>
+#include "nk/stb_sprintf.h"
 #include "nk/log.h"
 #include "nk/random.h"
 #include "nk/io.h"
@@ -18,7 +19,7 @@
 
 static void get_duid_path(char *duidfile, size_t dlen)
 {
-    int splen = snprintf(duidfile, dlen, "%s/DUID", state_dir);
+    int splen = stbsp_snprintf(duidfile, dlen, "%s/DUID", state_dir);
     if (splen < 0 || (size_t)splen > dlen)
         suicide("%s: snprintf failed; return=%d", __func__, splen);
 }
@@ -29,7 +30,7 @@ static void get_iaid_path(char *iaidfile, size_t ilen,
     if (hwaddrlen != 6)
         suicide("%s: Hardware address length=%zu != 6 bytes",
                 __func__, hwaddrlen);
-    int splen = snprintf
+    int splen = stbsp_snprintf
         (iaidfile, ilen,
          "%s/IAID-%2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x",
          state_dir, hwaddr[0], hwaddr[1], hwaddr[2],

@@ -13,6 +13,7 @@
 #include "ndhc.h"
 #include "ifchd.h"
 #include "sockd.h"
+#include "nk/stb_sprintf.h"
 #include "nk/log.h"
 #include "nk/privs.h"
 #include "nk/io.h"
@@ -20,7 +21,7 @@
 static void copy_cmdarg(char *dest, const char *src,
                         size_t destlen, const char *argname)
 {
-    ssize_t olen = snprintf(dest, destlen, "%s", src);
+    ssize_t olen = stbsp_snprintf(dest, destlen, "%s", src);
     if (olen < 0 || (size_t)olen > destlen)
         suicide("snprintf failed on %s", argname);
 }
@@ -331,10 +332,10 @@ void parse_cmdline(int argc, char *argv[])
     for (size_t i = 1; i < (size_t)argc; ++i) {
         ssize_t snl;
         if (i > 1)
-            snl = snprintf(argb + argbl, sizeof argb - argbl, "%c%s",
-                           0, argv[i]);
+            snl = stbsp_snprintf(argb + argbl, sizeof argb - argbl, "%c%s",
+                                 0, argv[i]);
         else
-            snl = snprintf(argb + argbl, sizeof argb - argbl, "%s", argv[i]);
+            snl = stbsp_snprintf(argb + argbl, sizeof argb - argbl, "%s", argv[i]);
         if (snl < 0 || (size_t)snl > sizeof argb)
             suicide("error parsing command line option: option too long");
         argbl += (size_t)snl;

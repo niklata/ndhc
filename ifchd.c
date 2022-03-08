@@ -14,10 +14,10 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <errno.h>
+#include "nk/stb_sprintf.h"
 #include "nk/log.h"
 #include "nk/privs.h"
 #include "nk/io.h"
-
 #include "ifchd.h"
 #include "ndhc.h"
 #include "ifchd-parse.h"
@@ -103,7 +103,7 @@ static int write_resolve_conf(void)
             q = strchr(p, '\0');
         else
             *q++ = '\0';
-        ssize_t sl = snprintf(buf, sizeof buf, "%s", p);
+        ssize_t sl = stbsp_snprintf(buf, sizeof buf, "%s", p);
         if (sl < 0 || (size_t)sl > sizeof buf) {
             log_line("%s: (%s) snprintf failed appending nameservers",
                      client_config.interface, __func__);
@@ -124,7 +124,7 @@ static int write_resolve_conf(void)
             q = strchr(p, '\0');
         else
             *q++ = '\0';
-        ssize_t sl = snprintf(buf, sizeof buf, "%s", p);
+        ssize_t sl = stbsp_snprintf(buf, sizeof buf, "%s", p);
         if (sl < 0 || (size_t)sl > sizeof buf) {
             log_line("%s: (%s) snprintf failed appending domains",
                      client_config.interface, __func__);
@@ -190,7 +190,7 @@ int perform_dns(const char *str, size_t len)
         log_line("DNS server list is too long: %zu > %zu", len, sizeof cl.namesvrs);
         return ret;
     }
-    ssize_t sl = snprintf(cl.namesvrs, sizeof cl.namesvrs, "%s", str);
+    ssize_t sl = stbsp_snprintf(cl.namesvrs, sizeof cl.namesvrs, "%s", str);
     if (sl < 0 || (size_t)sl > sizeof cl.namesvrs) {
         log_line("%s: (%s) snprintf failed", client_config.interface, __func__);
     }
@@ -231,7 +231,7 @@ int perform_domain(const char *str, size_t len)
         log_line("DNS domain list is too long: %zu > %zu", len, sizeof cl.namesvrs);
         return ret;
     }
-    ssize_t sl = snprintf(cl.domains, sizeof cl.domains, "%s", str);
+    ssize_t sl = stbsp_snprintf(cl.domains, sizeof cl.domains, "%s", str);
     if (sl < 0 || (size_t)sl > sizeof cl.domains) {
         log_line("%s: (%s) snprintf failed", client_config.interface, __func__);
     }
@@ -345,13 +345,13 @@ static void setup_resolv_conf(void)
         }
         char buf[PATH_MAX];
 
-        ssize_t sl = snprintf(buf, sizeof buf, "%s.head", resolv_conf_d);
+        ssize_t sl = stbsp_snprintf(buf, sizeof buf, "%s.head", resolv_conf_d);
         if (sl < 0 || (size_t)sl > sizeof buf)
             log_line("snprintf failed appending resolv_conf_head; path too long?");
         else
             resolv_conf_head_fd = open(buf, O_RDONLY|O_CLOEXEC, 0);
 
-        sl = snprintf(buf, sizeof buf, "%s.tail", resolv_conf_d);
+        sl = stbsp_snprintf(buf, sizeof buf, "%s.tail", resolv_conf_d);
         if (sl < 0 || (size_t)sl > sizeof buf)
             log_line("snprintf failed appending resolv_conf_tail; path too long?");
         else

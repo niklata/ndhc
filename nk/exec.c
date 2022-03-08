@@ -9,13 +9,14 @@
 #include <errno.h>
 #include <limits.h>
 #include <pwd.h>
+#include "nk/stb_sprintf.h"
 #include "nk/exec.h"
 #include "nk/io.h"
 
 /*
- * Note that neither nk_generate_env or nk_execute are async signal safe, so
- * these functions should only be called after fork() in a non-multithreaded
- * process.
+ * Note that nk_generate_env is not async signal safe if chroot_path is not
+ * NULL, so it should only be called after fork() in a non-multithreaded
+ * process if chroot_path is ever non-NULL.
  *
  * I don't consider this to be a problem in general, since in a multithreaded process
  * it would be far better to fork off a subprocess early on before threads are
@@ -31,7 +32,7 @@
 
 #define NK_GEN_ENV(GEN_STR, ...) do { \
         if (env_offset >= envlen) return -3; \
-        ssize_t snlen = snprintf(envbuf, envbuflen, GEN_STR, __VA_ARGS__); \
+        ssize_t snlen = stbsp_snprintf(envbuf, envbuflen, GEN_STR, __VA_ARGS__); \
         if (snlen < 0 || (size_t)snlen > envbuflen) return -2; \
         xe->env[env_offset++] = envbuf; envbuf += snlen; envbuflen -= (size_t)snlen; \
     } while (0)
@@ -117,7 +118,7 @@ void nk_generate_env_print_error(int err)
 #undef ERRSTR6
 
 #define NK_GEN_ARG(GEN_STR, ...) do { \
-        ssize_t snlen = snprintf(argbuf, argbuflen, GEN_STR, __VA_ARGS__); \
+        ssize_t snlen = stbsp_snprintf(argbuf, argbuflen, GEN_STR, __VA_ARGS__); \
         if (snlen < 0 || (size_t)snlen > argbuflen) { \
             static const char errstr[] = "nk_execute: constructing argument list failed\n"; \
             safe_write(STDERR_FILENO, errstr, sizeof errstr); \
