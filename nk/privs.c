@@ -1,4 +1,4 @@
-// Copyright 2005-2018 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2005-2022 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -52,6 +52,11 @@ static size_t nk_get_capability_vinfo(uint32_t *version)
          return _LINUX_CAPABILITY_U32S_3;
     }
 }
+static void nk_set_no_new_privs(void)
+{
+    if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0))
+        suicide("%s: prctl failed: %s", __func__, strerror(errno));
+}
 static size_t nk_set_capability_prologue(const unsigned char *caps,
                                          size_t caplen,
                                          uint32_t *cversion)
@@ -90,6 +95,7 @@ static void nk_set_capability_epilogue(const unsigned char *caps,
     }
     if (capset(&hdr, (cap_user_data_t)&data) < 0)
         suicide("%s: capset failed: %s", __func__, strerror(errno));
+    nk_set_no_new_privs();
 }
 #else
 static size_t nk_set_capability_prologue(const unsigned char *caps,
@@ -100,16 +106,6 @@ static void nk_set_capability_epilogue(const unsigned char *caps,
                                        size_t caplen, uint32_t cversion,
                                        size_t csize)
 { (void)caps; (void)caplen; (void)cversion; (void)csize; }
-#endif
-
-#ifdef NK_USE_NO_NEW_PRIVS
-static void nk_set_no_new_privs(void)
-{
-    if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0))
-        suicide("%s: prctl failed: %s", __func__, strerror(errno));
-}
-#else
-static void nk_set_no_new_privs(void) {}
 #endif
 
 void nk_set_uidgid(uid_t uid, gid_t gid, const unsigned char *caps,
@@ -137,7 +133,6 @@ void nk_set_uidgid(uid_t uid, gid_t gid, const unsigned char *caps,
         suicide("%s: OS or libc broken; able to restore privs after drop",
                 __func__);
     nk_set_capability_epilogue(caps, caplen, cversion, csize);
-    nk_set_no_new_privs();
 }
 
 uid_t nk_uidgidbyname(const char *username, uid_t *uid, gid_t *gid)
