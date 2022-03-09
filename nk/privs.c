@@ -29,7 +29,7 @@ void nk_set_chroot(const char *chroot_dir)
         suicide("%s: chdir('/') failed: %s", __func__, strerror(errno));
 }
 
-#ifdef NK_USE_CAPABILITY
+#ifdef __linux__
 static size_t nk_get_capability_vinfo(uint32_t *version)
 {
     struct __user_cap_header_struct hdr;
