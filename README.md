@@ -215,6 +215,7 @@ be specified using the `-I` or `--clientid` command arguments.
 ## Downloads
 
 * [GitLab](https://gitlab.com/niklata/ndhc)
+* [Codeberg](https://codeberg.org/niklata/ndhc)
 * [BitBucket](https://bitbucket.com/niklata/ndhc)
 * [GitHub](https://github.com/niklata/ndhc)
 
