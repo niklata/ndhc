@@ -745,7 +745,6 @@ bool arp_packet_get(struct client_state_t *cs)
     return true;
 }
 
-// XXX: Move into client_state
 long long arp_get_wake_ts(void)
 {
     long long mt = -1;
