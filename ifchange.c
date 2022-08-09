@@ -9,7 +9,6 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <limits.h>
-#include "nk/stb_sprintf.h"
 #include "nk/log.h"
 #include "nk/io.h"
 #include "options.h"
@@ -40,8 +39,7 @@ static int ifcmd_raw(char *buf, size_t buflen, const char *optname,
         return -1;
     }
     int ioptlen = (int)optlen;
-    ssize_t olen = stbsp_snprintf(buf, buflen, "%s:%.*s;",
-                                  optname, ioptlen, optdata);
+    ssize_t olen = snprintf(buf, buflen, "%s:%.*s;", optname, ioptlen, optdata);
     if (olen < 0 || (size_t)olen > buflen) {
         log_line("%s: (%s) '%s' option would truncate, so it was dropped.",
                  client_config.interface, __func__, optname);
@@ -64,7 +62,7 @@ static int ifcmd_u8(char *buf, size_t buflen, const char *optname,
         return -1;
     char numbuf[16];
     uint8_t c = optdata[0];
-    ssize_t olen = stbsp_snprintf(numbuf, sizeof numbuf, "%c", c);
+    ssize_t olen = snprintf(numbuf, sizeof numbuf, "%c", c);
     if (olen < 0 || (size_t)olen > sizeof numbuf)
         return -1;
     return ifcmd_raw(buf, buflen, optname, numbuf, strlen(numbuf));
@@ -79,7 +77,7 @@ static int ifcmd_u16(char *buf, size_t buflen, const char *optname,
     uint16_t v;
     memcpy(&v, optdata, 2);
     v = ntohs(v);
-    ssize_t olen = stbsp_snprintf(numbuf, sizeof numbuf, "%hu", v);
+    ssize_t olen = snprintf(numbuf, sizeof numbuf, "%hu", v);
     if (olen < 0 || (size_t)olen > sizeof numbuf)
         return -1;
     return ifcmd_raw(buf, buflen, optname, numbuf, strlen(numbuf));
@@ -94,7 +92,7 @@ static int ifcmd_s32(char *buf, size_t buflen, const char *optname,
     uint32_t v;
     memcpy(&v, optdata, 4);
     v = ntohl(v);
-    ssize_t olen = stbsp_snprintf(numbuf, sizeof numbuf, "%d", v);
+    ssize_t olen = snprintf(numbuf, sizeof numbuf, "%d", v);
     if (olen < 0 || (size_t)olen > sizeof numbuf)
         return -1;
     return ifcmd_raw(buf, buflen, optname, numbuf, strlen(numbuf));
@@ -122,14 +120,14 @@ static int ifcmd_iplist(char *out, size_t outlen, const char *optname,
         return -1;
 
     inet_ntop(AF_INET, optdata + optoff, ipbuf, sizeof ipbuf);
-    ssize_t wc = stbsp_snprintf(buf + bufoff, sizeof buf, "%s", ipbuf);
+    ssize_t wc = snprintf(buf + bufoff, sizeof buf, "%s", ipbuf);
     if (wc < 0 || (size_t)wc > sizeof buf)
         return -1;
     optoff += 4;
     bufoff += (size_t)wc;
     while (optlen >= 4 + optoff) {
         inet_ntop(AF_INET, optdata + optoff, ipbuf, sizeof ipbuf);
-        wc = stbsp_snprintf(buf + bufoff, sizeof buf, ",%s", ipbuf);
+        wc = snprintf(buf + bufoff, sizeof buf, ",%s", ipbuf);
         if (wc < 0 || (size_t)wc > sizeof buf)
             return -1;
         optoff += 4;
@@ -193,20 +191,18 @@ static int ifchwrite(const char *buf, size_t count)
 
 bool ifchange_carrier_isup(void)
 {
-    char buf[256];
-    stbsp_snprintf(buf, sizeof buf, "carrier:;");
+    const char buf[] = "carrier:;";
     return ifchwrite(buf, strlen(buf)) == 0;
 }
 
 int ifchange_deconfig(struct client_state_t *cs)
 {
-    char buf[256];
+    const char buf[] = "ip4:0.0.0.0,255.255.255.255;";
     int ret = -1;
 
     if (cs->ifDeconfig)
         return 0;
 
-    stbsp_snprintf(buf, sizeof buf, "ip4:0.0.0.0,255.255.255.255;");
     log_line("%s: Resetting IP configuration.", client_config.interface);
     ret = ifchwrite(buf, strlen(buf));
 
@@ -266,9 +262,9 @@ static size_t send_client_ip(char *out, size_t olen,
 
     int snlen;
     if (have_bcast) {
-        snlen = stbsp_snprintf(out, olen, "ip4:%s,%s,%s;", ip, sn, bc);
+        snlen = snprintf(out, olen, "ip4:%s,%s,%s;", ip, sn, bc);
     } else {
-        snlen = stbsp_snprintf(out, olen, "ip4:%s,%s;", ip, sn);
+        snlen = snprintf(out, olen, "ip4:%s,%s;", ip, sn);
     }
     if (snlen < 0 || (size_t)snlen > olen) {
         log_line("%s: (%s) ip4 command would truncate so it was dropped.",

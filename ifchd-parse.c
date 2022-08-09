@@ -6,8 +6,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <arpa/inet.h>
-#include "nk/stb_sprintf.h"
 #include "nk/log.h"
+#include "nk/nstrcpy.h"
 #include "ifchd-parse.h"
 #include "ifchd.h"
 #include "ifset.h"
@@ -1187,10 +1187,14 @@ int execute_buffer(const char *newbuf)
 	char tb[MAX_BUF];
 	int cmdf = 0;
 	
-	ssize_t buflen = stbsp_snprintf(buf, sizeof buf, "%s%s", cl.ibuf, newbuf);
+	char *snp = nstrcpy(buf, sizeof buf, cl.ibuf);
 	memset(cl.ibuf, 0, sizeof cl.ibuf);
-	if (buflen < 0 || (size_t)buflen > sizeof buf) {
-		log_line("%s: (%s) snprintf1 failed", client_config.interface, __func__);
+	if (!snp) {
+		log_line("%s: (%s) nstrcpy failed", client_config.interface, __func__);
+		return -99;
+	}
+	if (!nstrcat(buf, sizeof buf, newbuf)) {
+		log_line("%s: (%s) nstrcat failed", client_config.interface, __func__);
 		return -99;
 	}
 	
@@ -1202,15 +1206,15 @@ int execute_buffer(const char *newbuf)
 	int cs = 0;
 	
 	
-#line 1206 "ifchd-parse.c"
+#line 1210 "ifchd-parse.c"
 	{
 		cs = (int)ifchd_parser_start;
 	}
 	
-#line 188 "ifchd-parse.rl"
+#line 192 "ifchd-parse.rl"
 	
 	
-#line 1214 "ifchd-parse.c"
+#line 1218 "ifchd-parse.c"
 	{
 		switch ( cs ) {
 			case 1:
@@ -1513,7 +1517,7 @@ int execute_buffer(const char *newbuf)
 #line 92 "ifchd-parse.rl"
 			cl.state = STATE_NOTHING; }
 		
-#line 1517 "ifchd-parse.c"
+#line 1521 "ifchd-parse.c"
 		
 		goto _st2;
 		_st2:
@@ -1593,7 +1597,7 @@ int execute_buffer(const char *newbuf)
 #line 155 "ifchd-parse.rl"
 			cl.state = STATE_CARRIER; }
 		
-#line 1597 "ifchd-parse.c"
+#line 1601 "ifchd-parse.c"
 		
 		{
 #line 105 "ifchd-parse.rl"
@@ -1624,7 +1628,7 @@ int execute_buffer(const char *newbuf)
 			cmdf |= pr;
 		}
 		
-#line 1628 "ifchd-parse.c"
+#line 1632 "ifchd-parse.c"
 		
 		goto _st126;
 		_ctr39:
@@ -1641,7 +1645,7 @@ int execute_buffer(const char *newbuf)
 			tb[arg_len] = 0;
 		}
 		
-#line 1645 "ifchd-parse.c"
+#line 1649 "ifchd-parse.c"
 		
 		{
 #line 105 "ifchd-parse.rl"
@@ -1672,7 +1676,7 @@ int execute_buffer(const char *newbuf)
 			cmdf |= pr;
 		}
 		
-#line 1676 "ifchd-parse.c"
+#line 1680 "ifchd-parse.c"
 		
 		goto _st126;
 		_st126:
@@ -1718,7 +1722,7 @@ int execute_buffer(const char *newbuf)
 #line 92 "ifchd-parse.rl"
 			cl.state = STATE_NOTHING; }
 		
-#line 1722 "ifchd-parse.c"
+#line 1726 "ifchd-parse.c"
 		
 		goto _st10;
 		_st10:
@@ -1767,13 +1771,13 @@ int execute_buffer(const char *newbuf)
 #line 144 "ifchd-parse.rl"
 			cl.state = STATE_DNS; }
 		
-#line 1771 "ifchd-parse.c"
+#line 1775 "ifchd-parse.c"
 		
 		{
 #line 93 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 1777 "ifchd-parse.c"
+#line 1781 "ifchd-parse.c"
 		
 		goto _st14;
 		_ctr115:
@@ -1781,13 +1785,13 @@ int execute_buffer(const char *newbuf)
 #line 145 "ifchd-parse.rl"
 			cl.state = STATE_LPRSVR; }
 		
-#line 1785 "ifchd-parse.c"
+#line 1789 "ifchd-parse.c"
 		
 		{
 #line 93 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 1791 "ifchd-parse.c"
+#line 1795 "ifchd-parse.c"
 		
 		goto _st14;
 		_ctr126:
@@ -1795,13 +1799,13 @@ int execute_buffer(const char *newbuf)
 #line 146 "ifchd-parse.rl"
 			cl.state = STATE_NTPSVR; }
 		
-#line 1799 "ifchd-parse.c"
+#line 1803 "ifchd-parse.c"
 		
 		{
 #line 93 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 1805 "ifchd-parse.c"
+#line 1809 "ifchd-parse.c"
 		
 		goto _st14;
 		_ctr148:
@@ -1809,13 +1813,13 @@ int execute_buffer(const char *newbuf)
 #line 147 "ifchd-parse.rl"
 			cl.state = STATE_WINS; }
 		
-#line 1813 "ifchd-parse.c"
+#line 1817 "ifchd-parse.c"
 		
 		{
 #line 93 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 1819 "ifchd-parse.c"
+#line 1823 "ifchd-parse.c"
 		
 		goto _st14;
 		_st14:
@@ -2038,13 +2042,13 @@ int execute_buffer(const char *newbuf)
 #line 150 "ifchd-parse.rl"
 			cl.state = STATE_DOMAIN; }
 		
-#line 2042 "ifchd-parse.c"
+#line 2046 "ifchd-parse.c"
 		
 		{
 #line 93 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 2048 "ifchd-parse.c"
+#line 2052 "ifchd-parse.c"
 		
 		goto _st33;
 		_ctr53:
@@ -2052,13 +2056,13 @@ int execute_buffer(const char *newbuf)
 #line 149 "ifchd-parse.rl"
 			cl.state = STATE_HOSTNAME; }
 		
-#line 2056 "ifchd-parse.c"
+#line 2060 "ifchd-parse.c"
 		
 		{
 #line 93 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 2062 "ifchd-parse.c"
+#line 2066 "ifchd-parse.c"
 		
 		goto _st33;
 		_st33:
@@ -2080,7 +2084,7 @@ int execute_buffer(const char *newbuf)
 #line 92 "ifchd-parse.rl"
 			cl.state = STATE_NOTHING; }
 		
-#line 2084 "ifchd-parse.c"
+#line 2088 "ifchd-parse.c"
 		
 		goto _st34;
 		_st34:
@@ -2138,7 +2142,7 @@ int execute_buffer(const char *newbuf)
 #line 92 "ifchd-parse.rl"
 			cl.state = STATE_NOTHING; }
 		
-#line 2142 "ifchd-parse.c"
+#line 2146 "ifchd-parse.c"
 		
 		goto _st39;
 		_st39:
@@ -2187,13 +2191,13 @@ int execute_buffer(const char *newbuf)
 #line 143 "ifchd-parse.rl"
 			cl.state = STATE_IP4SET; }
 		
-#line 2191 "ifchd-parse.c"
+#line 2195 "ifchd-parse.c"
 		
 		{
 #line 93 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 2197 "ifchd-parse.c"
+#line 2201 "ifchd-parse.c"
 		
 		goto _st43;
 		_st43:
@@ -2374,13 +2378,13 @@ int execute_buffer(const char *newbuf)
 #line 142 "ifchd-parse.rl"
 			cl.state = STATE_ROUTER; }
 		
-#line 2378 "ifchd-parse.c"
+#line 2382 "ifchd-parse.c"
 		
 		{
 #line 93 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 2384 "ifchd-parse.c"
+#line 2388 "ifchd-parse.c"
 		
 		goto _st59;
 		_st59:
@@ -2475,13 +2479,13 @@ int execute_buffer(const char *newbuf)
 #line 154 "ifchd-parse.rl"
 			cl.state = STATE_IPTTL; }
 		
-#line 2479 "ifchd-parse.c"
+#line 2483 "ifchd-parse.c"
 		
 		{
 #line 93 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 2485 "ifchd-parse.c"
+#line 2489 "ifchd-parse.c"
 		
 		goto _st67;
 		_st67:
@@ -2772,7 +2776,7 @@ int execute_buffer(const char *newbuf)
 #line 92 "ifchd-parse.rl"
 			cl.state = STATE_NOTHING; }
 		
-#line 2776 "ifchd-parse.c"
+#line 2780 "ifchd-parse.c"
 		
 		goto _st94;
 		_st94:
@@ -2816,7 +2820,7 @@ int execute_buffer(const char *newbuf)
 #line 92 "ifchd-parse.rl"
 			cl.state = STATE_NOTHING; }
 		
-#line 2820 "ifchd-parse.c"
+#line 2824 "ifchd-parse.c"
 		
 		goto _st98;
 		_st98:
@@ -2857,13 +2861,13 @@ int execute_buffer(const char *newbuf)
 #line 153 "ifchd-parse.rl"
 			cl.state = STATE_MTU; }
 		
-#line 2861 "ifchd-parse.c"
+#line 2865 "ifchd-parse.c"
 		
 		{
 #line 93 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 2867 "ifchd-parse.c"
+#line 2871 "ifchd-parse.c"
 		
 		goto _st102;
 		_st102:
@@ -2877,7 +2881,7 @@ int execute_buffer(const char *newbuf)
 #line 92 "ifchd-parse.rl"
 			cl.state = STATE_NOTHING; }
 		
-#line 2881 "ifchd-parse.c"
+#line 2885 "ifchd-parse.c"
 		
 		goto _st103;
 		_st103:
@@ -2921,7 +2925,7 @@ int execute_buffer(const char *newbuf)
 #line 92 "ifchd-parse.rl"
 			cl.state = STATE_NOTHING; }
 		
-#line 2925 "ifchd-parse.c"
+#line 2929 "ifchd-parse.c"
 		
 		goto _st107;
 		_st107:
@@ -2983,7 +2987,7 @@ int execute_buffer(const char *newbuf)
 #line 92 "ifchd-parse.rl"
 			cl.state = STATE_NOTHING; }
 		
-#line 2987 "ifchd-parse.c"
+#line 2991 "ifchd-parse.c"
 		
 		goto _st113;
 		_st113:
@@ -3042,13 +3046,13 @@ int execute_buffer(const char *newbuf)
 #line 152 "ifchd-parse.rl"
 			cl.state = STATE_TIMEZONE; }
 		
-#line 3046 "ifchd-parse.c"
+#line 3050 "ifchd-parse.c"
 		
 		{
 #line 93 "ifchd-parse.rl"
 			arg_start = p; }
 		
-#line 3052 "ifchd-parse.c"
+#line 3056 "ifchd-parse.c"
 		
 		goto _st119;
 		_st119:
@@ -3068,7 +3072,7 @@ int execute_buffer(const char *newbuf)
 #line 92 "ifchd-parse.rl"
 			cl.state = STATE_NOTHING; }
 		
-#line 3072 "ifchd-parse.c"
+#line 3076 "ifchd-parse.c"
 		
 		goto _st121;
 		_st121:
@@ -3246,7 +3250,7 @@ int execute_buffer(const char *newbuf)
 		_out: {}
 	}
 	
-#line 189 "ifchd-parse.rl"
+#line 193 "ifchd-parse.rl"
 	
 	
 	if (cs == ifchd_parser_error) {
@@ -3256,9 +3260,8 @@ int execute_buffer(const char *newbuf)
 	}
 	
 	if (cmd_start != pe) {
-		ssize_t ilen = stbsp_snprintf(cl.ibuf, sizeof cl.ibuf, "%s", cmd_start);
-		if (ilen < 0 || (size_t)ilen > sizeof buf) {
-			log_line("%s: (%s) snprintf2 failed", client_config.interface, __func__);
+		if (!nstrcpy(cl.ibuf, sizeof cl.ibuf, cmd_start)) {
+			log_line("%s: (%s) nstrcpy failed", client_config.interface, __func__);
 			return -99;
 		}
 	}

@@ -23,10 +23,10 @@
 #include <linux/filter.h>
 #include <pwd.h>
 #include <grp.h>
-#include "nk/stb_sprintf.h"
 #include "nk/log.h"
 #include "nk/io.h"
 #include "nk/privs.h"
+#include "nk/nstrcpy.h"
 #include "sockd.h"
 #include "ndhc-defines.h"
 #include "ndhc.h"
@@ -142,8 +142,7 @@ static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
     }
     struct ifreq ifr;
     memset(&ifr, 0, sizeof ifr);
-    ssize_t sl = stbsp_snprintf(ifr.ifr_name, sizeof ifr.ifr_name, "%s", iface);
-    if (sl < 0 || (size_t)sl > sizeof ifr.ifr_name) {
+    if (!nstrcpy(ifr.ifr_name, sizeof ifr.ifr_name, iface)) {
         log_line("%s: (%s) Set interface name failed.",
                  client_config.interface, __func__);
         goto out_fd;
