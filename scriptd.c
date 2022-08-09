@@ -12,11 +12,12 @@
 #include <sys/stat.h>
 #include "nk/log.h"
 #include "nk/io.h"
-#include "nk/exec.h"
+#include "nk/pspawn.h"
 #include "scriptd.h"
 #include "ndhc.h"
 #include "sys.h"
 
+extern char **environ;
 bool valid_script_file = false;
 
 // Runs the 'script_file'-specified script.  Called from ndhc process.
@@ -33,23 +34,9 @@ void request_scriptd_run(void)
 
 static void run_script(void)
 {
-    struct nk_exec_env xe;
-    switch ((int)fork()) {
-        case 0: {
-            int r = nk_generate_env(&xe, 0, NULL, NULL);
-            if (r < 0) {
-                nk_generate_env_print_error(r);
-                exit(EXIT_FAILURE);
-            }
-            nk_execute(script_file, NULL, xe.env);
-        }
-        case -1: {
-            static const char errstr[] = "exec: fork failed\n";
-            safe_write(STDERR_FILENO, errstr, sizeof errstr);
-            exit(EXIT_FAILURE);
-        }
-        default: break;
-    }
+    pid_t pid;
+    int ret = nk_pspawn(&pid, script_file, NULL, NULL, NULL, environ);
+    if (ret) log_line("posix_spawn failed for '%s': %s\n", script_file, strerror(ret));
 }
 
 static void process_client_socket(void)
