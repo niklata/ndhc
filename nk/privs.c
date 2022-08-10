@@ -47,6 +47,7 @@ static size_t nk_get_capability_vinfo(uint32_t *version)
         return _LINUX_CAPABILITY_U32S_2;
     default: log_line("%s: unknown capability version %x, using %x",
                       __func__, *version, _LINUX_CAPABILITY_VERSION_3);
+    // fall through
     case _LINUX_CAPABILITY_VERSION_3:
          *version = _LINUX_CAPABILITY_VERSION_3;
          return _LINUX_CAPABILITY_U32S_3;
