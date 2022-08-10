@@ -108,29 +108,35 @@ struct cfgparse {
     action arp_probe_wait {
         int t = atoi(ccfg.buf);
         if (t >= 0)
-            arp_probe_wait = t;
+            arp_probe_wait = (unsigned)t;
     }
     action arp_probe_num {
         int t = atoi(ccfg.buf);
         if (t >= 0)
-            arp_probe_num = t;
+            arp_probe_num = (unsigned)t;
     }
     action arp_probe_min {
-        int t = atoi(ccfg.buf);
-        arp_probe_min = t;
-        if (arp_probe_min > arp_probe_max) {
-            t = arp_probe_max;
-            arp_probe_max = arp_probe_min;
+        int ti = atoi(ccfg.buf);
+        if (ti >= 0) {
+            unsigned t = (unsigned)ti;
             arp_probe_min = t;
+            if (arp_probe_min > arp_probe_max) {
+                t = arp_probe_max;
+                arp_probe_max = arp_probe_min;
+                arp_probe_min = t;
+            }
         }
     }
     action arp_probe_max {
-        int t = atoi(ccfg.buf);
-        arp_probe_max = t;
-        if (arp_probe_min > arp_probe_max) {
-            t = arp_probe_max;
-            arp_probe_max = arp_probe_min;
-            arp_probe_min = t;
+        int ti = atoi(ccfg.buf);
+        if (ti >= 0) {
+            unsigned t = (unsigned)ti;
+            arp_probe_max = t;
+            if (arp_probe_min > arp_probe_max) {
+                t = arp_probe_max;
+                arp_probe_max = arp_probe_min;
+                arp_probe_min = t;
+            }
         }
     }
     action gw_metric {

@@ -28,10 +28,10 @@ struct arpMsg {
     uint8_t  pad[18];       // 2a pad for min. ethernet payload (60 bytes)
 };
 
-extern int arp_probe_wait;
-extern int arp_probe_num;
-extern int arp_probe_min;
-extern int arp_probe_max;
+extern unsigned arp_probe_wait;
+extern unsigned arp_probe_num;
+extern unsigned arp_probe_min;
+extern unsigned arp_probe_max;
 
 typedef enum {
     AS_NONE = 0,        // Nothing to react to wrt ARP
@@ -55,7 +55,7 @@ typedef enum {
 
 struct arp_stats {
     long long ts;
-    int count;
+    unsigned count;
 };
 
 struct arp_data {
@@ -68,7 +68,7 @@ struct arp_data {
                                   // AS_COLLISION_CHECK state.
     unsigned int total_conflicts; // Total number of address conflicts on
                                   // the interface.  Never decreases.
-    int gw_check_initpings;       // Initial count of ASEND_GW_PING when
+    unsigned gw_check_initpings;  // Initial count of ASEND_GW_PING when
                                   // AS_GW_CHECK was entered.
     uint16_t probe_wait_time;     // Time to wait for a COLLISION_CHECK reply
                                   // (in ms?).

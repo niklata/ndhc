@@ -9,9 +9,9 @@
 
 #include "options.h"
 
-static int do_overload_value(const uint8_t *buf, ssize_t blen, int overload)
+static int do_overload_value(const uint8_t *buf, size_t blen, int overload)
 {
-    ssize_t i = 0;
+    size_t i = 0;
     while (i < blen) {
         if (buf[i] == DCODE_PADDING) {
             ++i;
@@ -19,7 +19,7 @@ static int do_overload_value(const uint8_t *buf, ssize_t blen, int overload)
         }
         if (buf[i] == DCODE_END)
             break;
-        if (i >= blen - 2)
+        if (i + 2 >= blen)
             break;
         if (buf[i] == DCODE_OVERLOAD) {
             if (buf[i+1] == 1) {

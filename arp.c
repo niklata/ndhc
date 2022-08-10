@@ -27,10 +27,10 @@
 #define ARP_MAX_TRIES 3
 
 // From RFC5227
-int arp_probe_wait = 1000;         // initial random delay (ms)
-int arp_probe_num = 3;             // number of probe packets
-int arp_probe_min = 1000;          // minimum delay until repeated probe (ms)
-int arp_probe_max = 2000;          // maximum delay until repeated probe (ms)
+unsigned arp_probe_wait = 1000;         // initial random delay (ms)
+unsigned arp_probe_num = 3;        // number of probe packets
+unsigned arp_probe_min = 1000;          // minimum delay until repeated probe (ms)
+unsigned arp_probe_max = 2000;          // maximum delay until repeated probe (ms)
 #define ANNOUNCE_WAIT 2000         // delay before announcing
 #define ANNOUNCE_NUM 2             // number of Announcement packets
 #define ANNOUNCE_INTERVAL 2000     // time between Announcement packets
@@ -368,12 +368,12 @@ static int arp_is_query_reply(struct arpMsg *am)
     return 1;
 }
 
-static int arp_gen_probe_wait(struct client_state_t *cs)
+static unsigned arp_gen_probe_wait(struct client_state_t *cs)
 {
-    int range = arp_probe_max - arp_probe_min;
+    unsigned range = arp_probe_max - arp_probe_min;
     if (range < 1000) range = 1000;
     // This is not a uniform distribution but it doesn't matter here.
-    return arp_probe_min + (int)(nk_random_u32(&cs->rnd_state) % (unsigned)range);
+    return arp_probe_min + nk_random_u32(&cs->rnd_state) % range;
 }
 
 int arp_defense_timeout(struct client_state_t *cs, long long nowts)
@@ -477,7 +477,7 @@ int arp_gw_query_timeout(struct client_state_t *cs, long long nowts)
 
 int arp_collision_timeout(struct client_state_t *cs, long long nowts)
 {
-    if (nowts >= garp.arp_check_start_ts + ANNOUNCE_WAIT ||
+    if (nowts - garp.arp_check_start_ts >= ANNOUNCE_WAIT ||
         garp.send_stats[ASEND_COLLISION_CHECK].count >= arp_probe_num)
     {
         char clibuf[INET_ADDRSTRLEN];
