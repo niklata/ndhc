@@ -78,7 +78,7 @@ static bool nk_get_rnd_clk(char *seed, size_t len)
 
 static bool nk_get_urandom(char *seed, size_t len)
 {
-    int fd = open("/dev/urandom", O_RDONLY);
+    int fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC);
     if (fd < 0) {
         log_line("%s: Could not open /dev/urandom: %s", __func__,
                  strerror(errno));

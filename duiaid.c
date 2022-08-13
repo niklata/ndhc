@@ -42,7 +42,7 @@ static int open_duidfile_read(void)
 {
     char duidfile[PATH_MAX];
     get_duid_path(duidfile, sizeof duidfile);
-    int fd = open(duidfile, O_RDONLY, 0);
+    int fd = open(duidfile, O_RDONLY|O_CLOEXEC, 0);
     if (fd < 0) {
         log_line("Failed to open duidfile '%s' for reading: %s",
                  duidfile, strerror(errno));
@@ -54,7 +54,7 @@ static int open_duidfile_write(void)
 {
     char duidfile[PATH_MAX];
     get_duid_path(duidfile, sizeof duidfile);
-    int fd = open(duidfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+    int fd = open(duidfile, O_WRONLY|O_TRUNC|O_CREAT|O_CLOEXEC, 0644);
     if (fd < 0)
         suicide("Failed to open duidfile '%s' for writing: %s",
                 duidfile, strerror(errno));
@@ -65,7 +65,7 @@ static int open_iaidfile_read(const uint8_t hwaddr[static 6], size_t hwaddrlen)
 {
     char iaidfile[PATH_MAX];
     get_iaid_path(iaidfile, sizeof iaidfile, hwaddr, hwaddrlen);
-    int fd = open(iaidfile, O_RDONLY, 0);
+    int fd = open(iaidfile, O_RDONLY|O_CLOEXEC, 0);
     if (fd < 0) {
         log_line("Failed to open iaidfile '%s' for reading: %s",
                  iaidfile, strerror(errno));
@@ -78,7 +78,7 @@ static int open_iaidfile_write(const uint8_t hwaddr[static 6],
 {
     char iaidfile[PATH_MAX];
     get_iaid_path(iaidfile, sizeof iaidfile, hwaddr, hwaddrlen);
-    int fd = open(iaidfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+    int fd = open(iaidfile, O_WRONLY|O_TRUNC|O_CREAT|O_CLOEXEC, 0644);
     if (fd < 0)
         suicide("Failed to open iaidfile '%s' for writing: %s",
                 iaidfile, strerror(errno));

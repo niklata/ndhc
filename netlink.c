@@ -138,7 +138,7 @@ static int handle_getifdata(int fd, uint32_t seq)
 int nl_getifdata(void)
 {
     int ret = -1;
-    int fd = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+    int fd = socket(AF_NETLINK, SOCK_DGRAM|SOCK_CLOEXEC, NETLINK_ROUTE);
     if (fd < 0) {
         log_line("%s: (%s) netlink socket open failed: %s",
                  client_config.interface, __func__, strerror(errno));

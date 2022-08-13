@@ -34,7 +34,7 @@ void open_leasefile(void)
 {
     char leasefile[PATH_MAX];
     get_leasefile_path(leasefile, sizeof leasefile, client_config.interface);
-    leasefilefd = open(leasefile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+    leasefilefd = open(leasefile, O_WRONLY|O_TRUNC|O_CREAT|O_CLOEXEC, 0644);
     if (leasefilefd < 0)
         suicide("%s: (%s) Failed to create lease file '%s': %s",
                 client_config.interface, __func__, leasefile, strerror(errno));
