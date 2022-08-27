@@ -14,7 +14,6 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <errno.h>
-#include "nk/nstrcpy.h"
 #include "nk/log.h"
 #include "nk/privs.h"
 #include "nk/io.h"
@@ -103,9 +102,10 @@ static int write_resolve_conf(void)
             q = strchr(p, '\0');
         else
             *q++ = '\0';
-        if (!nstrcpy(buf, sizeof buf, p)) {
-            log_line("%s: (%s) nstrcpy failed appending nameservers",
+        if (!memccpy(buf, p, 0, sizeof buf)) {
+            log_line("%s: (%s) memccpy failed appending nameservers",
                      client_config.interface, __func__);
+            return -1;
         }
 
         writeordie(resolv_conf_fd, ns_str, strlen(ns_str));
@@ -123,9 +123,10 @@ static int write_resolve_conf(void)
             q = strchr(p, '\0');
         else
             *q++ = '\0';
-        if (!nstrcpy(buf, sizeof buf, p)) {
-            log_line("%s: (%s) nstrcpy failed appending domains",
+        if (!memccpy(buf, p, 0, sizeof buf)) {
+            log_line("%s: (%s) memccpy failed appending domains",
                      client_config.interface, __func__);
+            return -1;
         }
 
         if (numdoms == 0) {
@@ -188,8 +189,11 @@ int perform_dns(const char *str, size_t len)
         log_line("DNS server list is too long: %zu > %zu", len, sizeof cl.namesvrs);
         return ret;
     }
-    if (!nstrcpy(cl.namesvrs, sizeof cl.namesvrs, str))
-        log_line("%s: (%s) nstrcpy failed", client_config.interface, __func__);
+    if (!memccpy(cl.namesvrs, str, 0, sizeof cl.namesvrs)) {
+        memset(cl.namesvrs, 0, sizeof cl.namesvrs);
+        log_line("%s: (%s) memccpy failed", client_config.interface, __func__);
+        return ret;
+    }
     ret = write_resolve_conf();
     if (ret >= 0)
         log_line("Added DNS server: '%s'", str);
@@ -224,11 +228,14 @@ int perform_domain(const char *str, size_t len)
         return 0;
     int ret = -1;
     if (len > sizeof cl.domains) {
-        log_line("DNS domain list is too long: %zu > %zu", len, sizeof cl.namesvrs);
+        log_line("DNS domain list is too long: %zu > %zu", len, sizeof cl.domains);
         return ret;
     }
-    if (!nstrcpy(cl.domains, sizeof cl.domains, str))
-        log_line("%s: (%s) nstrcpy failed", client_config.interface, __func__);
+    if (!memccpy(cl.domains, str, 0, sizeof cl.domains)) {
+        memset(cl.domains, 0, sizeof cl.domains);
+        log_line("%s: (%s) memccpy failed", client_config.interface, __func__);
+        return ret;
+    }
     ret = write_resolve_conf();
     if (ret == 0)
         log_line("Added DNS domain: '%s'", str);

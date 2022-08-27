@@ -6,7 +6,6 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include "nk/log.h"
-#include "nk/nstrcpy.h"
 #include "ifchd-parse.h"
 #include "ifchd.h"
 #include "ifset.h"
@@ -171,14 +170,14 @@ int execute_buffer(const char *newbuf)
     char tb[MAX_BUF];
     int cmdf = 0;
 
-    char *snp = nstrcpy(buf, sizeof buf, cl.ibuf);
+    char *snp = memccpy(buf, cl.ibuf, 0, sizeof buf);
     memset(cl.ibuf, 0, sizeof cl.ibuf);
     if (!snp) {
-        log_line("%s: (%s) nstrcpy failed", client_config.interface, __func__);
+        log_line("%s: (%s) memccpy failed", client_config.interface, __func__);
         return -99;
     }
-    if (!nstrcat(buf, sizeof buf, newbuf)) {
-        log_line("%s: (%s) nstrcat failed", client_config.interface, __func__);
+    if (!memccpy(snp - 1, newbuf, 0, sizeof buf - (size_t)(snp - buf - 1))) {
+        log_line("%s: (%s) memccpy failed", client_config.interface, __func__);
         return -99;
     }
 
@@ -199,8 +198,9 @@ int execute_buffer(const char *newbuf)
     }
 
     if (cmd_start != pe) {
-        if (!nstrcpy(cl.ibuf, sizeof cl.ibuf, cmd_start)) {
-            log_line("%s: (%s) nstrcpy failed", client_config.interface, __func__);
+        if (!memccpy(cl.ibuf, cmd_start, 0, sizeof cl.ibuf)) {
+            memset(cl.ibuf, 0, sizeof cl.ibuf);
+            log_line("%s: (%s) memccpy failed", client_config.interface, __func__);
             return -99;
         }
     }

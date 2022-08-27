@@ -11,7 +11,6 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <limits.h>
-#include "nk/nstrcpy.h"
 #include "nk/log.h"
 #include "nk/io.h"
 #include "leasefile.h"
@@ -22,12 +21,12 @@ static int leasefilefd = -1;
 
 static void get_leasefile_path(char *leasefile, size_t dlen, char *ifname)
 {
-    if (!nstrcpy(leasefile, dlen, state_dir))
-        suicide("%s: (%s) nstrcpy failed", client_config.interface, __func__);
-    if (!nstrcat(leasefile, dlen, "/LEASE-"))
-        suicide("%s: (%s) nstrcat1 failed", client_config.interface, __func__);
-    if (!nstrcat(leasefile, dlen, ifname))
-        suicide("%s: (%s) nstrcat2 failed", client_config.interface, __func__);
+    char *p = memccpy(leasefile, state_dir, 0, dlen);
+    if (!p) suicide("%s: (%s) memccpy failed", client_config.interface, __func__);
+    p = memccpy(p - 1, "/LEASE-", 0, dlen - (size_t)(p - leasefile - 1));
+    if (!p) suicide("%s: (%s) memccpy failed", client_config.interface, __func__);
+    p = memccpy(p - 1, ifname, 0, dlen - (size_t)(p - leasefile - 1));
+    if (!p) suicide("%s: (%s) memccpy failed", client_config.interface, __func__);
 }
 
 void open_leasefile(void)
@@ -50,12 +49,14 @@ static void do_write_leasefile(struct in_addr ipnum)
         return;
     }
     inet_ntop(AF_INET, &ipnum, ip, sizeof ip);
-    if (!nstrcpy(out, sizeof out, ip)) {
-        log_line("%s: (%s) nstrcpy failed", client_config.interface, __func__);
+    char *p = memccpy(out, ip, 0, sizeof out);
+    if (!p) {
+        log_line("%s: (%s) memccpy failed", client_config.interface, __func__);
         return;
     }
-    if (!nstrcat(out, sizeof out, "\n")) {
-        log_line("%s: (%s) nstrcat failed", client_config.interface, __func__);
+    p = memccpy(p - 1, "\n", 0, sizeof out - (size_t)(p - out - 1));
+    if (!p) {
+        log_line("%s: (%s) memccpy failed", client_config.interface, __func__);
         return;
     }
     if (safe_ftruncate(leasefilefd, 0)) {

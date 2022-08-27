@@ -5,7 +5,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include "nk/nstrcpy.h"
 #include "nk/pspawn.h"
 #include "nk/io.h"
 
@@ -13,15 +12,16 @@
 #define MAX_ARGBUF 16384
 
 #define NK_GEN_ARG(STRVAL, STRLEN) do { \
-        char *snp = nstrcpyl(argbuf, argbuflen, STRVAL, STRLEN); \
-        if (!snp) { \
-            static const char errstr[] = "nk_pspawn: constructing argument list failed\n"; \
+        size_t SL = (STRLEN); \
+        if (argbuflen < SL + 1) { \
+            static const char errstr[] = "nk_pspawn: argument list too long\n"; \
             safe_write(STDERR_FILENO, errstr, sizeof errstr); \
             _Exit(EXIT_FAILURE); \
         } \
+        memcpy(argbuf, (STRVAL), SL); \
+        argbuf[SL] = 0; \
         argv[curv] = argbuf; argv[++curv] = NULL; \
-        size_t l = (size_t)(snp - argbuf); \
-        argbuf += l; argbuflen -= l; \
+        argbuf += SL; argbuflen -= SL; \
     } while (0)
 
 int nk_pspawn(pid_t *pid, const char *command,

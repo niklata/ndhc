@@ -14,14 +14,13 @@
 #include "ifchd.h"
 #include "sockd.h"
 #include "nk/log.h"
-#include "nk/nstrcpy.h"
 #include "nk/privs.h"
 #include "nk/io.h"
 
 static void copy_cmdarg(char *dest, const char *src,
                         size_t destlen, const char *argname)
 {
-    if (!nstrcpy(dest, destlen, src))
+    if (!memccpy(dest, src, 0, destlen))
         suicide("snprintf failed on %s", argname);
 }
 

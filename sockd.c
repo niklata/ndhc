@@ -26,7 +26,6 @@
 #include "nk/log.h"
 #include "nk/io.h"
 #include "nk/privs.h"
-#include "nk/nstrcpy.h"
 #include "sockd.h"
 #include "ndhc-defines.h"
 #include "ndhc.h"
@@ -142,7 +141,7 @@ static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
     }
     struct ifreq ifr;
     memset(&ifr, 0, sizeof ifr);
-    if (!nstrcpy(ifr.ifr_name, sizeof ifr.ifr_name, iface)) {
+    if (!memccpy(ifr.ifr_name, iface, 0, sizeof ifr.ifr_name)) {
         log_line("%s: (%s) Set interface name failed.",
                  client_config.interface, __func__);
         goto out_fd;
