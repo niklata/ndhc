@@ -6,8 +6,8 @@
 
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
-#include <ctype.h>
 #include <limits.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -19,6 +19,8 @@
 #endif
 #include "nk/privs.h"
 #include "nk/log.h"
+
+static inline bool nk_isdigit(int c) { return c >= '0' && c <= '9'; }
 
 void nk_set_chroot(const char *chroot_dir)
 {
@@ -143,7 +145,7 @@ uid_t nk_uidgidbyname(const char *username, uid_t *uid, gid_t *gid)
     struct passwd *pws = getpwnam(username);
     if (!pws) {
         for (size_t i = 0; username[i]; ++i) {
-            if (!isdigit(username[i]))
+            if (!nk_isdigit(username[i]))
                 return (uid_t)-1;
         }
         char *p;
@@ -172,7 +174,7 @@ gid_t nk_gidbyname(const char *groupname, gid_t *gid)
     struct group *grp = getgrnam(groupname);
     if (!grp) {
         for (size_t i = 0; groupname[i]; ++i) {
-            if (!isdigit(groupname[i]))
+            if (!nk_isdigit(groupname[i]))
                 return (gid_t)-1;
         }
         char *p;
