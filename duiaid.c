@@ -1,4 +1,4 @@
-// Copyright 2014-2018 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2014-2022 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <string.h>
 #include <stdlib.h>
@@ -11,7 +11,7 @@
 #include <limits.h>
 #include <errno.h>
 #include "nk/log.h"
-#include "nk/random.h"
+#include "nk/hwrng.h"
 #include "nk/io.h"
 #include "duiaid.h"
 #include "ndhc.h"
@@ -90,8 +90,7 @@ static int open_iaidfile_write(const uint8_t hwaddr[static 6],
 // RFC6355 specifies a RFC4122 UUID, but I simply use a 128-byte random
 // value, as the complexity of RFC4122 UUID generation is completely
 // unwarranted for DHCPv4.
-static size_t generate_duid(struct nk_random_state *s,
-                            char *dest, size_t dlen)
+static size_t generate_duid(char *dest, size_t dlen)
 {
     const size_t tlen = sizeof(uint16_t) + 4 * sizeof(uint32_t);
     if (dlen < tlen)
@@ -102,32 +101,27 @@ static size_t generate_duid(struct nk_random_state *s,
     memcpy(dest+off, &typefield, sizeof typefield);
     off += sizeof typefield;
 
-    for (size_t i = 0; i < 4; ++i) {
-        uint32_t r32 = nk_random_u32(s);
-        memcpy(dest+off, &r32, sizeof r32);
-        off += sizeof r32;
-    }
+    nk_hwrng_bytes(dest+off, sizeof(uint32_t) * 4);
+    off += sizeof(uint32_t) * 4;
+
     return off;
 }
 
 // RFC6355 specifies the IAID as a 32-bit value that uniquely identifies
 // a hardware link for a given host.
-static size_t generate_iaid(struct nk_random_state *s,
-                            char *dest, size_t dlen)
+static size_t generate_iaid(char *dest, size_t dlen)
 {
     if (dlen < sizeof(uint32_t))
         suicide("%s: dlen < %zu", __func__, sizeof(uint32_t));
     size_t off = 0;
 
-    uint32_t r32 = nk_random_u32(s);
-    memcpy(dest+off, &r32, sizeof r32);
-    off += sizeof r32;
+    nk_hwrng_bytes(dest+off, sizeof(uint32_t));
+    off += sizeof(uint32_t);
     return off;
 }
 
 // Failures are all fatal.
-void get_clientid(struct client_state_t *cs,
-                  struct client_config_t *cc)
+void get_clientid(struct client_config_t *cc)
 {
     if (cc->clientid_len > 0)
         return;
@@ -138,7 +132,7 @@ void get_clientid(struct client_state_t *cs,
 
     int fd = open_iaidfile_read(cc->arp, sizeof cc->arp);
     if (fd < 0) {
-        iaid_len = generate_iaid(&cs->rnd_state, iaid, sizeof iaid);
+        iaid_len = generate_iaid(iaid, sizeof iaid);
         fd = open_iaidfile_write(cc->arp, sizeof cc->arp);
         ssize_t r = safe_write(fd, iaid, iaid_len);
         if (r < 0 || (size_t)r != iaid_len)
@@ -155,7 +149,7 @@ void get_clientid(struct client_state_t *cs,
 
     fd = open_duidfile_read();
     if (fd < 0) {
-        duid_len = generate_duid(&cs->rnd_state, duid, sizeof duid);
+        duid_len = generate_duid(duid, sizeof duid);
         fd = open_duidfile_write();
         ssize_t r = safe_write(fd, duid, duid_len);
         if (r < 0 || (size_t)r != duid_len)

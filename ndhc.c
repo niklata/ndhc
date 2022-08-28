@@ -567,7 +567,7 @@ int main(int argc, char *argv[])
     if (nl_getifdata() < 0)
         suicide("failed to get interface MAC or index");
 
-    get_clientid(&cs, &client_config);
+    get_clientid(&client_config);
 
     switch (perform_ifup()) {
     case 1: case 0: break;

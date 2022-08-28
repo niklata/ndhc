@@ -95,7 +95,7 @@ static bool nk_get_urandom(char *seed, size_t len)
     return ret;
 }
 
-void nk_get_hwrng(void *seed, size_t len)
+void nk_hwrng_bytes(void *seed, size_t len)
 {
     char *s = (char *)seed;
     if (nk_getrandom(s, len))

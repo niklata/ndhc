@@ -8,7 +8,7 @@
 
 void nk_random_init(struct nk_random_state *s)
 {
-    nk_get_hwrng(s->seed, sizeof(uint64_t) * 2);
+    nk_hwrng_bytes(s->seed, sizeof(uint64_t) * 2);
     s->seed[2] = 2000001;
     s->seed[3] = 0;
     for (size_t i = 0; i < 14; ++i) nk_random_u64(s);
