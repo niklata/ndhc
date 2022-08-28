@@ -413,6 +413,7 @@ static void init_packet(struct dhcpmsg *packet, uint8_t type)
 
 ssize_t send_discover(struct client_state_t *cs)
 {
+    cs->xid = nk_random_u32(&cs->rnd_state);
     struct dhcpmsg packet = {.xid = cs->xid};
     init_packet(&packet, DHCPDISCOVER);
     if (cs->clientAddr)
