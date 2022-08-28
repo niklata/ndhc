@@ -52,6 +52,7 @@ static int delay_timeout(struct client_state_t *cs, size_t numpackets)
 
 static void reinit_shared_deconfig(struct client_state_t *cs)
 {
+    nk_random_init(&cs->rnd_state);
     cs->xid = nk_random_u32(&cs->rnd_state);
     cs->clientAddr = 0;
     cs->num_dhcp_requests = 0;
