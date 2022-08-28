@@ -86,5 +86,12 @@ void signal_exit(int status);
 int get_clientid_string(const char *str, size_t slen);
 void print_version(void);
 
+static inline void advance_xid(struct client_state_t *cs) {
+    uint32_t o = cs->xid;
+    do {
+        cs->xid = nk_random_u32(&cs->rnd_state);
+    } while (cs->xid == o);
+}
+
 #endif
 
