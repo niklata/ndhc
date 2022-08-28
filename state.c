@@ -223,6 +223,7 @@ static int extend_packet(struct client_state_t *cs,
                       clibuf, sizeof clibuf);
             log_line("%s: Server is now offering IP %s.  Validating...",
                      client_config.interface, clibuf);
+            cs->xid = nk_random_u32(&cs->rnd_state);
             return ANP_CHECK_IP;
         } else {
             log_line("%s: Lease refreshed to %u seconds.",
@@ -231,6 +232,7 @@ static int extend_packet(struct client_state_t *cs,
                 log_line("%s: Failed to create ARP defense socket.",
                          client_config.interface);
             stop_dhcp_listen(cs);
+            cs->xid = nk_random_u32(&cs->rnd_state);
             return ANP_SUCCESS;
         }
     } else if (msgtype == DHCPNAK) {
