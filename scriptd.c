@@ -21,22 +21,27 @@ extern char **environ;
 bool valid_script_file = false;
 
 // Runs the 'script_file'-specified script.  Called from ndhc process.
+// Blocks until the script finishes running.
 void request_scriptd_run(void)
 {
     if (!valid_script_file) return;
 
-    static char buf[] = "\n";
-    ssize_t r = safe_write(scriptdSock[0], buf, 1);
+    char nl = '\n';
+    ssize_t r = safe_write(scriptdSock[0], &nl, 1);
     if (r < 0 || (size_t)r != 1)
         suicide("%s: (%s) write failed: %zd", client_config.interface,
                 __func__, r);
-}
-
-static void run_script(void)
-{
-    pid_t pid;
-    int ret = nk_pspawn(&pid, script_file, NULL, NULL, NULL, environ);
-    if (ret) log_line("posix_spawn failed for '%s': %s\n", script_file, strerror(ret));
+    char buf[16];
+    r = safe_recv(scriptdSock[0], buf, sizeof buf, 0);
+    if (r == 0) {
+        // Remote end hung up.
+        exit(EXIT_SUCCESS);
+    } else if (r < 0) {
+        suicide("%s: (%s) recvmsg failed: %s", client_config.interface,
+                __func__, strerror(errno));
+    }
+    if (r != 1 || buf[0] != '+')
+        suicide("%s: Bad response from recv", __func__);
 }
 
 static void process_client_socket(void)
@@ -63,7 +68,23 @@ static void process_client_socket(void)
     if (buflen > 1 || buf[0] != '\n') exit(EXIT_SUCCESS);
     buflen = 0;
 
-    run_script();
+    pid_t pid;
+    int ret = nk_pspawn(&pid, script_file, NULL, NULL, NULL, environ);
+    if (ret) log_line("posix_spawn failed for '%s': %s\n", script_file, strerror(ret));
+    int wstatus;
+    ret = waitpid(pid, &wstatus, 0);
+    if (ret == -1)
+        suicide("%s: (%s) waitpid failed: %s", client_config.interface,
+                __func__, strerror(errno));
+
+    char c = '+';
+    ssize_t rs = safe_write(scriptdSock[1], &c, 1);
+    if (rs == 0) {
+        // Remote end hung up.
+        exit(EXIT_SUCCESS);
+    } else if (rs < 0)
+        suicide("%s: (%s) error writing to scriptd -> ndhc socket: %s",
+                client_config.interface, __func__, strerror(errno));
 }
 
 static void do_scriptd_work(void)
@@ -93,9 +114,7 @@ static void do_scriptd_work(void)
 static void signal_handler(int signo)
 {
     int serrno = errno;
-    if (signo == SIGCHLD) {
-        while (waitpid(-1, NULL, WNOHANG) > 0);
-    } else if (signo == SIGINT || signo == SIGTERM) {
+    if (signo == SIGINT || signo == SIGTERM) {
         _exit(EXIT_FAILURE);
     }
     errno = serrno;
@@ -104,7 +123,7 @@ static void signal_handler(int signo)
 static void setup_signals_scriptd(void)
 {
     static const int ss[] = {
-        SIGCHLD, SIGINT, SIGTERM, SIGKILL
+        SIGINT, SIGTERM, SIGKILL
     };
     sigset_t mask;
     if (sigprocmask(0, 0, &mask) < 0)
