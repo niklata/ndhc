@@ -32,7 +32,7 @@ void request_scriptd_run(void)
         suicide("%s: (%s) write failed: %zd", client_config.interface,
                 __func__, r);
     char buf[16];
-    r = safe_recv(scriptdSock[0], buf, sizeof buf, 0);
+    r = safe_recv_once(scriptdSock[0], buf, sizeof buf, 0);
     if (r == 0) {
         // Remote end hung up.
         exit(EXIT_SUCCESS);
