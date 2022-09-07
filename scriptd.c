@@ -10,6 +10,7 @@
 #include <sys/wait.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include "nk/log.h"
 #include "nk/io.h"
 #include "nk/pspawn.h"
@@ -153,6 +154,8 @@ void scriptd_main(void)
     prctl(PR_SET_NAME, "ndhc: scriptd");
     umask(077);
     setup_signals_scriptd();
+    fcntl(scriptdSock[1], F_SETFD, FD_CLOEXEC);
+    fcntl(scriptdStream[1], F_SETFD, FD_CLOEXEC);
     do_scriptd_work();
 }
 
