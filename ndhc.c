@@ -257,24 +257,21 @@ static void do_ndhc_work(void)
     setup_signals_ndhc();
     start_dhcp_listen(&cs);
 
-    struct pollfd pfds[6] = {0};
-    pfds[0].fd = cs.nlFd;
-    pfds[0].events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
-    pfds[1].fd = ifchStream[0];
-    pfds[1].events = POLLHUP|POLLERR|POLLRDHUP;
-    pfds[2].fd = sockdStream[0];
-    pfds[2].events = POLLHUP|POLLERR|POLLRDHUP;
-    pfds[3].fd = cs.rfkillFd;
-    pfds[3].events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
-    // These can change on the fly.
-    pfds[4].events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
-    pfds[5].events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
-
+    struct pollfd pfds[] = {
+        [0] = { .fd = cs.nlFd,          .events = POLLIN|POLLHUP|POLLERR|POLLRDHUP },
+        [1] = { .fd = ifchStream[0],    .events = POLLHUP|POLLERR|POLLRDHUP },
+        [2] = { .fd = sockdStream[0],   .events = POLLHUP|POLLERR|POLLRDHUP },
+        [6] = { .fd = scriptdStream[0], .events = POLLHUP|POLLERR|POLLRDHUP },
+        [3] = { .fd = cs.rfkillFd,      .events = POLLIN|POLLHUP|POLLERR|POLLRDHUP },
+        // These can change on the fly.
+        [4] = { .events = POLLIN|POLLHUP|POLLERR|POLLRDHUP },
+        [5] = { .events = POLLIN|POLLHUP|POLLERR|POLLRDHUP },
+    };
     for (;;) {
         pfds[4].fd = cs.arpFd;
         pfds[5].fd = cs.listenFd;
         had_event = false;
-        if (poll(pfds, 6, timeout) < 0) {
+        if (poll(pfds, 7, timeout) < 0) {
             if (errno != EINTR) suicide("poll failed");
         }
 
@@ -298,6 +295,9 @@ static void do_ndhc_work(void)
             exit(EXIT_FAILURE);
         }
         if (pfds[2].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
+            exit(EXIT_FAILURE);
+        }
+        if (pfds[6].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
             exit(EXIT_FAILURE);
         }
         if (pfds[3].revents & POLLIN) {
@@ -411,7 +411,7 @@ int ifchStream[2];
 int sockdSock[2];
 int sockdStream[2];
 int scriptdSock[2];
-int scriptdStream[2];
+int scriptdStream[2] = { -1, -1 };
 
 static void create_ifch_ipc_sockets(void) {
     if (socketpair(AF_UNIX, SOCK_DGRAM, 0, ifchSock) < 0)
