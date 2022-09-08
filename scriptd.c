@@ -139,7 +139,7 @@ static void setup_signals_scriptd(void)
 
     struct sigaction sa = {
         .sa_handler = signal_handler,
-        .sa_flags = SA_RESTART|SA_NOCLDWAIT,
+        .sa_flags = SA_RESTART,
     };
     if (sigemptyset(&sa.sa_mask))
         suicide("sigemptyset failed");
