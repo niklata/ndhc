@@ -29,15 +29,14 @@
 
 static uint32_t ifset_nl_seq = 1;
 
-// 32-bit position values are relatively prime to 37, so the residue mod37
-// gives a unique mapping for each value.  Gives correct result for v=0.
-static int trailz(uint32_t v)
+// Portable ctz() that gives a defined result for x == 0.
+static int trailz(uint32_t x)
 {
-    static const int bpm37[] = {
-        32, 0, 1, 26, 2, 23, 27, 0, 3, 16, 24, 30, 28, 11, 0, 13, 4, 7, 17,
-        0, 25, 22, 31, 15, 29, 10, 12, 6, 0, 21, 14, 9, 5, 20, 8, 19, 18
+    static const int ctzt[32] = {
+        0, 1, 28, 2, 29, 14, 24, 3, 30, 22, 20, 15, 25, 17, 4, 8,
+        31, 27, 13, 23, 21, 19, 16, 7, 26, 12, 18, 6, 11, 5, 10,
     };
-    return bpm37[(-v & v) % 37];
+    return x ? ctzt[((x & -x) * 0x077cb531u) >> 27] : 32;
 }
 
 // sn must be in network order
