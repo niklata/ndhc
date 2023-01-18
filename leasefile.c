@@ -33,7 +33,7 @@ void open_leasefile(void)
 {
     char leasefile[PATH_MAX];
     get_leasefile_path(leasefile, sizeof leasefile, client_config.interface);
-    leasefilefd = open(leasefile, O_WRONLY|O_TRUNC|O_CREAT|O_CLOEXEC, 0644);
+    leasefilefd = open(leasefile, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
     if (leasefilefd < 0)
         suicide("%s: (%s) Failed to create lease file '%s': %s",
                 client_config.interface, __func__, leasefile, strerror(errno));
@@ -59,6 +59,10 @@ static void do_write_leasefile(struct in_addr ipnum)
         log_line("%s: (%s) memccpy failed", client_config.interface, __func__);
         return;
     }
+    size_t outlen = strlen(out);
+    // Make sure that we're not overwriting the leasefile with an invalid
+    // IP address.  This is a very minimal check.
+    if (outlen < 7) return;
     if (safe_ftruncate(leasefilefd, 0)) {
         log_line("%s: (%s) Failed to truncate lease file: %s",
                  client_config.interface, __func__, strerror(errno));
@@ -69,7 +73,6 @@ static void do_write_leasefile(struct in_addr ipnum)
                  client_config.interface, __func__, strerror(errno));
         return;
     }
-    size_t outlen = strlen(out);
     ssize_t ret = safe_write(leasefilefd, out, outlen);
     if (ret < 0 || (size_t)ret != outlen)
         log_line("%s: (%s) Failed to write ip to lease file.",
