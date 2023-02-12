@@ -10,7 +10,6 @@
 #include <signal.h>
 #include <time.h>
 #include <string.h>
-#include <ctype.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -198,14 +197,19 @@ static void setup_signals_ndhc(void)
             suicide("sigaction failed");
 }
 
+static bool xisxdigit(int c)
+{
+    return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
+}
+
 static int is_string_hwaddr(const char *str, size_t slen)
 {
     if (slen == 17 && str[2] == ':' && str[5] == ':' && str[8] == ':' &&
         str[11] == ':' && str[14] == ':' &&
-        isxdigit(str[0]) && isxdigit(str[1]) && isxdigit(str[3]) &&
-        isxdigit(str[4]) && isxdigit(str[6]) && isxdigit(str[7]) &&
-        isxdigit(str[9]) && isxdigit(str[10]) && isxdigit(str[12]) &&
-        isxdigit(str[13]) && isxdigit(str[15]) && isxdigit(str[16])
+        xisxdigit(str[0]) && xisxdigit(str[1]) && xisxdigit(str[3]) &&
+        xisxdigit(str[4]) && xisxdigit(str[6]) && xisxdigit(str[7]) &&
+        xisxdigit(str[9]) && xisxdigit(str[10]) && xisxdigit(str[12]) &&
+        xisxdigit(str[13]) && xisxdigit(str[15]) && xisxdigit(str[16])
         )
         return 1;
     return 0;
