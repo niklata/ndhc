@@ -83,7 +83,6 @@ bool carrier_isup(void);
 void set_client_addr(const char *v);
 void show_usage(void);
 void signal_exit(int status);
-int get_clientid_string(const char *str, size_t slen);
 void print_version(void);
 
 static inline void advance_xid(struct client_state_t *cs) {

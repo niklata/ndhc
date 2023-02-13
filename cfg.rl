@@ -9,6 +9,7 @@
 #include <limits.h>
 #include "ndhc-defines.h"
 #include "cfg.h"
+#include "sys.h"
 #include "arp.h"
 #include "ndhc.h"
 #include "ifchd.h"
@@ -16,6 +17,43 @@
 #include "nk/log.h"
 #include "nk/privs.h"
 #include "nk/io.h"
+
+static bool xisxdigit(int c)
+{
+    return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
+}
+
+static bool is_string_hwaddr(const char *str, size_t slen)
+{
+    return slen == 17 && str[2] == ':' && str[5] == ':' && str[8] == ':' &&
+        str[11] == ':' && str[14] == ':' &&
+        xisxdigit(str[0]) && xisxdigit(str[1]) && xisxdigit(str[3]) &&
+        xisxdigit(str[4]) && xisxdigit(str[6]) && xisxdigit(str[7]) &&
+        xisxdigit(str[9]) && xisxdigit(str[10]) && xisxdigit(str[12]) &&
+        xisxdigit(str[13]) && xisxdigit(str[15]) && xisxdigit(str[16]);
+}
+
+static int get_clientid_string(const char *str, size_t slen)
+{
+    if (!slen)
+        return -1;
+    if (!is_string_hwaddr(str, slen)) {
+        client_config.clientid[0] = 0;
+        memcpy(client_config.clientid + 1, str,
+               min_size_t(slen, sizeof client_config.clientid - 1));
+        client_config.clientid_len = slen + 1;
+        return 0;
+    }
+
+    uint8_t mac[6];
+    for (size_t i = 0; i < sizeof mac; ++i)
+        mac[i] = strtol(str+i*3, (char **)0, 16);
+    client_config.clientid[0] = 1; // Ethernet MAC type
+    memcpy(client_config.clientid + 1, mac,
+           min_size_t(sizeof mac, sizeof client_config.clientid - 1));
+    client_config.clientid_len = 7;
+    return 1;
+}
 
 static void copy_cmdarg(char *dest, const char *src,
                         size_t destlen, const char *argname)
