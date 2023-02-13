@@ -68,8 +68,7 @@ even sees the data.  ndhc also only listens to DHCP traffic when it's
 necessary.
 
 *Flexible*.  ndhc can request particular IPs, send user-specified client
-IDs, write a file that contains the current lease IP, write PID files,
-etc.
+IDs, write a file that contains the current lease IP, etc.
 
 *Self-contained*.  ndhc does not exec other processes, or rely on the shell.
 Further, ndhc relies on no external libraries aside from the system libc.
