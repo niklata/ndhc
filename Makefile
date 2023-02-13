@@ -23,7 +23,7 @@ ifchd-parse.c:
 	ragel -G2 -o ifchd-parse.c ifchd-parse.rl
 
 cfg.c:
-	ragel -G2 -o cfg.c cfg.rl
+	ragel -T0 -o cfg.c cfg.rl
 
 ragel: ifchd-parse.c cfg.c
 
