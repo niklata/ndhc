@@ -1,10 +1,8 @@
-// Copyright 2013-2022 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2013-2023 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <stdint.h>
 #include "nk/hwrng.h"
 #include "nk/random.h"
-
-// SFC64 modified to use a Weyl counter.
 
 void nk_random_init(struct nk_random_state *s)
 {
@@ -19,8 +17,7 @@ static inline uint64_t rotl64(const uint64_t x, int k) {
 
 uint64_t nk_random_u64(struct nk_random_state *s)
 {
-    const uint64_t t = (s->seed[0] + s->seed[1]) ^ s->seed[3];
-    s->seed[3] += 0x6a09e667a7541669ull;
+    const uint64_t t = s->seed[0] + s->seed[1] + s->seed[3]++;
     s->seed[0] = s->seed[1] ^ (s->seed[1] >> 11);
     s->seed[1] = s->seed[2] + (s->seed[2] << 3);
     s->seed[2] = rotl64(s->seed[2], 24) + t;
