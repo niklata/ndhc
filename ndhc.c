@@ -240,8 +240,8 @@ static void do_ndhc_work(void)
         }
 
         bool sev_dhcp = false;
-        uint32_t dhcp_srcaddr;
-        uint8_t dhcp_msgtype;
+        uint32_t dhcp_srcaddr = 0;
+        uint8_t dhcp_msgtype = 0;
         bool sev_arp = false;
         int sev_nl = IFS_NONE;
         int sev_rfk = RFK_NONE;
