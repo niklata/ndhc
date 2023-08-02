@@ -246,11 +246,12 @@ static int create_raw_listen_socket(bool *using_bpf)
         BPF_STMT(BPF_RET + BPF_K, 0),
         // Packet is UDP.  Advance X past the IP header.
         BPF_STMT(BPF_LDX + BPF_B + BPF_MSH, 0),
-        // Verify that the UDP client and server ports match that of the
-        // IANA-assigned DHCP ports.
-        BPF_STMT(BPF_LD + BPF_W + BPF_IND, 0),
+        // Verify that the UDP client port matches that of the
+        // IANA-assigned DHCP port; RFCs do not require the origin
+        // port to correspond to the DHCP_SERVER_PORT.
+        BPF_STMT(BPF_LD + BPF_H + BPF_IND, 2),
         BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K,
-                 (DHCP_SERVER_PORT << 16) + DHCP_CLIENT_PORT, 1, 0),
+                 DHCP_CLIENT_PORT, 1, 0),
         BPF_STMT(BPF_RET + BPF_K, 0),
         // Get the UDP length field and store it in X.
         BPF_STMT(BPF_LD + BPF_H + BPF_IND, 4),
