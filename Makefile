@@ -1,4 +1,4 @@
-NDHC_SRCS = $(sort $(wildcard *.c) $(wildcard nk/*.c) ifchd-parse.c cfg.c)
+NDHC_SRCS = $(sort arp.c dhcp.c ifchange.c ifchd-parse.c leasefile.c netlink.c options.c scriptd.c state.c cfg.c duiaid.c ifchd.c ifset.c ndhc.c nl.c rfkill.c sockd.c sys.c nk/hwrng.c nk/io.c nk/privs.c nk/pspawn.c nk/random.c ifchd-parse.c cfg.c)
 NDHC_OBJS = $(NDHC_SRCS:.c=.o)
 NDHC_DEP = $(NDHC_SRCS:.c=.d)
 INCL = -I.
@@ -19,10 +19,10 @@ clean:
 cleanragel:
 	rm -f ifchd-parse.c cfg.c
 
-ifchd-parse.c:
+ifchd-parse.c: ifchd-parse.rl
 	ragel -G2 -o ifchd-parse.c ifchd-parse.rl
 
-cfg.c:
+cfg.c: cfg.rl
 	ragel -T0 -o cfg.c cfg.rl
 
 ragel: ifchd-parse.c cfg.c
