@@ -21,7 +21,7 @@
         memcpy(argbuf, (STRVAL), SL); \
         argbuf[SL] = 0; \
         argv[curv] = argbuf; argv[++curv] = NULL; \
-        argbuf += SL; argbuflen -= SL; \
+        argbuf += SL + 1; argbuflen -= SL + 1; \
     } while (0)
 
 int nk_pspawn(pid_t *pid, const char *command,
@@ -49,40 +49,23 @@ int nk_pspawn(pid_t *pid, const char *command,
     if (args) {
         p = args;
         const char *q = args;
-        bool squote = false, dquote = false, atend = false;
+        bool atend = false;
         for (;; ++p) {
-            switch (*p) {
-            default: continue;
-            case '\0':
-                 atend = true;
-                 goto endarg;
-            case ' ':
-                if (!squote && !dquote)
-                    goto endarg;
+            if (*p == '\0') {
+                atend = true;
+            } else if (*p != ' ')
                 continue;
-            case '\'':
-                if (!dquote)
-                    squote = !squote;
-                continue;
-            case '"':
-                if (!squote)
-                    dquote = !dquote;
-                continue;
+            if (p == q) break;
+            // Push an argument.
+            if (q > p) {
+                static const char errstr[] = "nk_execute: argument length too long\n";
+                safe_write(STDERR_FILENO, errstr, sizeof errstr);
+                _Exit(EXIT_FAILURE);
             }
-endarg:
-            {
-                if (p == q) break;
-                // Push an argument.
-                if (q > p) {
-                    static const char errstr[] = "nk_execute: argument length too long\n";
-                    safe_write(STDERR_FILENO, errstr, sizeof errstr);
-                    _Exit(EXIT_FAILURE);
-                }
-                NK_GEN_ARG(q, (size_t)(p - q));
-                q = p + 1;
-                if (atend || curv >= (MAX_ARGS - 1))
-                    break;
-            }
+            NK_GEN_ARG(q, (size_t)(p - q));
+            q = p + 1;
+            if (atend || curv >= (MAX_ARGS - 1))
+                break;
         }
     }
     return posix_spawn(pid, command, file_actions, attrp, argv, envp);
