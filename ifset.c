@@ -66,10 +66,10 @@ static ssize_t rtnl_do_send(int fd, const uint8_t *sbuf, size_t slen,
                             (struct sockaddr *)&nl_addr, sizeof nl_addr);
     if (r < 0 || (size_t)r != slen) {
         if (r < 0)
-            log_line("%s: (%s) netlink sendto failed: %s",
+            log_line("%s: (%s) netlink sendto failed: %s\n",
                      client_config.interface, fnname, strerror(errno));
         else
-            log_line("%s: (%s) netlink sendto short write: %zd < %zu",
+            log_line("%s: (%s) netlink sendto short write: %zd < %zu\n",
                      client_config.interface, fnname, r, slen);
         return -1;
     }
@@ -85,17 +85,17 @@ static ssize_t rtnl_do_send(int fd, const uint8_t *sbuf, size_t slen,
     };
     r = safe_recvmsg(fd, &msg, 0);
     if (r < 0) {
-        log_line("%s: (%s) netlink recvmsg failed: %s",
+        log_line("%s: (%s) netlink recvmsg failed: %s\n",
                  client_config.interface, fnname, strerror(errno));
         return -1;
     }
     if (msg.msg_flags & MSG_TRUNC) {
-        log_line("%s: (%s) Buffer not long enough for message.",
+        log_line("%s: (%s) Buffer not long enough for message.\n",
                  client_config.interface, fnname);
         return -1;
     }
     if ((size_t)r < sizeof(struct nlmsghdr)) {
-        log_line("%s: (%s) netlink recvmsg returned a headerless response",
+        log_line("%s: (%s) netlink recvmsg returned a headerless response\n",
                  client_config.interface, fnname);
         return -1;
     }
@@ -106,18 +106,18 @@ static ssize_t rtnl_do_send(int fd, const uint8_t *sbuf, size_t slen,
             return 0;
         else {
             if (nlerr == 132) {
-                log_line("%s: (%s) RF-kill is set (%d).  Cannot change interface.",
+                log_line("%s: (%s) RF-kill is set (%d).  Cannot change interface.\n",
                          client_config.interface, fnname, nlerr);
                 return -3;
             }
-            log_line("%s: (%s) netlink sendto returned NLMSG_ERROR: %s",
+            log_line("%s: (%s) netlink sendto returned NLMSG_ERROR: %s\n",
                      client_config.interface, fnname, strerror(nlerr));
             return -1;
         }
     }
     if (nlh->nlmsg_type == NLMSG_DONE)
         return -2;
-    log_line("%s: (%s) netlink sendto returned an error.",
+    log_line("%s: (%s) netlink sendto returned an error.\n",
              client_config.interface, __func__);
     return -1;
 }
@@ -155,7 +155,7 @@ static ssize_t rtnl_addr_broadcast_send(int fd, int type, int ifa_flags,
     struct ifaddrmsg *ifaddrmsg;
 
     if (!ipaddr && !bcast) {
-        log_line("%s: (%s) no ipaddr or bcast!",
+        log_line("%s: (%s) no ipaddr or bcast!\n",
                  client_config.interface, __func__);
         return -1;
     }
@@ -178,7 +178,7 @@ static ssize_t rtnl_addr_broadcast_send(int fd, int type, int ifa_flags,
     if (ipaddr) {
         if (nl_add_rtattr(header, sizeof request, IFA_LOCAL,
                           ipaddr, sizeof *ipaddr) < 0) {
-            log_line("%s: (%s) couldn't add IFA_LOCAL to nlmsg",
+            log_line("%s: (%s) couldn't add IFA_LOCAL to nlmsg\n",
                      client_config.interface, __func__);
             return -1;
         }
@@ -186,7 +186,7 @@ static ssize_t rtnl_addr_broadcast_send(int fd, int type, int ifa_flags,
     if (bcast) {
         if (nl_add_rtattr(header, sizeof request, IFA_BROADCAST,
                           bcast, sizeof *bcast) < 0) {
-            log_line("%s: (%s) couldn't add IFA_BROADCAST to nlmsg",
+            log_line("%s: (%s) couldn't add IFA_BROADCAST to nlmsg\n",
                      client_config.interface, __func__);
             return -1;
         }
@@ -221,27 +221,27 @@ static ssize_t rtnl_set_default_gw_v4(int fd, uint32_t gw4, int metric)
     uint32_t dstaddr4 = 0;
     if (nl_add_rtattr(header, sizeof request, RTA_DST,
                       &dstaddr4, sizeof dstaddr4) < 0) {
-        log_line("%s: (%s) couldn't add RTA_DST to nlmsg",
+        log_line("%s: (%s) couldn't add RTA_DST to nlmsg\n",
                  client_config.interface, __func__);
         return -1;
     }
     if (nl_add_rtattr(header, sizeof request, RTA_OIF,
                       &client_config.ifindex,
                       sizeof client_config.ifindex) < 0) {
-        log_line("%s: (%s) couldn't add RTA_OIF to nlmsg",
+        log_line("%s: (%s) couldn't add RTA_OIF to nlmsg\n",
                  client_config.interface, __func__);
         return -1;
     }
     if (nl_add_rtattr(header, sizeof request, RTA_GATEWAY,
                       &gw4, sizeof gw4) < 0) {
-        log_line("%s: (%s) couldn't add RTA_GATEWAY to nlmsg",
+        log_line("%s: (%s) couldn't add RTA_GATEWAY to nlmsg\n",
                  client_config.interface, __func__);
         return -1;
     }
     if (metric > 0) {
         if (nl_add_rtattr(header, sizeof request, RTA_PRIORITY,
                           &metric, sizeof metric) < 0) {
-            log_line("%s: (%s) couldn't add RTA_PRIORITY to nlmsg",
+            log_line("%s: (%s) couldn't add RTA_PRIORITY to nlmsg\n",
                      client_config.interface, __func__);
             return -1;
         }
@@ -269,10 +269,10 @@ static void link_flags_get_do(const struct nlmsghdr *nlh, void *data)
             ifd->got_flags = true;
             break;
         case RTM_DELLINK:
-            log_line("%s: got RTM_DELLINK", __func__);
+            log_line("%s: got RTM_DELLINK\n", __func__);
             break;
         default:
-            log_line("%s: got %u", __func__, nlh->nlmsg_type);
+            log_line("%s: got %u\n", __func__, nlh->nlmsg_type);
             break;
     }
 }
@@ -306,7 +306,7 @@ int perform_carrier(void)
     uint32_t flags;
     int fd = socket(AF_NETLINK, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, NETLINK_ROUTE);
     if (fd < 0) {
-        log_line("%s: (%s) netlink socket open failed: %s",
+        log_line("%s: (%s) netlink socket open failed: %s\n",
                  client_config.interface, __func__, strerror(errno));
         goto fail;
     }
@@ -332,7 +332,7 @@ static int link_set_flags(int fd, uint32_t flags)
 
     int r = link_flags_get(fd, &oldflags);
     if (r < 0) {
-        log_line("%s: (%s) failed to get old link flags: %u",
+        log_line("%s: (%s) failed to get old link flags: %u\n",
                  client_config.interface, __func__, r);
         return -1;
     }
@@ -348,7 +348,7 @@ static int link_unset_flags(int fd, uint32_t flags)
 
     int r = link_flags_get(fd, &oldflags);
     if (r < 0) {
-        log_line("%s: (%s) failed to get old link flags: %u",
+        log_line("%s: (%s) failed to get old link flags: %u\n",
                  client_config.interface, __func__, r);
         return -1;
     }
@@ -403,7 +403,7 @@ static void ipbcpfx_clear_others_do(const struct nlmsghdr *nlh, void *data)
                                  tb[IFA_BROADCAST] ? RTA_DATA(tb[IFA_BROADCAST]) : (uint32_t *)0,
                                  ifm->ifa_prefixlen);
     if (r < 0 && r != -2) {
-        log_line("%s: (%s) Failed to delete IP and broadcast addresses.",
+        log_line("%s: (%s) Failed to delete IP and broadcast addresses.\n",
                  client_config.interface, __func__);
     }
     return;
@@ -442,7 +442,7 @@ static ssize_t rtnl_if_mtu_set(int fd, unsigned int mtu)
 
     int r = link_flags_get(fd, &oldflags);
     if (r < 0) {
-        log_line("%s: (%s) failed to get old link flags: %u",
+        log_line("%s: (%s) failed to get old link flags: %u\n",
                  client_config.interface, __func__, r);
         return -1;
     }
@@ -461,7 +461,7 @@ static ssize_t rtnl_if_mtu_set(int fd, unsigned int mtu)
 
     if (nl_add_rtattr(header, sizeof request, IFLA_MTU,
                       &mtu, sizeof mtu) < 0) {
-        log_line("%s: (%s) couldn't add IFLA_MTU to nlmsg",
+        log_line("%s: (%s) couldn't add IFLA_MTU to nlmsg\n",
                  client_config.interface, __func__);
         return -1;
     }
@@ -473,7 +473,7 @@ int perform_ifup(void)
 {
     int fd = socket(AF_NETLINK, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, NETLINK_ROUTE);
     if (fd < 0) {
-        log_line("%s: (%s) netlink socket open failed: %s",
+        log_line("%s: (%s) netlink socket open failed: %s\n",
                  client_config.interface, __func__, strerror(errno));
         return fd;
     }
@@ -481,10 +481,10 @@ int perform_ifup(void)
     int r = link_set_flags(fd, IFF_UP);
     if (r < 0) {
         if (r != -3)
-            log_line("%s: (%s) Failed to set link to be up.",
+            log_line("%s: (%s) Failed to set link to be up.\n",
                      client_config.interface, __func__);
         else
-            log_line("%s: (%s) rfkill is set; waiting until it is unset",
+            log_line("%s: (%s) rfkill is set; waiting until it is unset\n",
                      client_config.interface, __func__);
     }
     close(fd);
@@ -501,13 +501,13 @@ int perform_ip_subnet_bcast(const char *str_ipaddr,
     uint8_t prefixlen;
 
     if (inet_pton(AF_INET, str_ipaddr, &ipaddr) <= 0) {
-        log_line("%s: (%s) bad interface ip address: '%s'",
+        log_line("%s: (%s) bad interface ip address: '%s'\n",
                  client_config.interface, __func__, str_ipaddr);
         goto fail;
     }
 
     if (inet_pton(AF_INET, str_subnet, &subnet) <= 0) {
-        log_line("%s: (%s) bad interface subnet address: '%s'",
+        log_line("%s: (%s) bad interface subnet address: '%s'\n",
                  client_config.interface, __func__, str_subnet);
         goto fail;
     }
@@ -515,7 +515,7 @@ int perform_ip_subnet_bcast(const char *str_ipaddr,
 
     if (str_bcast) {
         if (inet_pton(AF_INET, str_bcast, &bcast) <= 0) {
-            log_line("%s: (%s) bad interface broadcast address: '%s'",
+            log_line("%s: (%s) bad interface broadcast address: '%s'\n",
                      client_config.interface, __func__, str_bcast);
             goto fail;
         }
@@ -526,7 +526,7 @@ int perform_ip_subnet_bcast(const char *str_ipaddr,
 
     fd = socket(AF_NETLINK, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, NETLINK_ROUTE);
     if (fd < 0) {
-        log_line("%s: (%s) netlink socket open failed: %s",
+        log_line("%s: (%s) netlink socket open failed: %s\n",
                  client_config.interface, __func__, strerror(errno));
         goto fail;
     }
@@ -534,10 +534,10 @@ int perform_ip_subnet_bcast(const char *str_ipaddr,
     r = ipbcpfx_clear_others(fd, ipaddr.s_addr, bcast.s_addr, prefixlen);
     if (r < 0 && r > -3) {
         if (r == -1)
-            log_line("%s: (%s) error requesting link ip address list",
+            log_line("%s: (%s) error requesting link ip address list\n",
                      client_config.interface, __func__);
         else if (r == -2)
-            log_line("%s: (%s) error receiving link ip address list",
+            log_line("%s: (%s) error receiving link ip address list\n",
                      client_config.interface, __func__);
         goto fail_fd;
     }
@@ -549,20 +549,20 @@ int perform_ip_subnet_bcast(const char *str_ipaddr,
         if (r < 0)
             goto fail_fd;
 
-        log_line("%s: Interface IP set to: '%s'", client_config.interface,
+        log_line("%s: Interface IP set to: '%s'\n", client_config.interface,
                  str_ipaddr);
-        log_line("%s: Interface subnet set to: '%s'", client_config.interface,
+        log_line("%s: Interface subnet set to: '%s'\n", client_config.interface,
                  str_subnet);
         if (str_bcast)
-            log_line("%s: Broadcast address set to: '%s'",
+            log_line("%s: Broadcast address set to: '%s'\n",
                      client_config.interface, str_bcast);
     } else
-        log_line("%s: Interface IP, subnet, and broadcast were already OK.",
+        log_line("%s: Interface IP, subnet, and broadcast were already OK.\n",
                  client_config.interface);
 
     if (link_set_flags(fd, IFF_UP | IFF_RUNNING) < 0) {
         ret = -1;
-        log_line("%s: (%s) Failed to set link to be up and running.",
+        log_line("%s: (%s) Failed to set link to be up and running.\n",
                  client_config.interface, __func__);
         goto fail_fd;
     }
@@ -581,24 +581,24 @@ int perform_router(const char *str_router, size_t len)
         goto fail;
     struct in_addr router;
     if (inet_pton(AF_INET, str_router, &router) <= 0) {
-        log_line("%s: (%s) bad router ip address: '%s'",
+        log_line("%s: (%s) bad router ip address: '%s'\n",
                  client_config.interface, __func__, str_router);
         goto fail;
     }
 
     int fd = socket(AF_NETLINK, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, NETLINK_ROUTE);
     if (fd < 0) {
-        log_line("%s: (%s) netlink socket open failed: %s",
+        log_line("%s: (%s) netlink socket open failed: %s\n",
                  client_config.interface, __func__, strerror(errno));
         goto fail;
     }
 
     if (rtnl_set_default_gw_v4(fd, router.s_addr, client_config.metric) < 0) {
-        log_line("%s: (%s) failed to set route: %s",
+        log_line("%s: (%s) failed to set route: %s\n",
                  client_config.interface, __func__, strerror(errno));
         goto fail_fd;
     }
-    log_line("%s: Gateway router set to: '%s'", client_config.interface,
+    log_line("%s: Gateway router set to: '%s'\n", client_config.interface,
              str_router);
     ret = 0;
 fail_fd:
@@ -617,23 +617,23 @@ int perform_mtu(const char *str, size_t len)
     char *estr;
     long tmtu = strtol(str, &estr, 10);
     if (estr == str) {
-        log_line("%s: (%s) provided mtu arg isn't a valid number",
+        log_line("%s: (%s) provided mtu arg isn't a valid number\n",
                  client_config.interface, __func__);
         goto fail;
     }
     if ((tmtu == LONG_MAX || tmtu == LONG_MIN) && errno == ERANGE) {
-        log_line("%s: (%s) provided mtu arg would overflow a long",
+        log_line("%s: (%s) provided mtu arg would overflow a long\n",
                  client_config.interface, __func__);
         goto fail;
     }
     if (tmtu > INT_MAX) {
-        log_line("%s: (%s) provided mtu arg would overflow int",
+        log_line("%s: (%s) provided mtu arg would overflow int\n",
                  client_config.interface, __func__);
         goto fail;
     }
     // 68 bytes for IPv4.  1280 bytes for IPv6.
     if (tmtu < 68) {
-        log_line("%s: (%s) provided mtu arg (%ld) less than minimum MTU (68)",
+        log_line("%s: (%s) provided mtu arg (%ld) less than minimum MTU (68)\n",
                  client_config.interface, __func__, tmtu);
         goto fail;
     }
@@ -641,17 +641,17 @@ int perform_mtu(const char *str, size_t len)
 
     fd = socket(AF_NETLINK, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, NETLINK_ROUTE);
     if (fd < 0) {
-        log_line("%s: (%s) netlink socket open failed: %s",
+        log_line("%s: (%s) netlink socket open failed: %s\n",
                  client_config.interface, __func__, strerror(errno));
         goto fail;
     }
 
     if (rtnl_if_mtu_set(fd, mtu) < 0) {
-        log_line("%s: (%s) failed to set MTU [%d]",
+        log_line("%s: (%s) failed to set MTU [%d]\n",
                  client_config.interface, __func__, mtu);
         goto fail_fd;
     }
-    log_line("%s: MTU set to: '%s'", client_config.interface, str);
+    log_line("%s: MTU set to: '%s'\n", client_config.interface, str);
     ret = 0;
 fail_fd:
     close(fd);

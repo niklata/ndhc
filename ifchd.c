@@ -40,7 +40,7 @@ static void writeordie(int fd, const char *buf, size_t len)
 {
     ssize_t r = safe_write(fd, buf, len);
     if (r < 0 || (size_t)r != len)
-        suicide("%s: (%s) write failed: %zd", client_config.interface,
+        suicide("%s: (%s) write failed: %zd\n", client_config.interface,
                 __func__, r);
 }
 
@@ -51,12 +51,12 @@ static int write_append_fd(int to_fd, int from_fd, const char *descr)
 
     const off_t lse = lseek(from_fd, 0, SEEK_END);
     if (lse < 0) {
-        log_line("%s: (%s) lseek(SEEK_END) failed %s",
+        log_line("%s: (%s) lseek(SEEK_END) failed %s\n",
                  client_config.interface, __func__, descr);
         return -2;
     }
     if (lseek(from_fd, 0, SEEK_SET) < 0) {
-        log_line("%s: (%s) lseek(SEEK_SET) failed %s",
+        log_line("%s: (%s) lseek(SEEK_SET) failed %s\n",
                  client_config.interface, __func__, descr);
         return -2;
     }
@@ -67,10 +67,10 @@ static int write_append_fd(int to_fd, int from_fd, const char *descr)
         const size_t to_read = from_fd_len <= sizeof buf ? from_fd_len : sizeof buf;
         ssize_t r = safe_read(from_fd, buf, to_read);
         if (r < 0 || (size_t)r != to_read)
-            suicide("%s: (%s) read failed %s", client_config.interface, __func__, descr);
+            suicide("%s: (%s) read failed %s\n", client_config.interface, __func__, descr);
         r = safe_write(to_fd, buf, to_read);
         if (r < 0 || (size_t)r != to_read)
-            suicide("%s: (%s) write failed %s", client_config.interface, __func__, descr);
+            suicide("%s: (%s) write failed %s\n", client_config.interface, __func__, descr);
         from_fd_len -= to_read;
     }
     return 0;
@@ -103,7 +103,7 @@ static int write_resolve_conf(void)
         else
             *q++ = '\0';
         if (!memccpy(buf, p, 0, sizeof buf)) {
-            log_line("%s: (%s) memccpy failed appending nameservers",
+            log_line("%s: (%s) memccpy failed appending nameservers\n",
                      client_config.interface, __func__);
             return -1;
         }
@@ -124,7 +124,7 @@ static int write_resolve_conf(void)
         else
             *q++ = '\0';
         if (!memccpy(buf, p, 0, sizeof buf)) {
-            log_line("%s: (%s) memccpy failed appending domains",
+            log_line("%s: (%s) memccpy failed appending domains\n",
                      client_config.interface, __func__);
             return -1;
         }
@@ -154,17 +154,17 @@ static int write_resolve_conf(void)
 
     off = lseek(resolv_conf_fd, 0, SEEK_CUR);
     if (off < 0) {
-        log_line("%s: (%s) lseek returned error: %s", client_config.interface,
+        log_line("%s: (%s) lseek returned error: %s\n", client_config.interface,
                  __func__, strerror(errno));
         return -1;
     }
     if (safe_ftruncate(resolv_conf_fd, off) < 0) {
-        log_line("%s: (%s) ftruncate returned error: %s", client_config.interface,
+        log_line("%s: (%s) ftruncate returned error: %s\n", client_config.interface,
                  __func__, strerror(errno));
         return -1;
     }
     if (fsync(resolv_conf_fd) < 0) {
-        log_line("%s: (%s) fsync returned error: %s", client_config.interface,
+        log_line("%s: (%s) fsync returned error: %s\n", client_config.interface,
                  __func__, strerror(errno));
         return -1;
     }
@@ -175,7 +175,7 @@ static int write_resolve_conf(void)
 int perform_timezone(const char *str, size_t len)
 {
     (void)len;
-    log_line("Timezone setting NYI: '%s'", str);
+    log_line("Timezone setting NYI: '%s'\n", str);
     return 0;
 }
 
@@ -186,17 +186,17 @@ int perform_dns(const char *str, size_t len)
         return 0;
     int ret = -1;
     if (len > sizeof cl.namesvrs) {
-        log_line("DNS server list is too long: %zu > %zu", len, sizeof cl.namesvrs);
+        log_line("DNS server list is too long: %zu > %zu\n", len, sizeof cl.namesvrs);
         return ret;
     }
     if (!memccpy(cl.namesvrs, str, 0, sizeof cl.namesvrs)) {
         memset(cl.namesvrs, 0, sizeof cl.namesvrs);
-        log_line("%s: (%s) memccpy failed", client_config.interface, __func__);
+        log_line("%s: (%s) memccpy failed\n", client_config.interface, __func__);
         return ret;
     }
     ret = write_resolve_conf();
     if (ret >= 0)
-        log_line("Added DNS server: '%s'", str);
+        log_line("Added DNS server: '%s'\n", str);
     return ret;
 }
 
@@ -204,7 +204,7 @@ int perform_dns(const char *str, size_t len)
 int perform_lprsvr(const char *str, size_t len)
 {
     (void)len;
-    log_line("Line printer server setting NYI: '%s'", str);
+    log_line("Line printer server setting NYI: '%s'\n", str);
     return 0;
 }
 
@@ -214,10 +214,10 @@ int perform_hostname(const char *str, size_t len)
     if (!allow_hostname)
         return 0;
     if (sethostname(str, len) < 0) {
-        log_line("sethostname returned %s", strerror(errno));
+        log_line("sethostname returned %s\n", strerror(errno));
         return -1;
     }
-    log_line("Set hostname: '%s'", str);
+    log_line("Set hostname: '%s'\n", str);
     return 0;
 }
 
@@ -228,17 +228,17 @@ int perform_domain(const char *str, size_t len)
         return 0;
     int ret = -1;
     if (len > sizeof cl.domains) {
-        log_line("DNS domain list is too long: %zu > %zu", len, sizeof cl.domains);
+        log_line("DNS domain list is too long: %zu > %zu\n", len, sizeof cl.domains);
         return ret;
     }
     if (!memccpy(cl.domains, str, 0, sizeof cl.domains)) {
         memset(cl.domains, 0, sizeof cl.domains);
-        log_line("%s: (%s) memccpy failed", client_config.interface, __func__);
+        log_line("%s: (%s) memccpy failed\n", client_config.interface, __func__);
         return ret;
     }
     ret = write_resolve_conf();
     if (ret == 0)
-        log_line("Added DNS domain: '%s'", str);
+        log_line("Added DNS domain: '%s'\n", str);
     return ret;
 }
 
@@ -247,7 +247,7 @@ int perform_domain(const char *str, size_t len)
 int perform_ipttl(const char *str, size_t len)
 {
     (void)len;
-    log_line("TTL setting NYI: '%s'", str);
+    log_line("TTL setting NYI: '%s'\n", str);
     return 0;
 }
 
@@ -255,7 +255,7 @@ int perform_ipttl(const char *str, size_t len)
 int perform_ntpsrv(const char *str, size_t len)
 {
     (void)len;
-    log_line("NTP server setting NYI: '%s'", str);
+    log_line("NTP server setting NYI: '%s'\n", str);
     return 0;
 }
 
@@ -274,7 +274,7 @@ static void inform_execute(char c)
         // Remote end hung up.
         exit(EXIT_SUCCESS);
     } else if (r < 0)
-        suicide("%s: (%s) error writing to ifch -> ndhc socket: %s",
+        suicide("%s: (%s) error writing to ifch -> ndhc socket: %s\n",
                 client_config.interface, __func__, strerror(errno));
 }
 
@@ -290,14 +290,14 @@ static void process_client_socket(void)
     } else if (r < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return;
-        suicide("%s: (%s) error reading from ndhc -> ifch socket: %s",
+        suicide("%s: (%s) error reading from ndhc -> ifch socket: %s\n",
                 client_config.interface, __func__, strerror(errno));
     }
 
     int ebr = execute_buffer(buf);
     if (ebr < 0) {
         if (ebr == -99)
-            suicide("%s: (%s) unrecoverable failure in command sequence: '%s'",
+            suicide("%s: (%s) unrecoverable failure in command sequence: '%s'\n",
                     client_config.interface, __func__, buf);
         inform_execute('-');
     } else
@@ -319,13 +319,13 @@ static void do_ifch_work(void)
 
     for (;;) {
         if (poll(pfds, 2, -1) < 0) {
-            if (errno != EINTR) suicide("poll failed");
+            if (errno != EINTR) suicide("poll failed\n");
         }
         if (pfds[0].revents & POLLIN) {
             process_client_socket();
         }
         if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-            suicide("ifchSock closed unexpectedly");
+            suicide("ifchSock closed unexpectedly\n");
         }
         if (pfds[1].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
             exit(EXIT_SUCCESS);
@@ -342,19 +342,19 @@ static void setup_resolv_conf(void)
         resolv_conf_fd = open(resolv_conf_d, O_RDWR|O_CREAT|O_CLOEXEC, 644);
         umask(077);
         if (resolv_conf_fd < 0) {
-            suicide("FATAL - unable to open resolv.conf");
+            suicide("FATAL - unable to open resolv.conf\n");
         }
         char buf[PATH_MAX];
 
         ssize_t sl = snprintf(buf, sizeof buf, "%s.head", resolv_conf_d);
         if (sl < 0 || (size_t)sl > sizeof buf)
-            log_line("snprintf failed appending resolv_conf_head; path too long?");
+            log_line("snprintf failed appending resolv_conf_head; path too long?\n");
         else
             resolv_conf_head_fd = open(buf, O_RDONLY|O_CLOEXEC, 0);
 
         sl = snprintf(buf, sizeof buf, "%s.tail", resolv_conf_d);
         if (sl < 0 || (size_t)sl > sizeof buf)
-            log_line("snprintf failed appending resolv_conf_tail; path too long?");
+            log_line("snprintf failed appending resolv_conf_tail; path too long?\n");
         else
             resolv_conf_tail_fd = open(buf, O_RDONLY|O_CLOEXEC, 0);
 

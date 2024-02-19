@@ -24,24 +24,24 @@ static int ifcmd_raw(char *buf, size_t buflen, const char *optname,
                      char *optdata, size_t optlen)
 {
     if (!optdata) {
-        log_line("%s: (%s) '%s' option has no data",
+        log_line("%s: (%s) '%s' option has no data\n",
                  client_config.interface, __func__, optname);
         return -1;
     }
     if (optlen > INT_MAX) {
-        log_line("%s: (%s) '%s' option optlen out of bounds",
+        log_line("%s: (%s) '%s' option optlen out of bounds\n",
                  client_config.interface, __func__, optname);
         return -1;
     }
     if (buflen < strlen(optname) + optlen + 3) {
-        log_line("%s: (%s) '%s' option buf too short",
+        log_line("%s: (%s) '%s' option buf too short\n",
                  client_config.interface, __func__, optname);
         return -1;
     }
     int ioptlen = (int)optlen;
     ssize_t olen = snprintf(buf, buflen, "%s:%.*s;", optname, ioptlen, optdata);
     if (olen < 0 || (size_t)olen > buflen) {
-        log_line("%s: (%s) '%s' option would truncate, so it was dropped.",
+        log_line("%s: (%s) '%s' option would truncate, so it was dropped.\n",
                  client_config.interface, __func__, optname);
         memset(buf, 0, buflen);
         return -1;
@@ -152,7 +152,7 @@ static int ifchd_cmd(char *b, size_t bl, uint8_t *od,
     case DCODE_IPTTL: return ifcmd_u8(b, bl, "ipttl", od, ol);
     default: break;
     }
-    log_line("%s: Invalid option code (%c) for ifchd cmd.",
+    log_line("%s: Invalid option code (%c) for ifchd cmd.\n",
              client_config.interface, code);
     return -1;
 }
@@ -161,7 +161,7 @@ static int ifchwrite(const char *buf, size_t count)
 {
     ssize_t r = safe_write(ifchSock[0], buf, count);
     if (r < 0 || (size_t)r != count) {
-        log_line("%s: (%s) write failed: %zd", client_config.interface, __func__, r);
+        log_line("%s: (%s) write failed: %zd\n", client_config.interface, __func__, r);
         return -1;
     }
     char data[256], control[256];
@@ -180,7 +180,7 @@ static int ifchwrite(const char *buf, size_t count)
         // Remote end hung up.
         exit(EXIT_SUCCESS);
     } else if (r < 0) {
-        suicide("%s: (%s) recvmsg failed: %s", client_config.interface,
+        suicide("%s: (%s) recvmsg failed: %s\n", client_config.interface,
                 __func__, strerror(errno));
     }
     data[iov.iov_len] = '\0';
@@ -203,7 +203,7 @@ int ifchange_deconfig(struct client_state_t *cs)
     if (cs->ifDeconfig)
         return 0;
 
-    log_line("%s: Resetting IP configuration.", client_config.interface);
+    log_line("%s: Resetting IP configuration.\n", client_config.interface);
     ret = ifchwrite(buf, strlen(buf));
 
     if (ret >= 0) {
@@ -255,7 +255,7 @@ static size_t send_client_ip(char *out, size_t olen,
 
     if (!have_subnet) {
         static char snClassC[] = "255.255.255.0";
-        log_line("%s: Server did not send a subnet mask.  Assuming 255.255.255.0.",
+        log_line("%s: Server did not send a subnet mask.  Assuming 255.255.255.0.\n",
                  client_config.interface);
         memcpy(sn, snClassC, sizeof snClassC);
     }
@@ -267,7 +267,7 @@ static size_t send_client_ip(char *out, size_t olen,
         snlen = snprintf(out, olen, "ip4:%s,%s;", ip, sn);
     }
     if (snlen < 0 || (size_t)snlen > olen) {
-        log_line("%s: (%s) ip4 command would truncate so it was dropped.",
+        log_line("%s: (%s) ip4 command would truncate so it was dropped.\n",
                  client_config.interface, __func__);
         memset(out, 0, olen);
         return 0;
@@ -306,7 +306,7 @@ int ifchange_bind(struct client_state_t *cs, struct dhcpmsg *packet)
     bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_MTU);
     bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_WINS);
     if (bo) {
-        log_line("%s: bind command: '%s'", client_config.interface, buf);
+        log_line("%s: bind command: '%s'\n", client_config.interface, buf);
         ret = ifchwrite(buf, bo);
     }
 

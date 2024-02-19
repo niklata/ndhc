@@ -67,17 +67,17 @@ static int perform_ip4set(const char *buf, size_t len)
     %% write exec;
 
     if (cs < ipv4set_parser_first_final) {
-        log_line("%s: received invalid arguments", __func__);
+        log_line("%s: received invalid arguments\n", __func__);
         return -1;
     }
 
     // These should never trigger because of the above check, but be safe...
     if (!have_ip) {
-        log_line("%s: No IPv4 address specified.", __func__);
+        log_line("%s: No IPv4 address specified.\n", __func__);
         return -1;
     }
     if (!have_subnet) {
-        log_line("%s: No IPv4 subnet specified.", __func__);
+        log_line("%s: No IPv4 subnet specified.\n", __func__);
         return -1;
     }
 
@@ -93,7 +93,7 @@ static int perform_ip4set(const char *buf, size_t len)
     action ArgEn {
         ptrdiff_t al = p - arg_start;
         if (al < 0 || (size_t)al > sizeof tb - 1) {
-            log_line("command argument would overflow");
+            log_line("command argument would overflow\n");
             return -99;
         }
         arg_len = (size_t)al;
@@ -119,7 +119,7 @@ static int perform_ip4set(const char *buf, size_t len)
         case STATE_CARRIER: pr = perform_carrier(); break;
         default:
             arg_len = 0;
-            log_line("error: invalid state in dispatch_work");
+            log_line("error: invalid state in dispatch_work\n");
             return -99;
         }
         arg_len = 0;
@@ -173,11 +173,11 @@ int execute_buffer(const char *newbuf)
     char *snp = memccpy(buf, cl.ibuf, 0, sizeof buf);
     memset(cl.ibuf, 0, sizeof cl.ibuf);
     if (!snp) {
-        log_line("%s: (%s) memccpy failed", client_config.interface, __func__);
+        log_line("%s: (%s) memccpy failed\n", client_config.interface, __func__);
         return -99;
     }
     if (!memccpy(snp - 1, newbuf, 0, sizeof buf - (size_t)(snp - buf - 1))) {
-        log_line("%s: (%s) memccpy failed", client_config.interface, __func__);
+        log_line("%s: (%s) memccpy failed\n", client_config.interface, __func__);
         return -99;
     }
 
@@ -192,7 +192,7 @@ int execute_buffer(const char *newbuf)
     %% write exec;
 
     if (cs == ifchd_parser_error) {
-        log_line("%s: (%s) ifch received invalid commands",
+        log_line("%s: (%s) ifch received invalid commands\n",
                  client_config.interface, __func__);
         return -99;
     }
@@ -200,7 +200,7 @@ int execute_buffer(const char *newbuf)
     if (cmd_start != pe) {
         if (!memccpy(cl.ibuf, cmd_start, 0, sizeof cl.ibuf)) {
             memset(cl.ibuf, 0, sizeof cl.ibuf);
-            log_line("%s: (%s) memccpy failed", client_config.interface, __func__);
+            log_line("%s: (%s) memccpy failed\n", client_config.interface, __func__);
             return -99;
         }
     }

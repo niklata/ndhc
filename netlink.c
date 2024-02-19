@@ -22,18 +22,18 @@ bool nl_event_carrier_wentup(int state)
 {
     switch (state) {
     case IFS_UP:
-        log_line("%s: Carrier up.", client_config.interface);
+        log_line("%s: Carrier up.\n", client_config.interface);
         return true;
     case IFS_DOWN:
         // Interface configured, but no hardware carrier.
-        log_line("%s: Carrier down.", client_config.interface);
+        log_line("%s: Carrier down.\n", client_config.interface);
         return false;
     case IFS_SHUT:
         // User shut down the interface.
-        log_line("%s: Interface shut down.", client_config.interface);
+        log_line("%s: Interface shut down.\n", client_config.interface);
         return false;
     case IFS_REMOVED:
-        log_line("Interface removed.  Exiting.");
+        log_line("Interface removed.  Exiting.\n");
         exit(EXIT_SUCCESS);
     default: return false;
     }
@@ -89,14 +89,14 @@ static int get_if_index_and_mac(const struct nlmsghdr *nlh,
                                     sizeof client_config.interface)) {
         client_config.ifindex = ifm->ifi_index;
         if (!tb[IFLA_ADDRESS])
-            suicide("FATAL: Adapter %s lacks a hardware address.", client_config.interface);
+            suicide("FATAL: Adapter %s lacks a hardware address.\n", client_config.interface);
         int maclen = tb[IFLA_ADDRESS]->rta_len - 4;
         if (maclen != 6)
-            suicide("FATAL: Adapter hardware address length should be 6, but is %u.",
+            suicide("FATAL: Adapter hardware address length should be 6, but is %u.\n",
                     maclen);
 
         const unsigned char *mac = RTA_DATA(tb[IFLA_ADDRESS]);
-        log_line("%s hardware address %x:%x:%x:%x:%x:%x",
+        log_line("%s hardware address %x:%x:%x:%x:%x:%x\n",
                  client_config.interface,
                  mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
         memcpy(client_config.arp, mac, 6);
@@ -140,20 +140,20 @@ int nl_getifdata(void)
     int ret = -1;
     int fd = socket(AF_NETLINK, SOCK_DGRAM|SOCK_CLOEXEC, NETLINK_ROUTE);
     if (fd < 0) {
-        log_line("%s: (%s) netlink socket open failed: %s",
+        log_line("%s: (%s) netlink socket open failed: %s\n",
                  client_config.interface, __func__, strerror(errno));
         goto fail;
     }
 
     struct timespec ts;
     if (clock_gettime(CLOCK_REALTIME, &ts) < 0) {
-        log_line("%s: (%s) clock_gettime failed",
+        log_line("%s: (%s) clock_gettime failed\n",
                  client_config.interface, __func__);
         goto fail_fd;
     }
     uint32_t seq = ts.tv_nsec;
     if (nl_sendgetlinks(fd, seq)) {
-        log_line("%s: (%s) nl_sendgetlinks failed",
+        log_line("%s: (%s) nl_sendgetlinks failed\n",
                  client_config.interface, __func__);
         goto fail_fd;
     }

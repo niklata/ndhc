@@ -30,7 +30,7 @@ void request_scriptd_run(void)
     char nl = '\n';
     ssize_t r = safe_write(scriptdSock[0], &nl, 1);
     if (r < 0 || (size_t)r != 1)
-        suicide("%s: (%s) write failed: %zd", client_config.interface,
+        suicide("%s: (%s) write failed: %zd\n", client_config.interface,
                 __func__, r);
     char buf[16];
     r = safe_recv_once(scriptdSock[0], buf, sizeof buf, 0);
@@ -38,11 +38,11 @@ void request_scriptd_run(void)
         // Remote end hung up.
         exit(EXIT_SUCCESS);
     } else if (r < 0) {
-        suicide("%s: (%s) recvmsg failed: %s", client_config.interface,
+        suicide("%s: (%s) recvmsg failed: %s\n", client_config.interface,
                 __func__, strerror(errno));
     }
     if (r != 1 || buf[0] != '+')
-        suicide("%s: Bad response from recv", __func__);
+        suicide("%s: Bad response from recv\n", __func__);
 }
 
 static void process_client_socket(void)
@@ -51,7 +51,7 @@ static void process_client_socket(void)
     static size_t buflen;
 
     if (buflen == sizeof buf)
-        suicide("%s: (%s) receive buffer exhausted", client_config.interface,
+        suicide("%s: (%s) receive buffer exhausted\n", client_config.interface,
                 __func__);
 
     int r = safe_recv(scriptdSock[1], buf + buflen, sizeof buf - buflen,
@@ -62,7 +62,7 @@ static void process_client_socket(void)
     } else if (r < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return;
-        suicide("%s: (%s) error reading from ndhc -> scriptd socket: %s",
+        suicide("%s: (%s) error reading from ndhc -> scriptd socket: %s\n",
                 client_config.interface, __func__, strerror(errno));
     }
     buflen += (size_t)r;
@@ -75,7 +75,7 @@ static void process_client_socket(void)
     int wstatus;
     ret = waitpid(pid, &wstatus, 0);
     if (ret == -1)
-        suicide("%s: (%s) waitpid failed: %s", client_config.interface,
+        suicide("%s: (%s) waitpid failed: %s\n", client_config.interface,
                 __func__, strerror(errno));
 
     char c = '+';
@@ -84,7 +84,7 @@ static void process_client_socket(void)
         // Remote end hung up.
         exit(EXIT_SUCCESS);
     } else if (rs < 0)
-        suicide("%s: (%s) error writing to scriptd -> ndhc socket: %s",
+        suicide("%s: (%s) error writing to scriptd -> ndhc socket: %s\n",
                 client_config.interface, __func__, strerror(errno));
 }
 
@@ -98,13 +98,13 @@ static void do_scriptd_work(void)
 
     for (;;) {
         if (poll(pfds, 2, -1) < 0) {
-            if (errno != EINTR) suicide("poll failed");
+            if (errno != EINTR) suicide("poll failed\n");
         }
         if (pfds[0].revents & POLLIN) {
             process_client_socket();
         }
         if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-            suicide("scriptdSock closed unexpectedly");
+            suicide("scriptdSock closed unexpectedly\n");
         }
         if (pfds[1].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
             exit(EXIT_SUCCESS);
@@ -128,24 +128,24 @@ static void setup_signals_scriptd(void)
     };
     sigset_t mask;
     if (sigprocmask(0, 0, &mask) < 0)
-        suicide("sigprocmask failed");
+        suicide("sigprocmask failed\n");
     for (int i = 0; ss[i] != SIGKILL; ++i)
         if (sigdelset(&mask, ss[i]))
-            suicide("sigdelset failed");
+            suicide("sigdelset failed\n");
     if (sigaddset(&mask, SIGPIPE))
-        suicide("sigaddset failed");
+        suicide("sigaddset failed\n");
     if (sigprocmask(SIG_SETMASK, &mask, (sigset_t *)0) < 0)
-        suicide("sigprocmask failed");
+        suicide("sigprocmask failed\n");
 
     struct sigaction sa = {
         .sa_handler = signal_handler,
         .sa_flags = SA_RESTART,
     };
     if (sigemptyset(&sa.sa_mask))
-        suicide("sigemptyset failed");
+        suicide("sigemptyset failed\n");
     for (int i = 0; ss[i] != SIGKILL; ++i)
         if (sigaction(ss[i], &sa, NULL))
-            suicide("sigaction failed");
+            suicide("sigaction failed\n");
 }
 
 void scriptd_main(void)

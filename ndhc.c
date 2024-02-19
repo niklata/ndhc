@@ -165,7 +165,7 @@ static void signal_handler(int signo)
 
 void signal_exit(int status)
 {
-    log_line("Received terminal signal. Exiting.");
+    log_line("Received terminal signal. Exiting.\n");
     exit(status);
 }
 
@@ -177,36 +177,36 @@ static void setup_signals_ndhc(void)
     sigset_t mask;
 
     if (sigprocmask(0, 0, &mask) < 0)
-        suicide("sigprocmask failed");
+        suicide("sigprocmask failed\n");
     for (int i = 0; ss[i] != SIGKILL; ++i)
         if (sigdelset(&mask, ss[i]))
-            suicide("sigdelset failed");
+            suicide("sigdelset failed\n");
     if (sigaddset(&mask, SIGPIPE))
-        suicide("sigaddset failed");
+        suicide("sigaddset failed\n");
     if (sigprocmask(SIG_SETMASK, &mask, (sigset_t *)0) < 0)
-        suicide("sigprocmask failed");
+        suicide("sigprocmask failed\n");
 
     struct sigaction sa = {
         .sa_handler = signal_handler,
         .sa_flags = SA_RESTART,
     };
     if (sigemptyset(&sa.sa_mask))
-        suicide("sigemptyset failed");
+        suicide("sigemptyset failed\n");
     for (int i = 0; ss[i] != SIGKILL; ++i)
         if (sigaction(ss[i], &sa, NULL))
-            suicide("sigaction failed");
+            suicide("sigaction failed\n");
 }
 
 static void fail_if_state_dir_dne(void)
 {
     if (strlen(state_dir) == 0)
-        suicide("state_dir path is empty; it must be specified");
+        suicide("state_dir path is empty; it must be specified\n");
     struct stat st;
     if (stat(state_dir, &st) < 0)
-        suicide("failed to stat state_dir path '%s': %s",
+        suicide("failed to stat state_dir path '%s': %s\n",
                 state_dir, strerror(errno));
     if (!S_ISDIR(st.st_mode))
-        suicide("state_dir path '%s' does not specify a directory", state_dir);
+        suicide("state_dir path '%s' does not specify a directory\n", state_dir);
 }
 
 static void do_ndhc_work(void)
@@ -236,7 +236,7 @@ static void do_ndhc_work(void)
         pfds[5].fd = cs.listenFd;
         had_event = false;
         if (poll(pfds, 7, timeout) < 0) {
-            if (errno != EINTR) suicide("poll failed");
+            if (errno != EINTR) suicide("poll failed\n");
         }
 
         bool sev_dhcp = false;
@@ -253,7 +253,7 @@ static void do_ndhc_work(void)
                 cs.carrier_up = (sev_nl == IFS_UP);
         }
         if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-            suicide("nlfd closed unexpectedly");
+            suicide("nlfd closed unexpectedly\n");
         }
         if (pfds[1].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
             exit(EXIT_FAILURE);
@@ -269,7 +269,7 @@ static void do_ndhc_work(void)
             sev_rfk = rfkill_get(&cs, 1, client_config.rfkillIdx);
         }
         if (pfds[3].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-            suicide("rfkillfd closed unexpectedly");
+            suicide("rfkillfd closed unexpectedly\n");
         }
         if (pfds[4].revents & POLLIN) {
             had_event = true;
@@ -278,7 +278,7 @@ static void do_ndhc_work(void)
                 sev_arp = arp_packet_get(&cs);
         }
         if (pfds[4].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-            suicide("arpfd closed unexpectedly");
+            suicide("arpfd closed unexpectedly\n");
         }
         if (pfds[5].revents & POLLIN) {
             had_event = true;
@@ -288,16 +288,16 @@ static void do_ndhc_work(void)
                                            &dhcp_srcaddr);
         }
         if (pfds[5].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-            suicide("listenfd closed unexpectedly");
+            suicide("listenfd closed unexpectedly\n");
         }
 
         if (sev_rfk == RFK_ENABLED) {
             rfkill_set = 1;
             rfkill_nl_carrier_wentup = false;
-            log_line("rfkill: radio now blocked");
+            log_line("rfkill: radio now blocked\n");
         } else if (sev_rfk == RFK_DISABLED) {
             rfkill_set = 0;
-            log_line("rfkill: radio now unblocked");
+            log_line("rfkill: radio now unblocked\n");
             cs.carrier_up = ifchange_carrier_isup();
             if (rfkill_nl_carrier_wentup && carrier_isup()) {
                 // We might have changed networks while the radio was down.
@@ -379,23 +379,23 @@ int scriptdStream[2] = { -1, -1 };
 
 static void create_ifch_ipc_sockets(void) {
     if (socketpair(AF_UNIX, SOCK_DGRAM, 0, ifchSock) < 0)
-        suicide("FATAL - can't create ndhc/ifch socket: %s", strerror(errno));
+        suicide("FATAL - can't create ndhc/ifch socket: %s\n", strerror(errno));
     if (socketpair(AF_UNIX, SOCK_STREAM, 0, ifchStream) < 0)
-        suicide("FATAL - can't create ndhc/ifch socket: %s", strerror(errno));
+        suicide("FATAL - can't create ndhc/ifch socket: %s\n", strerror(errno));
 }
 
 static void create_sockd_ipc_sockets(void) {
     if (socketpair(AF_UNIX, SOCK_DGRAM, 0, sockdSock) < 0)
-        suicide("FATAL - can't create ndhc/sockd socket: %s", strerror(errno));
+        suicide("FATAL - can't create ndhc/sockd socket: %s\n", strerror(errno));
     if (socketpair(AF_UNIX, SOCK_STREAM, 0, sockdStream) < 0)
-        suicide("FATAL - can't create ndhc/sockd socket: %s", strerror(errno));
+        suicide("FATAL - can't create ndhc/sockd socket: %s\n", strerror(errno));
 }
 
 static void create_scriptd_ipc_sockets(void) {
     if (socketpair(AF_UNIX, SOCK_DGRAM, 0, scriptdSock) < 0)
-        suicide("FATAL - can't create ndhc/scriptd socket: %s", strerror(errno));
+        suicide("FATAL - can't create ndhc/scriptd socket: %s\n", strerror(errno));
     if (socketpair(AF_UNIX, SOCK_STREAM, 0, scriptdStream) < 0)
-        suicide("FATAL - can't create ndhc/scriptd socket: %s", strerror(errno));
+        suicide("FATAL - can't create ndhc/scriptd socket: %s\n", strerror(errno));
 }
 
 static void spawn_ifch(void)
@@ -412,7 +412,7 @@ static void spawn_ifch(void)
         close(ifchSock[1]);
         close(ifchStream[1]);
     } else
-        suicide("failed to fork ndhc-ifch: %s", strerror(errno));
+        suicide("failed to fork ndhc-ifch: %s\n", strerror(errno));
 }
 
 static void spawn_sockd(void)
@@ -429,7 +429,7 @@ static void spawn_sockd(void)
         close(sockdSock[1]);
         close(sockdStream[1]);
     } else
-        suicide("failed to fork ndhc-sockd: %s", strerror(errno));
+        suicide("failed to fork ndhc-sockd: %s\n", strerror(errno));
 }
 
 static void spawn_scriptd(void)
@@ -437,7 +437,7 @@ static void spawn_scriptd(void)
     valid_script_file = access(script_file, R_OK | X_OK) == 0;
     if (!valid_script_file) return;
 
-    log_line("Found script file: '%s'", script_file);
+    log_line("Found script file: '%s'\n", script_file);
 
     create_scriptd_ipc_sockets();
     pid_t scriptd_pid = fork();
@@ -451,16 +451,16 @@ static void spawn_scriptd(void)
         close(scriptdSock[1]);
         close(scriptdStream[1]);
     } else
-        suicide("failed to fork ndhc-scriptd: %s", strerror(errno));
+        suicide("failed to fork ndhc-scriptd: %s\n", strerror(errno));
 }
 
 static void ndhc_main(void) {
     prctl(PR_SET_NAME, "ndhc: master");
-    log_line("ndhc client " NDHC_VERSION " started on interface [%s].",
+    log_line("ndhc client " NDHC_VERSION " started on interface [%s].\n",
              client_config.interface);
 
     if ((cs.nlFd = nl_open(NETLINK_ROUTE, RTMGRP_LINK, &cs.nlPortId)) < 0)
-        suicide("%s: failed to open netlink socket", __func__);
+        suicide("%s: failed to open netlink socket\n", __func__);
 
     cs.rfkillFd = rfkill_open(&client_config.enable_rfkill);
 
@@ -473,7 +473,7 @@ static void ndhc_main(void) {
     cs.carrier_up = ifchange_carrier_isup();
     if (!carrier_isup()) {
         if (ifchange_deconfig(&cs) < 0)
-            suicide("%s: can't deconfigure interface settings", __func__);
+            suicide("%s: can't deconfigure interface settings\n", __func__);
     }
 
     do_ndhc_work();
@@ -483,14 +483,14 @@ static void wait_for_rfkill()
 {
     cs.rfkillFd = rfkill_open(&client_config.enable_rfkill);
     if (cs.rfkillFd < 0)
-        suicide("can't wait for rfkill to end if /dev/rfkill can't be opened");
+        suicide("can't wait for rfkill to end if /dev/rfkill can't be opened\n");
 
     struct pollfd pfds[1] = {0};
     pfds[0].events = POLLIN|POLLHUP|POLLERR|POLLRDHUP;
     for (;;) {
         pfds[0].fd = cs.rfkillFd;
         if (poll(pfds, 1, -1) < 0) {
-            if (errno != EINTR) suicide("poll failed");
+            if (errno != EINTR) suicide("poll failed\n");
         }
         if (pfds[0].revents & POLLIN) {
             if (rfkill_get(&cs, 0, 0) == RFK_DISABLED) {
@@ -498,14 +498,14 @@ static void wait_for_rfkill()
                 case 1:
                 case 0: goto rfkill_gone;
                 case -3:
-                    log_line("rfkill: radio immediately blocked again; spurious?");
+                    log_line("rfkill: radio immediately blocked again; spurious?\n");
                     break;
-                default: suicide("failed to set the interface to up state");
+                default: suicide("failed to set the interface to up state\n");
                 }
             }
         }
         if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-            suicide("rfkillFd closed unexpectedly");
+            suicide("rfkillFd closed unexpectedly\n");
         }
     }
 rfkill_gone:
@@ -523,26 +523,26 @@ int main(int argc, char *argv[])
     cs.xid = nk_random_u32(&cs.rnd_state);
 
     if (getuid())
-        suicide("I need to be started as root.");
+        suicide("I need to be started as root.\n");
     if (!strncmp(chroot_dir, "", sizeof chroot_dir))
-        suicide("No chroot path is specified.  Refusing to run.");
+        suicide("No chroot path is specified.  Refusing to run.\n");
     fail_if_state_dir_dne();
 
     if (nl_getifdata() < 0)
-        suicide("failed to get interface MAC or index");
+        suicide("failed to get interface MAC or index\n");
 
     get_clientid(&client_config);
 
     switch (perform_ifup()) {
     case 1: case 0: break;
     case -3: wait_for_rfkill(); break;
-    default: suicide("failed to set the interface to up state");
+    default: suicide("failed to set the interface to up state\n");
     }
 
     if (setpgid(0, 0) < 0) {
         // EPERM is returned if we are already a process group leader.
         if (errno != EPERM)
-            suicide("setpgid failed: %s", strerror(errno));
+            suicide("setpgid failed: %s\n", strerror(errno));
     }
 
     spawn_ifch();

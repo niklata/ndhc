@@ -20,14 +20,14 @@ static void get_duid_path(char *duidfile, size_t dlen)
 {
     int splen = snprintf(duidfile, dlen, "%s/DUID", state_dir);
     if (splen < 0 || (size_t)splen > dlen)
-        suicide("%s: snprintf failed; return=%d", __func__, splen);
+        suicide("%s: snprintf failed; return=%d\n", __func__, splen);
 }
 
 static void get_iaid_path(char *iaidfile, size_t ilen,
                           const uint8_t hwaddr[static 6], size_t hwaddrlen)
 {
     if (hwaddrlen != 6)
-        suicide("%s: Hardware address length=%zu != 6 bytes",
+        suicide("%s: Hardware address length=%zu != 6 bytes\n",
                 __func__, hwaddrlen);
     int splen = snprintf
         (iaidfile, ilen,
@@ -35,7 +35,7 @@ static void get_iaid_path(char *iaidfile, size_t ilen,
          state_dir, hwaddr[0], hwaddr[1], hwaddr[2],
          hwaddr[3], hwaddr[4], hwaddr[5]);
     if (splen < 0 || (size_t)splen > ilen)
-        suicide("%s: snprintf failed; return=%d", __func__, splen);
+        suicide("%s: snprintf failed; return=%d\n", __func__, splen);
 }
 
 static int open_duidfile_read(void)
@@ -44,7 +44,7 @@ static int open_duidfile_read(void)
     get_duid_path(duidfile, sizeof duidfile);
     int fd = open(duidfile, O_RDONLY|O_CLOEXEC, 0);
     if (fd < 0) {
-        log_line("Failed to open duidfile '%s' for reading: %s",
+        log_line("Failed to open duidfile '%s' for reading: %s\n",
                  duidfile, strerror(errno));
     }
     return fd;
@@ -56,7 +56,7 @@ static int open_duidfile_write(void)
     get_duid_path(duidfile, sizeof duidfile);
     int fd = open(duidfile, O_WRONLY|O_TRUNC|O_CREAT|O_CLOEXEC, 0644);
     if (fd < 0)
-        suicide("Failed to open duidfile '%s' for writing: %s",
+        suicide("Failed to open duidfile '%s' for writing: %s\n",
                 duidfile, strerror(errno));
     return fd;
 }
@@ -67,7 +67,7 @@ static int open_iaidfile_read(const uint8_t hwaddr[static 6], size_t hwaddrlen)
     get_iaid_path(iaidfile, sizeof iaidfile, hwaddr, hwaddrlen);
     int fd = open(iaidfile, O_RDONLY|O_CLOEXEC, 0);
     if (fd < 0) {
-        log_line("Failed to open iaidfile '%s' for reading: %s",
+        log_line("Failed to open iaidfile '%s' for reading: %s\n",
                  iaidfile, strerror(errno));
     }
     return fd;
@@ -80,7 +80,7 @@ static int open_iaidfile_write(const uint8_t hwaddr[static 6],
     get_iaid_path(iaidfile, sizeof iaidfile, hwaddr, hwaddrlen);
     int fd = open(iaidfile, O_WRONLY|O_TRUNC|O_CREAT|O_CLOEXEC, 0644);
     if (fd < 0)
-        suicide("Failed to open iaidfile '%s' for writing: %s",
+        suicide("Failed to open iaidfile '%s' for writing: %s\n",
                 iaidfile, strerror(errno));
     return fd;
 }
@@ -94,7 +94,7 @@ static size_t generate_duid(char *dest, size_t dlen)
 {
     const size_t tlen = sizeof(uint16_t) + 4 * sizeof(uint32_t);
     if (dlen < tlen)
-        suicide("%s: dlen < %zu", __func__, tlen);
+        suicide("%s: dlen < %zu\n", __func__, tlen);
     size_t off = 0;
 
     uint16_t typefield = htons(4);
@@ -112,7 +112,7 @@ static size_t generate_duid(char *dest, size_t dlen)
 static size_t generate_iaid(char *dest, size_t dlen)
 {
     if (dlen < sizeof(uint32_t))
-        suicide("%s: dlen < %zu", __func__, sizeof(uint32_t));
+        suicide("%s: dlen < %zu\n", __func__, sizeof(uint32_t));
     size_t off = 0;
 
     nk_hwrng_bytes(dest+off, sizeof(uint32_t));
@@ -136,12 +136,12 @@ void get_clientid(struct client_config_t *cc)
         fd = open_iaidfile_write(cc->arp, sizeof cc->arp);
         ssize_t r = safe_write(fd, iaid, iaid_len);
         if (r < 0 || (size_t)r != iaid_len)
-            suicide("%s: (%s) failed to write generated IAID.",
+            suicide("%s: (%s) failed to write generated IAID.\n",
                     cc->interface, __func__);
     } else {
         ssize_t r = safe_read(fd, iaid, sizeof iaid);
         if (r < 0)
-            suicide("%s: (%s) failed to read IAID from file",
+            suicide("%s: (%s) failed to read IAID from file\n",
                     cc->interface, __func__);
         iaid_len = (size_t)r;
     }
@@ -153,12 +153,12 @@ void get_clientid(struct client_config_t *cc)
         fd = open_duidfile_write();
         ssize_t r = safe_write(fd, duid, duid_len);
         if (r < 0 || (size_t)r != duid_len)
-            suicide("%s: (%s) failed to write generated DUID.",
+            suicide("%s: (%s) failed to write generated DUID.\n",
                     cc->interface, __func__);
     } else {
         ssize_t r = safe_read(fd, duid, sizeof duid);
         if (r < 0)
-            suicide("%s: (%s) failed to read DUID from file",
+            suicide("%s: (%s) failed to read DUID from file\n",
                     cc->interface, __func__);
         duid_len = (size_t)r;
     }
@@ -167,7 +167,7 @@ void get_clientid(struct client_config_t *cc)
     const uint8_t cid_type = 255;
     size_t cdl = sizeof cid_type + iaid_len + duid_len;
     if (cdl > sizeof cc->clientid)
-        suicide("%s: (%s) clientid length %zu > %zu",
+        suicide("%s: (%s) clientid length %zu > %zu\n",
                 cc->interface, __func__, cdl, sizeof cc->clientid);
 
     uint8_t cid_len = 0;

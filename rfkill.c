@@ -18,7 +18,7 @@ int rfkill_open(bool *enable_rfkill)
     int r = open("/dev/rfkill", O_RDONLY|O_CLOEXEC|O_NONBLOCK);
     if (r < 0) {
         *enable_rfkill = false;
-        log_line("rfkill disabled: could not open /dev/rfkill: %s",
+        log_line("rfkill disabled: could not open /dev/rfkill: %s\n",
                  strerror(errno));
     }
     return r;
@@ -31,14 +31,14 @@ int rfkill_get(struct client_state_t *cs, int check_idx, uint32_t rfkidx)
     struct rfkill_event event;
     ssize_t len = safe_read(cs->rfkillFd, (char *)&event, sizeof event);
     if (len < 0) {
-        log_line("rfkill: safe_read failed: %s", strerror(errno));
+        log_line("rfkill: safe_read failed: %s\n", strerror(errno));
         return RFK_FAIL;
     }
     if (len != RFKILL_EVENT_SIZE_V1) {
-        log_line("rfkill: event has unexpected size: %zd", len);
+        log_line("rfkill: event has unexpected size: %zd\n", len);
         return RFK_FAIL;
     }
-    log_line("rfkill: idx[%u] type[%u] op[%u] soft[%u] hard[%u]",
+    log_line("rfkill: idx[%u] type[%u] op[%u] soft[%u] hard[%u]\n",
              event.idx, event.type, event.op, event.soft, event.hard);
     if (check_idx && event.idx != rfkidx)
         return RFK_NONE;

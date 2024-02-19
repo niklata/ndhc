@@ -91,7 +91,7 @@ static int requesting_timeout(struct client_state_t *cs,
         return REQ_TIMEOUT;
     }
     if (send_selecting(cs) < 0) {
-        log_line("%s: Failed to send a selecting request packet.",
+        log_line("%s: Failed to send a selecting request packet.\n",
                  client_config.interface);
         return REQ_FAIL;
     }
@@ -107,14 +107,14 @@ static int rebinding_timeout(struct client_state_t *cs,
 {
     long long elt = cs->leaseStartTime + cs->lease * 1000;
     if (nowts >= elt) {
-        log_line("%s: Lease expired.  Searching for a new lease...",
+        log_line("%s: Lease expired.  Searching for a new lease...\n",
                  client_config.interface);
         reinit_selecting(cs, 0);
         return BTO_EXPIRED;
     }
     start_dhcp_listen(cs);
     if (send_rebind(cs) < 0) {
-        log_line("%s: Failed to send a rebind request packet.",
+        log_line("%s: Failed to send a rebind request packet.\n",
                  client_config.interface);
         return BTO_HARDFAIL;
     }
@@ -133,7 +133,7 @@ static int renewing_timeout(struct client_state_t *cs,
         return rebinding_timeout(cs, nowts);
     start_dhcp_listen(cs);
     if (send_renew(cs) < 0) {
-        log_line("%s: Failed to send a renew request packet.",
+        log_line("%s: Failed to send a renew request packet.\n",
                  client_config.interface);
         return BTO_HARDFAIL;
     }
@@ -162,12 +162,12 @@ static void get_leasetime(struct client_state_t *cs,
     cs->lease = get_option_leasetime(packet);
     cs->leaseStartTime = curms();
     if (!cs->lease) {
-        log_line("%s: No lease time received; assuming 1h.",
+        log_line("%s: No lease time received; assuming 1h.\n",
                  client_config.interface);
         cs->lease = 60 * 60;
     } else {
         if (cs->lease < 60) {
-            log_line("%s: Server sent lease of <1m.  Forcing lease to 1m.",
+            log_line("%s: Server sent lease of <1m.  Forcing lease to 1m.\n",
                      client_config.interface);
             cs->lease = 60;
         }
@@ -194,7 +194,7 @@ static bool validate_acknak(struct client_state_t *cs,
     int found;
     uint32_t sid = get_option_serverid(packet, &found);
     if (!found) {
-        log_line("%s: Received %s with no server id.  Ignoring it.",
+        log_line("%s: Received %s with no server id.  Ignoring it.\n",
                  client_config.interface, typemsg);
         return false;
     }
@@ -222,15 +222,15 @@ static int extend_packet(struct client_state_t *cs,
             char clibuf[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->clientAddr},
                       clibuf, sizeof clibuf);
-            log_line("%s: Server is now offering IP %s.  Validating...",
+            log_line("%s: Server is now offering IP %s.  Validating...\n",
                      client_config.interface, clibuf);
             advance_xid(cs);
             return ANP_CHECK_IP;
         } else {
-            log_line("%s: Lease refreshed to %u seconds.",
+            log_line("%s: Lease refreshed to %u seconds.\n",
                      client_config.interface, cs->lease);
             if (arp_set_defense_mode(cs) < 0)
-                log_line("%s: Failed to create ARP defense socket.",
+                log_line("%s: Failed to create ARP defense socket.\n",
                          client_config.interface);
             stop_dhcp_listen(cs);
             advance_xid(cs);
@@ -241,7 +241,7 @@ static int extend_packet(struct client_state_t *cs,
             return ANP_IGNORE;
         cs->sent_renew_or_rebind = false;
         cs->num_dhcp_renews = 0;
-        log_line("%s: Our request was rejected.  Searching for a new lease...",
+        log_line("%s: Our request was rejected.  Searching for a new lease...\n",
                  client_config.interface);
         reinit_selecting(cs, 3000);
         return ANP_REJECTED;
@@ -260,7 +260,7 @@ static int selecting_packet(struct client_state_t *cs,
     if (!is_requesting && msgtype == DHCPOFFER) {
         uint32_t sid = get_option_serverid(packet, &found);
         if (!found) {
-            log_line("%s: Invalid offer received: it didn't have a server id.",
+            log_line("%s: Invalid offer received: it didn't have a server id.\n",
                      client_config.interface);
             return ANP_IGNORE;
         }
@@ -276,7 +276,7 @@ static int selecting_packet(struct client_state_t *cs,
                   svrbuf, sizeof svrbuf);
         inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->srcAddr},
                   srcbuf, sizeof srcbuf);
-        log_line("%s: Received IP offer: %s from server %s via %s.",
+        log_line("%s: Received IP offer: %s from server %s via %s.\n",
                  client_config.interface, clibuf, svrbuf, srcbuf);
         return ANP_SUCCESS;
     } else if (is_requesting && msgtype == DHCPACK) {
@@ -290,7 +290,7 @@ static int selecting_packet(struct client_state_t *cs,
                   svrbuf, sizeof svrbuf);
         inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->srcAddr},
                   srcbuf, sizeof srcbuf);
-        log_line("%s: Received ACK: %s from server %s via %s.  Validating...",
+        log_line("%s: Received ACK: %s from server %s via %s.  Validating...\n",
                  client_config.interface, clibuf, svrbuf, srcbuf);
         return ANP_CHECK_IP;
     }
@@ -306,10 +306,10 @@ static int selecting_timeout(struct client_state_t *cs,
 {
     if (cs->program_init && cs->num_dhcp_requests >= 2) {
         if (client_config.abort_if_no_lease)
-            suicide("%s: No lease; failing.", client_config.interface);
+            suicide("%s: No lease; failing.\n", client_config.interface);
     }
     if (send_discover(cs) < 0) {
-        log_line("%s: Failed to send a discover request packet.",
+        log_line("%s: Failed to send a discover request packet.\n",
                  client_config.interface);
         return SEL_FAIL;
     }
@@ -321,7 +321,7 @@ static int selecting_timeout(struct client_state_t *cs,
 // Called for a release signal during SELECTING or REQUESTING.
 static void print_release(struct client_state_t *cs)
 {
-    log_line("%s: ndhc going to sleep.  Wake it by sending a SIGUSR1.",
+    log_line("%s: ndhc going to sleep.  Wake it by sending a SIGUSR1.\n",
              client_config.interface);
     reinit_shared_deconfig(cs);
     cs->dhcp_wake_ts = -1;
@@ -337,10 +337,10 @@ static int xmit_release(struct client_state_t *cs)
               clibuf, sizeof clibuf);
     inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->serverAddr},
               svrbuf, sizeof svrbuf);
-    log_line("%s: Unicasting a release of %s to %s.", client_config.interface,
+    log_line("%s: Unicasting a release of %s to %s.\n", client_config.interface,
              clibuf, svrbuf);
     if (send_release(cs) < 0) {
-        log_line("%s: Failed to send a release request packet.",
+        log_line("%s: Failed to send a release request packet.\n",
                  client_config.interface);
         return -1;
     }
@@ -352,10 +352,10 @@ static int xmit_release(struct client_state_t *cs)
 static int frenew(struct client_state_t *cs, bool is_bound)
 {
     if (is_bound) {
-        log_line("%s: Forcing a DHCP renew...", client_config.interface);
+        log_line("%s: Forcing a DHCP renew...\n", client_config.interface);
         start_dhcp_listen(cs);
         if (send_renew(cs) < 0) {
-            log_line("%s: Failed to send a renew request packet.",
+            log_line("%s: Failed to send a renew request packet.\n",
                      client_config.interface);
             return -1;
         }
@@ -375,21 +375,21 @@ static int ifup_action(struct client_state_t *cs)
         if ((!fp_server && !fp_router) || cs->fp_state == FPRINT_NONE)
             goto no_fingerprint;
         if (cs->fp_state == FPRINT_INPROGRESS) {
-            suicide("%s: Carrier lost during initial fingerprint.  Forcing restart.",
+            suicide("%s: Carrier lost during initial fingerprint.  Forcing restart.\n",
                     client_config.interface);
         }
         if (arp_gw_check(cs) >= 0) {
-            log_line("%s: Interface is back.  Revalidating lease...",
+            log_line("%s: Interface is back.  Revalidating lease...\n",
                      client_config.interface);
             return IFUP_REVALIDATE;
         } else {
-            log_line("%s: arp_gw_check could not make arp socket.",
+            log_line("%s: arp_gw_check could not make arp socket.\n",
                      client_config.interface);
             return IFUP_FAIL;
         }
     }
 no_fingerprint:
-    log_line("%s: Interface is back.  Searching for new lease...",
+    log_line("%s: Interface is back.  Searching for new lease...\n",
              client_config.interface);
     return IFUP_NEWLEASE;
 }
@@ -452,7 +452,7 @@ static int signal_check_released(struct client_state_t *cs)
     if (tt == 3) break; \
 }
 
-#define BAD_STATE() suicide("%s(%d): bad state", __func__, __LINE__)
+#define BAD_STATE() suicide("%s(%d): bad state\n", __func__, __LINE__)
 
 // XXX: Should be re-entrant so as to handle multiple servers.
 int dhcp_handle(struct client_state_t *cs, long long nowts,
@@ -497,7 +497,7 @@ skip_to_requesting:
             if (r == ANP_IGNORE) {
             } else if (r == ANP_CHECK_IP) {
                 if (arp_check(cs, dhcp_packet) < 0) {
-                    log_line("%s: Failed to make arp socket.  Searching for new lease...",
+                    log_line("%s: Failed to make arp socket.  Searching for new lease...\n",
                              client_config.interface);
                     reinit_selecting(cs, 3000);
                     sev_dhcp = false;
@@ -588,7 +588,7 @@ skip_to_requesting:
                 goto reinit;
             } else if (r == ANP_CHECK_IP) {
                 if (arp_check(cs, dhcp_packet) < 0) {
-                    log_line("%s: Failed to make arp socket.  Searching for new lease...",
+                    log_line("%s: Failed to make arp socket.  Searching for new lease...\n",
                              client_config.interface);
                     reinit_selecting(cs, 3000);
                     sev_dhcp = false;
@@ -613,7 +613,7 @@ skip_to_requesting:
                 r = arp_do_gw_query(cs);
                 if (r == ARPR_OK) {
                 } else if (r == ARPR_FREE) {
-                    log_line("%s: Network fingerprinting complete.", client_config.interface);
+                    log_line("%s: Network fingerprinting complete.\n", client_config.interface);
                     cs->fp_state = FPRINT_DONE;
                 } else if (r == ARPR_FAIL) {
                     ret = COR_ERROR;

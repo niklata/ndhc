@@ -12,7 +12,7 @@ long long IMPL_curms(const char *parent_function)
 {
     struct timespec ts;
     if (clock_gettime(CLOCK_MONOTONIC, &ts) < 0) {
-        suicide("%s: (%s) clock_gettime failed: %s",
+        suicide("%s: (%s) clock_gettime failed: %s\n",
                 client_config.interface, parent_function, strerror(errno));
     }
     return ts.tv_sec * 1000LL + ts.tv_nsec / 1000000LL;
@@ -22,10 +22,10 @@ void setup_signals_subprocess(void)
 {
     sigset_t mask;
     if (sigprocmask(0, 0, &mask) < 0)
-        suicide("sigprocmask failed");
+        suicide("sigprocmask failed\n");
     if (sigaddset(&mask, SIGPIPE))
-        suicide("sigaddset failed");
+        suicide("sigaddset failed\n");
     if (sigprocmask(SIG_SETMASK, &mask, (sigset_t *)0) < 0)
-        suicide("sigprocmask failed");
+        suicide("sigprocmask failed\n");
 }
 

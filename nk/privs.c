@@ -25,10 +25,10 @@ static inline bool nk_isdigit(int c) { return c >= '0' && c <= '9'; }
 void nk_set_chroot(const char *chroot_dir)
 {
     if (chroot(chroot_dir))
-        suicide("%s: chroot('%s') failed: %s", __func__, chroot_dir,
+        suicide("%s: chroot('%s') failed: %s\n", __func__, chroot_dir,
                 strerror(errno));
     if (chdir("/"))
-        suicide("%s: chdir('/') failed: %s", __func__, strerror(errno));
+        suicide("%s: chdir('/') failed: %s\n", __func__, strerror(errno));
 }
 
 #ifdef __linux__
@@ -38,7 +38,7 @@ static size_t nk_get_capability_vinfo(uint32_t *version)
     memset(&hdr, 0, sizeof hdr);
     if (capget(&hdr, (cap_user_data_t)0) < 0) {
         if (errno != EINVAL)
-            suicide("%s: capget failed: %s", __func__, strerror(errno));
+            suicide("%s: capget failed: %s\n", __func__, strerror(errno));
     }
     switch (hdr.version) {
     case _LINUX_CAPABILITY_VERSION_1:
@@ -47,7 +47,7 @@ static size_t nk_get_capability_vinfo(uint32_t *version)
     case _LINUX_CAPABILITY_VERSION_2:
          *version = _LINUX_CAPABILITY_VERSION_2;
         return _LINUX_CAPABILITY_U32S_2;
-    default: log_line("%s: unknown capability version %x, using %x",
+    default: log_line("%s: unknown capability version %x, using %x\n",
                       __func__, *version, _LINUX_CAPABILITY_VERSION_3);
     // fall through
     case _LINUX_CAPABILITY_VERSION_3:
@@ -58,7 +58,7 @@ static size_t nk_get_capability_vinfo(uint32_t *version)
 static void nk_set_no_new_privs(void)
 {
     if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0))
-        suicide("%s: prctl failed: %s", __func__, strerror(errno));
+        suicide("%s: prctl failed: %s\n", __func__, strerror(errno));
 }
 static size_t nk_set_capability_prologue(const unsigned char *caps,
                                          size_t caplen,
@@ -68,7 +68,7 @@ static size_t nk_set_capability_prologue(const unsigned char *caps,
         return 0;
     size_t csize = nk_get_capability_vinfo(cversion);
     if (prctl(PR_SET_KEEPCAPS, 1))
-        suicide("%s: prctl failed: %s", __func__, strerror(errno));
+        suicide("%s: prctl failed: %s\n", __func__, strerror(errno));
     return csize;
 }
 static void nk_set_capability_epilogue(const unsigned char *caps,
@@ -87,7 +87,7 @@ static void nk_set_capability_epilogue(const unsigned char *caps,
     for (size_t i = 0; i < caplen; ++i) {
         size_t j = caps[i] / 32;
         if (j >= csize)
-            suicide("%s: caps[%zu] == %d, which is >= %zu and out of range",
+            suicide("%s: caps[%zu] == %d, which is >= %zu and out of range\n",
                     __func__, i, caps[i], csize * 32);
         mask[j] |= (uint32_t)CAP_TO_MASK(caps[i] - 32 * j);
     }
@@ -97,7 +97,7 @@ static void nk_set_capability_epilogue(const unsigned char *caps,
         data[i].inheritable = 0;
     }
     if (capset(&hdr, (cap_user_data_t)&data) < 0)
-        suicide("%s: capset failed: %s", __func__, strerror(errno));
+        suicide("%s: capset failed: %s\n", __func__, strerror(errno));
     nk_set_no_new_privs();
 }
 #else
@@ -117,23 +117,23 @@ void nk_set_uidgid(uid_t uid, gid_t gid, const unsigned char *caps,
     uint32_t cversion = 0;
     size_t csize = nk_set_capability_prologue(caps, caplen, &cversion);
     if (setgroups(1, &gid))
-        suicide("%s: setgroups failed: %s", __func__, strerror(errno));
+        suicide("%s: setgroups failed: %s\n", __func__, strerror(errno));
     if (setresgid(gid, gid, gid))
-        suicide("%s: setresgid failed: %s", __func__, strerror(errno));
+        suicide("%s: setresgid failed: %s\n", __func__, strerror(errno));
     if (setresuid(uid, uid, uid))
-        suicide("%s: setresuid failed: %s", __func__, strerror(errno));
+        suicide("%s: setresuid failed: %s\n", __func__, strerror(errno));
     uid_t ruid, euid, suid;
     if (getresuid(&ruid, &euid, &suid))
-        suicide("%s: getresuid failed: %s", __func__, strerror(errno));
+        suicide("%s: getresuid failed: %s\n", __func__, strerror(errno));
     if (ruid != uid || euid != uid || suid != uid)
-        suicide("%s: getresuid failed; the OS or libc is broken", __func__);
+        suicide("%s: getresuid failed; the OS or libc is broken\n", __func__);
     gid_t rgid, egid, sgid;
     if (getresgid(&rgid, &egid, &sgid))
-        suicide("%s: getresgid failed: %s", __func__, strerror(errno));
+        suicide("%s: getresgid failed: %s\n", __func__, strerror(errno));
     if (rgid != gid || egid != gid || sgid != gid)
-        suicide("%s: getresgid failed; the OS or libc is broken", __func__);
+        suicide("%s: getresgid failed; the OS or libc is broken\n", __func__);
     if (uid && setreuid((uid_t)-1, 0) == 0)
-        suicide("%s: OS or libc broken; able to restore privs after drop",
+        suicide("%s: OS or libc broken; able to restore privs after drop\n",
                 __func__);
     nk_set_capability_epilogue(caps, caplen, cversion, csize);
 }

@@ -42,7 +42,7 @@ int request_sockd_fd(char *buf, size_t buflen, char *response)
         return -1;
     ssize_t r = safe_write(sockdSock[0], buf, buflen);
     if (r < 0 || (size_t)r != buflen)
-        suicide("%s: (%s) write failed: %zd", client_config.interface,
+        suicide("%s: (%s) write failed: %zd\n", client_config.interface,
                 __func__, r);
 
     char data[MAX_BUF], control[MAX_BUF];
@@ -58,10 +58,10 @@ int request_sockd_fd(char *buf, size_t buflen, char *response)
     };
     r = safe_recvmsg(sockdSock[0], &msg, 0);
     if (r == 0) {
-        suicide("%s: (%s) recvmsg received EOF", client_config.interface,
+        suicide("%s: (%s) recvmsg received EOF\n", client_config.interface,
                 __func__);
     } else if (r < 0) {
-        suicide("%s: (%s) recvmsg failed: %s", client_config.interface,
+        suicide("%s: (%s) recvmsg failed: %s\n", client_config.interface,
                 __func__, strerror(errno));
     }
     data[iov.iov_len] = '\0';
@@ -72,13 +72,13 @@ int request_sockd_fd(char *buf, size_t buflen, char *response)
             if (response)
                 *response = repc;
             else if (repc != buf[0])
-                suicide("%s: (%s) expected %c sockd reply but got %c",
+                suicide("%s: (%s) expected %c sockd reply but got %c\n",
                         client_config.interface, __func__, buf[0], repc);
             int *fd = (int *)CMSG_DATA(cmsg);
             return *fd;
         }
     }
-    suicide("%s: (%s) sockd reply did not include a fd",
+    suicide("%s: (%s) sockd reply did not include a fd\n",
             client_config.interface, __func__);
 }
 
@@ -86,19 +86,19 @@ static int create_arp_socket(void)
 {
     int fd = socket(AF_PACKET, SOCK_RAW | SOCK_NONBLOCK | SOCK_CLOEXEC, htons(ETH_P_ARP));
     if (fd < 0) {
-        log_line("%s: (%s) socket failed: %s", client_config.interface,
+        log_line("%s: (%s) socket failed: %s\n", client_config.interface,
                  __func__, strerror(errno));
         goto out;
     }
 
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &opt, sizeof opt) < 0) {
-        log_line("%s: (%s) setsockopt failed: %s", client_config.interface,
+        log_line("%s: (%s) setsockopt failed: %s\n", client_config.interface,
                  __func__, strerror(errno));
         goto out_fd;
     }
     if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) < 0) {
-        log_line("%s: (%s) fcntl failed: %s", client_config.interface,
+        log_line("%s: (%s) fcntl failed: %s\n", client_config.interface,
                  __func__, strerror(errno));
         goto out_fd;
     }
@@ -108,7 +108,7 @@ static int create_arp_socket(void)
         .sll_ifindex = client_config.ifindex,
     };
     if (bind(fd, (struct sockaddr *)&saddr, sizeof(struct sockaddr_ll)) < 0) {
-        log_line("%s: (%s) bind failed: %s", client_config.interface,
+        log_line("%s: (%s) bind failed: %s\n", client_config.interface,
                  __func__, strerror(errno));
         goto out_fd;
     }
@@ -124,35 +124,35 @@ static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
 {
     int fd;
     if ((fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, IPPROTO_UDP)) < 0) {
-        log_line("%s: (%s) socket failed: %s",
+        log_line("%s: (%s) socket failed: %s\n",
                  client_config.interface, __func__, strerror(errno));
         goto out;
     }
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt) < 0) {
-        log_line("%s: (%s) Set reuse addr failed: %s",
+        log_line("%s: (%s) Set reuse addr failed: %s\n",
                  client_config.interface, __func__, strerror(errno));
         goto out_fd;
     }
     if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) < 0) {
-        log_line("%s: (%s) Set don't route failed: %s",
+        log_line("%s: (%s) Set don't route failed: %s\n",
                  client_config.interface, __func__, strerror(errno));
         goto out_fd;
     }
     struct ifreq ifr;
     memset(&ifr, 0, sizeof ifr);
     if (!memccpy(ifr.ifr_name, iface, 0, sizeof ifr.ifr_name)) {
-        log_line("%s: (%s) Set interface name failed.",
+        log_line("%s: (%s) Set interface name failed.\n",
                  client_config.interface, __func__);
         goto out_fd;
     }
     if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof ifr) < 0) {
-        log_line("%s: (%s) Set bind to device failed: %s",
+        log_line("%s: (%s) Set bind to device failed: %s\n",
                  client_config.interface, __func__, strerror(errno));
         goto out_fd;
     }
     if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) < 0) {
-        log_line("%s: (%s) Set non-blocking failed: %s",
+        log_line("%s: (%s) Set non-blocking failed: %s\n",
                  client_config.interface, __func__, strerror(errno));
         goto out_fd;
     }
@@ -163,7 +163,7 @@ static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
         .sin_addr.s_addr = ip,
     };
     if (bind(fd, (struct sockaddr *)&sa, sizeof sa) < 0) {
-        log_line("%s: (%s) bind failed: %s",
+        log_line("%s: (%s) bind failed: %s\n",
                  client_config.interface, __func__, strerror(errno));
         goto out_fd;
     }
@@ -181,7 +181,7 @@ static int create_raw_socket(struct sockaddr_ll *sa, bool *using_bpf,
     int fd;
     if ((fd = socket(AF_PACKET, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC,
                      htons(ETH_P_IP))) < 0) {
-        log_line("create_raw_socket: socket failed: %s", strerror(errno));
+        log_line("create_raw_socket: socket failed: %s\n", strerror(errno));
         goto out;
     }
 
@@ -197,26 +197,26 @@ static int create_raw_socket(struct sockaddr_ll *sa, bool *using_bpf,
                 if (using_bpf)
                     *using_bpf = true;
             } else
-                log_line("%s: Failed to lock BPF for raw socket: %s",
+                log_line("%s: Failed to lock BPF for raw socket: %s\n",
                          client_config.interface, strerror(errno));
         } else
-            log_line("%s: Failed to set BPF for raw socket: %s",
+            log_line("%s: Failed to set BPF for raw socket: %s\n",
                      client_config.interface, strerror(errno));
     }
 
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) < 0) {
-        log_line("create_raw_socket: Failed to set don't route: %s",
+        log_line("create_raw_socket: Failed to set don't route: %s\n",
                  strerror(errno));
         goto out_fd;
     }
     if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) < 0) {
-        log_line("create_raw_socket: Set non-blocking failed: %s",
+        log_line("create_raw_socket: Set non-blocking failed: %s\n",
                  strerror(errno));
         goto out_fd;
     }
     if (bind(fd, (struct sockaddr *)sa, sizeof *sa) < 0) {
-        log_line("create_raw_socket: bind failed: %s", strerror(errno));
+        log_line("create_raw_socket: bind failed: %s\n", strerror(errno));
         goto out_fd;
     }
     return fd;
@@ -324,11 +324,11 @@ static bool arp_set_bpf_basic(int fd)
         // checks to run just in case an attacker tries to DETACH the
         // filter.
         if (ret < 0)
-            log_line("%s: Failed to lock BPF for basic ARP socket: %s",
+            log_line("%s: Failed to lock BPF for basic ARP socket: %s\n",
                      client_config.interface, strerror(errno));
         return ret >= 0;
     } else
-        log_line("%s: Failed to set BPF for basic ARP socket: %s",
+        log_line("%s: Failed to set BPF for basic ARP socket: %s\n",
                  client_config.interface, strerror(errno));
     return false;
 }
@@ -390,11 +390,11 @@ static bool arp_set_bpf_defense(int fd, uint32_t client_addr,
         // checks to run just in case an attacker tries to DETACH the
         // filter.
         if (ret < 0)
-            log_line("%s: Failed to lock BPF for defense ARP socket: %s",
+            log_line("%s: Failed to lock BPF for defense ARP socket: %s\n",
                      client_config.interface, strerror(errno));
         return ret >= 0;
     } else
-        log_line("%s: Failed to set BPF for defense ARP socket: %s",
+        log_line("%s: Failed to set BPF for defense ARP socket: %s\n",
                  client_config.interface, strerror(errno));
     return false;
 }
@@ -440,7 +440,7 @@ static void xfer_fd(int fd, char cmd)
     if (sendmsg(sockdSock[1], &msg, 0) < 0) {
         if (errno == EINTR)
             goto retry;
-        suicide("%s: (%s) sendmsg failed: %s", client_config.interface,
+        suicide("%s: (%s) sendmsg failed: %s\n", client_config.interface,
                 __func__, strerror(errno));
     }
     close(fd);
@@ -469,7 +469,7 @@ static size_t execute_sockd(char *buf, size_t buflen)
         uint8_t client_mac[6];
         bool using_bpf;
         if (buflen < 1 + sizeof client_addr + 6)
-            suicide("%s: (%s) 'd' does not have necessary arguments: %zu",
+            suicide("%s: (%s) 'd' does not have necessary arguments: %zu\n",
                       client_config.interface, __func__, buflen);
         memcpy(&client_addr, buf + 1, sizeof client_addr);
         memcpy(client_mac, buf + 1 + sizeof client_addr, 6);
@@ -482,14 +482,14 @@ static size_t execute_sockd(char *buf, size_t buflen)
     case 'u': {
         uint32_t client_addr;
         if (buflen < 1 + sizeof client_addr)
-            suicide("%s: (%s) 'u' does not have necessary arguments: %zu",
+            suicide("%s: (%s) 'u' does not have necessary arguments: %zu\n",
                       client_config.interface, __func__, buflen);
         memcpy(&client_addr, buf + 1, sizeof client_addr);
         xfer_fd(create_udp_socket(client_addr, DHCP_CLIENT_PORT,
                                   client_config.interface), 'u');
         return 5;
     }
-    default: suicide("%s: (%s) received invalid commands: '%c'",
+    default: suicide("%s: (%s) received invalid commands: '%c'\n",
                      client_config.interface, __func__, c);
     }
 }
@@ -500,7 +500,7 @@ static void process_client_socket(void)
     static size_t buflen;
 
     if (buflen == MAX_BUF)
-        suicide("%s: (%s) receive buffer exhausted", client_config.interface,
+        suicide("%s: (%s) receive buffer exhausted\n", client_config.interface,
                 __func__);
 
     int r = safe_recv(sockdSock[1], buf + buflen, sizeof buf - buflen,
@@ -511,7 +511,7 @@ static void process_client_socket(void)
     } else if (r < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return;
-        suicide("%s: (%s) error reading from ndhc -> sockd socket: %s",
+        suicide("%s: (%s) error reading from ndhc -> sockd socket: %s\n",
                 client_config.interface, __func__, strerror(errno));
     }
     buflen += (size_t)r;
@@ -528,13 +528,13 @@ static void do_sockd_work(void)
 
     for (;;) {
         if (poll(pfds, 2, -1) < 0) {
-            if (errno != EINTR) suicide("poll failed");
+            if (errno != EINTR) suicide("poll failed\n");
         }
         if (pfds[0].revents & POLLIN) {
             process_client_socket();
         }
         if (pfds[0].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
-            suicide("sockdSock closed unexpectedly");
+            suicide("sockdSock closed unexpectedly\n");
         }
         if (pfds[1].revents & (POLLHUP|POLLERR|POLLRDHUP)) {
             exit(EXIT_SUCCESS);

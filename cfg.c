@@ -60,7 +60,7 @@ static void copy_cmdarg(char *dest, const char *src,
 size_t destlen, const char *argname)
 {
 	if (!memccpy(dest, src, 0, destlen))
-		suicide("snprintf failed on %s", argname);
+		suicide("snprintf failed on %s\n", argname);
 }
 
 struct cfgparse {
@@ -479,14 +479,14 @@ static void parse_cfgfile(const char *fname)
 	memset(l, 0, sizeof l);
 	int fd = open(fname, O_RDONLY|O_CLOEXEC, 0);
 	if (fd < 0)
-		suicide("Unable to open config file '%s'.", fname);
+		suicide("Unable to open config file '%s'.\n", fname);
 	
 	size_t linenum = 0;
 	for (;;) {
-		if (lc + 1 >= sizeof l) suicide("sizeof l - 1 - lc would underflow");
+		if (lc + 1 >= sizeof l) suicide("sizeof l - 1 - lc would underflow\n");
 			ssize_t rc = safe_read(fd, l + lc, sizeof l - 1 - lc);
 		if (rc < 0)
-			suicide("Error reading config file '%s'.", fname);
+			suicide("Error reading config file '%s'.\n", fname);
 		if (rc == 0) {
 			l[lc] = '\n'; rc = 1; reached_eof = true; // Emulate a LF to terminate the line.
 		}
@@ -564,7 +564,7 @@ static void parse_cfgfile(const char *fname)
 										if (ccfg.buflen < sizeof ccfg.buf - 1)
 										ccfg.buf[ccfg.buflen++] = *p;
 										else
-										suicide("line or option is too long");
+										suicide("line or option is too long\n");
 									}
 									
 #line 559 "cfg.c"
@@ -674,7 +674,7 @@ static void parse_cfgfile(const char *fname)
 #line 114 "cfg.rl"
 										
 										if (nk_uidgidbyname(ccfg.buf, &ndhc_uid, &ndhc_gid))
-										suicide("invalid ndhc user '%s' specified", ccfg.buf);
+										suicide("invalid ndhc user '%s' specified\n", ccfg.buf);
 									}
 									
 #line 659 "cfg.c"
@@ -686,7 +686,7 @@ static void parse_cfgfile(const char *fname)
 #line 118 "cfg.rl"
 										
 										if (nk_uidgidbyname(ccfg.buf, &ifch_uid, &ifch_gid))
-										suicide("invalid ifch user '%s' specified", ccfg.buf);
+										suicide("invalid ifch user '%s' specified\n", ccfg.buf);
 									}
 									
 #line 670 "cfg.c"
@@ -698,7 +698,7 @@ static void parse_cfgfile(const char *fname)
 #line 122 "cfg.rl"
 										
 										if (nk_uidgidbyname(ccfg.buf, &sockd_uid, &sockd_gid))
-										suicide("invalid sockd user '%s' specified", ccfg.buf);
+										suicide("invalid sockd user '%s' specified\n", ccfg.buf);
 									}
 									
 #line 681 "cfg.c"
@@ -742,8 +742,8 @@ static void parse_cfgfile(const char *fname)
 										{
 #line 135 "cfg.rl"
 										
-										log_line("seccomp_enforce option is deprecated; please remove it");
-										log_line("In the meanwhile, it is ignored and seccomp is disabled.");
+										log_line("seccomp_enforce option is deprecated; please remove it\n"
+										"In the meanwhile, it is ignored and seccomp is disabled.\n");
 									}
 									
 #line 722 "cfg.c"
@@ -837,9 +837,9 @@ static void parse_cfgfile(const char *fname)
 										char *q;
 										long mt = strtol(ccfg.buf, &q, 10);
 										if (q == ccfg.buf)
-										suicide("gw-metric arg '%s' isn't a valid number", ccfg.buf);
+										suicide("gw-metric arg '%s' isn't a valid number\n", ccfg.buf);
 										if (mt > INT_MAX)
-										suicide("gw-metric arg '%s' is too large", ccfg.buf);
+										suicide("gw-metric arg '%s' is too large\n", ccfg.buf);
 										if (mt < 0)
 										mt = 0;
 										client_config.metric = (int)mt;
@@ -918,19 +918,19 @@ static void parse_cfgfile(const char *fname)
 
 				
 				if (ccfg.cs == file_cfg_error)
-					suicide("error parsing config file line %zu: malformed", linenum);
+					suicide("error parsing config file line %zu: malformed\n", linenum);
 				if (ccfg.cs < file_cfg_first_final)
-					suicide("error parsing config file line %zu: incomplete", linenum);
+					suicide("error parsing config file line %zu: incomplete\n", linenum);
 				lstart = lend + 1;
 			}
 		}
 		if (reached_eof)
 			break;
 		if (!consumed && lend >= sizeof l - 1)
-			suicide("Line %zu in config file '%s' is too long: %zu > %zu.",
+			suicide("Line %zu in config file '%s' is too long: %zu > %zu.\n",
 		linenum, fname, lend, sizeof l - 1);
 		
-		if (consumed + 1 > lc) suicide("lc[%zu] - consumed[%zu] would underflow", lc, lend);
+		if (consumed + 1 > lc) suicide("lc[%zu] - consumed[%zu] would underflow\n", lc, lend);
 			if (consumed) {
 			memmove(l, l + consumed + 1, lc - consumed - 1);
 			lc -= consumed + 1;
@@ -1306,7 +1306,7 @@ void parse_cmdline(int argc, char *argv[])
 		if (i > 1) snl = snprintf(argb + argbl, sizeof argb - argbl, "%c%s", 0, argv[i]);
 			else snl = snprintf(argb + argbl, sizeof argb - argbl, "%s", argv[i]);
 			if (snl < 0 || (size_t)snl > sizeof argb)
-			suicide("error parsing command line option: option too long");
+			suicide("error parsing command line option: option too long\n");
 		argbl += (size_t)snl;
 	}
 	if (argbl == 0)
@@ -1388,7 +1388,7 @@ void parse_cmdline(int argc, char *argv[])
 							if (ccfg.buflen < sizeof ccfg.buf - 1)
 							ccfg.buf[ccfg.buflen++] = *p;
 							else
-							suicide("line or option is too long");
+							suicide("line or option is too long\n");
 						}
 						
 #line 1345 "cfg.c"
@@ -1480,7 +1480,7 @@ void parse_cmdline(int argc, char *argv[])
 #line 114 "cfg.rl"
 							
 							if (nk_uidgidbyname(ccfg.buf, &ndhc_uid, &ndhc_gid))
-							suicide("invalid ndhc user '%s' specified", ccfg.buf);
+							suicide("invalid ndhc user '%s' specified\n", ccfg.buf);
 						}
 						
 #line 1429 "cfg.c"
@@ -1492,7 +1492,7 @@ void parse_cmdline(int argc, char *argv[])
 #line 118 "cfg.rl"
 							
 							if (nk_uidgidbyname(ccfg.buf, &ifch_uid, &ifch_gid))
-							suicide("invalid ifch user '%s' specified", ccfg.buf);
+							suicide("invalid ifch user '%s' specified\n", ccfg.buf);
 						}
 						
 #line 1440 "cfg.c"
@@ -1504,7 +1504,7 @@ void parse_cmdline(int argc, char *argv[])
 #line 122 "cfg.rl"
 							
 							if (nk_uidgidbyname(ccfg.buf, &sockd_uid, &sockd_gid))
-							suicide("invalid sockd user '%s' specified", ccfg.buf);
+							suicide("invalid sockd user '%s' specified\n", ccfg.buf);
 						}
 						
 #line 1451 "cfg.c"
@@ -1548,8 +1548,8 @@ void parse_cmdline(int argc, char *argv[])
 							{
 #line 135 "cfg.rl"
 							
-							log_line("seccomp_enforce option is deprecated; please remove it");
-							log_line("In the meanwhile, it is ignored and seccomp is disabled.");
+							log_line("seccomp_enforce option is deprecated; please remove it\n"
+							"In the meanwhile, it is ignored and seccomp is disabled.\n");
 						}
 						
 #line 1492 "cfg.c"
@@ -1643,9 +1643,9 @@ void parse_cmdline(int argc, char *argv[])
 							char *q;
 							long mt = strtol(ccfg.buf, &q, 10);
 							if (q == ccfg.buf)
-							suicide("gw-metric arg '%s' isn't a valid number", ccfg.buf);
+							suicide("gw-metric arg '%s' isn't a valid number\n", ccfg.buf);
 							if (mt > INT_MAX)
-							suicide("gw-metric arg '%s' is too large", ccfg.buf);
+							suicide("gw-metric arg '%s' is too large\n", ccfg.buf);
 							if (mt < 0)
 							mt = 0;
 							client_config.metric = (int)mt;
@@ -1766,9 +1766,9 @@ void parse_cmdline(int argc, char *argv[])
 
 	
 	if (ccfg.cs == cmd_cfg_error)
-		suicide("error parsing command line option: malformed");
+		suicide("error parsing command line option: malformed\n");
 	if (ccfg.cs >= cmd_cfg_first_final)
 		return;
-	suicide("error parsing command line option: incomplete");
+	suicide("error parsing command line option: incomplete\n");
 }
 

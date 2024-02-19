@@ -44,7 +44,7 @@ static int get_raw_listen_socket(struct client_state_t *cs)
     switch (resp) {
     case 'L': cs->using_dhcp_bpf = true; break;
     case 'l': cs->using_dhcp_bpf = false; break;
-    default: suicide("%s: (%s) expected l or L sockd reply but got %c",
+    default: suicide("%s: (%s) expected l or L sockd reply but got %c\n",
                      client_config.interface, __func__, resp);
     }
     return fd;
@@ -57,7 +57,7 @@ static ssize_t send_dhcp_unicast(struct client_state_t *cs,
     ssize_t ret = -1;
     int fd = get_udp_unicast_socket(cs);
     if (fd < 0) {
-        log_line("%s: (%s) get_udp_unicast_socket failed",
+        log_line("%s: (%s) get_udp_unicast_socket failed\n",
                  client_config.interface, __func__);
         goto out;
     }
@@ -68,7 +68,7 @@ static ssize_t send_dhcp_unicast(struct client_state_t *cs,
         .sin_addr.s_addr = cs->serverAddr,
     };
     if (connect(fd, (struct sockaddr *)&raddr, sizeof(struct sockaddr)) < 0) {
-        log_line("%s: (%s) connect failed: %s", client_config.interface,
+        log_line("%s: (%s) connect failed: %s\n", client_config.interface,
                  __func__, strerror(errno));
         goto out_fd;
     }
@@ -76,27 +76,27 @@ static ssize_t send_dhcp_unicast(struct client_state_t *cs,
     // Send packets that are as short as possible.
     ssize_t endloc = get_end_option_idx(payload);
     if (endloc < 0) {
-        log_line("%s: (%s) No end marker.  Not sending.",
+        log_line("%s: (%s) No end marker.  Not sending.\n",
                  client_config.interface, __func__);
         goto out_fd;
     }
     const size_t el = (size_t)endloc + 1;
     if (el > sizeof payload->options) {
-        log_line("%s: (%s) Invalid value of endloc.  Not sending.",
+        log_line("%s: (%s) Invalid value of endloc.  Not sending.\n",
                  client_config.interface, __func__);
         goto out_fd;
     }
     size_t payload_len =
         sizeof *payload - (sizeof payload->options - el);
     if (!carrier_isup()) {
-        log_line("%s: (%s) carrier down; write would fail",
+        log_line("%s: (%s) carrier down; write would fail\n",
                  client_config.interface, __func__);
         ret = -99;
         goto out_fd;
     }
     ret = safe_write(fd, (const char *)payload, payload_len);
     if (ret < 0 || (size_t)ret != payload_len)
-        log_line("%s: (%s) write failed: %zd", client_config.interface,
+        log_line("%s: (%s) write failed: %zd\n", client_config.interface,
                  __func__, ret);
   out_fd:
     close(fd);
@@ -131,27 +131,27 @@ static int udp_checksum(struct ip_udp_dhcp_packet *packet)
 static int get_raw_packet_validate_bpf(struct ip_udp_dhcp_packet *packet)
 {
     if (packet->ip.version != IPVERSION) {
-        log_line("%s: IP version is not IPv4.", client_config.interface);
+        log_line("%s: IP version is not IPv4.\n", client_config.interface);
         return 0;
     }
     if (packet->ip.ihl != sizeof packet->ip >> 2) {
-        log_line("%s: IP header length incorrect.",
+        log_line("%s: IP header length incorrect.\n",
                  client_config.interface);
         return 0;
     }
     if (packet->ip.protocol != IPPROTO_UDP) {
-        log_line("%s: IP header is not UDP: %d",
+        log_line("%s: IP header is not UDP: %d\n",
                  client_config.interface, packet->ip.protocol);
         return 0;
     }
     if (ntohs(packet->udp.dest) != DHCP_CLIENT_PORT) {
-        log_line("%s: UDP destination port incorrect: %d",
+        log_line("%s: UDP destination port incorrect: %d\n",
                  client_config.interface, ntohs(packet->udp.dest));
         return 0;
     }
     if (ntohs(packet->udp.len) !=
         ntohs(packet->ip.tot_len) - sizeof packet->ip) {
-        log_line("%s: UDP header length incorrect.",
+        log_line("%s: UDP header length incorrect.\n",
                  client_config.interface);
         return 0;
     }
@@ -171,7 +171,7 @@ static ssize_t get_raw_packet(struct client_state_t *cs,
     if (inc < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return -2;
-        log_line("%s: (%s) read error %s", client_config.interface,
+        log_line("%s: (%s) read error %s\n", client_config.interface,
                  __func__, strerror(errno));
         return -1;
     }
@@ -182,23 +182,23 @@ static ssize_t get_raw_packet(struct client_state_t *cs,
         return -2;
 
     if (!ip_checksum(&packet)) {
-        log_line("%s: IP header checksum incorrect.",
+        log_line("%s: IP header checksum incorrect.\n",
                  client_config.interface);
         return -2;
     }
     if (iphdrlen <= sizeof packet.ip + sizeof packet.udp) {
-        log_line("%s: Packet received that is too small (%zu bytes).",
+        log_line("%s: Packet received that is too small (%zu bytes).\n",
                  client_config.interface, iphdrlen);
         return -2;
     }
     size_t l = iphdrlen - sizeof packet.ip - sizeof packet.udp;
     if (l > sizeof *payload) {
-        log_line("%s: Packet received that is too long (%zu bytes).",
+        log_line("%s: Packet received that is too long (%zu bytes).\n",
                  client_config.interface, l);
         return -2;
     }
     if (packet.udp.check && !udp_checksum(&packet)) {
-        log_line("%s: Packet with bad UDP checksum received.  Ignoring.",
+        log_line("%s: Packet with bad UDP checksum received.  Ignoring.\n",
                  client_config.interface);
         return -2;
     }
@@ -214,7 +214,7 @@ static ssize_t send_dhcp_raw(struct dhcpmsg *payload)
     ssize_t ret = -1;
     int fd = get_raw_broadcast_socket();
     if (fd < 0) {
-        log_line("%s: (%s) get_raw_broadcast_socket failed",
+        log_line("%s: (%s) get_raw_broadcast_socket failed\n",
                  client_config.interface, __func__);
         return ret;
     }
@@ -222,14 +222,14 @@ static ssize_t send_dhcp_raw(struct dhcpmsg *payload)
     // Send packets that are as short as possible.
     ssize_t endloc = get_end_option_idx(payload);
     if (endloc < 0) {
-        log_line("%s: (%s) No end marker.  Not sending.",
+        log_line("%s: (%s) No end marker.  Not sending.\n",
                  client_config.interface, __func__);
         close(fd);
         return ret;
     }
     const size_t el = (size_t)endloc + 1;
     if (el > sizeof payload->options) {
-        log_line("%s: (%s) Invalid value of endloc.  Not sending.",
+        log_line("%s: (%s) Invalid value of endloc.  Not sending.\n",
                  client_config.interface, __func__);
         close(fd);
         return ret;
@@ -274,7 +274,7 @@ static ssize_t send_dhcp_raw(struct dhcpmsg *payload)
     };
     memcpy(da.sll_addr, "\xff\xff\xff\xff\xff\xff", 6);
     if (!carrier_isup()) {
-        log_line("%s: (%s) carrier down; sendto would fail",
+        log_line("%s: (%s) carrier down; sendto would fail\n",
                  client_config.interface, __func__);
         ret = -99;
         goto carrier_down;
@@ -283,10 +283,10 @@ static ssize_t send_dhcp_raw(struct dhcpmsg *payload)
                       (struct sockaddr *)&da, sizeof da);
     if (ret < 0 || (size_t)ret != iud_len) {
         if (ret < 0)
-            log_line("%s: (%s) sendto failed: %s", client_config.interface,
+            log_line("%s: (%s) sendto failed: %s\n", client_config.interface,
                      __func__, strerror(errno));
         else
-            log_line("%s: (%s) sendto short write: %zd < %zu",
+            log_line("%s: (%s) sendto short write: %zd < %zu\n",
                      client_config.interface, __func__, ret, iud_len);
     }
 carrier_down:
@@ -300,7 +300,7 @@ void start_dhcp_listen(struct client_state_t *cs)
         return;
     cs->listenFd = get_raw_listen_socket(cs);
     if (cs->listenFd < 0)
-        suicide("%s: FATAL: Couldn't listen on socket: %s",
+        suicide("%s: FATAL: Couldn't listen on socket: %s\n",
                 client_config.interface, strerror(errno));
 }
 
@@ -317,22 +317,22 @@ static int validate_dhcp_packet(struct client_state_t *cs,
                                 uint8_t *msgtype)
 {
     if (len < offsetof(struct dhcpmsg, options)) {
-        log_line("%s: Packet is too short to contain magic cookie.  Ignoring.",
+        log_line("%s: Packet is too short to contain magic cookie.  Ignoring.\n",
                  client_config.interface);
         return 0;
     }
     if (ntohl(packet->cookie) != DHCP_MAGIC) {
-        log_line("%s: Packet with bad magic number. Ignoring.",
+        log_line("%s: Packet with bad magic number. Ignoring.\n",
                  client_config.interface);
         return 0;
     }
     if (packet->xid != cs->xid) {
-        log_line("%s: Packet XID %x does not equal our XID %x.  Ignoring.",
+        log_line("%s: Packet XID %x does not equal our XID %x.  Ignoring.\n",
                  client_config.interface, packet->xid, cs->xid);
         return 0;
     }
     if (memcmp(packet->chaddr, client_config.arp, sizeof client_config.arp)) {
-        log_line("%s: Packet client MAC %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x does not equal our MAC %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x.  Ignoring it.",
+        log_line("%s: Packet client MAC %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x does not equal our MAC %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x.  Ignoring it.\n",
                  client_config.interface,
                  packet->chaddr[0], packet->chaddr[1], packet->chaddr[2],
                  packet->chaddr[3], packet->chaddr[4], packet->chaddr[5],
@@ -343,12 +343,12 @@ static int validate_dhcp_packet(struct client_state_t *cs,
     }
     ssize_t endloc = get_end_option_idx(packet);
     if (endloc < 0) {
-        log_line("%s: Packet does not have an end option.  Ignoring.", client_config.interface);
+        log_line("%s: Packet does not have an end option.  Ignoring.\n", client_config.interface);
         return 0;
     }
     *msgtype = get_option_msgtype(packet);
     if (!*msgtype) {
-        log_line("%s: Packet does not specify a DHCP message type.  Ignoring.",
+        log_line("%s: Packet does not specify a DHCP message type.  Ignoring.\n",
                  client_config.interface);
         return 0;
     }
@@ -358,7 +358,7 @@ static int validate_dhcp_packet(struct client_state_t *cs,
         return 1;
     if (memcmp(client_config.clientid, clientid,
                min_size_t(cidlen, client_config.clientid_len))) {
-        log_line("%s: Packet clientid does not match our clientid.  Ignoring.",
+        log_line("%s: Packet clientid does not match our clientid.  Ignoring.\n",
                  client_config.interface);
         return 0;
     }
@@ -374,7 +374,7 @@ bool dhcp_packet_get(struct client_state_t *cs, struct dhcpmsg *packet,
     if (r < 0) {
         // Not a transient issue handled by packet collection functions.
         if (r != -2) {
-            log_line("%s: Error reading from listening socket: %s.  Reopening.",
+            log_line("%s: Error reading from listening socket: %s.  Reopening.\n",
                      client_config.interface, strerror(errno));
             stop_dhcp_listen(cs);
             start_dhcp_listen(cs);
@@ -421,7 +421,7 @@ ssize_t send_discover(struct client_state_t *cs)
     add_option_maxsize(&packet);
     add_option_request_list(&packet);
     add_options_vendor_hostname(&packet);
-    log_line("%s: Discovering DHCP servers...", client_config.interface);
+    log_line("%s: Discovering DHCP servers...\n", client_config.interface);
     return send_dhcp_raw(&packet);
 }
 
@@ -437,7 +437,7 @@ ssize_t send_selecting(struct client_state_t *cs)
     add_options_vendor_hostname(&packet);
     inet_ntop(AF_INET, &(struct in_addr){.s_addr = cs->clientAddr},
               clibuf, sizeof clibuf);
-    log_line("%s: Sending a selection request for %s...",
+    log_line("%s: Sending a selection request for %s...\n",
              client_config.interface, clibuf);
     return send_dhcp_raw(&packet);
 }
@@ -450,7 +450,7 @@ ssize_t send_renew_or_rebind(struct client_state_t *cs, bool is_renew)
     add_option_maxsize(&packet);
     add_option_request_list(&packet);
     add_options_vendor_hostname(&packet);
-    log_line("%s: Sending a %s request...", client_config.interface,
+    log_line("%s: Sending a %s request...\n", client_config.interface,
              is_renew? "renew" : "rebind");
     return is_renew? send_dhcp_unicast(cs, &packet) : send_dhcp_raw(&packet);
 }
@@ -461,7 +461,7 @@ ssize_t send_decline(struct client_state_t *cs, uint32_t server)
     init_packet(&packet, DHCPDECLINE);
     add_option_reqip(&packet, cs->clientAddr);
     add_option_serverid(&packet, server);
-    log_line("%s: Sending a decline message...", client_config.interface);
+    log_line("%s: Sending a decline message...\n", client_config.interface);
     return send_dhcp_raw(&packet);
 }
 
@@ -472,7 +472,7 @@ ssize_t send_release(struct client_state_t *cs)
     packet.ciaddr = cs->clientAddr;
     add_option_reqip(&packet, cs->clientAddr);
     add_option_serverid(&packet, cs->serverAddr);
-    log_line("%s: Sending a release message...", client_config.interface);
+    log_line("%s: Sending a release message...\n", client_config.interface);
     return send_dhcp_unicast(cs, &packet);
 }
 
