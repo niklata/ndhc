@@ -369,9 +369,9 @@ static int frenew(struct client_state_t *cs, bool is_bound)
 // If it fails, state -> SELECTING.
 static int ifup_action(struct client_state_t *cs)
 {
-    if (cs->routerAddr && cs->serverAddr) {
+    if (cs->routerAddr && cs->srcAddr) {
         const bool fp_server = cs->server_arp_state == ARP_FOUND;
-        const bool fp_router = (cs->routerAddr != cs->serverAddr) ? (cs->router_arp_state == ARP_FOUND) : fp_server;
+        const bool fp_router = cs->router_arp_state == ARP_FOUND;
         if ((!fp_server && !fp_router) || cs->fp_state == FPRINT_NONE)
             goto no_fingerprint;
         if (cs->fp_state == FPRINT_INPROGRESS) {
