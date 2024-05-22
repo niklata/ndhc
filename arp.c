@@ -609,7 +609,7 @@ int arp_do_gw_query(struct client_state_t *cs)
 {
     if (!arp_is_query_reply(&garp.reply))
         return ARPR_OK;
-    if (!memcmp(garp.reply.sip4, &cs->routerAddr, 4)) {
+    if (cs->router_arp_state != ARP_FOUND && !memcmp(garp.reply.sip4, &cs->routerAddr, 4)) {
         memcpy(cs->routerArp, garp.reply.smac, 6);
         log_line("%s: arp: Gateway hardware address %02x:%02x:%02x:%02x:%02x:%02x\n",
                  client_config.interface, cs->routerArp[0], cs->routerArp[1],
@@ -626,7 +626,7 @@ int arp_do_gw_query(struct client_state_t *cs)
         }
         return ARPR_OK;
     }
-    if (!memcmp(garp.reply.sip4, &cs->srcAddr, 4)) {
+    if (cs->server_arp_state != ARP_FOUND && !memcmp(garp.reply.sip4, &cs->srcAddr, 4)) {
 server_is_router:
         memcpy(cs->serverArp, garp.reply.smac, 6);
         log_line("%s: arp: DHCP agent hardware address %02x:%02x:%02x:%02x:%02x:%02x\n",
