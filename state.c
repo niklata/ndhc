@@ -268,6 +268,11 @@ static int selecting_packet(struct client_state_t *cs,
         cs->clientAddr = packet->yiaddr;
         cs->serverAddr = sid;
         cs->srcAddr = srcaddr;
+        uint32_t sn = get_option_subnet_mask(packet, &found);
+        // Use 255.255.255.0 as a default value.  For now, this
+        // is only used for determining whether to query the
+        // dhcp agent hardware address.
+        cs->clientSubnet = found ? sn : htonl(0xffffff00);
         cs->dhcp_wake_ts = curms();
         cs->num_dhcp_requests = 0;
         inet_ntop(AF_INET, &(struct in_addr){.s_addr=cs->clientAddr},

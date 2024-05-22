@@ -310,6 +310,19 @@ uint32_t get_option_serverid(const struct dhcpmsg *const packet, int *found)
     return ret;
 }
 
+uint32_t get_option_subnet_mask(const struct dhcpmsg *const packet, int *found)
+{
+    uint32_t ret = 0;
+    uint8_t buf[MAX_DOPT_SIZE];
+    *found = 0;
+    const size_t ol = get_dhcp_opt(packet, DCODE_SUBNET, buf, sizeof buf);
+    if (ol == sizeof ret) {
+        *found = 1;
+        memcpy(&ret, buf, sizeof ret);
+    }
+    return ret;
+}
+
 uint32_t get_option_leasetime(const struct dhcpmsg * const packet)
 {
     uint32_t ret = 0;

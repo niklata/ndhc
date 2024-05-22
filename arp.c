@@ -248,6 +248,17 @@ int arp_check(struct client_state_t *cs,
     return 0;
 }
 
+static bool can_query_server(const struct client_state_t *cs)
+{
+    return (cs->srcAddr & cs->clientSubnet)
+           == (cs->clientAddr & cs->clientSubnet);
+}
+
+static bool can_query_router(const struct client_state_t *cs)
+{
+    return !!cs->routerAddr;
+}
+
 // Confirms that we're still on the fingerprinted network.
 int arp_gw_check(struct client_state_t *cs)
 {
@@ -275,22 +286,36 @@ static int arp_get_gw_hwaddr(struct client_state_t *cs)
 {
     if (arp_open_fd(cs, false) < 0)
         return -1;
-    if (cs->routerAddr)
-        log_line("%s: arp: Searching for dhcp server and gw addresses...\n",
+    cs->router_arp_state = ARP_FAILED;
+    cs->server_arp_state = ARP_FAILED;
+    if (can_query_router(cs)) {
+        if (arp_ping(cs, cs->routerAddr) >= 0) {
+            cs->router_arp_state = ARP_QUERY;
+            ++cs->router_arp_sent;
+        }
+    }
+    if (can_query_server(cs)) {
+        if (arp_ping(cs, cs->srcAddr) >= 0) {
+            cs->server_arp_state = ARP_QUERY;
+            ++cs->server_arp_sent;
+        }
+    }
+    cs->sent_gw_query = true;
+    const bool sent_router = cs->router_arp_state == ARP_QUERY;
+    const bool sent_server = cs->server_arp_state == ARP_QUERY;
+    if (!sent_router && !sent_server) {
+        return (!can_query_server(cs) && !can_query_router(cs)) ? 0 : -1;
+    }
+    if (sent_router && sent_server) {
+        log_line("%s: arp: Searching for gw and dhcp agent addresses...\n",
                  client_config.interface);
-    else
-        log_line("%s: arp: Searching for dhcp server address...\n",
+    } else if (sent_router) {
+        log_line("%s: arp: Searching for gw address...\n",
                  client_config.interface);
-    cs->server_arp_state = ARP_QUERY;
-    ++cs->server_arp_sent;
-    if (arp_ping(cs, cs->srcAddr) < 0)
-        return -1;
-    if (cs->routerAddr) {
-        cs->router_arp_state = ARP_QUERY;
-        ++cs->router_arp_sent;
-        if (arp_ping(cs, cs->routerAddr) < 0)
-            return -1;
-    } else cs->router_arp_state = ARP_FAILED;
+    } else if (sent_server) {
+        log_line("%s: arp: Searching for dhcp agent address...\n",
+                 client_config.interface);
+    }
     garp.wake_ts[AS_GW_QUERY] =
         garp.send_stats[ASEND_GW_PING].ts + ARP_RETRANS_DELAY + 250;
     return 0;
@@ -527,9 +552,13 @@ int arp_query_gateway(struct client_state_t *cs)
         garp.wake_ts[AS_QUERY_GW_SEND] = curms() + ARP_RETRANS_DELAY;
         return ARPR_FAIL;
     }
-    cs->sent_gw_query = true;
-    if (cs->fp_state == FPRINT_NONE)
-        cs->fp_state = FPRINT_INPROGRESS;
+    const bool sent_query = cs->router_arp_state == ARP_QUERY
+                         || cs->server_arp_state == ARP_QUERY;
+    if (cs->fp_state == FPRINT_NONE) {
+        if (sent_query)
+            cs->fp_state = FPRINT_INPROGRESS;
+        else return ARPR_FAIL;
+    }
     garp.wake_ts[AS_QUERY_GW_SEND] = -1;
     return ARPR_OK;
 }

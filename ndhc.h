@@ -31,6 +31,7 @@ struct client_state_t {
     uint32_t nlPortId;
     unsigned int num_dhcp_requests, num_dhcp_renews;
     uint32_t clientAddr, serverAddr, srcAddr, routerAddr;
+    uint32_t clientSubnet;
     uint32_t lease, xid;
     uint8_t routerArp[6], serverArp[6];
     enum arp_state server_arp_state, router_arp_state;
