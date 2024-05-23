@@ -134,11 +134,6 @@ static int create_udp_socket(uint32_t ip, uint16_t port, char *iface)
                  client_config.interface, __func__, strerror(errno));
         goto out_fd;
     }
-    if (setsockopt(fd, SOL_SOCKET, SO_DONTROUTE, &opt, sizeof opt) < 0) {
-        log_line("%s: (%s) Set don't route failed: %s\n",
-                 client_config.interface, __func__, strerror(errno));
-        goto out_fd;
-    }
     struct ifreq ifr;
     memset(&ifr, 0, sizeof ifr);
     if (!memccpy(ifr.ifr_name, iface, 0, sizeof ifr.ifr_name)) {
