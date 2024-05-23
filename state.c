@@ -388,7 +388,7 @@ static int ifup_action(struct client_state_t *cs)
                      client_config.interface);
             return IFUP_REVALIDATE;
         } else {
-            log_line("%s: arp_gw_check could not make arp socket.\n",
+            log_line("%s: Interface is back.  Getting new lease...\n",
                      client_config.interface);
             return IFUP_FAIL;
         }

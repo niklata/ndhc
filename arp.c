@@ -265,17 +265,27 @@ int arp_gw_check(struct client_state_t *cs)
     if (arp_open_fd(cs, false) < 0)
         return -1;
     garp.gw_check_initpings = garp.send_stats[ASEND_GW_PING].count;
-    garp.server_replied = false;
-    cs->check_fingerprint = true;
+    garp.server_replied = true;
+    garp.router_replied = true;
+    cs->check_fingerprint = false;
+
     int r;
-    if ((r = arp_ping(cs, cs->srcAddr)) < 0)
-        return r;
-    if (cs->routerAddr) {
-        garp.router_replied = false;
+    if (can_query_server(cs)) {
+        if ((r = arp_ping(cs, cs->srcAddr)) < 0)
+            return r;
+        garp.server_replied = false;
+        cs->check_fingerprint = true;
+    }
+    if (can_query_router(cs)) {
         if ((r = arp_ping(cs, cs->routerAddr)) < 0)
             return r;
-    } else
-        garp.router_replied = true;
+        garp.router_replied = false;
+        cs->check_fingerprint = true;
+    }
+
+    if (!cs->check_fingerprint)
+        return -1;
+
     garp.wake_ts[AS_GW_CHECK] =
         garp.send_stats[ASEND_GW_PING].ts + ARP_RETRANS_DELAY + 250;
     return 0;
