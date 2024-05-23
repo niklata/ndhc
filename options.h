@@ -62,6 +62,7 @@ uint32_t get_option_router(const struct dhcpmsg * const packet);
 uint8_t get_option_msgtype(const struct dhcpmsg * const packet);
 uint32_t get_option_serverid(const struct dhcpmsg * const packet, int *found);
 uint32_t get_option_subnet_mask(const struct dhcpmsg * const packet, int *found);
+uint32_t get_option_broadcast(const struct dhcpmsg * const packet, int *found);
 uint32_t get_option_leasetime(const struct dhcpmsg *const packet);
 size_t get_option_clientid(const struct dhcpmsg * const packet,
                            char *cbuf, size_t clen);

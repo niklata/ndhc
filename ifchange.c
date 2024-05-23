@@ -216,9 +216,7 @@ int ifchange_deconfig(struct client_state_t *cs)
 static size_t send_client_ip(char *out, size_t olen,
                              struct dhcpmsg *packet)
 {
-    uint8_t optdata[MAX_DOPT_SIZE], olddata[MAX_DOPT_SIZE];
     char ip[INET_ADDRSTRLEN], sn[INET_ADDRSTRLEN], bc[INET_ADDRSTRLEN];
-    size_t optlen, oldlen;
     bool change_ipaddr = false;
     bool have_subnet = false;
     bool change_subnet = false;
@@ -229,23 +227,21 @@ static size_t send_client_ip(char *out, size_t olen,
         change_ipaddr = true;
     inet_ntop(AF_INET, &packet->yiaddr, ip, sizeof ip);
 
-    optlen = get_dhcp_opt(packet, DCODE_SUBNET, optdata, sizeof optdata);
-    if (optlen >= 4) {
+    int found;
+    uint32_t s32n = get_option_subnet_mask(packet, &found);
+    if (found) {
         have_subnet = true;
-        inet_ntop(AF_INET, optdata, sn, sizeof sn);
-        oldlen = get_dhcp_opt(&cfg_packet, DCODE_SUBNET, olddata,
-                              sizeof olddata);
-        if (oldlen != optlen || memcmp(optdata, olddata, optlen))
+        inet_ntop(AF_INET, &s32n, sn, sizeof sn);
+        uint32_t s32o = get_option_subnet_mask(&cfg_packet, &found);
+        if (!found || s32n != s32o)
             change_subnet = true;
     }
-
-    optlen = get_dhcp_opt(packet, DCODE_BROADCAST, optdata, sizeof optdata);
-    if (optlen >= 4) {
+    uint32_t b32n = get_option_broadcast(packet, &found);
+    if (found) {
         have_bcast = true;
-        inet_ntop(AF_INET, optdata, bc, sizeof bc);
-        oldlen = get_dhcp_opt(&cfg_packet, DCODE_BROADCAST, olddata,
-                              sizeof olddata);
-        if (oldlen != optlen || memcmp(optdata, olddata, optlen))
+        inet_ntop(AF_INET, &b32n, bc, sizeof bc);
+        uint32_t b32o = get_option_broadcast(&cfg_packet, &found);
+        if (!found || b32n != b32o)
             change_bcast = true;
     }
 
