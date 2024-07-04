@@ -124,7 +124,7 @@ static void signal_handler(int signo)
 static void setup_signals_scriptd(void)
 {
     static const int ss[] = {
-        SIGINT, SIGTERM, SIGKILL
+        SIGINT, SIGTERM, SIGPIPE, SIGKILL
     };
     sigset_t mask;
     if (sigprocmask(0, 0, &mask) < 0)
@@ -132,8 +132,6 @@ static void setup_signals_scriptd(void)
     for (int i = 0; ss[i] != SIGKILL; ++i)
         if (sigdelset(&mask, ss[i]))
             suicide("sigdelset failed\n");
-    if (sigaddset(&mask, SIGPIPE))
-        suicide("sigaddset failed\n");
     if (sigprocmask(SIG_SETMASK, &mask, (sigset_t *)0) < 0)
         suicide("sigprocmask failed\n");
 
