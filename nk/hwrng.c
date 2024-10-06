@@ -1,9 +1,10 @@
-// Copyright 2013-2022 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2013-2024 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <sys/random.h>
 #include <errno.h>
 #include <time.h>
 #include <sys/types.h>
@@ -13,45 +14,21 @@
 #include "nk/log.h"
 #include "nk/io.h"
 
-#ifdef NK_NO_GETRANDOM_SYSCALL
-static bool nk_getrandom(char *seed, size_t len)
-{
-    (void)seed;
-    (void)len;
-    return false;
-}
-#else
-#ifdef NK_NO_GETRANDOM_LIBC
-#include <sys/syscall.h>
-#include <linux/random.h>
-#define NK_GETRANDOM_CALL(A,B,C) syscall(SYS_getrandom, (A), (B), (C))
-#else
-#include <sys/random.h>
-#define NK_GETRANDOM_CALL(A,B,C) getrandom((A), (B), (C))
-#endif
-
 static bool nk_getrandom(char *seed, size_t len)
 {
     size_t fetched = 0;
     while (fetched < len) {
-        int r = NK_GETRANDOM_CALL(seed + fetched, len - fetched, 0);
-        if (r <= 0) {
-            if (r == 0) {
-                // Failsafe to guard against infinite loops.
-                log_line("%s: getrandom() returned no entropy\n", __func__);
-                return false;
-            }
-            if (errno == EINTR) continue;
-            if (errno == ENOSYS) return false; // Kernel doesn't support syscall
+        size_t sz = len - fetched;
+        if (sz > 256) sz = 256;
+        int r = getentropy(seed + fetched, sz);
+        if (r < 0) {
             log_line("%s: getrandom() failed: %s\n", __func__, strerror(errno));
             return false;
         }
-        fetched += (size_t)r;
+        fetched += sz;
     }
     return true;
 }
-#endif
-#undef NK_GETRANDOM_CALL
 
 static bool nk_get_rnd_clk(char *seed, size_t len)
 {
