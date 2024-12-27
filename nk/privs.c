@@ -34,8 +34,7 @@ void nk_set_chroot(const char *chroot_dir)
 #ifdef __linux__
 static size_t nk_get_capability_vinfo(uint32_t *version)
 {
-    struct __user_cap_header_struct hdr;
-    memset(&hdr, 0, sizeof hdr);
+    struct __user_cap_header_struct hdr = {0};
     if (capget(&hdr, (cap_user_data_t)0) < 0) {
         if (errno != EINVAL)
             suicide("%s: capget failed: %s\n", __func__, strerror(errno));
@@ -71,19 +70,21 @@ static size_t nk_set_capability_prologue(const unsigned char *caps,
         suicide("%s: prctl failed: %s\n", __func__, strerror(errno));
     return csize;
 }
+
+#define MAX_CSIZE 3
 static void nk_set_capability_epilogue(const unsigned char *caps,
                                        size_t caplen, uint32_t cversion,
                                        size_t csize)
 {
     if (!caps || !caplen)
         return;
+    if (csize > MAX_CSIZE) suicide("%s: MAX_CSIZE < %zu\n", __func__, csize);
     struct __user_cap_header_struct hdr = {
         .version = cversion,
         .pid = 0,
     };
-    struct __user_cap_data_struct data[csize];
-    uint32_t mask[csize];
-    memset(mask, 0, sizeof mask);
+    struct __user_cap_data_struct data[MAX_CSIZE];
+    uint32_t mask[MAX_CSIZE] = {0};
     for (size_t i = 0; i < caplen; ++i) {
         size_t j = caps[i] / 32;
         if (j >= csize)
