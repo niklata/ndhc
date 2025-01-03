@@ -549,6 +549,6 @@ int main(int argc, char *argv[])
     spawn_sockd();
     spawn_scriptd();
     ndhc_main();
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
