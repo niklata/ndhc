@@ -75,7 +75,9 @@ bool dnslabeldecomp(char *out, size_t *outlen, const char *in, size_t inlen)
         if (state == DS_LABEL) {
             if (off >= inlen) return false;
             if (bufn >= sizeof buf) return false;
-            buf[bufn++] = in[off++];
+            char c = in[off++];
+            if (!validdnslabelchar(c)) return false;
+            buf[bufn++] = c;
             --label_size;
             if (label_size == 0) {
                 if (bufn >= sizeof buf) return false;
