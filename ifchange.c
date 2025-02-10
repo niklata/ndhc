@@ -17,6 +17,7 @@
 #include "options.h"
 #include "arp.h"
 #include "ifchange.h"
+#include "dnslabeldecomp.h"
 
 static struct dhcpmsg cfg_packet; // Copy of the current configuration packet.
 
@@ -146,7 +147,17 @@ static int ifchd_cmd(char *b, size_t bl, uint8_t *od,
     case DCODE_NTPSVR: return ifcmd_iplist(b, bl, "ntp", od, ol);
     case DCODE_WINS: return ifcmd_iplist(b, bl, "wins", od, ol);
     case DCODE_HOSTNAME: return ifcmd_bytes(b, bl, "host", od, ol);
-    case DCODE_DOMAIN: return ifcmd_bytes(b, bl, "dom", od, ol);
+    case DCODE_DOMAIN: {
+        char buf[256];
+        size_t buflen = sizeof buf;
+        bool ok = dnslabeldecomp(buf, &buflen, (char *)od, ol);
+        if (!ok) {
+            log_line("%s: Ignoring invalid domain search option\n",
+                     client_config.interface);
+            return -1;
+        }
+        return ifcmd_bytes(b, bl, "dom", (uint8_t *)buf, buflen);
+    }
     case DCODE_TIMEZONE: return ifcmd_s32(b, bl, "tzone", od, ol);
     case DCODE_MTU: return ifcmd_u16(b, bl, "mtu", od, ol);
     case DCODE_IPTTL: return ifcmd_u8(b, bl, "ipttl", od, ol);
