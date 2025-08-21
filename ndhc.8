@@ -128,7 +128,9 @@ the proper rfkill device by checking the logs after hitting the switch.
 If set, specifies the file descriptor number that will have a '\n' written to
 and closed when the first DHCP lease is bound.  This option should be used when
 ndhc is run under a s6 supervisor that implements service startup
-notifications.
+notifications.  Note that if this option is set and no notification file
+descriptor is passed to the ndhc process it is very likely that ndhc will
+fail to run properly in cryptic and hard to debug ways.
 .TP
 .BI \-X\  SCRIPTFILE ,\  \-\-script\-file= SCRIPTFILE
 If set, ndhc will spawn a subprocess that has the exclusive job of executing
