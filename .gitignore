@@ -3,3 +3,4 @@ nk/*.o
 *.d
 nk/*.d
 ndhc
+!init/**

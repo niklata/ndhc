@@ -1,0 +1,20 @@
+#!/sbin/openrc-run
+# Copyright 2025 Gentoo Authors
+# Distributed under the terms of the GNU General Public License v2
+
+name="ndhc daemon"
+description="ndhc dhcp daemon"
+command=/sbin/ndhc
+supervisor="supervise-daemon"
+output_logger="logger -et '${RC_SVCNAME}'"
+error_logger="logger -et '${RC_SVCNAME}' -p3"
+pidfile="/run/ndhc-wan0.pid"
+command_args="-c /etc/ndhc/wan0.conf"
+if [ -s /etc/ndhc/LEASE-wan0 ]; then
+    command_args="${command_args} -r $(cat /etc/ndhc/LEASE-wan0)"
+fi
+
+depend() {
+	use logger
+	provide wan
+}
