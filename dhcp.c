@@ -263,6 +263,7 @@ static ssize_t send_dhcp_raw(struct dhcpmsg *payload)
     uint16_t udpcs = net_checksum16(&iudmsg.udp, ud_len);
     uint16_t phcs = net_checksum16(&ph, sizeof ph);
     iudmsg.udp.check = net_checksum16_add(udpcs, phcs);
+    if (!iudmsg.udp.check) iudmsg.udp.check = 65535; // 0 for udp is no checksum; use 65535 which is equivalent to 0 in ones complement; see RFC 1122 sec 4.1.3.4
     iudmsg.ip.check = net_checksum16(&iudmsg.ip, sizeof iudmsg.ip);
 
     struct sockaddr_ll da = {
