@@ -48,19 +48,13 @@ struct client_state_t cs = {
     .listenFd = -1,
     .arpFd = -1,
     .nlFd = -1,
-    .nlPortId = 0,
     .rfkillFd = -1,
     .dhcp_wake_ts = -1,
-    .routerArp = "\0\0\0\0\0\0",
-    .serverArp = "\0\0\0\0\0\0",
 };
 
 struct client_config_t client_config = {
     .interface = "eth0",
-    .arp = "\0\0\0\0\0\0",
     .s6_notify_fd = 3,
-    .clientid_len = 0,
-    .metric = 0,
 };
 
 static volatile sig_atomic_t l_signal_exit;
