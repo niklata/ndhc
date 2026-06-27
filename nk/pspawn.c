@@ -68,6 +68,6 @@ int nk_pspawn(pid_t *pid, const char *command,
                 break;
         }
     }
-    return posix_spawn(pid, command, file_actions, attrp, argv, envp);
+    return posix_spawnp(pid, command, file_actions, attrp, argv, envp);
 }
 
