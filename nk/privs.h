@@ -1,11 +1,11 @@
-// Copyright 2005-2014 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2005-2026 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #ifndef NCM_PRIVS_H_
 #define NCM_PRIVS_H_
 
 #include <unistd.h>
 #ifdef __linux__
-#include <sys/capability.h>
+#include <linux/capability.h>
 #endif
 
 void nk_set_chroot(const char *chroot_dir);

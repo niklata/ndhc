@@ -1,4 +1,4 @@
-// Copyright 2005-2022 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2005-2026 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -7,18 +7,21 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
 #include <limits.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <pwd.h>
 #include <grp.h>
-#ifdef __linux__
-#include <sys/capability.h>
-#include <sys/prctl.h>
-#endif
 #include "nk/privs.h"
 #include "nk/log.h"
+#ifdef __linux__
+// These are in libc, but are defined in libcap headers.
+extern int capget(cap_user_header_t header, cap_user_data_t data);
+extern int capset(cap_user_header_t header, const cap_user_data_t data);
+#include <sys/prctl.h>
+#endif
 
 static inline bool nk_isdigit(int c) { return c >= '0' && c <= '9'; }
 
