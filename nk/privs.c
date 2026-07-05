@@ -17,9 +17,7 @@
 #include "nk/privs.h"
 #include "nk/log.h"
 #ifdef __linux__
-// These are in libc, but are defined in libcap headers.
-extern int capget(cap_user_header_t header, cap_user_data_t data);
-extern int capset(cap_user_header_t header, const cap_user_data_t data);
+#include <sys/syscall.h>
 #include <sys/prctl.h>
 #endif
 
@@ -38,7 +36,7 @@ void nk_set_chroot(const char *chroot_dir)
 static size_t nk_get_capability_vinfo(uint32_t *version)
 {
     struct __user_cap_header_struct hdr = {0};
-    if (capget(&hdr, (cap_user_data_t)0) < 0) {
+    if (syscall(SYS_capget, &hdr, NULL) < 0) {
         if (errno != EINVAL)
             suicide("%s: capget failed: %s\n", __func__, strerror(errno));
     }
@@ -82,10 +80,7 @@ static void nk_set_capability_epilogue(const unsigned char *caps,
     if (!caps || !caplen)
         return;
     if (csize > MAX_CSIZE) suicide("%s: MAX_CSIZE < %zu\n", __func__, csize);
-    struct __user_cap_header_struct hdr = {
-        .version = cversion,
-        .pid = 0,
-    };
+    struct __user_cap_header_struct hdr = { .version = cversion };
     struct __user_cap_data_struct data[MAX_CSIZE];
     uint32_t mask[MAX_CSIZE] = {0};
     for (size_t i = 0; i < caplen; ++i) {
@@ -100,7 +95,7 @@ static void nk_set_capability_epilogue(const unsigned char *caps,
         data[i].permitted = mask[i];
         data[i].inheritable = 0;
     }
-    if (capset(&hdr, (cap_user_data_t)&data) < 0)
+    if (syscall(SYS_capset, &hdr, (cap_user_data_t)&data) < 0)
         suicide("%s: capset failed: %s\n", __func__, strerror(errno));
     nk_set_no_new_privs();
 }
