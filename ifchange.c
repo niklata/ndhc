@@ -156,7 +156,7 @@ static int ifchd_cmd(char *b, size_t bl, uint8_t *od,
         }
         return ifcmd_bytes(b, bl, "host", od, ol);
     }
-    case DCODE_DOMAIN: {
+    case DCODE_DOMAIN_NAME: {
         char buf[256];
         size_t buflen = sizeof buf;
         bool ok = dnslabeldecomp(buf, &buflen, (char *)od, ol);
@@ -318,7 +318,7 @@ int ifchange_bind(struct client_state_t *cs, struct dhcpmsg *packet)
     bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_ROUTER);
     bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_DNS);
     bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_HOSTNAME);
-    bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_DOMAIN);
+    bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_DOMAIN_NAME);
     bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_MTU);
     bo += send_cmd(buf + bo, sizeof buf - bo, packet, DCODE_WINS);
     if (bo) {

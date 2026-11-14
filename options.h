@@ -1,33 +1,34 @@
-// Copyright 2004-2018 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2004-2026 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #ifndef OPTIONS_H_
 #define OPTIONS_H_
 
 #include "dhcp.h"
 
-#define DCODE_PADDING      0x00
-#define DCODE_SUBNET       0x01
-#define DCODE_TIMEZONE     0x02
-#define DCODE_ROUTER       0x03
-#define DCODE_DNS          0x06
-#define DCODE_LPRSVR       0x09
-#define DCODE_HOSTNAME     0x0c
-#define DCODE_DOMAIN       0x0f
-#define DCODE_IPTTL        0x17
-#define DCODE_MTU          0x1a
-#define DCODE_BROADCAST    0x1c
-#define DCODE_NTPSVR       0x2a
-#define DCODE_WINS         0x2c
-#define DCODE_REQIP        0x32
-#define DCODE_LEASET       0x33
-#define DCODE_OVERLOAD     0x34
-#define DCODE_MSGTYPE      0x35
-#define DCODE_SERVER_ID    0x36
-#define DCODE_PARAM_REQ    0x37
-#define DCODE_MAX_SIZE     0x39
-#define DCODE_VENDOR       0x3c
-#define DCODE_CLIENT_ID    0x3d
-#define DCODE_END          0xff
+#define DCODE_PADDING       0x00
+#define DCODE_SUBNET        0x01
+#define DCODE_TIMEZONE      0x02
+#define DCODE_ROUTER        0x03
+#define DCODE_DNS           0x06
+#define DCODE_LPRSVR        0x09
+#define DCODE_HOSTNAME      0x0c
+#define DCODE_DOMAIN_NAME   0x0f
+#define DCODE_IPTTL         0x17
+#define DCODE_MTU           0x1a
+#define DCODE_BROADCAST     0x1c
+#define DCODE_NTPSVR        0x2a
+#define DCODE_WINS          0x2c
+#define DCODE_REQIP         0x32
+#define DCODE_LEASET        0x33
+#define DCODE_OVERLOAD      0x34
+#define DCODE_MSGTYPE       0x35
+#define DCODE_SERVER_ID     0x36
+#define DCODE_PARAM_REQ     0x37
+#define DCODE_MAX_SIZE      0x39
+#define DCODE_VENDOR        0x3c
+#define DCODE_CLIENT_ID     0x3d
+#define DCODE_DOMAIN_SEARCH 0x77
+#define DCODE_END           0xff
 
 #define MAX_DOPT_SIZE 500
 
@@ -45,6 +46,9 @@ size_t add_option_domain_name(struct dhcpmsg *packet,
                               const char * const dom, size_t domlen);
 void add_option_subnet_mask(struct dhcpmsg *packet, uint32_t subnet);
 void add_option_broadcast(struct dhcpmsg *packet, uint32_t bc);
+void add_option_router(struct dhcpmsg *packet, uint32_t router);
+size_t add_option_domain_search(struct dhcpmsg *packet,
+                                const char * const dom, size_t domlen);
 #endif
 void add_option_msgtype(struct dhcpmsg *packet, uint8_t type);
 void add_option_reqip(struct dhcpmsg *packet, uint32_t ip);
@@ -68,4 +72,3 @@ size_t get_option_clientid(const struct dhcpmsg * const packet,
                            char *cbuf, size_t clen);
 
 #endif
-

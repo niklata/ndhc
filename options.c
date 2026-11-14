@@ -1,4 +1,4 @@
-// Copyright 2004-2018 Nicholas J. Kain <njkain at gmail dot com>
+// Copyright 2004-2026 Nicholas J. Kain <njkain at gmail dot com>
 // SPDX-License-Identifier: MIT
 #include <stdio.h>
 #include <stdlib.h>
@@ -209,8 +209,8 @@ size_t add_u32_option(struct dhcpmsg *packet, uint8_t code, uint32_t data)
 size_t add_option_request_list(struct dhcpmsg *packet)
 {
     static const char reqdata[] = {
-        DCODE_SUBNET, DCODE_ROUTER, DCODE_DNS, DCODE_HOSTNAME, DCODE_DOMAIN,
-        DCODE_BROADCAST,
+        DCODE_SUBNET, DCODE_ROUTER, DCODE_DNS, DCODE_HOSTNAME,
+        DCODE_DOMAIN_NAME, DCODE_BROADCAST,
     };
     return add_option_string(packet, DCODE_PARAM_REQ,
                              reqdata, sizeof reqdata);
@@ -220,7 +220,7 @@ size_t add_option_request_list(struct dhcpmsg *packet)
 size_t add_option_domain_name(struct dhcpmsg *packet, const char * const dom,
                               size_t domlen)
 {
-    return add_option_string(packet, DCODE_DOMAIN, dom, domlen);
+    return add_option_string(packet, DCODE_DOMAIN_NAME, dom, domlen);
 }
 
 void add_option_subnet_mask(struct dhcpmsg *packet, uint32_t subnet)
@@ -231,6 +231,17 @@ void add_option_subnet_mask(struct dhcpmsg *packet, uint32_t subnet)
 void add_option_broadcast(struct dhcpmsg *packet, uint32_t bc)
 {
     add_u32_option(packet, DCODE_BROADCAST, bc);
+}
+
+void add_option_router(struct dhcpmsg *packet, uint32_t router)
+{
+    add_u32_option(packet, DCODE_ROUTER, router);
+}
+
+size_t add_option_domain_search(struct dhcpmsg *packet, const char * const dom,
+                              size_t domlen)
+{
+    return add_option_string(packet, DCODE_DOMAIN_SEARCH, dom, domlen);
 }
 #endif
 
